@@ -99,7 +99,14 @@ export default function ProfileScreen() {
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Error signing out:', error.message);
+      Alert.alert('Sign Out Error', error.message);
+    } else {
+      console.log('User signed out successfully.');
+      // No explicit navigation needed here, App.js should handle it.
+    }
   };
 
   if (loading) {

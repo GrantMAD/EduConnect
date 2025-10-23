@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, TextInput, Button, Alert, StyleSheet } from 'react-native';
 import { supabase } from '../lib/supabase';
 
-export default function SignUpScreen() {
+export default function SignUpScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -14,8 +14,8 @@ export default function SignUpScreen() {
 
     if (error) {
       Alert.alert('Error', error.message);
-    } else if (data) {
-      Alert.alert('Success', 'Sign up successful! Please check your email for verification.');
+    } else if (data && data.user) {
+      Alert.alert('Success', 'Successfully signed up');
     }
   };
 
