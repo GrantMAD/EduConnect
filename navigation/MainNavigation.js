@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, TouchableOpacity, Text, Image, Dimensions } from 'react-native';
+import { View, TouchableOpacity, Text, Image, Dimensions, Animated, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
@@ -17,8 +17,8 @@ import {
   faHome,
 } from '@fortawesome/free-solid-svg-icons';
 import Modal from 'react-native-modal';
-import { supabase } from '../lib/supabase';
 
+import { supabase } from '../lib/supabase';
 const defaultUserImage = require('../assets/user.png');
 
 import AnnouncementsScreen from '../screens/AnnouncementsScreen';
@@ -26,16 +26,121 @@ import CalendarScreen from '../screens/CalendarScreen';
 import HomeworkScreen from '../screens/HomeworkScreen';
 import MarketScreen from '../screens/MarketScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 
 const Tab = createBottomTabNavigator();
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
 
-const CustomHeader = ({ navigation }) => {
+const CustomHeader = ({ navigation, showActions = false }) => {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [hasUnread, setHasUnread] = useState(false);
   const insets = useSafeAreaInsets();
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const toggleDropdown = () => setShowDropdown(!showDropdown);
+
+  // Pulsing animation for unread notifications
+  useEffect(() => {
+    if (hasUnread) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.6, duration: 800, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+        ])
+      ).start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [hasUnread]);
+
+  // Fetch notifications
+  useEffect(() => {
+    let subscription;
+    const fetchNotifications = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (data) {
+        setNotifications(data);
+        setHasUnread(data.some(n => !n.is_read));
+      }
+
+      subscription = supabase
+        .channel('notifications-channel')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+          async () => {
+            const { data: newData } = await supabase
+              .from('notifications')
+              .select('*')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false });
+            if (newData) {
+              setNotifications(newData);
+              setHasUnread(newData.some(n => !n.is_read));
+            }
+          }
+        )
+        .subscribe();
+    };
+
+    fetchNotifications();
+
+    return () => {
+      if (subscription) supabase.removeChannel(subscription);
+    };
+  }, []);
+
+  // Handle Accept/Decline for school join requests (only used if showActions=true)
+  const handleJoinResponse = async (notification, accept) => {
+    try {
+      const regex = /([a-f0-9\-]{36})/; // UUID regex
+      const match = notification.message.match(regex);
+      if (!match) return Alert.alert('Error', 'Could not parse request user ID.');
+      const requesterId = match[1];
+
+      if (accept) {
+        await supabase.from('users').update({ school_id: notification.related_school_id }).eq('id', requesterId);
+        const { data: school } = await supabase
+          .from('schools')
+          .select('users')
+          .eq('id', notification.related_school_id)
+          .single();
+        const newUsers = [...(school.users || []), requesterId];
+        await supabase.from('schools').update({ users: newUsers }).eq('id', notification.related_school_id);
+        await supabase.from('notifications').insert([{
+          user_id: requesterId,
+          type: 'school_join_accepted',
+          title: 'Join Request Accepted',
+          message: 'Your request to join the school has been accepted!',
+          is_read: false,
+        }]);
+      } else {
+        await supabase.from('notifications').insert([{
+          user_id: requesterId,
+          type: 'school_join_declined',
+          title: 'Join Request Declined',
+          message: 'Your request to join the school has been declined.',
+          is_read: false,
+        }]);
+      }
+
+      await supabase.from('notifications').update({ is_read: true }).eq('id', notification.id);
+      setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n));
+    } catch (error) {
+      console.error('Error handling join response:', error);
+      Alert.alert('Error', 'Could not process the request.');
+    }
+  };
 
   return (
     <View
@@ -57,88 +162,103 @@ const CustomHeader = ({ navigation }) => {
         zIndex: 20,
       }}
     >
+      {/* Drawer Button */}
       <TouchableOpacity
         onPress={() => navigation.openDrawer()}
-        style={{
-          backgroundColor: '#fff',
-          padding: 8,
-          borderRadius: 10,
-          shadowColor: '#000',
-          shadowOpacity: 0.1,
-          shadowRadius: 3,
-          elevation: 2,
-        }}
+        style={{ backgroundColor: '#fff', padding: 8, borderRadius: 10, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 }}
       >
         <FontAwesomeIcon icon={faBars} size={20} color="#007AFF" />
       </TouchableOpacity>
 
+      {/* Notification Bell */}
       <TouchableOpacity
-        onPress={toggleDropdown}
-        style={{
-          backgroundColor: '#fff',
-          padding: 8,
-          borderRadius: 10,
-          shadowColor: '#000',
-          shadowOpacity: 0.1,
-          shadowRadius: 3,
-          elevation: 2,
-        }}
+        onPress={() => setShowDropdown(true)}
+        style={{ backgroundColor: '#fff', padding: 8, borderRadius: 10, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 3, elevation: 2, position: 'relative' }}
       >
         <FontAwesomeIcon icon={faBell} size={20} color="#007AFF" />
+        {hasUnread && (
+          <Animated.View
+            style={{
+              position: 'absolute',
+              top: 4,
+              right: 4,
+              width: 10,
+              height: 10,
+              borderRadius: 5,
+              backgroundColor: '#ff3b30',
+              transform: [{ scale: pulseAnim }],
+              shadowColor: '#ff3b30',
+              shadowOpacity: 0.8,
+              shadowRadius: 6,
+              elevation: 5,
+            }}
+          />
+        )}
       </TouchableOpacity>
 
+      {/* Notifications Dropdown */}
       <Modal
         isVisible={showDropdown}
-        onBackdropPress={toggleDropdown}
+        onBackdropPress={() => setShowDropdown(false)}
         animationIn="fadeIn"
         animationOut="fadeOut"
         backdropOpacity={0.1}
-        style={{
-          margin: 0,
-          justifyContent: 'flex-start',
-          alignItems: 'flex-end',
-          marginTop: 90,
-          marginRight: 25,
-        }}
+        style={{ margin: 0, justifyContent: 'flex-start', alignItems: 'flex-end', marginTop: 90, marginRight: 25 }}
       >
-        <View
-          style={{
-            width: 240,
-            backgroundColor: '#fff',
-            borderRadius: 12,
-            paddingVertical: 10,
-            paddingHorizontal: 15,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.15,
-            shadowRadius: 8,
-            elevation: 6,
-          }}
-        >
-          <Text style={{ fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 8 }}>
+        <View style={{ width: 300, backgroundColor: '#fff', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 15, maxHeight: 420 }}>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 10, textAlign: 'center' }}>
             Notifications
           </Text>
           <View style={{ borderBottomColor: '#eee', borderBottomWidth: 1, marginBottom: 8 }} />
-          {['New message received', 'Homework updated', 'Event reminder'].map((item, i) => (
-            <Text
-              key={i}
-              style={{
-                paddingVertical: 6,
-                fontSize: 15,
-                color: '#444',
-                borderBottomWidth: i < 2 ? 0.5 : 0,
-                borderBottomColor: '#f0f0f0',
-              }}
-            >
-              • {item}
-            </Text>
-          ))}
+
+          {notifications.length === 0 ? (
+            <Text style={{ textAlign: 'center', color: '#666', paddingVertical: 10 }}>No notifications</Text>
+          ) : (
+            notifications.slice(0, 6).map((n) => (
+              <TouchableOpacity
+                key={n.id}
+                onPress={() => {
+                  setShowDropdown(false);
+                  navigation.navigate('Notifications', { selectedNotificationId: n.id });
+                }}
+                style={{
+                  backgroundColor: n.is_read ? '#f9f9f9' : '#e6f0ff',
+                  borderRadius: 12,
+                  padding: 12,
+                  marginBottom: 8,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 2,
+                  elevation: 2,
+                }}
+              >
+                <Text style={{ fontSize: 15, fontWeight: n.is_read ? '500' : '700', color: n.is_read ? '#444' : '#007AFF', marginBottom: 4 }} numberOfLines={1}>
+                  {n.title}
+                </Text>
+                <Text style={{ fontSize: 13, color: '#666' }} numberOfLines={2}>
+                  {n.message}
+                </Text>
+                <Text style={{ fontSize: 11, color: '#999', textAlign: 'right', marginTop: 4 }}>
+                  {new Date(n.created_at).toLocaleString()}
+                </Text>
+              </TouchableOpacity>
+            ))
+          )}
+
+          <TouchableOpacity
+            onPress={() => { setShowDropdown(false); navigation.navigate('Notifications'); }}
+            style={{ marginTop: 10, paddingVertical: 10, borderRadius: 8, backgroundColor: '#007AFF', alignItems: 'center' }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>View All Notifications</Text>
+          </TouchableOpacity>
         </View>
       </Modal>
     </View>
   );
 };
 
+// Bottom Tabs
 const HomeTabs = () => (
   <Tab.Navigator
     screenOptions={{
@@ -148,17 +268,17 @@ const HomeTabs = () => (
       tabBarStyle: {
         backgroundColor: '#fff',
         borderTopColor: '#ddd',
-        height: 70,            // slightly taller
-        paddingBottom: 10,     // gives space above nav buttons
+        height: 70,
+        paddingBottom: 10,
         paddingTop: 6,
-        marginBottom: 5,       // lifts bar above system buttons
+        marginBottom: 5,
       },
       tabBarLabelStyle: {
         fontSize: 12,
         fontWeight: '600',
         marginBottom: 2,
       },
-      tabBarHideOnKeyboard: true, // hides tab bar when keyboard appears
+      tabBarHideOnKeyboard: true,
     }}
   >
     <Tab.Screen
@@ -192,6 +312,7 @@ const HomeTabs = () => (
   </Tab.Navigator>
 );
 
+// Stack Navigator
 const MainStackNavigator = () => (
   <Stack.Navigator
     screenOptions={{
@@ -200,9 +321,13 @@ const MainStackNavigator = () => (
   >
     <Stack.Screen name="HomeTabs" component={HomeTabs} />
     <Stack.Screen name="Profile" component={ProfileScreen} />
+    <Stack.Screen name="Notifications">
+      {props => <NotificationsScreen {...props} showActions={true} />}
+    </Stack.Screen>
   </Stack.Navigator>
 );
 
+// Custom Drawer
 const CustomDrawerContent = (props) => {
   const [userAvatar, setUserAvatar] = useState(null);
   const [userName, setUserName] = useState('Guest');
@@ -213,11 +338,9 @@ const CustomDrawerContent = (props) => {
 
   useEffect(() => {
     const fetchUserData = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: profile, error } = await supabase
+        const { data: profile } = await supabase
           .from('users')
           .select('full_name, avatar_url')
           .eq('id', user.id)
@@ -234,34 +357,11 @@ const CustomDrawerContent = (props) => {
   }, []);
 
   return (
-    <View
-      style={{
-        flex: 1,
-        height: '100%',
-        paddingTop: 70,
-      }}
-    >
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          marginBottom: 25,
-          paddingBottom: 15,
-          borderBottomWidth: 1,
-          borderBottomColor: '#e1e4e8',
-          paddingHorizontal: 20,
-        }}
-      >
+    <View style={{ flex: 1, height: '100%', paddingTop: 70 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 25, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#e1e4e8', paddingHorizontal: 20 }}>
         <Image
           source={userAvatar ? { uri: userAvatar } : defaultUserImage}
-          style={{
-            width: 55,
-            height: 55,
-            borderRadius: 27.5,
-            marginRight: 12,
-            borderWidth: 2,
-            borderColor: '#007AFF',
-          }}
+          style={{ width: 55, height: 55, borderRadius: 27.5, marginRight: 12, borderWidth: 2, borderColor: '#007AFF' }}
         />
         <View>
           <Text style={{ fontSize: 15, fontWeight: '700', color: '#222' }}>Welcome,</Text>
