@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { FontAwesome } from '@expo/vector-icons';
+import { FontAwesome5 } from '@expo/vector-icons';
 
 export default function NotificationsScreen({ route, navigation }) {
   const [notifications, setNotifications] = useState([]);
@@ -32,7 +32,6 @@ export default function NotificationsScreen({ route, navigation }) {
     fetchNotifications();
   }, []);
 
-  // Call Supabase function to handle join request
   const handleJoinResponse = async (notification, accept) => {
     try {
       const { error } = await supabase.rpc('handle_join_request', {
@@ -42,7 +41,6 @@ export default function NotificationsScreen({ route, navigation }) {
 
       if (error) throw error;
 
-      // Update local state to mark read and add status_text
       setNotifications(prev =>
         prev.map(n =>
           n.id === notification.id
@@ -57,7 +55,6 @@ export default function NotificationsScreen({ route, navigation }) {
     }
   };
 
-  // Delete notification
   const handleDelete = async (notificationId) => {
     try {
       const { error } = await supabase
@@ -74,7 +71,6 @@ export default function NotificationsScreen({ route, navigation }) {
     }
   };
 
-  // Mark notification as read
   const handleMarkAsRead = async (notificationId) => {
     try {
       const { error } = await supabase
@@ -93,60 +89,63 @@ export default function NotificationsScreen({ route, navigation }) {
     }
   };
 
-  const renderNotification = (n) => {
-    const isUnread = !n.is_read;
+  const renderNotification = ({ item }) => {
+    const isUnread = !item.is_read;
+    const iconName = item.type === 'school_join_request' ? 'school' : 'bell';
 
     return (
       <View style={[styles.card, isUnread && styles.unreadCard]}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.title, isUnread && styles.unreadTitle]}>{n.title}</Text>
-            <Text style={styles.message}>{n.message}</Text>
-            <Text style={styles.date}>{new Date(n.created_at).toLocaleString()}</Text>
-          </View>
+        <FontAwesome5 name={iconName} size={24} color={isUnread ? '#007AFF' : '#ccc'} style={styles.icon} />
+        <View style={styles.contentContainer}>
+          <Text style={[styles.title, isUnread && styles.unreadTitle]}>{item.title}</Text>
+          <Text style={styles.message}>{item.message}</Text>
+          <Text style={styles.date}>{new Date(item.created_at).toLocaleString()}</Text>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {isUnread && (
-              <TouchableOpacity onPress={() => handleMarkAsRead(n.id)} style={{ marginRight: 12 }}>
-                <Text style={{ color: '#007AFF', fontWeight: '600' }}>Mark as read</Text>
+          {item.type === 'school_join_request' && isUnread && (
+            <View style={styles.buttonsRow}>
+              <TouchableOpacity
+                style={[styles.button, styles.acceptButton]}
+                onPress={() => handleJoinResponse(item, true)}
+              >
+                <Text style={styles.buttonText}>Accept</Text>
               </TouchableOpacity>
-            )}
-            <TouchableOpacity onPress={() => handleDelete(n.id)}>
-              <FontAwesome name="trash" size={20} color="#d9534f" />
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={[styles.button, styles.declineButton]}
+                onPress={() => handleJoinResponse(item, false)}
+              >
+                <Text style={styles.buttonText}>Decline</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {item.is_read && item.type === 'school_join_request' && (
+            <>
+              <View style={styles.hr} />
+              <Text style={styles.statusText}>
+                {item.status_text || 'You have read this notification'}
+              </Text>
+            </>
+          )}
+
+          {item.is_read && item.type !== 'school_join_request' && (
+            <>
+              <View style={styles.hr} />
+              <Text style={styles.statusText}>
+                You have read this notification
+              </Text>
+            </>
+          )}
         </View>
-
-        {/* Show accept/decline buttons only if unread school_join_request */}
-        {n.type === 'school_join_request' && isUnread && (
-          <View style={styles.buttonsRow}>
-            <TouchableOpacity
-              style={[styles.button, styles.acceptButton]}
-              onPress={() => handleJoinResponse(n, true)}
-            >
-              <Text style={styles.buttonText}>Accept</Text>
+        <View style={styles.actionsContainer}>
+          {isUnread && (
+            <TouchableOpacity onPress={() => handleMarkAsRead(item.id)} style={styles.actionButton}>
+              <FontAwesome5 name="eye" size={20} color="#007AFF" />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.declineButton]}
-              onPress={() => handleJoinResponse(n, false)}
-            >
-              <Text style={styles.buttonText}>Decline</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Show read status for read notifications */}
-        {n.is_read && n.type === 'school_join_request' && (
-          <Text style={styles.statusText}>
-            {n.status_text || 'You have read this notification'}
-          </Text>
-        )}
-
-        {n.is_read && n.type !== 'school_join_request' && (
-          <Text style={styles.statusText}>
-            You have read this notification
-          </Text>
-        )}
+          )}
+          <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.actionButton}>
+            <FontAwesome5 name="trash" size={20} color="#d9534f" />
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -166,7 +165,7 @@ export default function NotificationsScreen({ route, navigation }) {
         <FlatList
           data={notifications}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => renderNotification(item)}
+          renderItem={renderNotification}
           contentContainerStyle={{ paddingBottom: 20 }}
         />
       )}
@@ -175,30 +174,41 @@ export default function NotificationsScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f4f4f4', padding: 16 },
+  container: { flex: 1, backgroundColor: '#f8f9fb', padding: 16 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { fontSize: 22, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' },
-  emptyText: { textAlign: 'center', color: '#666', marginTop: 20 },
+  header: { fontSize: 28, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#333' },
+  emptyText: { textAlign: 'center', color: '#666', marginTop: 50, fontSize: 16 },
   card: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  unreadCard: { backgroundColor: '#e6f0ff' },
-  title: { fontSize: 16, fontWeight: '500', marginBottom: 4, color: '#333' },
-  unreadTitle: { fontWeight: '700', color: '#007AFF' },
-  message: { fontSize: 14, color: '#555', marginBottom: 6 },
-  date: { fontSize: 12, color: '#999', textAlign: 'right' },
-  buttonsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  button: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 6 },
+  unreadCard: { backgroundColor: '#eef5ff' },
+  icon: { marginRight: 16, marginTop: 4 },
+  contentContainer: { flex: 1 },
+  title: { fontSize: 17, fontWeight: '600', marginBottom: 4, color: '#444' },
+  unreadTitle: { fontWeight: 'bold', color: '#005cbf' },
+  message: { fontSize: 15, color: '#666', marginBottom: 8 },
+  date: { fontSize: 12, color: '#aaa', textAlign: 'left' },
+  buttonsRow: { flexDirection: 'row', marginTop: 12 },
+  button: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, marginRight: 10 },
   acceptButton: { backgroundColor: '#007AFF' },
   declineButton: { backgroundColor: '#d9534f' },
-  buttonText: { color: '#fff', fontWeight: '600' },
-  statusText: { marginTop: 6, fontStyle: 'italic', color: '#555', fontSize: 13 },
+  buttonText: { color: '#fff', fontWeight: 'bold' },
+  statusText: { marginTop: 8, fontStyle: 'italic', color: '#999', fontSize: 14 },
+  actionsContainer: { flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', marginLeft: 16 },
+  actionButton: { padding: 8 },
+  hr: {
+    borderBottomColor: '#eee',
+    borderBottomWidth: 1,
+    marginVertical: 8,
+  },
 });

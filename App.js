@@ -10,6 +10,7 @@
  import AuthGate from './screens/AuthGate'; // Import AuthGate
  import MainNavigation from './navigation/MainNavigation'; // Import MainNavigation
  import SchoolSetupScreen from './screens/SchoolSetupScreen'; // Import SchoolSetupScreen
+ import RoleSelectionScreen from './screens/RoleSelectionScreen'; // Import RoleSelectionScreen
  
  const RootStack = createNativeStackNavigator();
  
@@ -24,6 +25,7 @@
  const AppStack = () => (
    <RootStack.Navigator screenOptions={{ headerShown: false }}>
      <RootStack.Screen name="AuthGate" component={AuthGate} />
+     <RootStack.Screen name="RoleSelection" component={RoleSelectionScreen} />
      <RootStack.Screen name="MainNavigation" component={MainNavigation} />
      <RootStack.Screen name="SchoolSetup" component={SchoolSetupScreen} />
    </RootStack.Navigator>

@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function SchoolSetupScreen({ navigation }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState(null);
 
   // Join existing school
   const [search, setSearch] = useState('');
@@ -45,16 +46,18 @@ export default function SchoolSetupScreen({ navigation }) {
           if (userError) throw userError;
           if (!authUser) return;
 
-          setUser(authUser);
-
           const { data: userData, error: userDataError } = await supabase
             .from('users')
-            .select('school_request_status, requested_school_id')
+            .select('school_request_status, requested_school_id, role, full_name')
             .eq('id', authUser.id)
             .single();
           if (userDataError) throw userDataError;
 
+          // Combine authUser and userData into a single user object for the state
+          setUser({ ...authUser, ...userData });
+
           setRequestStatus(userData?.school_request_status || null);
+          setRole(userData?.role || null);
 
           if (userData?.school_request_status === 'declined') {
             // Fetch declined school name
@@ -138,7 +141,7 @@ export default function SchoolSetupScreen({ navigation }) {
           user_id: createdBy,
           type: 'school_join_request',
           title: 'New School Join Request',
-          message: `${user.email} has requested to join your school "${schoolName}"`,
+          message: `${user.full_name || user.email} has requested to join your school "${schoolName}"`,
           is_read: false,
           created_by: user.id,
         }]);
@@ -207,113 +210,121 @@ export default function SchoolSetupScreen({ navigation }) {
       <Text style={styles.title}>Welcome to ClassConnect</Text>
       <Text style={styles.subtitle}>Join your school or create a new one</Text>
 
-      {/* --- JOIN EXISTING --- */}
-      <Text style={styles.sectionTitle}>Join Existing School</Text>
-
-      {requestStatus === 'pending' ? (
-        <Text style={styles.pendingText}>Request is currently pending...</Text>
-      ) : (
+      {(role === 'student' || role === 'parent' || role === 'teacher') && (
         <>
-          <View style={styles.searchRow}>
-            <TextInput
-              style={styles.input}
-              placeholder="Search for a school"
-              value={search}
-              onChangeText={(text) => {
-                setSearch(text);
-                setDeclinedMessage(null);
-                if (text.length > 0) {
-                  setSearching(true);
-                } else {
-                  setSearching(false);
-                }
-              }}
-            />
-          </View>
+          {/* --- JOIN EXISTING --- */}
+          <Text style={styles.sectionTitle}>Join Existing School</Text>
 
-          {declinedMessage && <Text style={styles.declinedText}>{declinedMessage}</Text>}
-
-          {searching ? (
-            <ActivityIndicator style={{ marginTop: 10 }} />
+          {requestStatus === 'pending' ? (
+            <Text style={styles.pendingText}>Request is currently pending...</Text>
           ) : (
-            schools.length > 0 ? (
-              <FlatList
-                data={schools}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <View style={styles.schoolCard}>
-                    <Text style={styles.schoolName}>{item.name}</Text>
-                    <TouchableOpacity
-                      style={styles.joinButton}
-                      onPress={() => handleJoinSchool(item.id, item.name, item.created_by)}
-                      disabled={joiningSchool === item.id}
-                    >
-                      <Text style={styles.joinButtonText}>Join</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-                scrollEnabled={false}
-              />
-            ) : (
-              search.length > 0 && <Text style={{ textAlign: 'center', marginVertical: 10 }}>No schools found</Text>
-            )
+            <>
+              <View style={styles.searchRow}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Search for a school"
+                  value={search}
+                  onChangeText={(text) => {
+                    setSearch(text);
+                    setDeclinedMessage(null);
+                    if (text.length > 0) {
+                      setSearching(true);
+                    } else {
+                      setSearching(false);
+                    }
+                  }}
+                />
+              </View>
+
+              {declinedMessage && <Text style={styles.declinedText}>{declinedMessage}</Text>}
+
+              {searching ? (
+                <ActivityIndicator style={{ marginTop: 10 }} />
+              ) : (
+                schools.length > 0 ? (
+                  <FlatList
+                    data={schools}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => (
+                      <View style={styles.schoolCard}>
+                        <Text style={styles.schoolName}>{item.name}</Text>
+                        <TouchableOpacity
+                          style={styles.joinButton}
+                          onPress={() => handleJoinSchool(item.id, item.name, item.created_by)}
+                          disabled={joiningSchool === item.id}
+                        >
+                          <Text style={styles.joinButtonText}>Join</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    scrollEnabled={false}
+                  />
+                ) : (
+                  search.length > 0 && <Text style={{ textAlign: 'center', marginVertical: 10 }}>No schools found</Text>
+                )
+              )}
+            </>
           )}
         </>
       )}
 
-      {/* --- CREATE NEW --- */}
-      <Text style={styles.sectionTitle}>Create New School</Text>
-      <Text style={styles.inputHeading}>School Name</Text>
-      <Text style={styles.inputDescription}>Enter the official name of your school.</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Enter new school name"
-        value={newSchoolName}
-        onChangeText={setNewSchoolName}
-      />
-      <Text style={styles.inputHeading}>Address</Text>
-      <Text style={styles.inputDescription}>Provide the physical address of your school.</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Address"
-        value={newSchoolAddress}
-        onChangeText={setNewSchoolAddress}
-      />
-      <Text style={styles.inputHeading}>Contact Email</Text>
-      <Text style={styles.inputDescription}>Enter the primary contact email for your school.</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Contact Email"
-        value={newSchoolContactEmail}
-        onChangeText={setNewSchoolContactEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-      <Text style={styles.inputHeading}>Contact Phone</Text>
-      <Text style={styles.inputDescription}>Enter the primary contact phone number for your school.</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Contact Phone"
-        value={newSchoolContactPhone}
-        onChangeText={setNewSchoolContactPhone}
-        keyboardType="phone-pad"
-      />
-      <Text style={styles.inputHeading}>Logo URL (optional)</Text>
-      <Text style={styles.inputDescription}>Provide a URL for your school's logo (e.g., from your website).</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Logo URL (optional)"
-        value={newSchoolLogoUrl}
-        onChangeText={setNewSchoolLogoUrl}
-        autoCapitalize="none"
-      />
-      <TouchableOpacity
-        style={styles.createButton}
-        onPress={handleCreateSchool}
-        disabled={creating}
-      >
-        <Text style={styles.createButtonText}>{creating ? 'Creating...' : 'Create School'}</Text>
-      </TouchableOpacity>
+      {role === 'admin' && (
+        <>
+          {/* --- CREATE NEW --- */}
+          <Text style={styles.sectionTitle}>Create New School</Text>
+          <Text style={styles.inputHeading}>School Name</Text>
+          <Text style={styles.inputDescription}>Enter the official name of your school.</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter new school name"
+            value={newSchoolName}
+            onChangeText={setNewSchoolName}
+          />
+          <Text style={styles.inputHeading}>Address</Text>
+          <Text style={styles.inputDescription}>Provide the physical address of your school.</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Address"
+            value={newSchoolAddress}
+            onChangeText={setNewSchoolAddress}
+          />
+          <Text style={styles.inputHeading}>Contact Email</Text>
+          <Text style={styles.inputDescription}>Enter the primary contact email for your school.</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Contact Email"
+            value={newSchoolContactEmail}
+            onChangeText={setNewSchoolContactEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <Text style={styles.inputHeading}>Contact Phone</Text>
+          <Text style={styles.inputDescription}>Enter the primary contact phone number for your school.</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Contact Phone"
+            value={newSchoolContactPhone}
+            onChangeText={setNewSchoolContactPhone}
+            keyboardType="phone-pad"
+          />
+          <Text style={styles.inputHeading}>Logo URL (optional)</Text>
+          <Text style={styles.inputDescription}>Provide a URL for your school's logo (e.g., from your website).</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Logo URL (optional)"
+            value={newSchoolLogoUrl}
+            onChangeText={setNewSchoolLogoUrl}
+            autoCapitalize="none"
+          />
+          <TouchableOpacity
+            style={styles.createButton}
+            onPress={handleCreateSchool}
+            disabled={creating}
+          >
+            <Text style={styles.createButtonText}>{creating ? 'Creating...' : 'Create School'}</Text>
+          </TouchableOpacity>
+        </>
+      )}
 
       {/* --- SIGN OUT --- */}
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>

@@ -34,7 +34,7 @@ const AuthGate = () => {
         if (userProfile && userProfile.school_id) {
           navigation.replace('MainNavigation');
         } else {
-          navigation.replace('SchoolSetup');
+          navigation.replace('RoleSelection');
         }
       } else {
         navigation.replace('Auth'); // No user, go to Auth stack
