@@ -214,6 +214,7 @@ export default function SchoolSetupScreen({ navigation }) {
         <>
           {/* --- JOIN EXISTING --- */}
           <Text style={styles.sectionTitle}>Join Existing School</Text>
+          <Text style={styles.sectionDescription}>Search for your school and send a request to join.</Text>
 
           {requestStatus === 'pending' ? (
             <Text style={styles.pendingText}>Request is currently pending...</Text>
@@ -272,6 +273,7 @@ export default function SchoolSetupScreen({ navigation }) {
         <>
           {/* --- CREATE NEW --- */}
           <Text style={styles.sectionTitle}>Create New School</Text>
+          <Text style={styles.sectionDescription}>Register a new school and become its administrator.</Text>
           <Text style={styles.inputHeading}>School Name</Text>
           <Text style={styles.inputDescription}>Enter the official name of your school.</Text>
           <TextInput
@@ -390,4 +392,5 @@ const styles = StyleSheet.create({
   pendingText: { fontStyle: 'italic', color: '#007AFF', marginBottom: 10 },
   inputHeading: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 4, marginTop: 10 },
   inputDescription: { fontSize: 12, color: '#666', marginBottom: 8 },
+  sectionDescription: { fontSize: 14, color: '#777', marginBottom: 15 },
 });

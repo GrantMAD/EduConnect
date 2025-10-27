@@ -21,7 +21,7 @@ const AuthGate = () => {
         // Fetch user profile from 'users' table to get school_id
         const { data: userProfile, error: profileError } = await supabase
           .from('users')
-          .select('school_id')
+          .select('school_id, role')
           .eq('id', user.id)
           .single();
 
@@ -31,9 +31,18 @@ const AuthGate = () => {
           return;
         }
 
-        if (userProfile && userProfile.school_id) {
-          navigation.replace('MainNavigation');
+        if (userProfile) {
+          if (userProfile.school_id) {
+            navigation.replace('MainNavigation');
+          } else if (userProfile.role !== 'user') {
+            navigation.replace('SchoolSetup');
+          } else {
+            navigation.replace('RoleSelection');
+          }
         } else {
+          // This case should ideally not be reached if user is authenticated
+          // and a profile is always created on sign-up.
+          // But as a fallback, we can navigate to RoleSelection.
           navigation.replace('RoleSelection');
         }
       } else {
