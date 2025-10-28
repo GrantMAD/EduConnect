@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, TouchableOpacity, Text, Image, Dimensions, Animated, Alert } from 'react-native';
@@ -15,6 +15,7 @@ import {
   faBars,
   faRightFromBracket,
   faHome,
+  faGear
 } from '@fortawesome/free-solid-svg-icons';
 import Modal from 'react-native-modal';
 
@@ -27,8 +28,10 @@ import HomeworkScreen from '../screens/HomeworkScreen';
 import MarketScreen from '../screens/MarketScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import UserManagementScreen from '../screens/UserManagementScreen';
 
-const Tab = createBottomTabNavigator();
+const Tab = createMaterialTopTabNavigator();
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
 
@@ -261,8 +264,8 @@ const CustomHeader = ({ navigation, showActions = false }) => {
 // Bottom Tabs
 const HomeTabs = () => (
   <Tab.Navigator
+    tabBarPosition="bottom"
     screenOptions={{
-      headerShown: false,
       tabBarActiveTintColor: '#007AFF',
       tabBarInactiveTintColor: '#7b7b7b',
       tabBarStyle: {
@@ -278,7 +281,10 @@ const HomeTabs = () => (
         fontWeight: '600',
         marginBottom: 2,
       },
-      tabBarHideOnKeyboard: true,
+      tabBarIndicatorStyle: {
+        backgroundColor: '#007AFF',
+        height: 3,
+      },
     }}
   >
     <Tab.Screen
@@ -321,6 +327,8 @@ const MainStackNavigator = () => (
   >
     <Stack.Screen name="HomeTabs" component={HomeTabs} />
     <Stack.Screen name="Profile" component={ProfileScreen} />
+    <Stack.Screen name="Settings" component={SettingsScreen} />
+    <Stack.Screen name="UserManagement" component={UserManagementScreen} />
     <Stack.Screen name="Notifications">
       {props => <NotificationsScreen {...props} showActions={true} />}
     </Stack.Screen>
@@ -398,6 +406,21 @@ const CustomDrawerContent = (props) => {
       >
         <FontAwesomeIcon icon={faUser} size={18} color="#007AFF" style={{ marginRight: 15 }} />
         <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Profile</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => props.navigation.navigate('MainStack', { screen: 'Settings' })}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingVertical: 12,
+          paddingHorizontal: 20,
+          backgroundColor: activeMainStackRouteName === 'Settings' ? '#d0e6ff' : 'transparent',
+          borderRadius: 8,
+        }}
+      >
+        <FontAwesomeIcon icon={faGear} size={18} color="#007AFF" style={{ marginRight: 15 }} />
+        <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Settings</Text>
       </TouchableOpacity>
 
       <View style={{ flex: 1 }} />
