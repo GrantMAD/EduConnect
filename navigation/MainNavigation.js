@@ -15,7 +15,9 @@ import {
   faBars,
   faRightFromBracket,
   faHome,
-  faGear
+  faGear,
+  faChevronDown,
+  faChevronUp
 } from '@fortawesome/free-solid-svg-icons';
 import Modal from 'react-native-modal';
 
@@ -30,6 +32,10 @@ import ProfileScreen from '../screens/ProfileScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import UserManagementScreen from '../screens/UserManagementScreen';
+import CreateAnnouncementScreen from '../screens/CreateAnnouncementScreen';
+import ManageClassesScreen from '../screens/ManageClassesScreen';
+import CreateClassScreen from '../screens/CreateClassScreen';
+import ManageUsersInClassScreen from '../screens/ManageUsersInClassScreen';
 
 const Tab = createMaterialTopTabNavigator();
 const Drawer = createDrawerNavigator();
@@ -332,6 +338,10 @@ const MainStackNavigator = () => (
     <Stack.Screen name="Notifications">
       {props => <NotificationsScreen {...props} showActions={true} />}
     </Stack.Screen>
+    <Stack.Screen name="CreateAnnouncement" component={CreateAnnouncementScreen} />
+    <Stack.Screen name="ManageClasses" component={ManageClassesScreen} />
+    <Stack.Screen name="CreateClass" component={CreateClassScreen} />
+    <Stack.Screen name="ManageUsersInClass" component={ManageUsersInClassScreen} />
   </Stack.Navigator>
 );
 

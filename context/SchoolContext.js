@@ -13,22 +13,42 @@ export const SchoolProvider = ({ children }) => {
       setLoadingSchool(true);
       const { data: { user } } = await supabase.auth.getUser();
 
-      if (user && user.user_metadata && user.user_metadata.school_id) {
-        const id = user.user_metadata.school_id;
-        setSchoolId(id);
-
-        // Fetch school details from your 'schools' table
-        const { data, error } = await supabase
-          .from('schools') // Assuming you have a 'schools' table
-          .select('*')
-          .eq('id', id)
+      if (user) {
+        // Fetch school_id from the custom 'users' table
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('school_id')
+          .eq('id', user.id)
           .single();
 
-        if (error) {
-          console.error('Error fetching school data:', error.message);
+        if (userError) {
+          console.error('Error fetching user school_id:', userError.message);
+          setSchoolId(null);
           setSchoolData(null);
-        } else if (data) {
-          setSchoolData(data);
+          setLoadingSchool(false);
+          return;
+        }
+
+        if (userData && userData.school_id) {
+          const id = userData.school_id;
+          setSchoolId(id);
+
+          // Fetch school details from your 'schools' table
+          const { data, error } = await supabase
+            .from('schools') // Assuming you have a 'schools' table
+            .select('*')
+            .eq('id', id)
+            .single();
+
+          if (error) {
+            console.error('Error fetching school data:', error.message);
+            setSchoolData(null);
+          } else if (data) {
+            setSchoolData(data);
+          }
+        } else {
+          setSchoolId(null);
+          setSchoolData(null);
         }
       } else {
         setSchoolId(null);

@@ -42,19 +42,30 @@ export default function SettingsScreen({ navigation }) {
       <Text style={styles.header}>Settings</Text>
       <Text style={styles.description}>Manage your account and application settings.</Text>
 
-      {user && user.role === 'admin' && (
+      {user && (user.role === 'admin' || user.role === 'teacher') && (
         <View>
           <View style={styles.separator} />
           <View style={styles.section}>
             <Text style={styles.sectionHeader}>User Management</Text>
-            <Text style={styles.sectionDescription}>Manage all users within your school.</Text>
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => navigation.navigate('UserManagement')}
-            >
-              <FontAwesomeIcon icon={faUsers} size={18} color="#007AFF" />
-              <Text style={styles.buttonText}>Manage Users</Text>
-            </TouchableOpacity>
+            <Text style={styles.sectionDescription}>Manage users and classes within your school.</Text>
+            {user.role === 'admin' && (
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => navigation.navigate('UserManagement')}
+              >
+                <FontAwesomeIcon icon={faUsers} size={18} color="#007AFF" />
+                <Text style={styles.buttonText}>Manage Users</Text>
+              </TouchableOpacity>
+            )}
+            {(user.role === 'admin' || user.role === 'teacher') && (
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => navigation.navigate('ManageClasses')}
+              >
+                <FontAwesomeIcon icon={faUsers} size={18} color="#007AFF" />
+                <Text style={styles.buttonText}>Manage Classes</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}

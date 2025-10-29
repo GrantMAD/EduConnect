@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, ActivityIndicator, Alert, ScrollView, Image, TouchableOpacity, Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from "expo-file-system/legacy";
+import { Buffer } from 'buffer';
 
 const defaultUserImage = require('../assets/user.png');
 
@@ -15,70 +17,57 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState(null); // Temporary state for new avatar URL
-
-  const handleEdit = () => {
-    setIsEditing(true);
-  };
-  const handleCancel = () => {
-    setIsEditing(false);
-    fetchUserData(); // Re-fetch to discard any unsaved changes
-  };
-
-  // Fetch or create user profile
-  const fetchUserData = async () => {
-    setLoading(true);
-
-    // Get the authenticated user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      console.error('Error fetching auth user:', userError?.message);
-      setLoading(false);
-      return;
-    }
-
-    // Fetch from users table
-    let { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', user.id)
-      .maybeSingle(); // Use maybeSingle to avoid error if no row exists
-
-    // If no row exists, create one
-    if (!data) {
-      const { data: insertData, error: insertError } = await supabase.from('users').insert({
-        id: user.id,
-        full_name: '',
-        email: user.email,
-        role: 'user',
-      }).select().maybeSingle();
-
-      if (insertError) {
-        console.error('Error creating user profile:', insertError.message);
-        Alert.alert('Error', 'Failed to create profile.');
-        setLoading(false);
-        return;
-      }
-
-      data = insertData;
-    }
-
-    // Set state
-    setUserData({
-      full_name: data.full_name || '',
-      email: data.email || '',
-      role: data.role || '',
-      avatar_url: data.avatar_url || '',
-    });
-    setAvatarUrl(data.avatar_url || null);
-
-    setLoading(false);
-  };
+  const [avatarLocalUri, setAvatarLocalUri] = useState(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     fetchUserData();
   }, []);
+
+  const fetchUserData = async () => {
+    setLoading(true);
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) throw userError || new Error("No user logged in");
+
+      let { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!data) {
+        const { data: insertData, error: insertError } = await supabase.from('users').insert({
+          id: user.id,
+          full_name: '',
+          email: user.email,
+          role: 'user',
+        }).select().maybeSingle();
+
+        if (insertError) throw insertError;
+        data = insertData;
+      }
+
+      setUserData({
+        full_name: data.full_name || '',
+        email: data.email || '',
+        role: data.role || '',
+        avatar_url: data.avatar_url || '',
+      });
+    } catch (error) {
+      console.error(error.message);
+      Alert.alert('Error', 'Failed to fetch profile.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = () => setIsEditing(true);
+  const handleCancel = () => {
+    setIsEditing(false);
+    fetchUserData();
+    setAvatarLocalUri(null);
+  };
 
   const pickImage = async () => {
     if (Platform.OS !== 'web') {
@@ -89,72 +78,102 @@ export default function ProfileScreen() {
       }
     }
 
-    let result = await ImagePicker.launchImageLibraryAsync({
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,
     });
 
-    if (!result.canceled) {
-      const uri = result.assets[0].uri;
-      const filename = uri.substring(uri.lastIndexOf('/') + 1);
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) return;
-
-      const fileExt = filename.split('.').pop();
-      const filePath = `${user.id}/${Math.random()}.${fileExt}`;
-
-      const response = await fetch(uri);
-      const blob = await response.blob();
-
-      const { data, error } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, blob, {
-          cacheControl: '3600',
-          upsert: false,
-          contentType: result.assets[0].mimeType,
-        });
-
-      if (error) {
-        console.error('Error uploading avatar:', error.message);
-        Alert.alert('Upload Error', error.message);
-      } else if (data) {
-        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-        if (publicUrl) {
-          setAvatarUrl(publicUrl);
-          setUserData({ ...userData, avatar_url: publicUrl }); // Update userData with new avatar_url
-        }
-      }
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setAvatarLocalUri(result.assets[0].uri);
     }
   };
 
-  // Save updated profile
+  const deleteOldAvatar = async (avatarUrl) => {
+    if (!avatarUrl) return;
+    try {
+      const url = new URL(avatarUrl);
+      const path = url.pathname;
+      const prefix = "/storage/v1/object/public/avatars/";
+      if (!path.startsWith(prefix)) return;
+      const filePath = path.slice(prefix.length);
+
+      const { error } = await supabase.storage.from('avatars').remove([filePath]);
+      if (error) console.warn("Failed to delete old avatar:", error.message);
+    } catch (error) {
+      console.warn("Error deleting old avatar:", error.message);
+    }
+  };
+
+  const uploadAvatar = async (uri) => {
+    setUploading(true);
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) throw userError || new Error("No user logged in");
+
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: 'base64',
+      });
+      const buffer = Buffer.from(base64, "base64");
+
+      const fileExt = uri.split(".").pop()?.toLowerCase() || "jpg";
+      const fileName = `${user.id}_avatar_${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+      const contentType = `image/${fileExt === "jpg" ? "jpeg" : fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, buffer, { cacheControl: "3600", upsert: true, contentType });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      return publicData?.publicUrl || null;
+    } catch (error) {
+      console.error("Upload error:", error);
+      Alert.alert('Error', 'Failed to upload avatar.');
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+      // Delete old avatar if replaced
+      if (avatarLocalUri && userData.avatar_url) {
+        await deleteOldAvatar(userData.avatar_url);
+      }
 
-    const { error } = await supabase
-      .from('users')
-      .update({
+      let avatarUrl = userData.avatar_url;
+      if (avatarLocalUri) {
+        const uploadedUrl = await uploadAvatar(avatarLocalUri);
+        if (uploadedUrl) avatarUrl = uploadedUrl;
+      }
+
+      const { error } = await supabase.from('users').update({
         full_name: userData.full_name,
         email: userData.email,
         role: userData.role,
-        avatar_url: userData.avatar_url, // Include avatar_url in the update
-      })
-      .eq('id', user.id);
+        avatar_url: avatarUrl,
+      }).eq('id', user.id);
 
-    setSaving(false);
+      if (error) throw error;
 
-    if (error) {
-      console.error('Error updating profile:', error.message);
-      Alert.alert('Error', 'Failed to update profile.');
-    } else {
+      setUserData(prev => ({ ...prev, avatar_url: avatarUrl }));
+      setAvatarLocalUri(null);
+      setIsEditing(false);
       Alert.alert('Success', 'Profile updated successfully!');
-      setIsEditing(false); // Set to view mode after successful save
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'Failed to update profile.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -169,49 +188,23 @@ export default function ProfileScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {isEditing ? (
-        <TouchableOpacity
-          onPress={pickImage}
-          activeOpacity={0.7}
-          style={{ marginBottom: 16 }}
-        >
-          <Image
-            source={avatarUrl ? { uri: avatarUrl } : defaultUserImage}
-            style={styles.avatar}
-          />
-          <Text style={{ textAlign: 'center', color: '#007AFF', marginTop: 4 }}>
-            Tap to change photo
-          </Text>
+        <TouchableOpacity onPress={pickImage} activeOpacity={0.7} style={{ marginBottom: 16 }}>
+          <Image source={avatarLocalUri ? { uri: avatarLocalUri } : (userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage)} style={styles.avatar} />
+          <Text style={{ textAlign: 'center', color: '#007AFF', marginTop: 4 }}>Tap to change photo</Text>
         </TouchableOpacity>
       ) : (
-        <Image
-          source={userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage}
-          style={styles.avatar}
-        />
+        <Image source={userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage} style={styles.avatar} />
       )}
+
       <Text style={styles.header}>My Profile</Text>
       <Text style={styles.description}>View and edit your profile information.</Text>
 
       {isEditing ? (
-        // Edit Mode
         <>
           <Text style={styles.label}>Full Name</Text>
-          <TextInput
-            style={styles.input}
-            value={userData.full_name}
-            onChangeText={(text) => setUserData({ ...userData, full_name: text })}
-            placeholder="Enter full name"
-          />
-
+          <TextInput style={styles.input} value={userData.full_name} onChangeText={text => setUserData({ ...userData, full_name: text })} placeholder="Enter full name" />
           <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            value={userData.email}
-            onChangeText={(text) => setUserData({ ...userData, email: text })}
-            placeholder="Enter email"
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-
+          <TextInput style={styles.input} value={userData.email} onChangeText={text => setUserData({ ...userData, email: text })} placeholder="Enter email" keyboardType="email-address" autoCapitalize="none" />
           <TouchableOpacity style={styles.button} onPress={handleSave} disabled={saving}>
             <Text style={styles.buttonText}>{saving ? "Saving..." : "Save"}</Text>
           </TouchableOpacity>
@@ -220,7 +213,6 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </>
       ) : (
-        // View Mode
         <>
           <View style={styles.infoContainer}>
             <Text style={styles.label}>Full Name</Text>
@@ -234,7 +226,6 @@ export default function ProfileScreen() {
             <Text style={styles.label}>Role</Text>
             <Text style={styles.value}>{userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}</Text>
           </View>
-
           <TouchableOpacity style={styles.button} onPress={handleEdit}>
             <Text style={styles.buttonText}>Edit Profile</Text>
           </TouchableOpacity>
@@ -245,74 +236,16 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    backgroundColor: '#f8f9fa',
-    padding: 24,
-    alignItems: 'center',
-  },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: '#007AFF',
-    marginBottom: 16,
-  },
-  header: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#333',
-  },
-  description: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 32,
-    textAlign: 'center',
-  },
-  infoContainer: {
-    width: '100%',
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    color: '#666',
-  },
-  value: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: '#333',
-  },
-  input: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    width: '100%',
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 12,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  cancelButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#007AFF',
-  },
-  cancelButtonText: {
-    color: '#007AFF',
-  },
+  container: { flexGrow: 1, backgroundColor: '#f8f9fa', padding: 24, alignItems: 'center' },
+  avatar: { width: 120, height: 120, borderRadius: 60, borderWidth: 4, borderColor: '#007AFF', marginBottom: 16 },
+  header: { fontSize: 32, fontWeight: 'bold', marginBottom: 8, color: '#333' },
+  description: { fontSize: 16, color: '#666', marginBottom: 32, textAlign: 'center' },
+  infoContainer: { width: '100%', marginBottom: 16 },
+  label: { fontSize: 14, color: '#666' },
+  value: { fontSize: 18, fontWeight: '500', color: '#333' },
+  input: { backgroundColor: '#fff', borderRadius: 8, padding: 16, marginBottom: 16, fontSize: 16, borderWidth: 1, borderColor: '#e0e0e0', width: '100%' },
+  button: { backgroundColor: '#007AFF', padding: 16, borderRadius: 8, alignItems: 'center', width: '100%', marginBottom: 12 },
+  buttonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  cancelButton: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#007AFF' },
+  cancelButtonText: { color: '#007AFF' },
 });
