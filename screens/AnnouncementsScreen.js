@@ -5,17 +5,45 @@ import { useSchool } from '../context/SchoolContext';
 import { useFocusEffect } from '@react-navigation/native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faBullhorn, faCalendar, faUser, faTag, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faBullhorn, faCalendar, faUser, faTag, faTimes, faUsers } from '@fortawesome/free-solid-svg-icons';
 
 const placeholderImage = require('../assets/user.png'); // Using existing asset as placeholder
+
+const timeSince = (date) => {
+  const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+  let interval = seconds / 31536000;
+  if (interval > 1) {
+    return Math.floor(interval) + " years ago";
+  }
+  interval = seconds / 2592000;
+  if (interval > 1) {
+    return Math.floor(interval) + " months ago";
+  }
+  interval = seconds / 86400;
+  if (interval > 1) {
+    return Math.floor(interval) + " days ago";
+  }
+  interval = seconds / 3600;
+  if (interval > 1) {
+    return Math.floor(interval) + " hours ago";
+  }
+  interval = seconds / 60;
+  if (interval > 1) {
+    return Math.floor(interval) + " minutes ago";
+  }
+  return Math.floor(seconds) + " seconds ago";
+};
 
 export default function AnnouncementsScreen({ navigation }) {
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
   const [userClasses, setUserClasses] = useState([]); // New state for classes user is associated with
+  const [allClasses, setAllClasses] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+  const [schoolData, setSchoolData] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const { schoolId } = useSchool();
 
@@ -30,19 +58,50 @@ export default function AnnouncementsScreen({ navigation }) {
         }
       }
       await fetchUserClasses();
+      await fetchAllClasses();
+      await fetchSchoolData();
       setLoading(false);
     };
 
     initializeUserAndClasses();
   }, [schoolId]); // Re-run when schoolId changes
 
+  const fetchAllClasses = async () => {
+    if (!schoolId) return;
+    try {
+      const { data, error } = await supabase
+        .from('classes')
+        .select('id, name')
+        .eq('school_id', schoolId);
+      if (error) throw error;
+      setAllClasses(data);
+    } catch (error) {
+      console.error('Error fetching all classes:', error.message);
+    }
+  };
+
+  const fetchSchoolData = async () => {
+    if (!schoolId) return;
+    try {
+      const { data, error } = await supabase
+        .from('schools')
+        .select('logo_url')
+        .eq('id', schoolId)
+        .single();
+      if (error) throw error;
+      setSchoolData(data);
+    } catch (error) {
+      console.error('Error fetching school data:', error.message);
+    }
+  };
+
   useFocusEffect(
     React.useCallback(() => {
-      // Fetch announcements only when schoolId, userRole, and userClasses are ready
-      if (schoolId && userRole !== null && userClasses !== null) {
+      // Fetch announcements only when schoolId, userRole, userClasses, and allClasses are ready
+      if (schoolId && userRole !== null && userClasses !== null && allClasses !== null) {
         fetchAnnouncements();
       }
-    }, [schoolId, userRole, userClasses])
+    }, [schoolId, userRole, userClasses, allClasses])
   );
 
   const fetchUserRole = async () => {
@@ -131,7 +190,7 @@ export default function AnnouncementsScreen({ navigation }) {
 
       try {
 
-        let query = supabase.from('announcements').select('*').eq('school_id', schoolId).order('created_at', { ascending: false });
+        let query = supabase.from('announcements').select('*, author:users(full_name)').eq('school_id', schoolId).order('created_at', { ascending: false });
 
   
 
@@ -141,38 +200,29 @@ export default function AnnouncementsScreen({ navigation }) {
 
         if (error) throw error;
 
-  
+        const announcementsWithClassNames = data.map(announcement => {
+          if (announcement.class_id) {
+            const classInfo = allClasses.find(c => c.id === announcement.class_id);
+            return { ...announcement, className: classInfo ? classInfo.name : 'Unknown Class' };
+          } 
+          return announcement;
+        });
 
         if (userRole === 'admin') {
-
-          setAnnouncements(data);
-
+          setAnnouncements(announcementsWithClassNames);
         } else if (userRole === 'teacher' || userRole === 'student') {
-
-          const filteredAnnouncements = data.filter(announcement => {
-
+          const filteredAnnouncements = announcementsWithClassNames.filter(announcement => {
             // Always show general announcements
-
             if (!announcement.class_id) {
-
               return true;
-
             }
-
             // Show class-specific announcements if the user is in that class
-
             return userClasses.includes(announcement.class_id);
-
           });
-
           setAnnouncements(filteredAnnouncements);
-
         } else {
-
           // For other roles or if role not yet loaded, show nothing or general announcements
-
-          setAnnouncements(data.filter(announcement => !announcement.class_id));
-
+          setAnnouncements(announcementsWithClassNames.filter(announcement => !announcement.class_id));
         }
 
       } catch (error) {
@@ -181,13 +231,25 @@ export default function AnnouncementsScreen({ navigation }) {
 
         Alert.alert('Error', 'Failed to fetch announcements.');
 
-      } finally {
+            } finally {
 
-        setLoading(false);
+              setLoading(false);
 
-      }
+              setRefreshing(false);
 
-    };
+            }
+
+          };
+
+      
+
+        const onRefresh = React.useCallback(async () => {
+
+          setRefreshing(true);
+
+          await fetchAnnouncements();
+
+        }, [schoolId, userRole, userClasses, allClasses]);
 
   const handleCardPress = (announcement) => {
     setSelectedAnnouncement(announcement);
@@ -205,9 +267,22 @@ export default function AnnouncementsScreen({ navigation }) {
       </View>
 
       {/* Placeholder Image Area */}
-      <View style={styles.imageContainer}>
-        <Image source={placeholderImage} style={styles.placeholderImage} />
-      </View>
+      <TouchableOpacity
+        style={styles.imageContainer}
+        onPress={() => userRole === 'admin' && navigation.navigate('SchoolData')}
+        disabled={userRole !== 'admin'}
+      >
+        {schoolData?.logo_url ? (
+          <Image source={{ uri: schoolData.logo_url }} style={styles.placeholderImage} />
+        ) : (
+          <View style={styles.placeholderImageContainer}>
+            <Text style={styles.placeholderText}>Currently no school image</Text>
+            {userRole === 'admin' && (
+              <Text style={styles.placeholderSubText}>Press here to change your school's image in the settings</Text>
+            )}
+          </View>
+        )}
+      </TouchableOpacity>
 
       {/* List of Announcements Area */}
       <View style={styles.sectionHeaderContainer}>
@@ -224,17 +299,44 @@ export default function AnnouncementsScreen({ navigation }) {
       <FlatList
         data={announcements}
         keyExtractor={(item) => item.id.toString()}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
         renderItem={({ item }) => (
           <TouchableOpacity onPress={() => handleCardPress(item)} style={styles.cardContainer}>
             <View style={[styles.typeIndicator, item.type === 'general' ? styles.generalType : styles.classType]} />
             <View style={styles.cardContent}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-                <FontAwesomeIcon icon={faBullhorn} size={18} color="#007AFF" style={{ marginRight: 10 }} />
-                <Text style={styles.title}>{item.title}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <FontAwesomeIcon icon={faBullhorn} size={18} color="#007AFF" style={{ marginRight: 10 }} />
+                  <Text style={styles.title}>{item.title}</Text>
+                </View>
+                {new Date(item.created_at) > new Date(Date.now() - 48 * 60 * 60 * 1000) ? (
+                  <View style={styles.newBadge}>
+                    <Text style={styles.newBadgeText}>NEW</Text>
+                  </View>
+                ) : (
+                  <View style={styles.oldBadge}>
+                    <Text style={styles.oldBadgeText}>OLD</Text>
+                  </View>
+                )}
               </View>
+              <View style={styles.postedByContainer}>
+                <Text style={styles.postedBy}>Posted by: {item.author.full_name}</Text>
+                <Text style={styles.timeSince}>{timeSince(item.created_at)}</Text>
+              </View>
+              <View style={styles.separator} />
               <Text style={styles.messagePreview} numberOfLines={3}>
                 {item.message.length > 100 ? item.message.substring(0, 100) + '...' : item.message}
               </Text>
+              {item.class_id && (
+                <View>
+                  <View style={styles.separator} />
+                  <View style={styles.classLabelContainer}>
+                    <FontAwesomeIcon icon={faUsers} size={12} color="#888" />
+                    <Text style={styles.classLabel}>For class: {item.className}</Text>
+                  </View>
+                </View>
+              )}
             </View>
           </TouchableOpacity>
         )}
@@ -274,7 +376,7 @@ export default function AnnouncementsScreen({ navigation }) {
 
           <View style={styles.modalDetailRow}>
             <FontAwesomeIcon icon={faCalendar} size={16} color="#007AFF" style={styles.modalIcon} />
-            <Text style={styles.modalDetailText}>Posted: {new Date(selectedAnnouncement?.created_at).toLocaleString()}</Text>
+            <Text style={styles.modalDetailText}>Posted: {timeSince(selectedAnnouncement?.created_at)}</Text>
           </View>
                 </View>
       </Modal>
@@ -304,16 +406,35 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   imageContainer: {
-    alignItems: 'center',
     marginBottom: 20,
+    width: '100%',
+    height: 150,
+    borderRadius: 10,
+    overflow: 'hidden',
   },
   placeholderImage: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+    width: '100%',
+    height: '100%',
     resizeMode: 'cover',
-    borderWidth: 2,
-    borderColor: '#ddd',
+  },
+  placeholderImageContainer: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#e9ecef',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    color: '#6c757d',
+    fontSize: 16,
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  placeholderSubText: {
+    color: '#6c757d',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 5,
   },
   addButtonText: {
     color: '#fff',
@@ -372,9 +493,60 @@ const styles = StyleSheet.create({
     marginBottom: 5,
     color: '#333',
   },
+  newBadge: {
+    backgroundColor: '#FF3B30',
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 10,
+  },
+  newBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  oldBadge: {
+    backgroundColor: '#6c757d',
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 10,
+  },
+  oldBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  postedBy: {
+    fontSize: 12,
+    color: '#888',
+  },
+  postedByContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  timeSince: {
+    fontSize: 12,
+    color: '#888',
+    fontStyle: 'italic',
+  },
   messagePreview: {
     fontSize: 14,
     color: '#555',
+  },
+  classLabel: {
+    fontSize: 12,
+    color: '#888',
+    marginLeft: 5,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#eee',
+    marginVertical: 10,
+  },
+  classLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   emptyText: {
     textAlign: 'center',

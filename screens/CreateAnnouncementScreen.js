@@ -15,12 +15,10 @@ export default function CreateAnnouncementScreen({ navigation }) {
   const { schoolId } = useSchool();
 
   useEffect(() => {
-    console.log('CreateAnnouncementScreen - schoolId on render:', schoolId);
     const fetchClasses = async () => {
       if (!schoolId) return;
       const { data, error } = await supabase.from('classes').select('id, name').eq('school_id', schoolId);
       if (error) {
-        console.error('Error fetching classes:', error.message);
       } else {
         setClasses(data);
         if (data.length > 0) {
@@ -32,7 +30,6 @@ export default function CreateAnnouncementScreen({ navigation }) {
   }, [schoolId]);
 
   const handleSaveAnnouncement = async () => {
-    console.log('handleSaveAnnouncement - schoolId:', schoolId);
     if (!title || !message) {
       Alert.alert('Error', 'Title and Message cannot be empty.');
       return;
@@ -76,7 +73,6 @@ export default function CreateAnnouncementScreen({ navigation }) {
       Alert.alert('Success', 'Announcement created successfully!');
       navigation.goBack();
     } catch (error) {
-      console.error('Error creating announcement:', error.message);
       Alert.alert('Error', 'Failed to create announcement.');
     } finally {
       setLoading(false);
@@ -86,6 +82,7 @@ export default function CreateAnnouncementScreen({ navigation }) {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.header}>Create New Announcement</Text>
+      <Text style={styles.description}>Fill in the details below to create a new announcement for your school.</Text>
 
       <Text style={styles.label}>Title</Text>
       <TextInput
@@ -111,6 +108,7 @@ export default function CreateAnnouncementScreen({ navigation }) {
           onValueChange={setIsClassSpecific}
         />
       </View>
+      <Text style={[styles.description, { textAlign: 'left', marginBottom: 20 }]}>Toggle this switch if the announcement is meant for a specific class only.</Text>
 
       {isClassSpecific && (
         <View style={styles.pickerContainer}>
@@ -147,9 +145,15 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 10,
     textAlign: 'center',
     color: '#333',
+  },
+  description: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
   },
   label: {
     fontSize: 16,
@@ -174,7 +178,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 5,
     paddingVertical: 5,
   },
   pickerContainer: {
@@ -189,7 +193,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   saveButton: {
-    backgroundColor: '#28a745',
+    backgroundColor: '#007AFF',
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',

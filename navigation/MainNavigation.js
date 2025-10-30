@@ -36,6 +36,8 @@ import CreateAnnouncementScreen from '../screens/CreateAnnouncementScreen';
 import ManageClassesScreen from '../screens/ManageClassesScreen';
 import CreateClassScreen from '../screens/CreateClassScreen';
 import ManageUsersInClassScreen from '../screens/ManageUsersInClassScreen';
+import SchoolDataScreen from '../screens/SchoolDataScreen';
+import ManageAnnouncementsScreen from '../screens/ManageAnnouncementsScreen';
 
 const Tab = createMaterialTopTabNavigator();
 const Drawer = createDrawerNavigator();
@@ -342,6 +344,8 @@ const MainStackNavigator = () => (
     <Stack.Screen name="ManageClasses" component={ManageClassesScreen} />
     <Stack.Screen name="CreateClass" component={CreateClassScreen} />
     <Stack.Screen name="ManageUsersInClass" component={ManageUsersInClassScreen} />
+    <Stack.Screen name="SchoolData" component={SchoolDataScreen} />
+    <Stack.Screen name="ManageAnnouncements" component={ManageAnnouncementsScreen} />
   </Stack.Navigator>
 );
 
@@ -400,7 +404,9 @@ const CustomDrawerContent = (props) => {
         }}
       >
         <FontAwesomeIcon icon={faHome} size={18} color="#007AFF" style={{ marginRight: 15 }} />
-        <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Home</Text>
+        <View>
+          <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Home</Text>
+        </View>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -415,7 +421,10 @@ const CustomDrawerContent = (props) => {
         }}
       >
         <FontAwesomeIcon icon={faUser} size={18} color="#007AFF" style={{ marginRight: 15 }} />
-        <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Profile</Text>
+        <View>
+          <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Profile</Text>
+          <Text style={{ fontSize: 12, color: '#666' }}>Manage your personal information</Text>
+        </View>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -430,7 +439,10 @@ const CustomDrawerContent = (props) => {
         }}
       >
         <FontAwesomeIcon icon={faGear} size={18} color="#007AFF" style={{ marginRight: 15 }} />
-        <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Settings</Text>
+        <View>
+          <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Settings</Text>
+          <Text style={{ fontSize: 12, color: '#666' }}>Adjust app settings and preferences</Text>
+        </View>
       </TouchableOpacity>
 
       <View style={{ flex: 1 }} />

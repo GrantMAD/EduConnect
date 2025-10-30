@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faUsers } from '@fortawesome/free-solid-svg-icons';
+import { faUsers, faSchool, faBullhorn } from '@fortawesome/free-solid-svg-icons';
 
 export default function SettingsScreen({ navigation }) {
   const [user, setUser] = useState(null);
@@ -54,7 +54,10 @@ export default function SettingsScreen({ navigation }) {
                 onPress={() => navigation.navigate('UserManagement')}
               >
                 <FontAwesomeIcon icon={faUsers} size={18} color="#007AFF" />
-                <Text style={styles.buttonText}>Manage Users</Text>
+                <View>
+                  <Text style={styles.buttonText}>Manage Users</Text>
+                  <Text style={styles.buttonDescription}>Add, edit, or remove users from your school.</Text>
+                </View>
               </TouchableOpacity>
             )}
             {(user.role === 'admin' || user.role === 'teacher') && (
@@ -63,9 +66,52 @@ export default function SettingsScreen({ navigation }) {
                 onPress={() => navigation.navigate('ManageClasses')}
               >
                 <FontAwesomeIcon icon={faUsers} size={18} color="#007AFF" />
-                <Text style={styles.buttonText}>Manage Classes</Text>
+                <View>
+                  <Text style={styles.buttonText}>Manage Classes</Text>
+                  <Text style={styles.buttonDescription}>Create, update, or delete classes.</Text>
+                </View>
               </TouchableOpacity>
             )}
+          </View>
+        </View>
+      )}
+
+      {user && (user.role === 'admin' || user.role === 'teacher') && (
+        <View>
+          <View style={styles.separator} />
+          <View style={styles.section}>
+            <Text style={styles.sectionHeader}>Announcements</Text>
+            <Text style={styles.sectionDescription}>Manage school-wide announcements.</Text>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => navigation.navigate('ManageAnnouncements')}
+            >
+              <FontAwesomeIcon icon={faBullhorn} size={18} color="#007AFF" />
+              <View>
+                <Text style={styles.buttonText}>Manage Announcements</Text>
+                <Text style={styles.buttonDescription}>Create, edit, or delete announcements.</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {user && user.role === 'admin' && (
+        <View>
+          <View style={styles.separator} />
+          <View style={styles.section}>
+            <Text style={styles.sectionHeader}>School Data</Text>
+            <Text style={styles.sectionDescription}>Manage your school's data, including the main image displayed on the announcements screen.</Text>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => navigation.navigate('SchoolData')}
+            >
+              <FontAwesomeIcon icon={faSchool} size={18} color="#007AFF" />
+              <View>
+                <Text style={styles.buttonText}>School Data</Text>
+                <Text style={styles.buttonDescription}>Update school-wide information and branding.</Text>
+              </View>
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -124,6 +170,11 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500',
     fontSize: 16,
+    marginLeft: 15,
+  },
+  buttonDescription: {
+    color: '#666',
+    fontSize: 12,
     marginLeft: 15,
   },
 });
