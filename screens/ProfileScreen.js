@@ -48,12 +48,16 @@ export default function ProfileScreen() {
         data = insertData;
       }
 
-      setUserData({
-        full_name: data.full_name || '',
-        email: data.email || '',
-        role: data.role || '',
-        avatar_url: data.avatar_url || '',
-      });
+      if (data) {
+        setUserData({
+          full_name: data.full_name || '',
+          email: data.email || '',
+          role: data.role || '',
+          avatar_url: data.avatar_url || '',
+        });
+      } else {
+        throw new Error("Could not fetch or create user profile.");
+      }
     } catch (error) {
       console.error(error.message);
       Alert.alert('Error', 'Failed to fetch profile.');

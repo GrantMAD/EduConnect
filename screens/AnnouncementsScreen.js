@@ -321,7 +321,7 @@ export default function AnnouncementsScreen({ navigation }) {
                 )}
               </View>
               <View style={styles.postedByContainer}>
-                <Text style={styles.postedBy}>Posted by: {item.author.full_name}</Text>
+                <Text style={styles.postedBy}>Posted by: {item.author ? item.author.full_name : 'Unknown Author'}</Text>
                 <Text style={styles.timeSince}>{timeSince(item.created_at)}</Text>
               </View>
               <View style={styles.separator} />

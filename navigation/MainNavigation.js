@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, TouchableOpacity, Text, Image, Dimensions, Animated, Alert } from 'react-native';
+import { View, TouchableOpacity, Text, Image, Dimensions, Animated, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
@@ -352,31 +352,50 @@ const MainStackNavigator = () => (
 // Custom Drawer
 const CustomDrawerContent = (props) => {
   const [userAvatar, setUserAvatar] = useState(null);
-  const [userName, setUserName] = useState('Guest');
-  const [userEmail, setUserEmail] = useState('N/A');
+  const [userName, setUserName] = useState(null);
+  const [userEmail, setUserEmail] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   const mainStackState = props.state.routes.find(route => route.name === 'MainStack')?.state;
   const activeMainStackRouteName = mainStackState?.routes[mainStackState.index]?.name;
 
   useEffect(() => {
     const fetchUserData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('users')
-          .select('full_name, avatar_url')
-          .eq('id', user.id)
-          .single();
+      setLoading(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('users')
+            .select('full_name, avatar_url')
+            .eq('id', user.id)
+            .single();
 
-        if (profile) {
-          setUserAvatar(profile.avatar_url);
-          setUserName(profile.full_name || user.email);
+          if (profile) {
+            setUserAvatar(profile.avatar_url);
+            setUserName(profile.full_name || user.email);
+          } else {
+            setUserName(user.email);
+          }
+          setUserEmail(user.email);
         }
-        setUserEmail(user.email);
+      } catch (error) {
+        console.error("Error fetching user data for drawer:", error);
+        setUserName("Guest");
+      } finally {
+        setLoading(false);
       }
     };
     fetchUserData();
   }, []);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 70 }}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, height: '100%', paddingTop: 70 }}>
@@ -387,8 +406,8 @@ const CustomDrawerContent = (props) => {
         />
         <View>
           <Text style={{ fontSize: 15, fontWeight: '700', color: '#222' }}>Welcome,</Text>
-          <Text style={{ fontSize: 15, fontWeight: '600', color: '#007AFF' }}>{userName}</Text>
-          <Text style={{ fontSize: 12, color: '#777' }}>{userEmail}</Text>
+          <Text style={{ fontSize: 15, fontWeight: '600', color: '#007AFF' }}>{userName || 'User'}</Text>
+          <Text style={{ fontSize: 12, color: '#777' }}>{userEmail || ''}</Text>
         </View>
       </View>
 
