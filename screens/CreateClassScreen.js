@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Button, Platform, ScrollView, Modal } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Button, Platform, ScrollView, Modal, Image } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faPlusCircle, faMinusCircle, faUser, faClock } from '@fortawesome/free-solid-svg-icons';
 import { Calendar } from 'react-native-calendars';
+const defaultUserImage = require('../assets/user.png');
 
 export default function CreateClassScreen({ navigation }) {
   const [className, setClassName] = useState('');
@@ -21,6 +22,7 @@ export default function CreateClassScreen({ navigation }) {
   const [selectedDate, setSelectedDate] = useState(null);
   const [tempStartTime, setTempStartTime] = useState('');
   const [tempEndTime, setTempEndTime] = useState('');
+  const [classInfo, setClassInfo] = useState('');
 
   const { schoolId } = useSchool();
 
@@ -49,7 +51,7 @@ export default function CreateClassScreen({ navigation }) {
 
       let { data, error } = await supabase
         .from('users')
-        .select('id, full_name, email')
+        .select('id, full_name, email, avatar_url')
         .eq('school_id', schoolId)
         .eq('role', 'student');
 
@@ -80,6 +82,7 @@ export default function CreateClassScreen({ navigation }) {
     setSelectedDate(day.dateString);
     setTempStartTime('');
     setTempEndTime('');
+    setClassInfo('');
     setModalVisible(true);
   };
 
@@ -117,7 +120,7 @@ export default function CreateClassScreen({ navigation }) {
       return;
     }
 
-    const newSchedule = { date: selectedDate, startTime, endTime };
+    const newSchedule = { date: selectedDate, startTime, endTime, info: classInfo };
     setSchedules([...schedules, newSchedule]);
     setModalVisible(false);
   };
@@ -162,6 +165,7 @@ export default function CreateClassScreen({ navigation }) {
           end_time: schedule.endTime.toISOString(),
           title: className,
           description: subject,
+          class_info: schedule.info,
           school_id: schoolId,
           created_by: user.id,
         }));
@@ -190,12 +194,15 @@ export default function CreateClassScreen({ navigation }) {
       <Text style={styles.header}>Create New Class</Text>
 
       <Text style={styles.label}>Class Name</Text>
+      <Text style={styles.descriptionText}>Give your class a unique and descriptive name.</Text>
       <TextInput style={styles.input} value={className} onChangeText={setClassName} placeholder="Enter class name (e.g., Math 101)" />
 
       <Text style={styles.label}>Subject</Text>
+      <Text style={styles.descriptionText}>Specify the subject this class belongs to.</Text>
       <TextInput style={styles.input} value={subject} onChangeText={setSubject} placeholder="Enter subject (e.g., Mathematics)" />
 
       <Text style={styles.label}>Add Students</Text>
+      <Text style={styles.descriptionText}>Search for and add students to this class.</Text>
       <TextInput style={styles.input} value={searchQuery} onChangeText={setSearchQuery} placeholder="Search students by name..." />
 
       {fetchingStudents ? (
@@ -206,7 +213,10 @@ export default function CreateClassScreen({ navigation }) {
             students.filter(s => !selectedStudents.includes(s.id)).map(item => (
               <TouchableOpacity key={item.id} style={styles.studentItem} onPress={() => toggleStudentSelection(item.id)}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <FontAwesomeIcon icon={faUser} size={24} style={{ marginRight: 10 }} />
+                  <Image
+                    source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage}
+                    style={styles.studentAvatar}
+                  />
                   <View>
                     <Text>{item.full_name}</Text>
                     <Text style={{ color: 'gray' }}>{item.email}</Text>
@@ -229,7 +239,10 @@ export default function CreateClassScreen({ navigation }) {
           {students.filter(s => selectedStudents.includes(s.id)).map(item => (
             <TouchableOpacity key={item.id} style={styles.studentItem} onPress={() => toggleStudentSelection(item.id)}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <FontAwesomeIcon icon={faUser} size={24} style={{ marginRight: 10 }} />
+                  <Image
+                    source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage}
+                    style={styles.studentAvatar}
+                  />
                 <View>
                   <Text>{item.full_name}</Text>
                   <Text style={{ color: 'gray' }}>{item.email}</Text>
@@ -253,6 +266,7 @@ export default function CreateClassScreen({ navigation }) {
             <View>
               <Text style={styles.scheduleText}>Date: {item.date}</Text>
               <Text style={styles.scheduleText}>Time: {item.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {item.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+              {item.info ? <Text style={styles.scheduleInfoText}>Info: {item.info}</Text> : null}
             </View>
             <TouchableOpacity onPress={() => handleRemoveSchedule(index)}>
               <FontAwesomeIcon icon={faMinusCircle} size={24} color="#dc3545" />
@@ -293,6 +307,13 @@ export default function CreateClassScreen({ navigation }) {
                     />
                 </View>
             </View>
+            <TextInput
+                style={styles.infoInput}
+                placeholder="Enter class information for this day..."
+                value={classInfo}
+                onChangeText={setClassInfo}
+                multiline
+            />
             <View style={styles.modalButtonContainer}>
               <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setModalVisible(false)}>
                   <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -316,15 +337,18 @@ const styles = StyleSheet.create({
   container: { backgroundColor: '#f8f9fa', padding: 20 },
   header: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#333' },
   label: { fontSize: 16, fontWeight: '600', marginBottom: 8, color: '#555', marginTop: 10 },
+  descriptionText: { fontSize: 12, color: '#777', marginBottom: 10, marginLeft: 5 },
   input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, marginBottom: 10, fontSize: 16 },
   studentList: { maxHeight: 150, marginBottom: 10, borderWidth: 1, borderColor: '#eee', borderRadius: 8 },
   studentItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  studentAvatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10, borderWidth: 1, borderColor: '#ddd' },
   emptyText: { textAlign: 'center', padding: 10, color: '#666' },
   createClassButton: { backgroundColor: '#007AFF', padding: 15, borderRadius: 10, alignItems: 'center', marginTop: 20 },
   createClassButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   scheduleList: { marginTop: 10 },
   scheduleItem: { backgroundColor: '#e9ecef', padding: 10, borderRadius: 5, marginBottom: 5, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   scheduleText: { fontSize: 14 },
+  scheduleInfoText: { fontSize: 12, color: '#666', fontStyle: 'italic', marginTop: 5 },
   subHeader: { fontSize: 18, fontWeight: 'bold', marginTop: 20, marginBottom: 5 },
   subHeaderDescription: { fontSize: 14, color: '#666', marginBottom: 10 },
   // Modal Styles
@@ -338,6 +362,7 @@ const styles = StyleSheet.create({
   timeInputLabel: { fontSize: 12, color: '#666', marginBottom: 5 },
   timeInput: { fontSize: 18, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 15, paddingVertical: 10, width: 100, textAlign: 'center' },
   timeSeparator: { fontSize: 18, fontWeight: 'bold', marginHorizontal: 10, marginTop: 20 },
+  infoInput: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, marginBottom: 20, fontSize: 16, minHeight: 100, textAlignVertical: 'top' },
   modalButtonContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
   modalButton: { borderRadius: 8, paddingVertical: 12, paddingHorizontal: 20, flex: 1, marginHorizontal: 5 },
   saveButton: { backgroundColor: '#007AFF' },

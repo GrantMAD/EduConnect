@@ -354,6 +354,7 @@ const CustomDrawerContent = (props) => {
   const [userAvatar, setUserAvatar] = useState(null);
   const [userName, setUserName] = useState(null);
   const [userEmail, setUserEmail] = useState(null);
+  const [userRole, setUserRole] = useState(null); // Add userRole state
   const [loading, setLoading] = useState(true);
 
   const mainStackState = props.state.routes.find(route => route.name === 'MainStack')?.state;
@@ -367,13 +368,14 @@ const CustomDrawerContent = (props) => {
         if (user) {
           const { data: profile } = await supabase
             .from('users')
-            .select('full_name, avatar_url')
+            .select('full_name, avatar_url, role')
             .eq('id', user.id)
             .single();
 
           if (profile) {
             setUserAvatar(profile.avatar_url);
             setUserName(profile.full_name || user.email);
+            setUserRole(profile.role);
           } else {
             setUserName(user.email);
           }
@@ -445,6 +447,26 @@ const CustomDrawerContent = (props) => {
           <Text style={{ fontSize: 12, color: '#666' }}>Manage your personal information</Text>
         </View>
       </TouchableOpacity>
+
+      {['admin', 'teacher'].includes(userRole) && (
+        <TouchableOpacity
+          onPress={() => props.navigation.navigate('MainStack', { screen: 'ManageClasses' })}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 12,
+            paddingHorizontal: 20,
+            backgroundColor: activeMainStackRouteName === 'CreateClass' ? '#d0e6ff' : 'transparent',
+            borderRadius: 8,
+          }}
+        >
+          <FontAwesomeIcon icon={faBookOpen} size={18} color="#007AFF" style={{ marginRight: 15 }} />
+          <View>
+            <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Classes</Text>
+            <Text style={{ fontSize: 12, color: '#666' }}>Create and manage classes</Text>
+          </View>
+        </TouchableOpacity>
+      )}
 
       <TouchableOpacity
         onPress={() => props.navigation.navigate('MainStack', { screen: 'Settings' })}

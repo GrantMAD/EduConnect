@@ -3,6 +3,8 @@ import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, 
 import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { useFocusEffect } from '@react-navigation/native';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faBook, faChalkboardTeacher } from '@fortawesome/free-solid-svg-icons';
 
 export default function ManageClassesScreen({ navigation }) {
   const [classes, setClasses] = useState([]);
@@ -82,6 +84,7 @@ export default function ManageClassesScreen({ navigation }) {
           <Text style={styles.createButtonText}>+ Create Class</Text>
         </TouchableOpacity>
       </View>
+      <Text style={styles.description}>Here you can manage your classes. You can create new classes, and manage existing ones.</Text>
 
       <FlatList
         data={classes}
@@ -91,8 +94,16 @@ export default function ManageClassesScreen({ navigation }) {
             style={styles.classCard}
             onPress={() => navigation.navigate('ManageUsersInClass', { classId: item.id, className: item.name })}
           >
-            <Text style={styles.className}>{item.name}</Text>
-            {item.subject && <Text style={styles.classDescription}>Subject: {item.subject}</Text>}
+            <View style={styles.cardRow}>
+              <FontAwesomeIcon icon={faChalkboardTeacher} size={18} color="#007AFF" style={{ marginRight: 10 }} />
+              <Text style={styles.className}>{item.name}</Text>
+            </View>
+            {item.subject && (
+              <View style={styles.cardRow}>
+                <FontAwesomeIcon icon={faBook} size={14} color="#007AFF" style={{ marginRight: 15 }} />
+                <Text style={styles.classDescription}>Subject: {item.subject}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         )}
         ListEmptyComponent={<Text style={styles.emptyText}>No classes found. Create one!</Text>}
@@ -118,6 +129,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
+  description: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+  },
   createButton: {
     backgroundColor: '#28a745',
     paddingVertical: 8,
@@ -140,11 +156,15 @@ const styles = StyleSheet.create({
     shadowRadius: 1.41,
     elevation: 2,
   },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
   className: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 5,
   },
   classDescription: {
     fontSize: 14,
