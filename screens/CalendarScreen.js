@@ -27,6 +27,7 @@ export default function CalendarScreen() {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) return;
 
+          // Fetch user's role
           const { data: userData, error: userError } = await supabase
             .from('users')
             .select('role')
@@ -35,15 +36,17 @@ export default function CalendarScreen() {
           if (userError) throw userError;
 
           const userRole = userData.role;
-
           let classIds = [];
-          if (userRole === 'teacher') {
+
+          // Admins and teachers can see all classes
+          if (userRole === 'teacher' || userRole === 'admin') {
             const { data: allClasses, error: allClassesError } = await supabase
               .from('classes')
               .select('id');
             if (allClassesError) throw allClassesError;
             classIds = allClasses.map(c => c.id);
           } else {
+            // Regular users see only their classes
             const { data: userClasses, error: classesError } = await supabase
               .from('classes')
               .select('id')
@@ -59,18 +62,21 @@ export default function CalendarScreen() {
             return;
           }
 
+          // Fetch schedules for the visible classes
           const { data: classSchedules, error: schedulesError } = await supabase
             .from('class_schedules')
-            .select('*') // includes description & class_info
+            .select('*')
             .in('class_id', classIds)
             .order('start_time', { ascending: true });
           if (schedulesError) throw schedulesError;
 
+          // Assign colors to classes
           const classColorMap = {};
           classIds.forEach((id, index) => {
             classColorMap[id] = dotColors[index % dotColors.length];
           });
 
+          // Build marked dates for the calendar
           const formattedMarkedDates = {};
           classSchedules.forEach(schedule => {
             const date = schedule.start_time.split('T')[0];
@@ -81,6 +87,7 @@ export default function CalendarScreen() {
             }
           });
 
+          // Prepare colored and descriptive schedules
           const coloredSchedules = classSchedules.map(s => ({
             ...s,
             color: classColorMap[s.class_id] || '#007AFF',

@@ -1,12 +1,22 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faBookOpen, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
 
-export default function HomeworkCard({ homework }) {
+export default function HomeworkCard({ homework, onPress }) {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{homework.title}</Text>
-      <Text>Due: {homework.dueDate}</Text>
-    </View>
+    <TouchableOpacity onPress={onPress} style={styles.container}>
+      <View style={styles.row}>
+        <FontAwesomeIcon icon={faBookOpen} size={16} color="#007AFF" style={styles.icon} />
+        <Text style={styles.title}>{homework.subject}</Text>
+      </View>
+      <View style={styles.row}>
+        <FontAwesomeIcon icon={faCalendarAlt} size={16} color="#007AFF" style={styles.icon} />
+        <Text>Due: {homework.due_date}</Text>
+      </View>
+      <View style={styles.hr} />
+      <Text style={styles.tapToOpen}>Tap to open</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -16,8 +26,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ccc',
     marginBottom: 10,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  icon: {
+    marginRight: 10,
   },
   title: {
     fontWeight: 'bold',
+    fontSize: 16,
+  },
+  hr: {
+    borderBottomColor: '#eee',
+    borderBottomWidth: 1,
+    marginVertical: 5,
+  },
+  tapToOpen: {
+    fontSize: 12,
+    color: 'gray',
+    textAlign: 'right',
+    marginTop: 5,
   },
 });

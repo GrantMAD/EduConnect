@@ -39,6 +39,9 @@ import ManageUsersInClassScreen from '../screens/ManageUsersInClassScreen';
 import SchoolDataScreen from '../screens/SchoolDataScreen';
 import ManageAnnouncementsScreen from '../screens/ManageAnnouncementsScreen';
 
+import CreateAssignmentScreen from '../screens/CreateAssignmentScreen';
+import CreateHomeworkScreen from '../screens/CreateHomeworkScreen';
+
 const Tab = createMaterialTopTabNavigator();
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -346,6 +349,8 @@ const MainStackNavigator = () => (
     <Stack.Screen name="ManageUsersInClass" component={ManageUsersInClassScreen} />
     <Stack.Screen name="SchoolData" component={SchoolDataScreen} />
     <Stack.Screen name="ManageAnnouncements" component={ManageAnnouncementsScreen} />
+    <Stack.Screen name="CreateHomework" component={CreateHomeworkScreen} />
+    <Stack.Screen name="CreateAssignment" component={CreateAssignmentScreen} />
   </Stack.Navigator>
 );
 
