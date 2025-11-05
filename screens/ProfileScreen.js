@@ -1,28 +1,69 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, ActivityIndicator, Alert, ScrollView, Image, TouchableOpacity, Platform } from 'react-native';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faEdit, faSave, faTimes, faUserFriends, faPlus, faGear } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from "expo-file-system/legacy";
+import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer';
 
-const defaultUserImage = require('../assets/user.png');
-
 export default function ProfileScreen() {
+  const defaultUserImage = require('../assets/user.png');
+
   const [userData, setUserData] = useState({
+    id: '',
     full_name: '',
     email: '',
     role: '',
     avatar_url: '',
+    school_id: null,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [avatarLocalUri, setAvatarLocalUri] = useState(null);
   const [uploading, setUploading] = useState(false);
-
+  const [students, setStudents] = useState([]);
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [studentSearch, setStudentSearch] = useState('');
+  const [associatedChildren, setAssociatedChildren] = useState([]);
+  const [showManageChildren, setShowManageChildren] = useState(false);
   useEffect(() => {
     fetchUserData();
   }, []);
+
+  useEffect(() => {
+    if (userData.role === 'parent' && userData.school_id) {
+      fetchStudentsAndChildren(userData.school_id, userData.id);
+    }
+  }, [userData.role, userData.school_id]);
+
+  const fetchStudentsAndChildren = async (schoolId, parentId) => {
+    try {
+      // Fetch all students in the same school
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('users')
+        .select('id, full_name, email')
+        .eq('school_id', schoolId)
+        .eq('role', 'student');
+
+      if (studentsError) throw studentsError;
+      setStudents(studentsData || []);
+
+      // Fetch already associated children
+      const { data: relationshipsData, error: relationshipsError } = await supabase
+        .from('parent_child_relationships')
+        .select('child_id')
+        .eq('parent_id', parentId);
+
+      if (relationshipsError) throw relationshipsError;
+      setAssociatedChildren(relationshipsData.map(rel => rel.child_id) || []);
+
+    } catch (error) {
+      console.error('Error fetching students or relationships:', error.message);
+      Alert.alert('Error', 'Failed to load student data.');
+    }
+  };
 
   const fetchUserData = async () => {
     setLoading(true);
@@ -50,10 +91,12 @@ export default function ProfileScreen() {
 
       if (data) {
         setUserData({
+          id: user.id,
           full_name: data.full_name || '',
           email: data.email || '',
           role: data.role || '',
           avatar_url: data.avatar_url || '',
+          school_id: data.school_id || null,
         });
       } else {
         throw new Error("Could not fetch or create user profile.");
@@ -69,6 +112,7 @@ export default function ProfileScreen() {
   const handleEdit = () => setIsEditing(true);
   const handleCancel = () => {
     setIsEditing(false);
+    setShowManageChildren(false);
     fetchUserData();
     setAvatarLocalUri(null);
   };
@@ -181,6 +225,59 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleSendAssociationRequest = async () => {
+    if (selectedStudents.length === 0) {
+      Alert.alert('Error', 'Please select at least one student.');
+      return;
+    }
+
+    setSaving(true); // Use saving state to disable button during request
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated.");
+
+      const requestsToInsert = selectedStudents.map(childId => ({
+        parent_id: user.id,
+        child_id: childId,
+        status: 'pending',
+      }));
+
+      const { error: requestError } = await supabase
+        .from('parent_child_requests')
+        .insert(requestsToInsert);
+
+      if (requestError) throw requestError;
+
+      // Create notifications for each child
+      const notificationsToInsert = selectedStudents.map(childId => {
+        const child = students.find(s => s.id === childId);
+        return {
+          user_id: childId,
+          type: 'parent_child_request',
+          title: 'Parent Association Request',
+          message: `Your parent ${userData.full_name || userData.email} wants to associate with you.`, // Customize message
+          is_read: false,
+          related_user_id: user.id, // Add parent's ID here
+        };
+      });
+
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert(notificationsToInsert);
+
+      if (notificationError) throw notificationError;
+
+      Alert.alert('Success', 'Association requests sent successfully!');
+      setSelectedStudents([]); // Clear selected students
+      // Optionally re-fetch associated children to show pending requests if desired
+    } catch (error) {
+      console.error('Error sending association request:', error.message);
+      Alert.alert('Error', 'Failed to send association requests.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -191,6 +288,7 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {/* Profile Image and Description */}
       {isEditing ? (
         <TouchableOpacity onPress={pickImage} activeOpacity={0.7} style={{ marginBottom: 16 }}>
           <Image source={avatarLocalUri ? { uri: avatarLocalUri } : (userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage)} style={styles.avatar} />
@@ -203,37 +301,122 @@ export default function ProfileScreen() {
       <Text style={styles.header}>My Profile</Text>
       <Text style={styles.description}>View and edit your profile information.</Text>
 
-      {isEditing ? (
-        <>
+      {/* Card 1: User Information */}
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>Personal Information</Text>
+          {!isEditing ? (
+            <TouchableOpacity onPress={handleEdit} style={styles.editIconContainer}>
+              <FontAwesomeIcon icon={faEdit} size={20} color="#007AFF" />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        <View style={styles.infoContainer}>
           <Text style={styles.label}>Full Name</Text>
-          <TextInput style={styles.input} value={userData.full_name} onChangeText={text => setUserData({ ...userData, full_name: text })} placeholder="Enter full name" />
-          <Text style={styles.label}>Email</Text>
-          <TextInput style={styles.input} value={userData.email} onChangeText={text => setUserData({ ...userData, email: text })} placeholder="Enter email" keyboardType="email-address" autoCapitalize="none" />
-          <TouchableOpacity style={styles.button} onPress={handleSave} disabled={saving}>
-            <Text style={styles.buttonText}>{saving ? "Saving..." : "Save"}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={handleCancel}>
-            <Text style={[styles.buttonText, styles.cancelButtonText]}>Cancel</Text>
-          </TouchableOpacity>
-        </>
-      ) : (
-        <>
-          <View style={styles.infoContainer}>
-            <Text style={styles.label}>Full Name</Text>
+          {isEditing ? (
+            <TextInput style={styles.input} value={userData.full_name} onChangeText={text => setUserData({ ...userData, full_name: text })} placeholder="Enter full name" />
+          ) : (
             <Text style={styles.value}>{userData.full_name}</Text>
+          )}
+        </View>
+
+        <View style={styles.infoContainer}>
+          <Text style={styles.label}>Email</Text>
+          <Text style={styles.value}>{userData.email}</Text>
+        </View>
+
+        <View style={styles.infoContainer}>
+          <Text style={styles.label}>Role</Text>
+          <Text style={styles.value}>{userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}</Text>
+        </View>
+
+        {isEditing && (
+          <View style={styles.buttonGroup}>
+            <TouchableOpacity style={styles.button} onPress={handleSave} disabled={saving}>
+              <Text style={styles.buttonText}>{saving ? "Saving..." : "Save"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={handleCancel}>
+              <Text style={[styles.buttonText, styles.cancelButtonText]}>Cancel</Text>
+            </TouchableOpacity>
           </View>
-          <View style={styles.infoContainer}>
-            <Text style={styles.label}>Email</Text>
-            <Text style={styles.value}>{userData.email}</Text>
+        )}
+      </View>
+
+      {/* Card 2: My Children (for Parents) */}
+      {userData.role === 'parent' && (
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>My Children</Text>
+            <TouchableOpacity onPress={() => setShowManageChildren(!showManageChildren)} style={styles.editIconContainer}>
+              <FontAwesomeIcon icon={showManageChildren ? faTimes : faPlus} size={20} color="#007AFF" />
+            </TouchableOpacity>
           </View>
-          <View style={styles.infoContainer}>
-            <Text style={styles.label}>Role</Text>
-            <Text style={styles.value}>{userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}</Text>
+
+          <View style={styles.associatedChildrenContainer}>
+            {associatedChildren.length === 0 ? (
+              <Text style={styles.noChildrenText}>No children associated yet.</Text>
+            ) : (
+              associatedChildren.map(childId => {
+                const child = students.find(s => s.id === childId);
+                return child ? (
+                  <View key={child.id} style={styles.childItem}>
+                    <FontAwesomeIcon icon={faUserFriends} size={16} color="#666" style={{ marginRight: 10 }} />
+                    <Text style={styles.childName}>{child.full_name || child.email}</Text>
+                    {/* Optionally add a button to unlink child */}
+                  </View>
+                ) : null;
+              })
+            )}
           </View>
-          <TouchableOpacity style={styles.button} onPress={handleEdit}>
-            <Text style={styles.buttonText}>Edit Profile</Text>
-          </TouchableOpacity>
-        </>
+
+          {/* Manage Children Area (conditionally rendered) */}
+          {showManageChildren && (
+            <View style={styles.manageChildrenSection}>
+              <Text style={styles.sectionDescription}>Search for students to send association requests.</Text>
+
+              {/* Student Search Input */}
+              <TextInput
+                style={styles.input}
+                placeholder="Search students by name or email"
+                value={studentSearch}
+                onChangeText={setStudentSearch}
+              />
+
+              {/* Student List for Selection */}
+              <View style={styles.studentListContainer}>
+                {students.filter(student =>
+                  !associatedChildren.includes(student.id) &&
+                  student.id !== userData.id &&
+                  (student.full_name?.toLowerCase().includes(studentSearch.toLowerCase()) ||
+                   student.email?.toLowerCase().includes(studentSearch.toLowerCase()))
+                ).map(student => (
+                  <TouchableOpacity
+                    key={student.id}
+                    style={styles.studentItem}
+                    onPress={() => {
+                      setSelectedStudents(prev =>
+                        prev.includes(student.id)
+                          ? prev.filter(id => id !== student.id)
+                          : [...prev, student.id]
+                      );
+                    }}
+                  >
+                    <Text style={styles.studentName}>{student.full_name || student.email}</Text>
+                    <View style={selectedStudents.includes(student.id) ? styles.checkboxChecked : styles.checkboxUnchecked} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Send Request Button */}
+              {selectedStudents.length > 0 && (
+                <TouchableOpacity style={styles.button} onPress={handleSendAssociationRequest} disabled={saving}>
+                  <Text style={styles.buttonText}>Send Association Request ({selectedStudents.length})</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
       )}
     </ScrollView>
   );
@@ -244,12 +427,112 @@ const styles = StyleSheet.create({
   avatar: { width: 120, height: 120, borderRadius: 60, borderWidth: 4, borderColor: '#007AFF', marginBottom: 16 },
   header: { fontSize: 32, fontWeight: 'bold', marginBottom: 8, color: '#333' },
   description: { fontSize: 16, color: '#666', marginBottom: 32, textAlign: 'center' },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  editIconContainer: {
+    padding: 5,
+  },
   infoContainer: { width: '100%', marginBottom: 16 },
-  label: { fontSize: 14, color: '#666' },
+  label: { fontSize: 14, color: '#666', marginBottom: 4 },
   value: { fontSize: 18, fontWeight: '500', color: '#333' },
-  input: { backgroundColor: '#fff', borderRadius: 8, padding: 16, marginBottom: 16, fontSize: 16, borderWidth: 1, borderColor: '#e0e0e0', width: '100%' },
-  button: { backgroundColor: '#007AFF', padding: 16, borderRadius: 8, alignItems: 'center', width: '100%', marginBottom: 12 },
+  input: { backgroundColor: '#f0f0f0', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 16, borderWidth: 1, borderColor: '#e0e0e0', width: '100%' },
+  buttonGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  button: { backgroundColor: '#007AFF', padding: 14, borderRadius: 8, alignItems: 'center', flex: 1, marginHorizontal: 5 },
   buttonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
   cancelButton: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#007AFF' },
   cancelButtonText: { color: '#007AFF' },
+  manageChildrenSection: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  sectionDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 15,
+  },
+  studentListContainer: {
+    marginTop: 10,
+    marginBottom: 20,
+    maxHeight: 200,
+    borderColor: '#e0e0e0',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+  },
+  studentItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  studentName: {
+    fontSize: 16,
+    color: '#333',
+  },
+  checkboxUnchecked: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#ccc',
+  },
+  checkboxChecked: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  associatedChildrenContainer: {
+    marginTop: 10,
+    // Removed border and padding as it's now part of the card
+  },
+  childItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  childName: {
+    fontSize: 16,
+    color: '#333',
+    marginLeft: 10,
+  },
+  noChildrenText: {
+    textAlign: 'center',
+    color: '#666',
+    fontStyle: 'italic',
+    paddingVertical: 10,
+  },
 });

@@ -17,17 +17,12 @@ const CreateHomeworkScreen = ({ navigation }) => {
   const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchData = async () => {
+      setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
-    };
-    fetchUser();
-  }, []);
 
-  useEffect(() => {
-    if (user) {
-      const fetchClasses = async () => {
-        setLoading(true);
+      if (user) {
         const { data, error } = await supabase
           .from('classes')
           .select('id, name')
@@ -38,13 +33,12 @@ const CreateHomeworkScreen = ({ navigation }) => {
         } else {
           setClasses(data);
         }
-        setLoading(false);
-      };
-      fetchClasses();
-    } else if (user === null) {
+      }
       setLoading(false);
-    }
-  }, [user]);
+    };
+
+    fetchData();
+  }, []);
 
   useEffect(() => {
     if (selectedClass) {

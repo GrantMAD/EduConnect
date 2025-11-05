@@ -4,6 +4,12 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faBookOpen, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
 
 export default function HomeworkCard({ homework, onPress }) {
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const options = { day: '2-digit', month: 'long', year: 'numeric' };
+    return date.toLocaleDateString('en-GB', options);
+  };
+
   return (
     <TouchableOpacity onPress={onPress} style={styles.container}>
       <View style={styles.row}>
@@ -12,7 +18,7 @@ export default function HomeworkCard({ homework, onPress }) {
       </View>
       <View style={styles.row}>
         <FontAwesomeIcon icon={faCalendarAlt} size={16} color="#007AFF" style={styles.icon} />
-        <Text>Due: {homework.due_date}</Text>
+        <Text>Due: {formatDate(homework.due_date)}</Text>
       </View>
       <View style={styles.hr} />
       <Text style={styles.tapToOpen}>Tap to open</Text>

@@ -71,6 +71,68 @@ export default function NotificationsScreen({ route, navigation }) {
     }
   };
 
+  const handleParentChildResponse = async (notification, accept) => {
+    try {
+      if (accept) {
+        const { error: insertError } = await supabase
+          .from('parent_child_relationships')
+          .insert({
+            parent_id: notification.related_user_id,
+            child_id: notification.user_id,
+          });
+
+        if (insertError) {
+          throw insertError;
+        }
+
+        const { error: updateRequestError } = await supabase
+          .from('parent_child_requests')
+          .update({ status: 'accepted' })
+          .eq('child_id', notification.user_id)
+          .eq('parent_id', notification.related_user_id)
+          .eq('status', 'pending');
+
+        if (updateRequestError) {
+          throw updateRequestError;
+        }
+
+        await supabase.from('notifications').insert({
+          user_id: notification.related_user_id,
+          type: 'parent_child_accepted',
+          title: 'Association Request Accepted',
+          message: `Your association request with ${notification.message.split(' wants to associate with you.')[0]} has been accepted.`,
+          is_read: false,
+        });
+      } else {
+        const { error: updateRequestError } = await supabase
+          .from('parent_child_requests')
+          .update({ status: 'rejected' })
+          .eq('child_id', notification.user_id)
+          .eq('parent_id', notification.related_user_id)
+          .eq('status', 'pending');
+
+        if (updateRequestError) {
+          throw updateRequestError;
+        }
+
+        await supabase.from('notifications').insert({
+          user_id: notification.related_user_id,
+          type: 'parent_child_rejected',
+          title: 'Association Request Rejected',
+          message: `Your association request with ${notification.message.split(' wants to associate with you.')[0]} has been rejected.`,
+          is_read: false,
+        });
+      }
+
+      await supabase.from('notifications').update({ is_read: true }).eq('id', notification.id);
+      setNotifications(prev => prev.filter(n => n.id !== notification.id));
+
+    } catch (err) {
+      console.error('Error handling parent-child response:', err);
+      Alert.alert('Error', 'Could not process the request: ' + err.message);
+    }
+  };
+
   const handleMarkAsRead = async (notificationId) => {
     try {
       const { error } = await supabase
@@ -118,7 +180,24 @@ export default function NotificationsScreen({ route, navigation }) {
             </View>
           )}
 
-          {item.is_read && item.type === 'school_join_request' && (
+          {item.type === 'parent_child_request' && isUnread && (
+            <View style={styles.buttonsRow}>
+              <TouchableOpacity
+                style={[styles.button, styles.acceptButton]}
+                onPress={() => handleParentChildResponse(item, true)}
+              >
+                <Text style={styles.buttonText}>Accept</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, styles.declineButton]}
+                onPress={() => handleParentChildResponse(item, false)}
+              >
+                <Text style={styles.buttonText}>Decline</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {item.is_read && (item.type === 'school_join_request' || item.type === 'parent_child_request') && (
             <>
               <View style={styles.hr} />
               <Text style={styles.statusText}>
@@ -127,7 +206,7 @@ export default function NotificationsScreen({ route, navigation }) {
             </>
           )}
 
-          {item.is_read && item.type !== 'school_join_request' && (
+          {item.is_read && item.type !== 'school_join_request' && item.type !== 'parent_child_request' && (
             <>
               <View style={styles.hr} />
               <Text style={styles.statusText}>

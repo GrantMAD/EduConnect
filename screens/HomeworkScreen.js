@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, Text, Modal, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, FlatList, ActivityIndicator, Text, Modal, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { FAB, Portal, Provider } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimesCircle, faCalendarAlt, faClipboardList, faCalendarPlus, faBook } from '@fortawesome/free-solid-svg-icons';
+import { Calendar } from 'react-native-calendars';
 
 import { supabase } from '../lib/supabase';
 import HomeworkCard from '../components/HomeworkCard';
@@ -17,12 +18,25 @@ const HomeworkList = () => {
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedHomework, setSelectedHomework] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const isFocused = useIsFocused();
 
   useEffect(() => {
-    fetchHomework();
-  }, []);
+    if(isFocused){
+        fetchHomework();
+    }
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    fetchUser();
+  }, [isFocused]);
 
   const fetchHomework = async () => {
+    setLoading(true);
     const { data, error } = await supabase
       .from('homework')
       .select('*')
@@ -35,16 +49,72 @@ const HomeworkList = () => {
   const handleCardPress = (item) => {
     setSelectedHomework(item);
     setModalVisible(true);
+    setIsEditing(false); // Ensure modal opens in view mode
+  };
+
+  const handleUpdate = async () => {
+    if (!selectedHomework) return;
+
+    try {
+      console.log('Attempting to update homework:', selectedHomework.id);
+      const { error } = await supabase
+        .from('homework')
+        .update({ subject: selectedHomework.subject, description: selectedHomework.description, due_date: selectedHomework.due_date })
+        .eq('id', selectedHomework.id);
+
+      if (error) {
+        console.error('Supabase update error:', error);
+        Alert.alert('Error', 'Failed to update homework: ' + error.message);
+      } else {
+        console.log('Homework updated successfully:', selectedHomework.id);
+        Alert.alert('Success', 'Homework updated successfully.');
+        setIsEditing(false);
+        fetchHomework();
+      }
+    } catch (err) {
+      console.error('Unexpected error during homework update:', err);
+      Alert.alert('Error', 'An unexpected error occurred: ' + err.message);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedHomework) return;
+
+    Alert.alert(
+      'Delete Homework',
+      'Are you sure you want to delete this homework?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          onPress: async () => {
+            const { error } = await supabase
+              .from('homework')
+              .delete()
+              .eq('id', selectedHomework.id);
+
+            if (error) {
+              Alert.alert('Error', 'Failed to delete homework.');
+            } else {
+              Alert.alert('Success', 'Homework deleted successfully.');
+              setModalVisible(false);
+              fetchHomework();
+            }
+          },
+          style: 'destructive',
+        },
+      ],
+      { cancelable: false }
+    );
   };
 
   const formatDate = (dateString) => {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const date = new Date(dateString);
-    const dayOfWeek = days[date.getDay()];
-    const dayOfMonth = date.getDate();
-    const month = months[date.getMonth()];
-    return `${dayOfWeek} ${dayOfMonth} ${month}`;
+    const options = { day: '2-digit', month: 'long', year: 'numeric' };
+    return date.toLocaleDateString('en-GB', options);
   };
 
   if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" />;
@@ -59,6 +129,7 @@ const HomeworkList = () => {
         visible={modalVisible}
         onRequestClose={() => {
           setModalVisible(!modalVisible);
+          setIsEditing(false);
         }}
       >
         <View style={styles.centeredView}>
@@ -78,15 +149,68 @@ const HomeworkList = () => {
                 </View>
                 <View style={styles.modalInfoContainer}>
                   <FontAwesomeIcon icon={faBook} size={14} color="#007AFF" style={styles.modalInfoIcon} />
-                  <Text style={styles.modalInfoText}>Subject: {selectedHomework.subject}</Text>
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.modalTextInput}
+                      value={selectedHomework.subject}
+                      onChangeText={(text) => setSelectedHomework({ ...selectedHomework, subject: text })}
+                    />
+                  ) : (
+                    <Text style={styles.modalInfoText}>Subject: {selectedHomework.subject}</Text>
+                  )}
                 </View>
                 <View style={styles.hr} />
-                <Text style={styles.modalText}>Description: {selectedHomework.description}</Text>
+                {isEditing ? (
+                  <TextInput
+                    style={styles.modalTextInput}
+                    value={selectedHomework.description}
+                    onChangeText={(text) => setSelectedHomework({ ...selectedHomework, description: text })}
+                    multiline
+                  />
+                ) : (
+                  <Text style={styles.modalText}>Description: {selectedHomework.description}</Text>
+                )}
                 <View style={styles.hr} />
                 <View style={styles.dueDateContainer}>
                   <FontAwesomeIcon icon={faCalendarAlt} size={14} color="#007AFF" />
-                  <Text style={styles.dueDateText}>Due Date: {selectedHomework.due_date}</Text>
+                  {isEditing ? (
+                    <Calendar
+                      minDate={new Date().toISOString().split('T')[0]}
+                      onDayPress={(day) => {
+                        setSelectedHomework({ ...selectedHomework, due_date: day.dateString });
+                      }}
+                      markedDates={{
+                        [selectedHomework.due_date]: { selected: true, marked: true, selectedColor: '#007AFF' },
+                      }}
+                      style={styles.modalCalendar}
+                    />
+                  ) : (
+                    <Text style={styles.dueDateText}>Due Date: {formatDate(selectedHomework.due_date)}</Text>
+                  )}
                 </View>
+                {currentUserId === selectedHomework.created_by && (
+                  <View style={styles.modalButtonContainer}>
+                    <TouchableOpacity
+                      style={styles.modalButton}
+                      onPress={() => {
+                        if (isEditing) {
+                          handleUpdate();
+                        } else {
+                          setIsEditing(true);
+                        }
+                      }}
+                    >
+                      <Text style={styles.modalButtonText}>{isEditing ? 'Save' : 'Edit'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalButton, isEditing && styles.disabledButton]}
+                      onPress={handleDelete}
+                      disabled={isEditing}
+                    >
+                      <Text style={styles.modalButtonText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </>
             )}
           </View>
@@ -106,12 +230,27 @@ const HomeworkList = () => {
 const AssignmentsList = () => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const isFocused = useIsFocused();
 
   useEffect(() => {
-    fetchAssignments();
-  }, []);
+    if (isFocused) {
+      fetchAssignments();
+    }
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    fetchUser();
+  }, [isFocused]);
 
   const fetchAssignments = async () => {
+    setLoading(true);
     const { data, error } = await supabase
       .from('assignments')
       .select('*')
@@ -121,14 +260,177 @@ const AssignmentsList = () => {
     setLoading(false);
   };
 
+  const handleCardPress = (item) => {
+    setSelectedAssignment(item);
+    setModalVisible(true);
+    setIsEditing(false); // Ensure modal opens in view mode
+  };
+
+  const handleUpdate = async () => {
+    if (!selectedAssignment) return;
+
+    try {
+      console.log('Attempting to update assignment:', selectedAssignment.id);
+      const { error } = await supabase
+        .from('assignments')
+        .update({ title: selectedAssignment.title, description: selectedAssignment.description, due_date: selectedAssignment.due_date })
+        .eq('id', selectedAssignment.id);
+
+      if (error) {
+        console.error('Supabase update error:', error);
+        Alert.alert('Error', 'Failed to update assignment: ' + error.message);
+      } else {
+        console.log('Assignment updated successfully:', selectedAssignment.id);
+        Alert.alert('Success', 'Assignment updated successfully.');
+        setIsEditing(false);
+        fetchAssignments();
+      }
+    } catch (err) {
+      console.error('Unexpected error during assignment update:', err);
+      Alert.alert('Error', 'An unexpected error occurred: ' + err.message);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedAssignment) return;
+
+    Alert.alert(
+      'Delete Assignment',
+      'Are you sure you want to delete this assignment?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          onPress: async () => {
+            const { error } = await supabase
+              .from('assignments')
+              .delete()
+              .eq('id', selectedAssignment.id);
+
+            if (error) {
+              Alert.alert('Error', 'Failed to delete assignment.');
+            } else {
+              Alert.alert('Success', 'Assignment deleted successfully.');
+              setModalVisible(false);
+              fetchAssignments();
+            }
+          },
+          style: 'destructive',
+        },
+      ],
+      { cancelable: false }
+    );
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const options = { day: '2-digit', month: 'long', year: 'numeric' };
+    return date.toLocaleDateString('en-GB', options);
+  };
+
   if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" />;
 
   return (
     <View style={styles.container}>
+      <Text style={styles.screenDescription}>Here is a list of all your current assignments. Tap on a card to view more details.</Text>
+      <View style={styles.hr} />
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => {
+          setModalVisible(!modalVisible);
+          setIsEditing(false);
+        }}
+      >
+        <View style={styles.centeredView}>
+          <View style={styles.modalView}>
+            <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
+              <FontAwesomeIcon icon={faTimesCircle} size={24} color="#007AFF" />
+            </TouchableOpacity>
+            {selectedAssignment && (
+              <>
+                <View style={styles.modalTitleContainer}>
+                  <FontAwesomeIcon icon={faClipboardList} size={20} color="#007AFF" />
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.modalTitleTextInput}
+                      value={selectedAssignment.title}
+                      onChangeText={(text) => setSelectedAssignment({ ...selectedAssignment, title: text })}
+                    />
+                  ) : (
+                    <Text style={styles.modalTitle}>{selectedAssignment.title}</Text>
+                  )}
+                </View>
+                <View style={styles.modalInfoContainer}>
+                  <FontAwesomeIcon icon={faCalendarPlus} size={14} color="#007AFF" style={styles.modalInfoIcon} />
+                  <Text style={styles.modalInfoText}>Date issued: {formatDate(selectedAssignment.created_at)}</Text>
+                </View>
+                <View style={styles.hr} />
+                {isEditing ? (
+                  <TextInput
+                    style={styles.modalTextInput}
+                    value={selectedAssignment.description}
+                    onChangeText={(text) => setSelectedAssignment({ ...selectedAssignment, description: text })}
+                    multiline
+                  />
+                ) : (
+                  <Text style={styles.modalText}>Description: {selectedAssignment.description}</Text>
+                )}
+                <View style={styles.hr} />
+                <View style={styles.dueDateContainer}>
+                  <FontAwesomeIcon icon={faCalendarAlt} size={14} color="#007AFF" />
+                  {isEditing ? (
+                    <Calendar
+                      minDate={new Date().toISOString().split('T')[0]}
+                      onDayPress={(day) => {
+                        setSelectedAssignment({ ...selectedAssignment, due_date: day.dateString });
+                      }}
+                      markedDates={{
+                        [selectedAssignment.due_date]: { selected: true, marked: true, selectedColor: '#007AFF' },
+                      }}
+                      style={styles.modalCalendar}
+                    />
+                  ) : (
+                    <Text style={styles.dueDateText}>Due Date: {formatDate(selectedAssignment.due_date)}</Text>
+                  )}
+                </View>
+                {currentUserId === selectedAssignment.assigned_by && (
+                  <View style={styles.modalButtonContainer}>
+                    <TouchableOpacity
+                      style={styles.modalButton}
+                      onPress={() => {
+                        if (isEditing) {
+                          handleUpdate();
+                        } else {
+                          setIsEditing(true);
+                        }
+                      }}
+                    >
+                      <Text style={styles.modalButtonText}>{isEditing ? 'Save' : 'Edit'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalButton, isEditing && styles.disabledButton]}
+                      onPress={handleDelete}
+                      disabled={isEditing}
+                    >
+                      <Text style={styles.modalButtonText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       <FlatList
         data={assignments}
         keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => <AssignmentCard assignment={item} />}
+        renderItem={({ item }) => <AssignmentCard assignment={item} onPress={() => handleCardPress(item)} />}
         ListEmptyComponent={<Text style={styles.emptyText}>No assignments found.</Text>}
       />
     </View>
@@ -282,5 +584,44 @@ const styles = StyleSheet.create({
   dueDateText: {
     marginLeft: 10,
     fontSize: 14,
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 15,
+  },
+  modalButton: {
+    backgroundColor: '#007AFF',
+    padding: 10,
+    borderRadius: 5,
+  },
+  modalButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  disabledButton: {
+    backgroundColor: '#a9a9a9',
+  },
+  modalTextInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    padding: 10,
+    flex: 1,
+  },
+  modalTitleTextInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    padding: 10,
+    flex: 1,
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginLeft: 10,
+  },
+  modalCalendar: {
+    width: '100%',
+    marginTop: 10,
+    marginBottom: 10,
   },
 });

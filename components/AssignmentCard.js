@@ -1,40 +1,62 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faClipboardList, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
 
-const AssignmentCard = ({ assignment }) => {
+const AssignmentCard = ({ assignment, onPress }) => {
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const options = { day: '2-digit', month: 'long', year: 'numeric' };
+    return date.toLocaleDateString('en-GB', options);
+  };
+
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>{assignment.title}</Text>
-      <Text style={styles.description}>{assignment.description}</Text>
-      <Text style={styles.dueDate}>Due: {new Date(assignment.due_date).toLocaleDateString()}</Text>
-    </View>
+    <TouchableOpacity onPress={onPress} style={styles.container}>
+      <View style={styles.row}>
+        <FontAwesomeIcon icon={faClipboardList} size={16} color="#007AFF" style={styles.icon} />
+        <Text style={styles.title}>{assignment.title}</Text>
+      </View>
+      <View style={styles.row}>
+        <FontAwesomeIcon icon={faCalendarAlt} size={16} color="#007AFF" style={styles.icon} />
+        <Text>Due: {formatDate(assignment.due_date)}</Text>
+      </View>
+      <View style={styles.hr} />
+      <Text style={styles.tapToOpen}>Tap to open</Text>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#fff',
-    padding: 16,
-    marginVertical: 8,
+  container: {
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    marginBottom: 10,
+    backgroundColor: '#f9f9f9',
     borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  icon: {
+    marginRight: 10,
   },
   title: {
-    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 8,
+    fontSize: 16,
   },
-  description: {
-    fontSize: 14,
-    marginBottom: 8,
+  hr: {
+    borderBottomColor: '#eee',
+    borderBottomWidth: 1,
+    marginVertical: 5,
   },
-  dueDate: {
+  tapToOpen: {
     fontSize: 12,
-    color: '#888',
+    color: 'gray',
+    textAlign: 'right',
+    marginTop: 5,
   },
 });
 
