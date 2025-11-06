@@ -42,6 +42,8 @@ import ManageAnnouncementsScreen from '../screens/ManageAnnouncementsScreen';
 import CreateAssignmentScreen from '../screens/CreateAssignmentScreen';
 import CreateHomeworkScreen from '../screens/CreateHomeworkScreen';
 
+import CreateMarketplaceItemScreen from '../screens/CreateMarketplaceItemScreen';
+
 const Tab = createMaterialTopTabNavigator();
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -351,6 +353,7 @@ const MainStackNavigator = () => (
     <Stack.Screen name="ManageAnnouncements" component={ManageAnnouncementsScreen} />
     <Stack.Screen name="CreateHomework" component={CreateHomeworkScreen} />
     <Stack.Screen name="CreateAssignment" component={CreateAssignmentScreen} />
+    <Stack.Screen name="CreateMarketplaceItem" component={CreateMarketplaceItemScreen} />
   </Stack.Navigator>
 );
 

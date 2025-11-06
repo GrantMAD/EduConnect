@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, ActivityIndicator, Alert, ScrollView, Image, TouchableOpacity, Platform } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faEdit, faSave, faTimes, faUserFriends, faPlus, faGear, faEnvelope, faUser, faBriefcase, faAddressCard } from '@fortawesome/free-solid-svg-icons';
+import { faEdit, faSave, faTimes, faUserFriends, faPlus, faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -17,6 +17,7 @@ export default function ProfileScreen() {
     role: '',
     avatar_url: '',
     school_id: null,
+    number: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -209,6 +210,7 @@ export default function ProfileScreen() {
         email: userData.email,
         role: userData.role,
         avatar_url: avatarUrl,
+        number: userData.number,
       }).eq('id', user.id);
 
       if (error) throw error;
@@ -328,6 +330,18 @@ export default function ProfileScreen() {
             <Text style={styles.label}>Email</Text>
           </View>
           <Text style={styles.value}>{userData.email}</Text>
+        </View>
+
+        <View style={styles.infoContainer}>
+          <View style={styles.infoRow}>
+            <FontAwesomeIcon icon={faPhone} size={16} color="#666" style={styles.infoIcon} />
+            <Text style={styles.label}>Phone Number</Text>
+          </View>
+          {isEditing ? (
+            <TextInput style={styles.input} value={userData.number} onChangeText={text => setUserData({ ...userData, number: text })} placeholder="Enter phone number" />
+          ) : (
+            <Text style={styles.value}>{userData.number || 'Not provided'}</Text>
+          )}
         </View>
 
         <View style={styles.infoContainer}>
