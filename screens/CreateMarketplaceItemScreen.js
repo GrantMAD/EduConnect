@@ -25,12 +25,14 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer';
 
-export default function CreateMarketplaceItemScreen({ navigation }) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [price, setPrice] = useState('');
-  const [category, setCategory] = useState('Books');
-  const [image, setImage] = useState(null);
+export default function CreateMarketplaceItemScreen({ route, navigation }) {
+  const { item: existingItem } = route.params || {};
+
+  const [title, setTitle] = useState(existingItem?.title || '');
+  const [description, setDescription] = useState(existingItem?.description || '');
+  const [price, setPrice] = useState(existingItem?.price?.toString() || '');
+  const [category, setCategory] = useState(existingItem?.category || 'Books');
+  const [image, setImage] = useState(existingItem ? { uri: existingItem.image_url } : null);
   const [uploading, setUploading] = useState(false);
 
   const pickImage = async () => {
@@ -72,7 +74,7 @@ export default function CreateMarketplaceItemScreen({ navigation }) {
     }
   };
 
-  const handleCreateItem = async () => {
+  const handleSaveItem = async () => {
     if (!title || !price || !category) {
       Alert.alert('Error', 'Please fill in all required fields.');
       return;
@@ -84,35 +86,41 @@ export default function CreateMarketplaceItemScreen({ navigation }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not found');
 
-      const { data: userProfile } = await supabase
-        .from('users')
-        .select('school_id')
-        .eq('id', user.id)
-        .single();
-
-      if (!userProfile?.school_id) throw new Error('User is not associated with a school.');
-
-      let imageUrl = null;
-      if (image) {
+      let imageUrl = existingItem?.image_url;
+      if (image && image.uri !== existingItem?.image_url) {
         imageUrl = await uploadImage(image);
         if (!imageUrl) throw new Error('Image upload failed.');
       }
 
-      const { error: insertError } = await supabase.from('marketplace_items').insert([
-        {
-          title,
-          description,
-          price: parseFloat(price),
-          category,
-          image_url: imageUrl,
-          seller_id: user.id,
-          school_id: userProfile.school_id,
-        },
-      ]);
+      const itemData = {
+        title,
+        description,
+        price: parseFloat(price),
+        category,
+        image_url: imageUrl,
+        seller_id: user.id,
+      };
 
-      if (insertError) throw insertError;
+      if (existingItem) {
+        const { error } = await supabase
+          .from('marketplace_items')
+          .update(itemData)
+          .eq('id', existingItem.id);
+        if (error) throw error;
+        Alert.alert('Success', 'Item updated successfully!');
+      } else {
+        const { data: userProfile } = await supabase
+          .from('users')
+          .select('school_id')
+          .eq('id', user.id)
+          .single();
+        if (!userProfile?.school_id) throw new Error('User is not associated with a school.');
 
-      Alert.alert('Success', 'Item created successfully!');
+        const { error } = await supabase.from('marketplace_items').insert([{ ...itemData, school_id: userProfile.school_id }]);
+        if (error) throw error;
+        Alert.alert('Success', 'Item created successfully!');
+      }
+
       navigation.goBack();
     } catch (error) {
       Alert.alert('Error', error.message);
@@ -123,8 +131,8 @@ export default function CreateMarketplaceItemScreen({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.header}>Create Marketplace Item</Text>
-      <Text style={styles.subHeader}>List an item for sale within your school community.</Text>
+      <Text style={styles.header}>{existingItem ? 'Edit Marketplace Item' : 'Create Marketplace Item'}</Text>
+      <Text style={styles.subHeader}>{existingItem ? 'Update the details of your item.' : 'List an item for sale within your school community.'}</Text>
 
       {/* Image Picker */}
       <View style={styles.card}>
@@ -187,13 +195,13 @@ export default function CreateMarketplaceItemScreen({ navigation }) {
 
       <TouchableOpacity
         style={[styles.createButton, uploading && { opacity: 0.7 }]}
-        onPress={handleCreateItem}
+        onPress={handleSaveItem}
         disabled={uploading}
       >
         {uploading ? (
           <ActivityIndicator size="small" color="#fff" />
         ) : (
-          <Text style={styles.createButtonText}>Create Item</Text>
+          <Text style={styles.createButtonText}>{existingItem ? 'Update Item' : 'Create Item'}</Text>
         )}
       </TouchableOpacity>
     </ScrollView>

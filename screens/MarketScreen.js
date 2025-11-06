@@ -69,96 +69,95 @@ export default function MarketScreen({ navigation }) {
     fetchItems().then(() => setRefreshing(false));
   }, [searchQuery]);
 
-  const handleSearch = (text) => {
-    setSearchQuery(text);
-    fetchItems();
-  };
-
-  const handleViewSeller = (seller) => {
-    setSelectedSeller(seller);
-    setModalVisible(true);
-  };
-
-  const categoryIcons = {
-    Books: faBook,
-    Electronics: faLaptop,
-    Stationery: faPen,
-    Furniture: faCouch,
-    Clothing: faTshirt,
-    Other: faBox,
-  };
-
-  const categoryDescriptions = {
-    Books: 'Find your textbooks and reading materials here.',
-    Electronics: 'From calculators to laptops, find your tech here.',
-    Stationery: 'All the pens, paper, and supplies you need.',
-    Furniture: 'Desks, chairs, and more for your study space.',
-    Clothing: 'School uniforms and other apparel.',
-    Other: 'Miscellaneous items for sale.',
-  };
-
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007AFF" />;
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.mainHeaderContainer}>
-        <FontAwesomeIcon icon={faStore} size={24} color="#333" style={styles.mainHeaderIcon} />
-        <Text style={styles.header}>Marketplace</Text>
-      </View>
-      <Text style={styles.description}>Browse items for sale from other students. To buy an item, contact the seller directly using the information provided.</Text>
-      <View style={styles.searchContainer}>
-        <FontAwesomeIcon icon={faSearch} size={16} color="#888" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search for items..."
-          placeholderTextColor="#999"
-          value={searchQuery}
-          onChangeText={handleSearch}
+    const handleSearch = (text) => {
+      setSearchQuery(text);
+      fetchItems();
+    };
+  
+    const handleViewSeller = (seller) => {
+      setSelectedSeller(seller);
+      setModalVisible(true);
+    };
+  
+    const categoryIcons = {
+      Books: faBook,
+      Electronics: faLaptop,
+      Stationery: faPen,
+      Furniture: faCouch,
+      Clothing: faTshirt,
+      Other: faBox,
+    };
+  
+    const categoryDescriptions = {
+      Books: 'Find your textbooks and reading materials here.',
+      Electronics: 'From calculators to laptops, find your tech here.',
+      Stationery: 'All the pens, paper, and supplies you need.',
+      Furniture: 'Desks, chairs, and more for your study space.',
+      Clothing: 'School uniforms and other apparel.',
+      Other: 'Miscellaneous items for sale.',
+    };
+  
+    if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007AFF" />;
+  
+    return (
+      <View style={styles.container}>
+        <View style={styles.mainHeaderContainer}>
+          <FontAwesomeIcon icon={faStore} size={24} color="#333" style={styles.mainHeaderIcon} />
+          <Text style={styles.header}>Marketplace</Text>
+        </View>
+        <Text style={styles.description}>Browse items for sale from other students. Press on an item to view the seller's details and contact information.</Text>
+        <View style={styles.searchContainer}>
+          <FontAwesomeIcon icon={faSearch} size={16} color="#888" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search for items..."
+            placeholderTextColor="#999"
+            value={searchQuery}
+            onChangeText={handleSearch}
+          />
+        </View>
+  
+        <SectionList
+          sections={items}
+          keyExtractor={(section) => section.title}
+          renderItem={({ item }) => (
+            <FlatList
+              data={item}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              renderItem={({ item }) => <MarketplaceItemCard item={item} onViewSeller={handleViewSeller} />}
+              keyExtractor={(item) => item.id.toString()}
+            />
+          )}
+          renderSectionHeader={({ section: { title } }) => (
+            <View style={styles.sectionHeaderContainer}>
+              <FontAwesomeIcon icon={categoryIcons[title]} size={18} color="#333" style={styles.sectionHeaderIcon} />
+              <View>
+                <Text style={styles.sectionHeader}>{title}</Text>
+                <Text style={styles.sectionDescription}>{categoryDescriptions[title]}</Text>
+              </View>
+            </View>
+          )}
+          ListEmptyComponent={() => (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No items found.</Text>
+            </View>
+          )}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          contentContainerStyle={{ paddingBottom: 100 }}
+        />
+  
+        <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreateMarketplaceItem')}>
+          <FontAwesomeIcon icon={faPlus} size={24} color="#fff" />
+        </TouchableOpacity>
+  
+        <SellerProfileModal
+          visible={modalVisible}
+          seller={selectedSeller}
+          onClose={() => setModalVisible(false)}
         />
       </View>
-
-      <SectionList
-        sections={items}
-        keyExtractor={(item, index) => item + index}
-        renderItem={({ item }) => (
-          <FlatList
-            data={item}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            renderItem={({ item }) => <MarketplaceItemCard item={item} onViewSeller={handleViewSeller} />}
-            keyExtractor={(item) => item.id.toString()}
-          />
-        )}
-        renderSectionHeader={({ section: { title } }) => (
-          <View style={styles.sectionHeaderContainer}>
-            <FontAwesomeIcon icon={categoryIcons[title]} size={18} color="#333" style={styles.sectionHeaderIcon} />
-            <View>
-              <Text style={styles.sectionHeader}>{title}</Text>
-              <Text style={styles.sectionDescription}>{categoryDescriptions[title]}</Text>
-            </View>
-          </View>
-        )}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No items found.</Text>
-          </View>
-        )}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={{ paddingBottom: 100 }}
-      />
-
-      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreateMarketplaceItem')}>
-        <FontAwesomeIcon icon={faPlus} size={24} color="#fff" />
-      </TouchableOpacity>
-
-      <SellerProfileModal
-        visible={modalVisible}
-        seller={selectedSeller}
-        onClose={() => setModalVisible(false)}
-      />
-    </View>
-  );
-}
+    );}
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f7f7f7', padding: 16 },

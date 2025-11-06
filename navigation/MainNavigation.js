@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, TouchableOpacity, Text, Image, Dimensions, Animated, Alert, ActivityIndicator } from 'react-native';
+import { View, TouchableOpacity, Text, Image, Dimensions, Animated, Alert, ActivityIndicator, LayoutAnimation } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
@@ -17,7 +17,8 @@ import {
   faHome,
   faGear,
   faChevronDown,
-  faChevronUp
+  faChevronUp,
+  faCog
 } from '@fortawesome/free-solid-svg-icons';
 import Modal from 'react-native-modal';
 
@@ -38,6 +39,7 @@ import CreateClassScreen from '../screens/CreateClassScreen';
 import ManageUsersInClassScreen from '../screens/ManageUsersInClassScreen';
 import SchoolDataScreen from '../screens/SchoolDataScreen';
 import ManageAnnouncementsScreen from '../screens/ManageAnnouncementsScreen';
+import ManageMarketDataScreen from '../screens/ManageMarketDataScreen';
 
 import CreateAssignmentScreen from '../screens/CreateAssignmentScreen';
 import CreateHomeworkScreen from '../screens/CreateHomeworkScreen';
@@ -354,6 +356,7 @@ const MainStackNavigator = () => (
     <Stack.Screen name="CreateHomework" component={CreateHomeworkScreen} />
     <Stack.Screen name="CreateAssignment" component={CreateAssignmentScreen} />
     <Stack.Screen name="CreateMarketplaceItem" component={CreateMarketplaceItemScreen} />
+    <Stack.Screen name="ManageMarketData" component={ManageMarketDataScreen} />
   </Stack.Navigator>
 );
 
@@ -363,6 +366,7 @@ const CustomDrawerContent = (props) => {
   const [userName, setUserName] = useState(null);
   const [userEmail, setUserEmail] = useState(null);
   const [userRole, setUserRole] = useState(null); // Add userRole state
+  const [isManageDropdownOpen, setManageDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const mainStackState = props.state.routes.find(route => route.name === 'MainStack')?.state;
@@ -493,6 +497,54 @@ const CustomDrawerContent = (props) => {
           <Text style={{ fontSize: 12, color: '#666' }}>Adjust app settings and preferences</Text>
         </View>
       </TouchableOpacity>
+
+      {['admin', 'teacher', 'student'].includes(userRole) && (
+        <>
+          <TouchableOpacity
+            onPress={() => {
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              setManageDropdownOpen(!isManageDropdownOpen);
+            }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingVertical: 12,
+              paddingHorizontal: 20,
+              borderRadius: 8,
+            }}
+          >
+            <FontAwesomeIcon icon={faCog} size={18} color="#007AFF" style={{ marginRight: 15 }} />
+            <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View>
+                <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Manage</Text>
+                <Text style={{ fontSize: 12, color: '#666' }}>Manage your school data</Text>
+              </View>
+              <FontAwesomeIcon icon={isManageDropdownOpen ? faChevronUp : faChevronDown} size={14} color="#666" />
+            </View>
+          </TouchableOpacity>
+
+          {isManageDropdownOpen && (
+            <View style={{ paddingLeft: 35, backgroundColor: '#f0f5ff', borderRadius: 8, marginHorizontal: 10 }}>
+              <TouchableOpacity
+                onPress={() => props.navigation.navigate('MainStack', { screen: 'ManageMarketData' })}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingVertical: 12,
+                  paddingHorizontal: 20,
+                  backgroundColor: activeMainStackRouteName === 'ManageMarketData' ? '#d0e6ff' : 'transparent',
+                  borderRadius: 8,
+                }}
+              >
+                <FontAwesomeIcon icon={faStore} size={18} color="#007AFF" style={{ marginRight: 15 }} />
+                <View>
+                  <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Manage Market Data</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+        </>
+      )}
 
       <View style={{ flex: 1 }} />
 

@@ -1,20 +1,18 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
 
-export default function MarketplaceItemCard({ item, onEditImage, onViewSeller }) {
+const MarketplaceItemCard = ({ item, onViewSeller, onEdit, onDelete }) => {
+  const CardWrapper = onViewSeller ? TouchableOpacity : View;
+
   return (
-    <View style={styles.card}>
+    <CardWrapper style={styles.card} {...(onViewSeller && { onPress: () => onViewSeller(item.seller) })}>
       <View style={styles.imageContainer}>
         <Image
           source={{ uri: item.image_url || 'https://via.placeholder.com/150' }}
           style={styles.image}
         />
-        {onEditImage && (
-          <TouchableOpacity style={styles.editOverlay} onPress={() => onEditImage(item)}>
-            <FontAwesome name="camera" size={18} color="#fff" />
-          </TouchableOpacity>
-        )}
       </View>
 
       <View style={styles.infoContainer}>
@@ -23,28 +21,26 @@ export default function MarketplaceItemCard({ item, onEditImage, onViewSeller })
           {item.description}
         </Text>
 
-        <View style={styles.detailRow}>
-          <FontAwesome name="tag" size={14} color="#555" style={styles.icon} />
-          <Text style={styles.price}>{item.price} ZAR</Text>
-        </View>
-
-        <View style={styles.detailRow}>
-          <FontAwesome name="list" size={14} color="#555" style={styles.icon} />
-          <Text style={styles.category}>{item.category}</Text>
-        </View>
-
-        <View style={styles.detailRow}>
-          <FontAwesome name="user" size={14} color="#555" style={styles.icon} />
-          <Text style={styles.seller}>Seller: {item.seller.full_name}</Text>
-        </View>
-
-        <TouchableOpacity style={styles.button} onPress={() => onViewSeller(item.seller)}>
-          <Text style={styles.buttonText}>View Seller</Text>
-        </TouchableOpacity>
+        <Text style={styles.price}>R {item.price.toFixed(2)}</Text>
       </View>
-    </View>
+
+      {(onEdit || onDelete) && (
+        <View style={styles.actionButtonsContainer}>
+          {onEdit && (
+            <TouchableOpacity style={styles.actionButton} onPress={() => onEdit(item)}>
+              <FontAwesomeIcon icon={faEdit} size={18} color="#007AFF" />
+            </TouchableOpacity>
+          )}
+          {onDelete && (
+            <TouchableOpacity style={styles.actionButton} onPress={() => onDelete(item.id)}>
+              <FontAwesomeIcon icon={faTrash} size={18} color="#FF3B30" />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </CardWrapper>
   );
-}
+};
 
 const styles = StyleSheet.create({
   card: {
@@ -65,14 +61,6 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: 180,
-  },
-  editOverlay: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: 6,
-    borderRadius: 20,
   },
   infoContainer: {
     padding: 14,
@@ -124,4 +112,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    padding: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  actionButton: {
+    marginLeft: 15,
+    padding: 5,
+  },
 });
+
+export default MarketplaceItemCard;
