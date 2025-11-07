@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, Image, TouchableOpacity, ScrollView } from 'react-native';
+import AnnouncementCardSkeleton from '../components/skeletons/AnnouncementCardSkeleton';
 import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { useFocusEffect } from '@react-navigation/native';
@@ -256,7 +257,25 @@ export default function AnnouncementsScreen({ navigation }) {
     setShowModal(true);
   };
 
-  if (loading) return <ActivityIndicator style={{ marginTop: 50 }} />;
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.welcomeContainer}>
+          <View style={[styles.skeleton, { width: '70%', height: 24, borderRadius: 4, marginBottom: 5 }]} />
+          <View style={[styles.skeleton, { width: '90%', height: 16, borderRadius: 4 }]} />
+        </View>
+        <View style={[styles.imageContainer, styles.skeleton]} />
+        <View style={styles.sectionHeaderContainer}>
+          <View style={[styles.skeleton, { width: '40%', height: 20, borderRadius: 4 }]} />
+        </View>
+        <FlatList
+          data={[1, 2, 3]} // Render 3 skeleton cards
+          keyExtractor={(item) => item.toString()}
+          renderItem={() => <AnnouncementCardSkeleton />}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -435,6 +454,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     marginTop: 5,
+  },
+  skeleton: {
+    backgroundColor: '#E0E0E0',
   },
   addButtonText: {
     color: '#fff',

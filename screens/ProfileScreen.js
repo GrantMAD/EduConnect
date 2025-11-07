@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, TextInput, StyleSheet, ActivityIndicator, Alert, ScrollView, Image, TouchableOpacity, Platform } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faEdit, faSave, faTimes, faUserFriends, faPlus, faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone } from '@fortawesome/free-solid-svg-icons';
+import ProfileScreenSkeleton from '../components/skeletons/ProfileScreenSkeleton';
+import { faEdit, faSave, faUserFriends, faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone, faMinus } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -29,9 +30,17 @@ export default function ProfileScreen() {
   const [studentSearch, setStudentSearch] = useState('');
   const [associatedChildren, setAssociatedChildren] = useState([]);
   const [showManageChildren, setShowManageChildren] = useState(false);
+  const scrollViewRef = useRef(null);
+
   useEffect(() => {
     fetchUserData();
   }, []);
+
+  useEffect(() => {
+    if (showManageChildren && scrollViewRef.current) {
+      scrollViewRef.current.scrollToEnd({ animated: true });
+    }
+  }, [showManageChildren]);
 
   useEffect(() => {
     if (userData.role === 'parent' && userData.school_id) {
@@ -279,16 +288,53 @@ export default function ProfileScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" />
-      </View>
+  const handleRemoveChild = (childId, childName) => {
+    Alert.alert(
+      'Remove Student',
+      `Are you sure you want to remove ${childName} from your associated children? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            setSaving(true);
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (!user) throw new Error("User not authenticated.");
+
+              const { error } = await supabase
+                .from('parent_child_relationships')
+                .delete()
+                .eq('parent_id', user.id)
+                .eq('child_id', childId);
+
+              if (error) throw error;
+
+              setAssociatedChildren(prev => prev.filter(id => id !== childId));
+              Alert.alert('Success', `${childName} has been removed.`);
+            } catch (error) {
+              console.error('Error removing child:', error.message);
+              Alert.alert('Error', 'Failed to remove child.');
+            } finally {
+              setSaving(false);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
     );
+  };
+
+  if (loading) {
+    return <ProfileScreenSkeleton />;
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView ref={scrollViewRef} contentContainerStyle={styles.container}>
       {/* Profile Image and Description */}
       {isEditing ? (
         <TouchableOpacity onPress={pickImage} activeOpacity={0.7} style={{ marginBottom: 16 }}>
@@ -302,88 +348,87 @@ export default function ProfileScreen() {
       <Text style={styles.header}>My Profile</Text>
       <Text style={styles.description}>View and edit your profile information.</Text>
 
-      {/* Card 1: User Information */}
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <FontAwesomeIcon icon={faAddressCard} size={20} color="#007AFF" style={styles.cardHeaderIcon} />
-            <Text style={styles.cardTitle}>Personal Information</Text>
-          </View>
+      {/* User Information */}
+      <View style={styles.sectionHeaderContainer}>
+        <FontAwesomeIcon icon={faAddressCard} size={20} color="#007AFF" style={styles.sectionHeaderIcon} />
+        <Text style={styles.sectionTitle}>Personal Information</Text>
+      </View>
+      <View style={{ alignSelf: 'stretch' }}>
+        <Text style={styles.sectionDescription}>Manage your personal details and account settings.</Text>
+      </View>
+
+      <View style={styles.infoContainer}>
+        <View style={styles.infoRow}>
+          <FontAwesomeIcon icon={faUser} size={16} color="#666" style={styles.infoIcon} />
+          <Text style={styles.label}>Full Name</Text>
         </View>
-        <Text style={styles.cardDescription}>Manage your personal details and account settings.</Text>
-
-        <View style={styles.infoContainer}>
-          <View style={styles.infoRow}>
-            <FontAwesomeIcon icon={faUser} size={16} color="#666" style={styles.infoIcon} />
-            <Text style={styles.label}>Full Name</Text>
-          </View>
-          {isEditing ? (
-            <TextInput style={styles.input} value={userData.full_name} onChangeText={text => setUserData({ ...userData, full_name: text })} placeholder="Enter full name" />
-          ) : (
-            <Text style={styles.value}>{userData.full_name}</Text>
-          )}
-        </View>
-
-        <View style={styles.infoContainer}>
-          <View style={styles.infoRow}>
-            <FontAwesomeIcon icon={faEnvelope} size={16} color="#666" style={styles.infoIcon} />
-            <Text style={styles.label}>Email</Text>
-          </View>
-          <Text style={styles.value}>{userData.email}</Text>
-        </View>
-
-        <View style={styles.infoContainer}>
-          <View style={styles.infoRow}>
-            <FontAwesomeIcon icon={faPhone} size={16} color="#666" style={styles.infoIcon} />
-            <Text style={styles.label}>Phone Number</Text>
-          </View>
-          {isEditing ? (
-            <TextInput style={styles.input} value={userData.number} onChangeText={text => setUserData({ ...userData, number: text })} placeholder="Enter phone number" />
-          ) : (
-            <Text style={styles.value}>{userData.number || 'Not provided'}</Text>
-          )}
-        </View>
-
-        <View style={styles.infoContainer}>
-          <View style={styles.infoRow}>
-            <FontAwesomeIcon icon={faBriefcase} size={16} color="#666" style={styles.infoIcon} />
-            <Text style={styles.label}>Role</Text>
-          </View>
-          <Text style={styles.value}>{userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}</Text>
-        </View>
-
-        {!isEditing && (
-          <TouchableOpacity style={styles.editProfileButton} onPress={handleEdit}>
-            <FontAwesomeIcon icon={faEdit} size={18} color="#fff" />
-            <Text style={styles.editProfileButtonText}>Edit Profile</Text>
-          </TouchableOpacity>
-        )}
-
-        {isEditing && (
-          <View style={styles.buttonGroup}>
-            <TouchableOpacity style={styles.button} onPress={handleSave} disabled={saving}>
-              <Text style={styles.buttonText}>{saving ? "Saving..." : "Save"}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={handleCancel}>
-              <Text style={[styles.buttonText, styles.cancelButtonText]}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
+        {isEditing ? (
+          <TextInput style={styles.input} value={userData.full_name} onChangeText={text => setUserData({ ...userData, full_name: text })} placeholder="Enter full name" />
+        ) : (
+          <Text style={styles.value}>{userData.full_name}</Text>
         )}
       </View>
 
-      {/* Card 2: My Children (for Parents) */}
+      <View style={styles.infoContainer}>
+        <View style={styles.infoRow}>
+          <FontAwesomeIcon icon={faEnvelope} size={16} color="#666" style={styles.infoIcon} />
+          <Text style={styles.label}>Email</Text>
+        </View>
+        <Text style={styles.value}>{userData.email}</Text>
+      </View>
+
+      <View style={styles.infoContainer}>
+        <View style={styles.infoRow}>
+          <FontAwesomeIcon icon={faPhone} size={16} color="#666" style={styles.infoIcon} />
+          <Text style={styles.label}>Phone Number</Text>
+        </View>
+        {isEditing ? (
+          <TextInput style={styles.input} value={userData.number} onChangeText={text => setUserData({ ...userData, number: text })} placeholder="Enter phone number" />
+        ) : (
+          <Text style={styles.value}>{userData.number || 'Not provided'}</Text>
+        )}
+      </View>
+
+      <View style={styles.infoContainer}>
+        <View style={styles.infoRow}>
+          <FontAwesomeIcon icon={faBriefcase} size={16} color="#666" style={styles.infoIcon} />
+          <Text style={styles.label}>Role</Text>
+        </View>
+        <Text style={styles.value}>{userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}</Text>
+      </View>
+
+      {!isEditing && (
+        <TouchableOpacity style={styles.editProfileButton} onPress={handleEdit}>
+          <FontAwesomeIcon icon={faEdit} size={18} color="#fff" />
+          <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+        </TouchableOpacity>
+      )}
+
+      {isEditing && (
+        <View style={styles.buttonGroup}>
+          <TouchableOpacity style={styles.button} onPress={handleSave} disabled={saving}>
+            <Text style={styles.buttonText}>{saving ? "Saving..." : "Save"}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={handleCancel}>
+            <Text style={[styles.buttonText, styles.cancelButtonText]}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <View style={styles.separator} />
+      {/* My Children (for Parents) */}
       {userData.role === 'parent' && (
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <FontAwesomeIcon icon={faUserFriends} size={20} color="#007AFF" style={styles.cardHeaderIcon} />
-              <Text style={styles.cardTitle}>My Children</Text>
-            </View>
-            <TouchableOpacity onPress={() => setShowManageChildren(!showManageChildren)} style={styles.editIconContainer}>
-              <FontAwesomeIcon icon={showManageChildren ? faTimes : faPlus} size={20} color="#007AFF" />
+        <>
+          <View style={styles.sectionHeaderContainer}>
+            <FontAwesomeIcon icon={faUserFriends} size={20} color="#007AFF" style={styles.sectionHeaderIcon} />
+            <Text style={styles.sectionTitle}>My Children</Text>
+            <TouchableOpacity onPress={() => setShowManageChildren(!showManageChildren)} style={styles.manageChildrenButton}>
+              <Text style={styles.manageChildrenButtonText}>{showManageChildren ? 'Close' : 'Manage Children'}</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.cardDescription}>View and manage your associated children.</Text>
+          <View style={{ alignSelf: 'stretch' }}>
+            <Text style={styles.sectionDescription}>View and manage your associated children.</Text>
+          </View>
 
           <View style={styles.associatedChildrenContainer}>
             {associatedChildren.length === 0 ? (
@@ -394,11 +439,24 @@ export default function ProfileScreen() {
                 return child ? (
                   <View key={child.id} style={styles.childItem}>
                     <FontAwesomeIcon icon={faUserFriends} size={16} color="#666" style={{ marginRight: 10 }} />
-                    <View>
+                    <View style={{ flex: 1 }}>
                       <Text style={styles.childName}>{child.full_name || 'N/A'}</Text>
                       <Text style={styles.childEmail}>{child.email || 'N/A'}</Text>
                     </View>
-                    {/* Optionally add a button to unlink child */}
+                    <TouchableOpacity
+                      onPress={() => handleRemoveChild(child.id, child.full_name || child.email)}
+                      style={{
+                        marginLeft: 'auto',
+                        backgroundColor: '#d9534f',
+                        borderRadius: 12,
+                        width: 24,
+                        height: 24,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faMinus} size={14} color="#fff" />
+                    </TouchableOpacity>
                   </View>
                 ) : null;
               })
@@ -408,12 +466,16 @@ export default function ProfileScreen() {
           {/* Manage Children Area (conditionally rendered) */}
           {showManageChildren && (
             <View style={styles.manageChildrenSection}>
-              <Text style={styles.sectionDescription}>Search for students to send association requests.</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 10 }}>
+                <FontAwesomeIcon icon={faUserFriends} size={18} color="#007AFF" style={{ marginRight: 10 }} />
+                <Text style={styles.manageChildrenHeader}>Manage Children</Text>
+              </View>
+              <Text style={styles.sectionDescription}>Search for students to send association requests. You can search by name or email.</Text>
 
               {/* Student Search Input */}
               <TextInput
                 style={styles.input}
-                placeholder="Search students by name or email"
+                placeholder="Search for students"
                 value={studentSearch}
                 onChangeText={setStudentSearch}
               />
@@ -437,8 +499,12 @@ export default function ProfileScreen() {
                       );
                     }}
                   >
-                    <Text style={styles.studentName}>{student.full_name || student.email}</Text>
-                    <View style={selectedStudents.includes(student.id) ? styles.checkboxChecked : styles.checkboxUnchecked} />
+                    <FontAwesomeIcon icon={faUserFriends} size={16} color="#666" style={{ marginRight: 10 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.childName}>{student.full_name || 'N/A'}</Text>
+                      <Text style={styles.childEmail}>{student.email || 'N/A'}</Text>
+                    </View>
+                    <View style={[selectedStudents.includes(student.id) ? styles.checkboxChecked : styles.checkboxUnchecked, { marginLeft: 'auto' }]} />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -451,7 +517,7 @@ export default function ProfileScreen() {
               )}
             </View>
           )}
-        </View>
+        </>
       )}
     </ScrollView>
   );
@@ -462,42 +528,39 @@ const styles = StyleSheet.create({
   avatar: { width: 120, height: 120, borderRadius: 60, borderWidth: 4, borderColor: '#007AFF', marginBottom: 16 },
   header: { fontSize: 32, fontWeight: 'bold', marginBottom: 8, color: '#333' },
   description: { fontSize: 16, color: '#666', marginBottom: 32, textAlign: 'center' },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 20,
-    width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  cardHeader: {
+  sectionHeaderContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 10,
+    marginTop: 20,
+    alignSelf: 'stretch',
   },
-  cardHeaderIcon: {
+  sectionHeaderIcon: {
     marginRight: 10,
   },
-  cardTitle: {
+  sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
   },
-  cardDescription: {
+  sectionDescription: {
     fontSize: 14,
     color: '#666',
     marginBottom: 15,
-    marginTop: -10, // Adjust as needed for spacing
   },
-  editIconContainer: {
-    padding: 5,
+  manageChildrenButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    marginLeft: 'auto',
   },
-  infoContainer: { width: '100%', marginBottom: 16 },
+  manageChildrenButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  infoContainer: { width: '100%', marginBottom: 16, alignSelf: 'flex-start' },
   label: { fontSize: 14, fontWeight: 'bold' },
   value: { fontSize: 16, color: '#333' },
   input: { backgroundColor: '#f0f0f0', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 16, borderWidth: 1, borderColor: '#e0e0e0', width: '100%' },
@@ -506,7 +569,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 20,
   },
-  button: { backgroundColor: '#007AFF', padding: 14, borderRadius: 8, alignItems: 'center', flex: 1, marginHorizontal: 5 },
+  button: { backgroundColor: '#007AFF', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8, alignItems: 'center', marginHorizontal: 5 },
   buttonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
   cancelButton: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#007AFF' },
   cancelButtonText: { color: '#007AFF' },
@@ -534,11 +597,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 10,
   },
+  manageChildrenHeader: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
   manageChildrenSection: {
     marginTop: 20,
     paddingTop: 20,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
+    alignSelf: 'flex-start',
   },
   sectionDescription: {
     fontSize: 14,
@@ -549,18 +618,15 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 20,
     maxHeight: 200,
-    borderColor: '#e0e0e0',
-    borderWidth: 1,
     borderRadius: 8,
-    padding: 10,
+    width: '100%',
   },
   studentItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    paddingHorizontal: 10,
+    width: '100%',
   },
   studentName: {
     fontSize: 16,
@@ -582,6 +648,8 @@ const styles = StyleSheet.create({
   },
   associatedChildrenContainer: {
     marginTop: 10,
+    alignSelf: 'flex-start',
+    width: '100%',
   },
   childItem: {
     flexDirection: 'row',
@@ -589,6 +657,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    width: '100%',
   },
   childName: {
     fontSize: 16,

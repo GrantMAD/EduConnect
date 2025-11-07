@@ -4,6 +4,7 @@ import { createMaterialTopTabNavigator } from '@react-navigation/material-top-ta
 import { FAB, Portal, Provider } from 'react-native-paper';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import CardListSkeleton from '../components/skeletons/CardListSkeleton';
 import { faTimesCircle, faCalendarAlt, faClipboardList, faCalendarPlus, faBook } from '@fortawesome/free-solid-svg-icons';
 import { Calendar } from 'react-native-calendars';
 
@@ -117,7 +118,7 @@ const HomeworkList = () => {
     return date.toLocaleDateString('en-GB', options);
   };
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" />;
+  if (loading) return <CardListSkeleton />;
 
   return (
     <View style={styles.container}>
@@ -331,7 +332,7 @@ const AssignmentsList = () => {
     return date.toLocaleDateString('en-GB', options);
   };
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" />;
+  if (loading) return <CardListSkeleton />;
 
   return (
     <View style={styles.container}>

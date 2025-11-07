@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faUsers, faSchool, faBullhorn } from '@fortawesome/free-solid-svg-icons';
+import SettingsScreenSkeleton from '../components/skeletons/SettingsScreenSkeleton';
+import { faUsers, faSchool, faBullhorn, faStore } from '@fortawesome/free-solid-svg-icons';
 
 export default function SettingsScreen({ navigation }) {
   const [user, setUser] = useState(null);
@@ -30,15 +31,11 @@ export default function SettingsScreen({ navigation }) {
   }, []);
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return <SettingsScreenSkeleton />;
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <Text style={styles.header}>Settings</Text>
       <Text style={styles.description}>Manage your account and application settings.</Text>
 
@@ -94,14 +91,34 @@ export default function SettingsScreen({ navigation }) {
             >
               <FontAwesomeIcon icon={faSchool} size={18} color="#007AFF" />
               <View>
-                <Text style={styles.buttonText}>School Data</Text>
+                <Text style={styles.buttonText}>Manage School Data</Text>
                 <Text style={styles.buttonDescription}>Update school-wide information and branding.</Text>
               </View>
             </TouchableOpacity>
           </View>
         </View>
       )}
-    </View>
+
+      {user && user.role === 'admin' && (
+        <View>
+          <View style={styles.separator} />
+          <View style={styles.section}>
+            <Text style={styles.sectionHeader}>Marketplace</Text>
+            <Text style={styles.sectionDescription}>Manage your marketplace items.</Text>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => navigation.navigate('ManageMarketData')}
+            >
+              <FontAwesomeIcon icon={faStore} size={18} color="#007AFF" />
+              <View>
+                <Text style={styles.buttonText}>Manage Market Data</Text>
+                <Text style={styles.buttonDescription}>Oversee marketplace items.</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
@@ -110,6 +127,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
     padding: 24,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
   },
   loadingContainer: {
     flex: 1,

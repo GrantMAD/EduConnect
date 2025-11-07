@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, TextInput, FlatList, Touchab
 import { supabase } from '../lib/supabase';
 import { Picker } from '@react-native-picker/picker';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import UserManagementScreenSkeleton from '../components/skeletons/UserManagementScreenSkeleton';
 import { faTimes } from '@fortawesome/free-solid-svg-icons';
 
 const defaultUserImage = require('../assets/user.png');
@@ -86,11 +87,7 @@ export default function UserManagementScreen() {
   );
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return <UserManagementScreenSkeleton />;
   }
 
   return (

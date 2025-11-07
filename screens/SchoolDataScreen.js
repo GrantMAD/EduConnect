@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Alert, Image, TouchableOpacity, Platform } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import SchoolDataScreenSkeleton from '../components/skeletons/SchoolDataScreenSkeleton';
 import { faImage } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
@@ -119,11 +120,7 @@ export default function SchoolDataScreen() {
   };
 
   if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return <SchoolDataScreenSkeleton />;
   }
 
   return (

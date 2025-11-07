@@ -14,6 +14,8 @@ import { supabase } from '../lib/supabase';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import SchoolSetupScreenSkeleton from '../components/skeletons/SchoolSetupScreenSkeleton';
+
 export default function SchoolSetupScreen({ navigation }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -199,11 +201,7 @@ export default function SchoolSetupScreen({ navigation }) {
     await supabase.auth.signOut();
   };
 
-  if (loading) return (
-    <View style={styles.centered}>
-      <ActivityIndicator size="large" />
-    </View>
-  );
+  if (loading) return <SchoolSetupScreenSkeleton />;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 60 + insets.bottom }}>

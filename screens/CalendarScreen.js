@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useFocusEffect } from '@react-navigation/native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import CalendarScreenSkeleton from '../components/skeletons/CalendarScreenSkeleton';
 import { faTimes, faCalendarAlt, faClock, faChevronDown, faChevronUp, faBook } from '@fortawesome/free-solid-svg-icons';
 
 export default function CalendarScreen() {
@@ -179,11 +180,7 @@ export default function CalendarScreen() {
   };
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
-    );
+    return <CalendarScreenSkeleton />;
   }
 
   const groupSchedulesByTitle = (arr) => {

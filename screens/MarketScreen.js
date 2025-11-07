@@ -11,6 +11,7 @@ import {
   FlatList,
 } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import MarketScreenSkeleton from '../components/skeletons/MarketScreenSkeleton';
 import { faPlus, faSearch, faStore, faBook, faLaptop, faPen, faCouch, faTshirt, faBox } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../lib/supabase';
 import MarketplaceItemCard from '../components/MarketplaceItemCard';
@@ -97,7 +98,7 @@ export default function MarketScreen({ navigation }) {
       Other: 'Miscellaneous items for sale.',
     };
   
-    if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007AFF" />;
+    if (loading) return <MarketScreenSkeleton />;
   
     return (
       <View style={styles.container}>

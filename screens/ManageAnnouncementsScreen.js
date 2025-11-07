@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import ManagementCardSkeleton from '../components/skeletons/ManagementCardSkeleton';
 import { faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
 import Modal from 'react-native-modal';
 import { TextInput } from 'react-native';
@@ -129,8 +130,14 @@ export default function ManageAnnouncementsScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" />
+      <View style={styles.container}>
+        <Text style={styles.header}>Manage Announcements</Text>
+        <Text style={styles.description}>View, edit, or delete announcements for your school.</Text>
+        <FlatList
+          data={[1, 2, 3, 4, 5]}
+          keyExtractor={(item) => item.toString()}
+          renderItem={() => <ManagementCardSkeleton />}
+        />
       </View>
     );
   }

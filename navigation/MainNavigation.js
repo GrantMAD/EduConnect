@@ -453,6 +453,7 @@ const CustomDrawerContent = (props) => {
           borderRadius: 8,
         }}
       >
+
         <FontAwesomeIcon icon={faUser} size={18} color="#007AFF" style={{ marginRight: 15 }} />
         <View>
           <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Profile</Text>
@@ -497,54 +498,6 @@ const CustomDrawerContent = (props) => {
           <Text style={{ fontSize: 12, color: '#666' }}>Adjust app settings and preferences</Text>
         </View>
       </TouchableOpacity>
-
-      {['admin', 'teacher', 'student'].includes(userRole) && (
-        <>
-          <TouchableOpacity
-            onPress={() => {
-              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-              setManageDropdownOpen(!isManageDropdownOpen);
-            }}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingVertical: 12,
-              paddingHorizontal: 20,
-              borderRadius: 8,
-            }}
-          >
-            <FontAwesomeIcon icon={faCog} size={18} color="#007AFF" style={{ marginRight: 15 }} />
-            <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <View>
-                <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Manage</Text>
-                <Text style={{ fontSize: 12, color: '#666' }}>Manage your school data</Text>
-              </View>
-              <FontAwesomeIcon icon={isManageDropdownOpen ? faChevronUp : faChevronDown} size={14} color="#666" />
-            </View>
-          </TouchableOpacity>
-
-          {isManageDropdownOpen && (
-            <View style={{ paddingLeft: 35, backgroundColor: '#f0f5ff', borderRadius: 8, marginHorizontal: 10 }}>
-              <TouchableOpacity
-                onPress={() => props.navigation.navigate('MainStack', { screen: 'ManageMarketData' })}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  paddingVertical: 12,
-                  paddingHorizontal: 20,
-                  backgroundColor: activeMainStackRouteName === 'ManageMarketData' ? '#d0e6ff' : 'transparent',
-                  borderRadius: 8,
-                }}
-              >
-                <FontAwesomeIcon icon={faStore} size={18} color="#007AFF" style={{ marginRight: 15 }} />
-                <View>
-                  <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Manage Market Data</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          )}
-        </>
-      )}
 
       <View style={{ flex: 1 }} />
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
+import NotificationCardSkeleton from '../components/skeletons/NotificationCardSkeleton';
 import { FontAwesome5 } from '@expo/vector-icons';
 
 export default function NotificationsScreen({ route, navigation }) {
@@ -230,8 +231,14 @@ export default function NotificationsScreen({ route, navigation }) {
   };
 
   if (loading) return (
-    <View style={styles.centered}>
-      <ActivityIndicator size="large" />
+    <View style={styles.container}>
+      <Text style={styles.header}>Notifications</Text>
+      <FlatList
+        data={[1, 2, 3, 4, 5]}
+        keyExtractor={(item) => item.toString()}
+        renderItem={() => <NotificationCardSkeleton />}
+        contentContainerStyle={{ paddingBottom: 20 }}
+      />
     </View>
   );
 

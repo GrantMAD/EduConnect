@@ -11,6 +11,7 @@ import {
   Image,
 } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import ManagementListSkeleton from '../components/skeletons/ManagementListSkeleton';
 import { faPlus, faEdit, faTrash, faStore, faTag, faDollarSign, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../lib/supabase';
 import ManageMarketItemListItem from '../components/ManageMarketItemListItem';
@@ -79,7 +80,7 @@ export default function ManageMarketDataScreen({ navigation }) {
     navigation.navigate('CreateMarketplaceItem', { item });
   };
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007AFF" />;
+  if (loading) return <ManagementListSkeleton />;
 
   return (
     <View style={styles.container}>

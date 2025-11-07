@@ -16,6 +16,7 @@ import { supabase } from "../lib/supabase";
 import { useSchool } from "../context/SchoolContext";
 import { useRoute } from "@react-navigation/native";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
+import ManageUsersInClassScreenSkeleton from '../components/skeletons/ManageUsersInClassScreenSkeleton';
 import {
   faPlusCircle,
   faMinusCircle,
@@ -324,6 +325,10 @@ export default function ManageUsersInClassScreen() {
       </View>
     </>
   );
+
+  if (loading) {
+    return <ManageUsersInClassScreenSkeleton />;
+  }
 
   return (
     <View style={styles.container}>

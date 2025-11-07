@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import ManagementListSkeleton from '../components/skeletons/ManagementListSkeleton';
 import { faBook, faChalkboardTeacher } from '@fortawesome/free-solid-svg-icons';
 
 export default function ManageClassesScreen({ navigation }) {
@@ -66,11 +67,7 @@ export default function ManageClassesScreen({ navigation }) {
   );
 
   if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return <ManagementListSkeleton />;
   }
 
   return (
