@@ -158,6 +158,23 @@ export default function CreateClassScreen({ navigation }) {
 
       if (classError) throw classError;
 
+      // Notify students they've been added to the class
+      if (selectedStudents.length > 0) {
+        const notifications = selectedStudents.map(studentId => ({
+          user_id: studentId,
+          type: 'added_to_class',
+          title: 'Added to New Class',
+          message: `You have been added to the class: ${newClass.name}`,
+        }));
+
+        const { error: notificationError } = await supabase.from('notifications').insert(notifications);
+        if (notificationError) {
+          // Log the error, but don't block the main success message
+          console.error('Failed to create student notifications:', notificationError);
+        }
+      }
+
+
       if (schedules.length > 0) {
         const scheduleToInsert = schedules.map(schedule => ({
           class_id: newClass.id,

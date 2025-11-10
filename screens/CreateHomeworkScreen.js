@@ -66,7 +66,7 @@ const CreateHomeworkScreen = ({ navigation }) => {
 
     setIsCreating(true);
 
-    const { error } = await supabase.from('homework').insert([
+    const { data: newHomework, error } = await supabase.from('homework').insert([
       {
         class_id: selectedClass,
         subject,
@@ -74,14 +74,62 @@ const CreateHomeworkScreen = ({ navigation }) => {
         due_date: dueDate,
         created_by: user.id,
       },
-    ]);
+    ]).select().single();
 
     if (error) {
       Alert.alert('Error', error.message);
-    } else {
-      Alert.alert('Success', 'Homework created successfully.');
-      navigation.goBack();
+      setIsCreating(false);
+      return;
     }
+
+    // --- Notification Logic ---
+    try {
+      const { data: classData, error: classError } = await supabase
+        .from('classes')
+        .select('users, name')
+        .eq('id', selectedClass)
+        .single();
+
+      if (classError) throw classError;
+
+      if (classData && classData.users && classData.users.length > 0) {
+        const studentIds = classData.users;
+        
+        const { data: parents, error: parentsError } = await supabase
+          .rpc('get_parents_of_students', { p_student_ids: studentIds });
+
+        if (parentsError) {
+          console.error('Error fetching parents via RPC for homework notification:', parentsError);
+        }
+
+        const parentIds = parents ? parents.map(p => p.parent_id) : [];
+        const recipientIds = [...new Set([...studentIds, ...parentIds])];
+
+        if (recipientIds.length > 0) {
+          const notifications = recipientIds.map(userId => ({
+            user_id: userId,
+            type: 'new_homework',
+            title: `New Homework for ${classData.name}`,
+            message: `A new piece of homework has been set: "${newHomework.subject}"`,
+            data: { homework_id: newHomework.id }
+          }));
+
+          const { error: notificationError } = await supabase.from('notifications').insert(notifications);
+          if (notificationError) {
+            console.error('Failed to create homework notifications:', notificationError);
+            // Non-blocking alert
+            Alert.alert('Warning', 'Homework created, but failed to send notifications.');
+          }
+        }
+      }
+    } catch (notificationError) {
+      console.error('An error occurred while sending homework notifications:', notificationError);
+      Alert.alert('Warning', 'Homework created, but an error occurred sending notifications.');
+    }
+    // --- End Notification Logic ---
+
+    Alert.alert('Success', 'Homework created successfully.');
+    navigation.goBack();
     setIsCreating(false);
   };
 

@@ -66,9 +66,93 @@ export default function CreateAnnouncementScreen({ navigation }) {
         type: announcementType, // Include the new type column
       };
 
-      const { error } = await supabase.from('announcements').insert(newAnnouncement);
+      const { data: newAnnouncements, error } = await supabase
+        .from('announcements')
+        .insert(newAnnouncement)
+        .select();
 
       if (error) throw error;
+
+      // If it's a general announcement, notify all users in the school
+      if (!isClassSpecific) {
+        try {
+          const { data: users, error: usersError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('school_id', schoolId);
+
+          if (usersError) throw usersError;
+
+          const newAnnouncementData = newAnnouncements[0];
+          const notifications = users.map(u => ({
+            user_id: u.id,
+            type: 'new_general_announcement',
+            title: 'New School Announcement',
+            message: `A new announcement has been posted: "${newAnnouncementData.title}"`,
+            data: { announcement_id: newAnnouncementData.id }
+          }));
+
+          if (notifications.length > 0) {
+            const { error: notificationError } = await supabase.from('notifications').insert(notifications);
+            if (notificationError) {
+              // Log the error but don't block the user, as the announcement was created.
+              console.error('Failed to create notifications:', notificationError);
+              Alert.alert('Warning', 'Announcement created, but failed to send notifications.');
+            }
+          }
+        } catch (notificationError) {
+          console.error('An error occurred while sending notifications:', notificationError);
+          Alert.alert('Warning', 'Announcement created, but an error occurred while sending notifications.');
+        }
+      } else { // It's a class-specific announcement
+        try {
+          const { data: classData, error: classError } = await supabase
+            .from('classes')
+            .select('users, name')
+            .eq('id', selectedClass)
+            .single();
+
+          if (classError) throw classError;
+
+          if (classData && classData.users && classData.users.length > 0) {
+            const studentIds = classData.users;
+            
+            // Fetch parents of the students in the class using the RPC function
+            const { data: parents, error: parentsError } = await supabase
+              .rpc('get_parents_of_students', { p_student_ids: studentIds });
+
+            if (parentsError) {
+              console.error('Error fetching parents via RPC:', parentsError);
+              // Don't throw, just log, so students still get notified
+            }
+
+            const parentIds = parents ? parents.map(p => p.parent_id) : [];
+            
+            // Combine students and parents, ensuring no duplicates
+            const recipientIds = [...new Set([...studentIds, ...parentIds])];
+
+            const newAnnouncementData = newAnnouncements[0];
+            const notifications = recipientIds.map(userId => ({
+              user_id: userId,
+              type: 'new_class_announcement',
+              title: `New Announcement in ${classData.name}`,
+              message: `A new announcement has been posted: "${newAnnouncementData.title}"`,
+              data: { announcement_id: newAnnouncementData.id },
+            }));
+
+            if (notifications.length > 0) {
+              const { error: notificationError } = await supabase.from('notifications').insert(notifications);
+              if (notificationError) {
+                console.error('Failed to create class notifications:', notificationError);
+                Alert.alert('Warning', 'Announcement created, but failed to send class notifications.');
+              }
+            }
+          }
+        } catch (notificationError) {
+          console.error('An error occurred while sending class notifications:', notificationError);
+          Alert.alert('Warning', 'Announcement created, but an error occurred while sending class notifications.');
+        }
+      }
 
       Alert.alert('Success', 'Announcement created successfully!');
       navigation.goBack();

@@ -93,8 +93,7 @@ const CreateAssignmentScreen = ({ navigation }) => {
         console.log('File uploaded:', file_url);
       }
 
-      console.log('Inserting assignment...');
-      const { error } = await supabase.from('assignments').insert([
+      const { data: newAssignment, error } = await supabase.from('assignments').insert([
         {
           title,
           description,
@@ -103,11 +102,56 @@ const CreateAssignmentScreen = ({ navigation }) => {
           assigned_by: user.id,
           file_url,
         },
-      ]);
+      ]).select().single();
 
       if (error) {
         throw error;
       }
+
+      // --- Notification Logic ---
+      try {
+        const { data: classData, error: classError } = await supabase
+          .from('classes')
+          .select('users, name')
+          .eq('id', selectedClass)
+          .single();
+
+        if (classError) throw classError;
+
+        if (classData && classData.users && classData.users.length > 0) {
+          const studentIds = classData.users;
+          
+          const { data: parents, error: parentsError } = await supabase
+            .rpc('get_parents_of_students', { p_student_ids: studentIds });
+
+          if (parentsError) {
+            console.error('Error fetching parents via RPC for assignment notification:', parentsError);
+          }
+
+          const parentIds = parents ? parents.map(p => p.parent_id) : [];
+          const recipientIds = [...new Set([...studentIds, ...parentIds])];
+
+          if (recipientIds.length > 0) {
+            const notifications = recipientIds.map(userId => ({
+              user_id: userId,
+              type: 'new_assignment',
+              title: `New Assignment for ${classData.name}`,
+              message: `A new assignment has been set: "${newAssignment.title}"`,
+              data: { assignment_id: newAssignment.id }
+            }));
+
+            const { error: notificationError } = await supabase.from('notifications').insert(notifications);
+            if (notificationError) {
+              console.error('Failed to create assignment notifications:', notificationError);
+              Alert.alert('Warning', 'Assignment created, but failed to send notifications.');
+            }
+          }
+        }
+      } catch (notificationError) {
+        console.error('An error occurred while sending assignment notifications:', notificationError);
+        Alert.alert('Warning', 'Assignment created, but an error occurred sending notifications.');
+      }
+      // --- End Notification Logic ---
 
       console.log('Assignment inserted successfully.');
       Alert.alert('Success', 'Assignment created successfully.');

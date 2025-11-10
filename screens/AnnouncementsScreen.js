@@ -109,110 +109,78 @@ export default function AnnouncementsScreen({ navigation }) {
     // This function is now integrated into initializeUserAndClasses
   };
 
-        const fetchUserClasses = async () => {
-
+    const fetchUserClasses = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-
       if (!user || !schoolId) {
-
         setUserClasses([]);
-
         return;
-
       }
 
-  
-
       try {
+        // Fetch user's role first, as it's not passed directly
+        const { data: userData, error: userError } = await supabase.from('users').select('role').eq('id', user.id).single();
+        if (userError) throw userError;
+        const role = userData?.role;
 
-        // Fetch classes where the user is a student
+        let studentOrTeacherClassIds = [];
+        let parentClassIds = [];
 
-        const { data: studentClasses, error: studentError } = await supabase
-
-          .from('classes')
-
-          .select('id')
-
-          .eq('school_id', schoolId)
-
-          .contains('users', [user.id]); // Check if user.id is in the 'users' array
-
-  
-
-        // Fetch classes where the user is a teacher
-
-        const { data: teacherClasses, error: teacherError } = await supabase
-
-          .from('classes')
-
-          .select('id')
-
-          .eq('school_id', schoolId)
-
-          .eq('teacher_id', user.id);
-
-  
-
+        // Fetch classes for student/teacher roles
+        const { data: studentClasses, error: studentError } = await supabase.from('classes').select('id').eq('school_id', schoolId).contains('users', [user.id]);
+        const { data: teacherClasses, error: teacherError } = await supabase.from('classes').select('id').eq('school_id', schoolId).eq('teacher_id', user.id);
         if (studentError) throw studentError;
-
         if (teacherError) throw teacherError;
+        studentOrTeacherClassIds = [...(studentClasses || []).map(c => c.id), ...(teacherClasses || []).map(c => c.id)];
 
-  
+        // If user is a parent, fetch their children's classes
+        if (role === 'parent') {
+          const { data: children, error: childrenError } = await supabase.from('parent_child_relationships').select('child_id').eq('parent_id', user.id);
+          if (childrenError) throw childrenError;
 
-        const allAssociatedClasses = [...(studentClasses || []), ...(teacherClasses || [])];
+          if (children && children.length > 0) {
+            const childIds = children.map(c => c.child_id);
+            
+            // Fetch all classes and filter client-side. This is less efficient but reliable without a DB function.
+            const { data: allClasses, error: allClassesError } = await supabase.from('classes').select('id, users').eq('school_id', schoolId);
+            if (allClassesError) throw allClassesError;
 
-        const uniqueClassIds = [...new Set(allAssociatedClasses.map(cls => cls.id))];
+            if (allClasses) {
+              parentClassIds = allClasses
+                .filter(c => c.users && c.users.some(studentId => childIds.includes(studentId)))
+                .map(c => c.id);
+            }
+          }
+        }
 
+        const allAssociatedClasses = [...studentOrTeacherClassIds, ...parentClassIds];
+        const uniqueClassIds = [...new Set(allAssociatedClasses)];
         setUserClasses(uniqueClassIds);
 
       } catch (error) {
-
         console.error('Error fetching user classes:', error.message);
-
         setUserClasses([]);
-
       }
-
     };
 
   
 
     const fetchAnnouncements = async () => {
-
       if (!schoolId) {
-
         setLoading(false);
-
         return;
-
       }
 
-  
-
       try {
-
-        let query = supabase.from('announcements').select('*, author:users(full_name)').eq('school_id', schoolId).order('created_at', { ascending: false });
-
-  
+        let query = supabase.from('announcements').select('*, author:users(full_name), class:classes(name)').eq('school_id', schoolId).order('created_at', { ascending: false });
 
         const { data, error } = await query;
 
-  
-
         if (error) throw error;
 
-        const announcementsWithClassNames = data.map(announcement => {
-          if (announcement.class_id) {
-            const classInfo = allClasses.find(c => c.id === announcement.class_id);
-            return { ...announcement, className: classInfo ? classInfo.name : 'Unknown Class' };
-          } 
-          return announcement;
-        });
-
         if (userRole === 'admin') {
-          setAnnouncements(announcementsWithClassNames);
-        } else if (userRole === 'teacher' || userRole === 'student') {
-          const filteredAnnouncements = announcementsWithClassNames.filter(announcement => {
+          setAnnouncements(data);
+        } else if (userRole === 'teacher' || userRole === 'student' || userRole === 'parent') {
+          const filteredAnnouncements = data.filter(announcement => {
             // Always show general announcements
             if (!announcement.class_id) {
               return true;
@@ -223,24 +191,17 @@ export default function AnnouncementsScreen({ navigation }) {
           setAnnouncements(filteredAnnouncements);
         } else {
           // For other roles or if role not yet loaded, show nothing or general announcements
-          setAnnouncements(announcementsWithClassNames.filter(announcement => !announcement.class_id));
+          setAnnouncements(data.filter(announcement => !announcement.class_id));
         }
 
       } catch (error) {
-
         console.error('Error fetching announcements:', error.message);
-
-        Alert.alert('Error', 'Failed to fetch announcements.');
-
-            } finally {
-
-              setLoading(false);
-
-              setRefreshing(false);
-
-            }
-
-          };
+        // Alert.alert('Error', 'Failed to fetch announcements.'); // Commented out to avoid spamming on minor fetch issues
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    };
 
       
 
@@ -315,6 +276,7 @@ export default function AnnouncementsScreen({ navigation }) {
           </TouchableOpacity>
         )}
       </View>
+      <Text style={styles.announcementCount}>{announcements.length} announcements</Text>
       <FlatList
         data={announcements}
         keyExtractor={(item) => item.id.toString()}
@@ -347,12 +309,12 @@ export default function AnnouncementsScreen({ navigation }) {
               <Text style={styles.messagePreview} numberOfLines={3}>
                 {item.message.length > 100 ? item.message.substring(0, 100) + '...' : item.message}
               </Text>
-              {item.class_id && (
+              {item.class?.name && (
                 <View>
                   <View style={styles.separator} />
                   <View style={styles.classLabelContainer}>
                     <FontAwesomeIcon icon={faUsers} size={12} color="#888" />
-                    <Text style={styles.classLabel}>For class: {item.className}</Text>
+                    <Text style={styles.classLabel}>For class: {item.class.name}</Text>
                   </View>
                 </View>
               )}
@@ -370,10 +332,10 @@ export default function AnnouncementsScreen({ navigation }) {
         animationOut="fadeOutDown"
         backdropOpacity={0.4}
       >
-                <View style={styles.modalContent}>
-                  <TouchableOpacity onPress={() => setShowModal(false)} style={styles.modalCloseButton}>
-                    <FontAwesomeIcon icon={faTimes} size={20} color="#666" />
-                  </TouchableOpacity>
+        <View style={styles.modalContent}>
+          <TouchableOpacity onPress={() => setShowModal(false)} style={styles.modalCloseButton}>
+            <FontAwesomeIcon icon={faTimes} size={20} color="#666" />
+          </TouchableOpacity>
         
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
             <FontAwesomeIcon icon={faBullhorn} size={24} color="#007AFF" style={{ marginRight: 10, marginTop: 2 }} />
@@ -382,14 +344,16 @@ export default function AnnouncementsScreen({ navigation }) {
 
           <View style={styles.modalSeparator} />
 
-          <Text style={styles.modalMessageText}>{selectedAnnouncement?.message}</Text>
+          <ScrollView style={styles.modalMessageScrollView}>
+            <Text style={styles.modalMessageText}>{selectedAnnouncement?.message}</Text>
+          </ScrollView>
 
           <View style={styles.modalSeparator} />
 
-          {selectedAnnouncement?.class_id && (
+          {selectedAnnouncement?.class?.name && (
             <View style={styles.modalDetailRow}>
               <FontAwesomeIcon icon={faTag} size={16} color="#007AFF" style={styles.modalIcon} />
-              <Text style={styles.modalDetailText}>Target Class: {selectedAnnouncement.class_id}</Text>
+              <Text style={styles.modalDetailText}>For class: {selectedAnnouncement.class.name}</Text>
             </View>
           )}
 
@@ -397,7 +361,7 @@ export default function AnnouncementsScreen({ navigation }) {
             <FontAwesomeIcon icon={faCalendar} size={16} color="#007AFF" style={styles.modalIcon} />
             <Text style={styles.modalDetailText}>Posted: {timeSince(selectedAnnouncement?.created_at)}</Text>
           </View>
-                </View>
+        </View>
       </Modal>
     </View>
   );
@@ -467,12 +431,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 5,
   },
   sectionHeader: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
+  },
+  announcementCount: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 10,
   },
   addTextButton: {
     paddingHorizontal: 10,
@@ -580,16 +549,23 @@ const styles = StyleSheet.create({
     padding: 22,
     borderRadius: 10,
     borderColor: 'rgba(0, 0, 0, 0.1)',
+    maxHeight: '90%', // Increased modal height
+    marginVertical: 50, // Added vertical margin for gap
   },
   modalTitle: {
-    fontSize: 24,
+    fontSize: 20, // Reduced font size
     fontWeight: 'bold',
     marginBottom: 3,
+    flexShrink: 1, // Allow title to wrap
   },
   modalMessageText: {
     fontSize: 16,
     color: '#333',
     marginBottom: 12,
+  },
+  modalMessageScrollView: {
+    flexShrink: 1,
+    flexGrow: 1, // Allow ScrollView to grow and take available space
   },
   modalSeparator: {
     borderBottomWidth: 1,
@@ -599,10 +575,10 @@ const styles = StyleSheet.create({
   },
   modalDetailRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center', // Changed to center for better alignment
     marginBottom: 8,
     width: '100%',
-    flexWrap: 'wrap', // Allow text to wrap
+    flexWrap: 'wrap',
   },
   modalIcon: {
     marginRight: 10,
@@ -610,6 +586,7 @@ const styles = StyleSheet.create({
   modalDetailText: {
     fontSize: 14,
     color: '#555',
+    flexShrink: 1,
   },
   modalClass: {
     fontSize: 14,
