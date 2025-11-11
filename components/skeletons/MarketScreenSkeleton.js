@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
+import { useTheme } from '../../context/ThemeContext'; // Import useTheme
 
 const SkeletonPiece = ({ style }) => {
   const progress = useSharedValue(0);
+  const { theme } = useTheme(); // Use the theme hook
 
   React.useEffect(() => {
     progress.value = withRepeat(withTiming(1, { duration: 1000 }), -1, true);
@@ -16,22 +18,26 @@ const SkeletonPiece = ({ style }) => {
     };
   });
 
-  return <Animated.View style={[styles.skeleton, animatedStyle, style]} />;
+  return <Animated.View style={[styles.skeleton, { backgroundColor: theme.colors.cardBorder }, animatedStyle, style]} />;
 };
 
-const MarketplaceItemCardSkeleton = () => (
-    <View style={styles.cardContainer}>
-        <SkeletonPiece style={styles.cardImage} />
-        <View style={styles.cardContent}>
-            <SkeletonPiece style={{ width: '80%', height: 16, borderRadius: 4, marginBottom: 5 }} />
-            <SkeletonPiece style={{ width: '50%', height: 14, borderRadius: 4 }} />
+const MarketplaceItemCardSkeleton = () => {
+    const { theme } = useTheme(); // Use the theme hook
+    return (
+        <View style={[styles.cardContainer, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }]}>
+            <SkeletonPiece style={styles.cardImage} />
+            <View style={styles.cardContent}>
+                <SkeletonPiece style={{ width: '80%', height: 16, borderRadius: 4, marginBottom: 5 }} />
+                <SkeletonPiece style={{ width: '50%', height: 14, borderRadius: 4 }} />
+            </View>
         </View>
-    </View>
-);
+    );
+};
 
 const MarketScreenSkeleton = () => {
+  const { theme } = useTheme(); // Use the theme hook
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.mainHeaderContainer}>
             <SkeletonPiece style={{ width: 24, height: 24, borderRadius: 4, marginRight: 10 }} />
             <SkeletonPiece style={{ width: '60%', height: 24, borderRadius: 4 }} />
@@ -72,19 +78,17 @@ const MarketScreenSkeleton = () => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f7f7f7', padding: 16 },
+    container: { flex: 1, padding: 16 },
     skeleton: {
-        backgroundColor: '#E0E0E0',
+        // backgroundColor handled by theme
     },
     mainHeaderContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
     sectionContainer: { marginBottom: 20 },
     sectionHeaderContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
     cardContainer: {
-        backgroundColor: '#fff',
         borderRadius: 10,
         marginRight: 10,
         width: 150,
-        shadowColor: '#000',
         shadowOpacity: 0.05,
         shadowRadius: 4,
         elevation: 2,

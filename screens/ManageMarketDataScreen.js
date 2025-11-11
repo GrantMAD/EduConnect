@@ -16,6 +16,7 @@ import { faPlus, faEdit, faTrash, faStore, faTag, faDollarSign, faTimes } from '
 import { supabase } from '../lib/supabase';
 import ManageMarketItemListItem from '../components/ManageMarketItemListItem';
 import Modal from 'react-native-modal';
+import { useToast } from '../context/ToastContext';
 
 export default function ManageMarketDataScreen({ navigation }) {
   const [items, setItems] = useState([]);
@@ -23,6 +24,7 @@ export default function ManageMarketDataScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedItemForModal, setSelectedItemForModal] = useState(null);
+  const { showToast } = useToast();
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -64,10 +66,11 @@ export default function ManageMarketDataScreen({ navigation }) {
           onPress: async () => {
             const { error } = await supabase.from('marketplace_items').delete().eq('id', itemId);
             if (error) {
-              Alert.alert('Error', 'Failed to delete item.');
+              showToast('Failed to delete item.', 'error');
             } else {
               fetchUserItems();
               setModalVisible(false); // Close modal after deletion
+              showToast('Item deleted successfully!', 'success');
             }
           },
         },

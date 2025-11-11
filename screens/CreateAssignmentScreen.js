@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   ScrollView,
   TouchableOpacity,
@@ -14,6 +13,7 @@ import { supabase } from '../lib/supabase';
 import * as DocumentPicker from 'expo-document-picker';
 import { Calendar } from 'react-native-calendars';
 import ReactNativeBlobUtil from 'react-native-blob-util';
+import { useToast } from '../context/ToastContext';
 
 const CreateAssignmentScreen = ({ navigation }) => {
   const [classes, setClasses] = useState([]);
@@ -25,6 +25,7 @@ const CreateAssignmentScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -39,7 +40,7 @@ const CreateAssignmentScreen = ({ navigation }) => {
           .eq('teacher_id', user.id);
 
         if (error) {
-          Alert.alert('Error fetching classes', error.message);
+          showToast('Error fetching classes');
         } else {
           setClasses(data);
         }
@@ -52,7 +53,7 @@ const CreateAssignmentScreen = ({ navigation }) => {
 
   const handleCreate = async () => {
     if (!selectedClass || !title || !description || !dueDate) {
-      Alert.alert('Error', 'Please fill in all fields.');
+      showToast('Please fill in all fields.', 'error');
       return;
     }
 
@@ -143,22 +144,22 @@ const CreateAssignmentScreen = ({ navigation }) => {
             const { error: notificationError } = await supabase.from('notifications').insert(notifications);
             if (notificationError) {
               console.error('Failed to create assignment notifications:', notificationError);
-              Alert.alert('Warning', 'Assignment created, but failed to send notifications.');
+              showToast('Assignment created, but failed to send notifications.', 'warning');
             }
           }
         }
       } catch (notificationError) {
         console.error('An error occurred while sending assignment notifications:', notificationError);
-        Alert.alert('Warning', 'Assignment created, but an error occurred sending notifications.');
+        showToast('Assignment created, but an error occurred sending notifications.', 'warning');
       }
       // --- End Notification Logic ---
 
       console.log('Assignment inserted successfully.');
-      Alert.alert('Success', 'Assignment created successfully.');
+      showToast('Assignment created successfully.', 'success');
       navigation.goBack();
     } catch (error) {
       console.error('Error creating assignment:', error);
-      Alert.alert('Error', error.message);
+      showToast(error.message, 'error');
     } finally {
       setIsCreating(false);
     }

@@ -3,6 +3,8 @@ import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, ActivityIndi
 import { supabase } from '../lib/supabase';
 import NotificationCardSkeleton from '../components/skeletons/NotificationCardSkeleton';
 import { FontAwesome5 } from '@expo/vector-icons';
+import { useToast } from '../context/ToastContext';
+import { useTheme } from '../context/ThemeContext'; // Import useTheme
 
 export default function NotificationsScreen({ route, navigation }) {
   const [notifications, setNotifications] = useState([]);
@@ -10,6 +12,8 @@ export default function NotificationsScreen({ route, navigation }) {
   const [isDetailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedItemDetail, setSelectedItemDetail] = useState(null);
   const [modalLoading, setModalLoading] = useState(false);
+  const { showToast } = useToast();
+  const { theme } = useTheme(); // Use the theme hook
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -27,7 +31,7 @@ export default function NotificationsScreen({ route, navigation }) {
         setNotifications(data || []);
       } catch (err) {
         console.error('Error fetching notifications:', err);
-        Alert.alert('Error', 'Unable to fetch notifications.');
+        showToast('Unable to fetch notifications.', 'error');
       } finally {
         setLoading(false);
       }
@@ -79,7 +83,7 @@ export default function NotificationsScreen({ route, navigation }) {
       setSelectedItemDetail({ ...itemData, type });
     } catch (err) {
       console.error(`Error fetching ${type} details:`, err);
-      Alert.alert('Error', `Could not fetch item details.`);
+      showToast(`Could not fetch item details.`, 'error');
       setDetailModalVisible(false);
     } finally {
       setModalLoading(false);
@@ -112,10 +116,10 @@ export default function NotificationsScreen({ route, navigation }) {
               if (error) throw error;
 
               setNotifications([]);
-              Alert.alert('Success', 'All notifications have been cleared.');
+              showToast('All notifications have been cleared.', 'success');
             } catch (err) {
               console.error('Error clearing notifications:', err);
-              Alert.alert('Error', 'Could not clear all notifications.');
+              showToast('Could not clear all notifications.', 'error');
             }
           },
         },
@@ -140,10 +144,11 @@ export default function NotificationsScreen({ route, navigation }) {
             : n
         )
       );
+      showToast(accept ? 'Request accepted.' : 'Request declined.', 'success');
 
     } catch (err) {
       console.error('Error handling join response:', err);
-      Alert.alert('Error', 'Could not process the request.');
+      showToast('Could not process the request.', 'error');
     }
   };
 
@@ -157,9 +162,10 @@ export default function NotificationsScreen({ route, navigation }) {
       if (error) throw error;
 
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      showToast('Notification deleted.', 'success');
     } catch (err) {
       console.error('Error deleting notification:', err);
-      Alert.alert('Error', 'Could not delete notification.');
+      showToast('Could not delete notification.', 'error');
     }
   };
 
@@ -195,6 +201,7 @@ export default function NotificationsScreen({ route, navigation }) {
           message: `Your association request with ${notification.message.split(' wants to associate with you.')[0]} has been accepted.`,
           is_read: false,
         });
+        showToast('Association request accepted.', 'success');
       } else {
         const { error: updateRequestError } = await supabase
           .from('parent_child_requests')
@@ -214,6 +221,7 @@ export default function NotificationsScreen({ route, navigation }) {
           message: `Your association request with ${notification.message.split(' wants to associate with you.')[0]} has been rejected.`,
           is_read: false,
         });
+        showToast('Association request rejected.', 'success');
       }
 
       await supabase.from('notifications').update({ is_read: true }).eq('id', notification.id);
@@ -221,7 +229,7 @@ export default function NotificationsScreen({ route, navigation }) {
 
     } catch (err) {
       console.error('Error handling parent-child response:', err);
-      Alert.alert('Error', 'Could not process the request: ' + err.message);
+      showToast('Could not process the request: ' + err.message, 'error');
     }
   };
 
@@ -237,9 +245,10 @@ export default function NotificationsScreen({ route, navigation }) {
       setNotifications(prev =>
         prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
       );
+      showToast('Notification marked as read.', 'success');
     } catch (err) {
       console.error('Error marking as read:', err);
-      Alert.alert('Error', 'Could not mark as read.');
+      showToast('Could not mark as read.', 'error');
     }
   };
 
@@ -264,29 +273,29 @@ export default function NotificationsScreen({ route, navigation }) {
 
     return (
       <TouchableOpacity
-        style={[styles.card, isUnread && styles.unreadCard]}
+        style={[styles.card, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }, isUnread && { backgroundColor: theme.colors.surface }]}
         onPress={() => handleNotificationPress(item)}
         disabled={!isPressable}
       >
-        <FontAwesome5 name={iconName} size={24} color={isUnread ? '#007AFF' : '#ccc'} style={styles.icon} />
+        <FontAwesome5 name={iconName} size={24} color={isUnread ? theme.colors.primary : theme.colors.placeholder} style={styles.icon} />
         <View style={styles.contentContainer}>
-          <Text style={[styles.title, isUnread && styles.unreadTitle]}>{item.title}</Text>
-          <Text style={styles.message}>{item.message}</Text>
-          <Text style={styles.date}>{new Date(item.created_at).toLocaleString()}</Text>
+          <Text style={[styles.title, { color: theme.colors.text }, isUnread && { color: theme.colors.primary }]}>{item.title}</Text>
+          <Text style={[styles.message, { color: theme.colors.text }]}>{item.message}</Text>
+          <Text style={[styles.date, { color: theme.colors.placeholder }]}>{new Date(item.created_at).toLocaleString()}</Text>
 
           {item.type === 'school_join_request' && isUnread && (
             <View style={styles.buttonsRow}>
               <TouchableOpacity
-                style={[styles.button, styles.acceptButton]}
+                style={[styles.button, styles.acceptButton, { backgroundColor: theme.colors.primary }]}
                 onPress={() => handleJoinResponse(item, true)}
               >
-                <Text style={styles.buttonText}>Accept</Text>
+                <Text style={[styles.buttonText, { color: theme.colors.buttonPrimaryText }]}>Accept</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.button, styles.declineButton]}
+                style={[styles.button, styles.declineButton, { backgroundColor: theme.colors.error }]}
                 onPress={() => handleJoinResponse(item, false)}
               >
-                <Text style={styles.buttonText}>Decline</Text>
+                <Text style={[styles.buttonText, { color: theme.colors.buttonPrimaryText }]}>Decline</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -294,24 +303,24 @@ export default function NotificationsScreen({ route, navigation }) {
           {item.type === 'parent_child_request' && isUnread && (
             <View style={styles.buttonsRow}>
               <TouchableOpacity
-                style={[styles.button, styles.acceptButton]}
+                style={[styles.button, styles.acceptButton, { backgroundColor: theme.colors.primary }]}
                 onPress={() => handleParentChildResponse(item, true)}
               >
-                <Text style={styles.buttonText}>Accept</Text>
+                <Text style={[styles.buttonText, { color: theme.colors.buttonPrimaryText }]}>Accept</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.button, styles.declineButton]}
+                style={[styles.button, styles.declineButton, { backgroundColor: theme.colors.error }]}
                 onPress={() => handleParentChildResponse(item, false)}
               >
-                <Text style={styles.buttonText}>Decline</Text>
+                <Text style={[styles.buttonText, { color: theme.colors.buttonPrimaryText }]}>Decline</Text>
               </TouchableOpacity>
             </View>
           )}
 
           {item.is_read && (item.type === 'school_join_request' || item.type === 'parent_child_request') && (
             <>
-              <View style={styles.hr} />
-              <Text style={styles.statusText}>
+              <View style={[styles.hr, { borderBottomColor: theme.colors.cardBorder }]} />
+              <Text style={[styles.statusText, { color: theme.colors.placeholder }]}>
                 {item.status_text || 'You have read this notification'}
               </Text>
             </>
@@ -319,8 +328,8 @@ export default function NotificationsScreen({ route, navigation }) {
 
           {item.is_read && item.type !== 'school_join_request' && item.type !== 'parent_child_request' && (
             <>
-              <View style={styles.hr} />
-              <Text style={styles.statusText}>
+              <View style={[styles.hr, { borderBottomColor: theme.colors.cardBorder }]} />
+              <Text style={[styles.statusText, { color: theme.colors.placeholder }]}>
                 You have read this notification
               </Text>
             </>
@@ -329,11 +338,11 @@ export default function NotificationsScreen({ route, navigation }) {
         <View style={styles.actionsContainer}>
           {isUnread && (
             <TouchableOpacity onPress={() => handleMarkAsRead(item.id)} style={styles.actionButton}>
-              <FontAwesome5 name="eye" size={20} color="#007AFF" />
+              <FontAwesome5 name="eye" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.actionButton}>
-            <FontAwesome5 name="trash" size={20} color="#d9534f" />
+            <FontAwesome5 name="trash" size={20} color={theme.colors.error} />
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -341,8 +350,8 @@ export default function NotificationsScreen({ route, navigation }) {
   };
 
   if (loading) return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Notifications</Text>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Text style={[styles.header, { color: theme.colors.text }]}>Notifications</Text>
       <FlatList
         data={[1, 2, 3, 4, 5]}
         keyExtractor={(item) => item.toString()}
@@ -353,18 +362,18 @@ export default function NotificationsScreen({ route, navigation }) {
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Notifications</Text>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Text style={[styles.header, { color: theme.colors.text }]}>Notifications</Text>
       <View style={styles.subHeaderContainer}>
-        <Text style={styles.notificationCount}>You have {notifications.length} notifications</Text>
+        <Text style={[styles.notificationCount, { color: theme.colors.placeholder }]}>You have {notifications.length} notifications</Text>
         {notifications.length > 0 && (
           <TouchableOpacity onPress={handleClearAll}>
-            <Text style={styles.clearAllButtonText}>Clear All</Text>
+            <Text style={[styles.clearAllButtonText, { color: theme.colors.error }]}>Clear All</Text>
           </TouchableOpacity>
         )}
       </View>
       {notifications.length === 0 ? (
-        <Text style={styles.emptyText}>No notifications</Text>
+        <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No notifications</Text>
       ) : (
         <FlatList
           data={notifications}
@@ -381,52 +390,52 @@ export default function NotificationsScreen({ route, navigation }) {
         onRequestClose={() => setDetailModalVisible(false)}
       >
         <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.text }]}>
             {modalLoading ? (
-              <ActivityIndicator size="large" color="#007AFF" />
+              <ActivityIndicator size="large" color={theme.colors.primary} />
             ) : selectedItemDetail ? (
               <>
                 <View style={styles.modalTitleContainer}>
                   <FontAwesome5 name={
                     selectedItemDetail.type.includes('announcement') ? 'bullhorn' : 'clipboard-list'
-                  } size={20} color="#007AFF" style={{ marginRight: 10 }} />
-                  <Text style={styles.modalHeader}>{selectedItemDetail.title || selectedItemDetail.subject}</Text>
+                  } size={20} color={theme.colors.primary} style={{ marginRight: 10 }} />
+                  <Text style={[styles.modalHeader, { color: theme.colors.text }]}>{selectedItemDetail.title || selectedItemDetail.subject}</Text>
                 </View>
 
                 {selectedItemDetail.due_date && (
                   <View style={styles.modalDateContainer}>
-                    <FontAwesome5 name="calendar-check" size={16} color="#d9534f" style={{ marginRight: 8 }} />
-                    <Text style={[styles.modalDate, { color: '#d9534f' }]}>Due: {new Date(selectedItemDetail.due_date).toLocaleDateString()}</Text>
+                    <FontAwesome5 name="calendar-check" size={16} color={theme.colors.error} style={{ marginRight: 8 }} />
+                    <Text style={[styles.modalDate, { color: theme.colors.error }]}>Due: {new Date(selectedItemDetail.due_date).toLocaleDateString()}</Text>
                   </View>
                 )}
 
                 {selectedItemDetail.created_at && (
                   <View style={styles.modalDateContainer}>
-                    <FontAwesome5 name="clock" size={16} color="#666" style={{ marginRight: 8 }} />
-                    <Text style={styles.modalDate}>Posted: {new Date(selectedItemDetail.created_at).toLocaleString()}</Text>
+                    <FontAwesome5 name="clock" size={16} color={theme.colors.placeholder} style={{ marginRight: 8 }} />
+                    <Text style={[styles.modalDate, { color: theme.colors.placeholder }]}>Posted: {new Date(selectedItemDetail.created_at).toLocaleString()}</Text>
                   </View>
                 )}
 
-                <View style={styles.hr} />
+                <View style={[styles.hr, { borderBottomColor: theme.colors.cardBorder }]} />
                 <ScrollView style={styles.modalMessageScrollView}>
-                  <Text style={styles.modalMessage}>{selectedItemDetail.message || selectedItemDetail.description}</Text>
+                  <Text style={[styles.modalMessage, { color: theme.colors.text }]}>{selectedItemDetail.message || selectedItemDetail.description}</Text>
                 </ScrollView>
 
                 {selectedItemDetail.file_url && (
                   <View>
-                    <View style={styles.hr} />
-                    <TouchableOpacity style={styles.fileLinkButton} onPress={() => Linking.openURL(selectedItemDetail.file_url)}>
-                      <FontAwesome5 name="link" size={16} color="#fff" style={{ marginRight: 8 }} />
-                      <Text style={styles.modalCloseButtonText}>View Attached File</Text>
+                    <View style={[styles.hr, { borderBottomColor: theme.colors.cardBorder }]} />
+                    <TouchableOpacity style={[styles.fileLinkButton, { backgroundColor: theme.colors.success }]} onPress={() => Linking.openURL(selectedItemDetail.file_url)}>
+                      <FontAwesome5 name="link" size={16} color={theme.colors.buttonPrimaryText} style={{ marginRight: 8 }} />
+                      <Text style={[styles.modalCloseButtonText, { color: theme.colors.buttonPrimaryText }]}>View Attached File</Text>
                     </TouchableOpacity>
                   </View>
                 )}
 
                 <TouchableOpacity
-                  style={styles.modalCloseButton}
+                  style={[styles.modalCloseButton, { backgroundColor: theme.colors.primary }]}
                   onPress={() => setDetailModalVisible(false)}
                 >
-                  <Text style={styles.modalCloseButtonText}>Close</Text>
+                  <Text style={[styles.modalCloseButtonText, { color: theme.colors.buttonPrimaryText }]}>Close</Text>
                 </TouchableOpacity>
               </>
             ) : null}
@@ -438,9 +447,9 @@ export default function NotificationsScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fb', padding: 16 },
+  container: { flex: 1, padding: 16 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { fontSize: 28, fontWeight: 'bold', marginBottom: 5, textAlign: 'center', color: '#333' },
+  header: { fontSize: 28, fontWeight: 'bold', marginBottom: 5, textAlign: 'center' },
   subHeaderContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -450,44 +459,39 @@ const styles = StyleSheet.create({
   },
   notificationCount: {
     fontSize: 14,
-    color: '#888',
   },
   clearAllButtonText: {
     fontSize: 14,
-    color: '#d9534f',
     fontWeight: '600',
   },
-  emptyText: { textAlign: 'center', color: '#666', marginTop: 50, fontSize: 16 },
+  emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16 },
   card: {
-    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 4,
   },
-  unreadCard: { backgroundColor: '#eef5ff' },
+  unreadCard: { },
   icon: { marginRight: 16, marginTop: 4 },
   contentContainer: { flex: 1 },
-  title: { fontSize: 17, fontWeight: '600', marginBottom: 4, color: '#444' },
-  unreadTitle: { fontWeight: 'bold', color: '#005cbf' },
-  message: { fontSize: 15, color: '#666', marginBottom: 8 },
-  date: { fontSize: 12, color: '#aaa', textAlign: 'left' },
+  title: { fontSize: 17, fontWeight: '600', marginBottom: 4 },
+  unreadTitle: { fontWeight: 'bold' },
+  message: { fontSize: 15, marginBottom: 8 },
+  date: { fontSize: 12, textAlign: 'left' },
   buttonsRow: { flexDirection: 'row', marginTop: 12 },
   button: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, marginRight: 10 },
-  acceptButton: { backgroundColor: '#007AFF' },
-  declineButton: { backgroundColor: '#d9534f' },
-  buttonText: { color: '#fff', fontWeight: 'bold' },
-  statusText: { marginTop: 8, fontStyle: 'italic', color: '#999', fontSize: 14 },
+  acceptButton: { },
+  declineButton: { },
+  buttonText: { fontWeight: 'bold' },
+  statusText: { marginTop: 8, fontStyle: 'italic', fontSize: 14 },
   actionsContainer: { flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', marginLeft: 16 },
   actionButton: { padding: 8 },
   hr: {
-    borderBottomColor: '#eee',
     borderBottomWidth: 1,
     marginVertical: 12,
   },
@@ -501,10 +505,8 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '90%',
     maxHeight: '80%', // Limit height to make it scrollable
-    backgroundColor: 'white',
     borderRadius: 15,
     padding: 20,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
@@ -527,7 +529,6 @@ const styles = StyleSheet.create({
   },
   modalDate: {
     fontSize: 13,
-    color: '#666',
   },
   modalMessageScrollView: {
     maxHeight: '70%', // Adjust as needed
@@ -537,7 +538,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   fileLinkButton: {
-    backgroundColor: '#28a745',
     borderRadius: 10,
     padding: 12,
     marginTop: 10,
@@ -546,14 +546,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalCloseButton: {
-    backgroundColor: '#007AFF',
     borderRadius: 10,
     padding: 12,
     marginTop: 20,
     alignItems: 'center',
   },
   modalCloseButtonText: {
-    color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
   },

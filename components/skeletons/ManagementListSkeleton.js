@@ -2,9 +2,11 @@ import React from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
 import CardSkeleton from './CardSkeleton';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
+import { useTheme } from '../../context/ThemeContext'; // Import useTheme
 
 const SkeletonPiece = ({ style }) => {
     const progress = useSharedValue(0);
+    const { theme } = useTheme(); // Use the theme hook
   
     React.useEffect(() => {
       progress.value = withRepeat(withTiming(1, { duration: 1000 }), -1, true);
@@ -17,12 +19,13 @@ const SkeletonPiece = ({ style }) => {
       };
     });
   
-    return <Animated.View style={[styles.skeleton, animatedStyle, style]} />;
+    return <Animated.View style={[styles.skeleton, { backgroundColor: theme.colors.cardBorder }, animatedStyle, style]} />;
   };
 
 const ManagementListSkeleton = () => {
+  const { theme } = useTheme(); // Use the theme hook
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.headerContainer}>
             <SkeletonPiece style={{ width: '60%', height: 24, borderRadius: 4 }} />
             <SkeletonPiece style={{ width: '30%', height: 30, borderRadius: 8 }} />
@@ -40,7 +43,6 @@ const ManagementListSkeleton = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8f9fa',
         padding: 16,
     },
     headerContainer: {
@@ -50,7 +52,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     skeleton: {
-        backgroundColor: '#E0E0E0',
+        // backgroundColor handled by theme
     },
 });
 

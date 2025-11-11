@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  Alert,
   StyleSheet,
   ScrollView,
 } from 'react-native';
@@ -15,6 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import SchoolSetupScreenSkeleton from '../components/skeletons/SchoolSetupScreenSkeleton';
+import { useToast } from '../context/ToastContext';
 
 export default function SchoolSetupScreen({ navigation }) {
   const [user, setUser] = useState(null);
@@ -29,6 +29,7 @@ export default function SchoolSetupScreen({ navigation }) {
   const [requestStatus, setRequestStatus] = useState(null); // 'pending' | 'declined'
   const [declinedMessage, setDeclinedMessage] = useState(null);
   const insets = useSafeAreaInsets();
+  const { showToast } = useToast();
 
   // Create new school
   const [newSchoolName, setNewSchoolName] = useState('');
@@ -105,7 +106,7 @@ export default function SchoolSetupScreen({ navigation }) {
 
     if (error) {
       console.error(error);
-      Alert.alert('Error', 'Unable to search for schools.');
+      showToast('Unable to search for schools.', 'error');
     } else {
       setSchools(data || []);
     }
@@ -149,10 +150,10 @@ export default function SchoolSetupScreen({ navigation }) {
         }]);
       if (notifError) throw notifError;
 
-      Alert.alert('Request Sent', 'Your request is pending approval.');
+      showToast('Your request is pending approval.', 'success');
     } catch (err) {
       console.error(err);
-      Alert.alert('Error', 'Failed to send join request: ' + err.message);
+      showToast('Failed to send join request: ' + err.message, 'error');
     } finally {
       setJoiningSchool(null);
     }
@@ -160,7 +161,7 @@ export default function SchoolSetupScreen({ navigation }) {
 
   const handleCreateSchool = async () => {
     if (!newSchoolName.trim() || !user) {
-      Alert.alert('Error', 'School name is required.');
+      showToast('School name is required.', 'error');
       return;
     }
     setCreating(true);
@@ -187,11 +188,11 @@ export default function SchoolSetupScreen({ navigation }) {
         .eq('id', user.id);
       if (updateError) throw updateError;
 
-      Alert.alert('Success', `School "${newSchoolName}" created and linked!`);
+      showToast(`School "${newSchoolName}" created and linked!`, 'success');
       navigation.replace('MainNavigation');
     } catch (err) {
       console.error(err);
-      Alert.alert('Error', 'Failed to create school: ' + err.message);
+      showToast('Failed to create school: ' + err.message, 'error');
     } finally {
       setCreating(false);
     }

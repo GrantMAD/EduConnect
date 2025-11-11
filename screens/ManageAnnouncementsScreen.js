@@ -8,6 +8,7 @@ import ManagementCardSkeleton from '../components/skeletons/ManagementCardSkelet
 import { faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
 import Modal from 'react-native-modal';
 import { TextInput } from 'react-native';
+import { useToast } from '../context/ToastContext';
 
 export default function ManageAnnouncementsScreen({ navigation }) {
   const [announcements, setAnnouncements] = useState([]);
@@ -18,6 +19,7 @@ export default function ManageAnnouncementsScreen({ navigation }) {
   const [userRole, setUserRole] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const { schoolId } = useSchool();
+  const { showToast } = useToast();
 
   useEffect(() => {
     const getUserData = async () => {
@@ -53,7 +55,7 @@ export default function ManageAnnouncementsScreen({ navigation }) {
       const { data, error } = await query;
       setAnnouncements(data);
     } catch (error) {
-      Alert.alert('Error', 'Failed to fetch announcements.');
+      showToast('Failed to fetch announcements.', 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -85,10 +87,10 @@ export default function ManageAnnouncementsScreen({ navigation }) {
             try {
               const { error } = await supabase.from('announcements').delete().eq('id', id);
               if (error) throw error;
-              Alert.alert('Success', 'Announcement deleted successfully!');
+              showToast('Announcement deleted successfully!', 'success');
               fetchAnnouncements(); // Refresh the list
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete announcement.');
+              showToast('Failed to delete announcement.', 'error');
             }
           },
         },
@@ -104,7 +106,7 @@ export default function ManageAnnouncementsScreen({ navigation }) {
 
   const handleSaveEdit = async () => {
     if (!editingAnnouncement.title || !editingAnnouncement.message) {
-      Alert.alert('Error', 'Title and Message cannot be empty.');
+      showToast('Title and Message cannot be empty.', 'error');
       return;
     }
     try {
@@ -114,12 +116,12 @@ export default function ManageAnnouncementsScreen({ navigation }) {
         .eq('id', editingAnnouncement.id);
 
       if (error) throw error;
-      Alert.alert('Success', 'Announcement updated successfully!');
+      showToast('Announcement updated successfully!', 'success');
       setShowEditModal(false);
       setEditingAnnouncement(null);
       fetchAnnouncements(); // Refresh the list
     } catch (error) {
-      Alert.alert('Error', 'Failed to update announcement.');
+      showToast('Failed to update announcement.', 'error');
     }
   };
 

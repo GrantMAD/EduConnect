@@ -1,24 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import ManagementListSkeleton from '../components/skeletons/ManagementListSkeleton';
 import { faBook, faChalkboardTeacher } from '@fortawesome/free-solid-svg-icons';
+import { useToast } from '../context/ToastContext';
 
 export default function ManageClassesScreen({ navigation }) {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
   const { schoolId } = useSchool();
+  const { showToast } = useToast();
 
   const fetchTeachersClasses = async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        Alert.alert('Error', 'User not authenticated.');
+        showToast('User not authenticated.', 'error');
         setLoading(false);
         return;
       }
@@ -34,7 +36,7 @@ export default function ManageClassesScreen({ navigation }) {
       setUserRole(userData.role);
 
       if (!schoolId) {
-        Alert.alert('Error', 'School ID not available.');
+        showToast('School ID not available.', 'error');
         setLoading(false);
         return;
       }
@@ -54,7 +56,7 @@ export default function ManageClassesScreen({ navigation }) {
       setClasses(data);
     } catch (error) {
       console.error('Error fetching classes:', error.message);
-      Alert.alert('Error', 'Failed to fetch classes.');
+      showToast('Failed to fetch classes.', 'error');
     } finally {
       setLoading(false);
     }

@@ -1,9 +1,11 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
+import { useTheme } from '../../context/ThemeContext'; // Import useTheme
 
 const SkeletonPiece = ({ style }) => {
   const progress = useSharedValue(0);
+  const { theme } = useTheme(); // Use the theme hook
 
   useEffect(() => {
     progress.value = withRepeat(withTiming(1, { duration: 1000 }), -1, true);
@@ -16,19 +18,20 @@ const SkeletonPiece = ({ style }) => {
     };
   });
 
-  return <Animated.View style={[styles.skeleton, animatedStyle, style]} />;
+  return <Animated.View style={[styles.skeleton, { backgroundColor: theme.colors.cardBorder }, animatedStyle, style]} />;
 };
 
 const AnnouncementCardSkeleton = () => {
+  const { theme } = useTheme(); // Use the theme hook
   return (
-    <View style={styles.cardContainer}>
+    <View style={[styles.cardContainer, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }]}>
       <View style={styles.cardContent}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
           <SkeletonPiece style={{ width: '60%', height: 20, borderRadius: 4 }} />
           <SkeletonPiece style={{ width: 40, height: 20, borderRadius: 4 }} />
         </View>
         <SkeletonPiece style={{ width: '40%', height: 15, borderRadius: 4, marginTop: 5 }} />
-        <View style={styles.separator} />
+        <View style={[styles.separator, { backgroundColor: theme.colors.cardBorder }]} />
         <SkeletonPiece style={{ width: '100%', height: 15, borderRadius: 4, marginTop: 5 }} />
         <SkeletonPiece style={{ width: '100%', height: 15, borderRadius: 4, marginTop: 5 }} />
         <SkeletonPiece style={{ width: '80%', height: 15, borderRadius: 4, marginTop: 5 }} />
@@ -39,14 +42,12 @@ const AnnouncementCardSkeleton = () => {
 
 const styles = StyleSheet.create({
   skeleton: {
-    backgroundColor: '#E0E0E0',
+    // backgroundColor handled by theme
   },
   cardContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
     borderRadius: 10,
     marginBottom: 10,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1.41,
@@ -59,7 +60,6 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: 1,
-    backgroundColor: '#eee',
     marginVertical: 10,
   },
 });

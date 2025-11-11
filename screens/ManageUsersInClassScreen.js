@@ -26,6 +26,7 @@ import {
   faCalendarAlt,
   faUserPlus,
 } from "@fortawesome/free-solid-svg-icons";
+import { useToast } from "../context/ToastContext";
 
 const defaultUserImage = require("../assets/user.png");
 
@@ -34,6 +35,7 @@ export default function ManageUsersInClassScreen() {
   const { classId, className } = route.params;
 
   const { schoolId } = useSchool();
+  const { showToast } = useToast();
 
   const [classStudents, setClassStudents] = useState([]);
   const [allStudents, setAllStudents] = useState([]);
@@ -83,7 +85,7 @@ export default function ManageUsersInClassScreen() {
       }
     } catch (error) {
       console.error(error);
-      Alert.alert("Error", "Failed to fetch class details.");
+      showToast("Failed to fetch class details.", 'error');
     } finally {
       setLoading(false);
     }
@@ -105,7 +107,7 @@ export default function ManageUsersInClassScreen() {
       setAllStudents(data);
     } catch (error) {
       console.error(error);
-      Alert.alert("Error", "Failed to fetch all students.");
+      showToast("Failed to fetch all students.", 'error');
     } finally {
       setFetchingStudents(false);
     }
@@ -123,7 +125,7 @@ export default function ManageUsersInClassScreen() {
       setClassSchedules(data);
     } catch (error) {
       console.error(error);
-      Alert.alert("Error", "Failed to fetch class schedules.");
+      showToast("Failed to fetch class schedules.", 'error');
     }
   };
 
@@ -135,10 +137,10 @@ export default function ManageUsersInClassScreen() {
       const { error } = await supabase.from("classes").update({ users: newIds }).eq("id", classId);
       if (error) throw error;
       fetchClassDetails();
-      Alert.alert("Success", "Student added to class.");
+      showToast("Student added to class.", 'success');
     } catch (error) {
       console.error(error);
-      Alert.alert("Error", "Failed to add student.");
+      showToast("Failed to add student.", 'error');
     } finally {
       setSaving(false);
     }
@@ -151,7 +153,7 @@ export default function ManageUsersInClassScreen() {
       const { error } = await supabase.from("classes").update({ users: newIds }).eq("id", classId);
       if (error) throw error;
       fetchClassDetails();
-      Alert.alert("Success", "Student removed from class.");
+      showToast("Student removed from class.", 'success');
     } catch (error) {
       console.error(error);
     } finally {
@@ -176,7 +178,7 @@ export default function ManageUsersInClassScreen() {
     const [startHours, startMinutes] = tempStartTime.split(":").map(Number);
     const [endHours, endMinutes] = tempEndTime.split(":").map(Number);
     if ([startHours, startMinutes, endHours, endMinutes].some(isNaN)) {
-      return Alert.alert("Invalid Time", "Enter a valid time in HH:MM format.");
+      return showToast("Enter a valid time in HH:MM format.", 'error');
     }
 
     const startTime = new Date(selectedSchedule.start_time);
@@ -184,7 +186,7 @@ export default function ManageUsersInClassScreen() {
     const endTime = new Date(selectedSchedule.end_time);
     endTime.setHours(endHours, endMinutes);
 
-    if (startTime >= endTime) return Alert.alert("Invalid Time", "End time must be after start time.");
+    if (startTime >= endTime) return showToast("End time must be after start time.", 'error');
 
     setSaving(true);
     try {
@@ -196,10 +198,10 @@ export default function ManageUsersInClassScreen() {
 
       fetchClassSchedules();
       setEditModalVisible(false);
-      Alert.alert("Success", "Schedule updated successfully.");
+      showToast("Schedule updated successfully.", 'success');
     } catch (error) {
       console.error(error);
-      Alert.alert("Error", "Failed to update schedule.");
+      showToast("Failed to update schedule.", 'error');
     } finally {
       setSaving(false);
     }

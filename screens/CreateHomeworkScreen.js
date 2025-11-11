@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Calendar } from 'react-native-calendars';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../context/ToastContext';
 
 const CreateHomeworkScreen = ({ navigation }) => {
   const [classes, setClasses] = useState([]);
@@ -15,6 +16,7 @@ const CreateHomeworkScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -29,7 +31,7 @@ const CreateHomeworkScreen = ({ navigation }) => {
           .eq('teacher_id', user.id);
 
         if (error) {
-          Alert.alert('Error fetching classes', error.message);
+          showToast('Error fetching classes', 'error');
         } else {
           setClasses(data);
         }
@@ -49,7 +51,7 @@ const CreateHomeworkScreen = ({ navigation }) => {
           .eq('class_id', selectedClass);
 
         if (error) {
-          Alert.alert('Error', 'Could not fetch class schedules.');
+          showToast('Could not fetch class schedules.', 'error');
         } else {
           setSchedules(data);
         }
@@ -60,7 +62,7 @@ const CreateHomeworkScreen = ({ navigation }) => {
 
   const handleCreate = async () => {
     if (!selectedClass || !subject || !description || !dueDate) {
-      Alert.alert('Error', 'Please fill in all fields.');
+      showToast('Please fill in all fields.', 'error');
       return;
     }
 
@@ -77,7 +79,7 @@ const CreateHomeworkScreen = ({ navigation }) => {
     ]).select().single();
 
     if (error) {
-      Alert.alert('Error', error.message);
+      showToast(error.message, 'error');
       setIsCreating(false);
       return;
     }
@@ -118,17 +120,17 @@ const CreateHomeworkScreen = ({ navigation }) => {
           if (notificationError) {
             console.error('Failed to create homework notifications:', notificationError);
             // Non-blocking alert
-            Alert.alert('Warning', 'Homework created, but failed to send notifications.');
+            showToast('Homework created, but failed to send notifications.', 'warning');
           }
         }
       }
     } catch (notificationError) {
       console.error('An error occurred while sending homework notifications:', notificationError);
-      Alert.alert('Warning', 'Homework created, but an error occurred sending notifications.');
+      showToast('Homework created, but an error occurred sending notifications.', 'warning');
     }
     // --- End Notification Logic ---
 
-    Alert.alert('Success', 'Homework created successfully.');
+    showToast('Homework created successfully.', 'success');
     navigation.goBack();
     setIsCreating(false);
   };

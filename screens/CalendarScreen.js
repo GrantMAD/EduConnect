@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { supabase } from '../lib/supabase';
 import { useFocusEffect } from '@react-navigation/native';
@@ -7,6 +7,8 @@ import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import CalendarScreenSkeleton from '../components/skeletons/CalendarScreenSkeleton';
 import { faTimes, faCalendarAlt, faClock, faChevronDown, faChevronUp, faBook } from '@fortawesome/free-solid-svg-icons';
+import { useToast } from '../context/ToastContext';
+import { useTheme } from '../context/ThemeContext'; // Import useTheme
 
 export default function CalendarScreen() {
   const [schedules, setSchedules] = useState([]);
@@ -17,8 +19,10 @@ export default function CalendarScreen() {
   const [dropdowns, setDropdowns] = useState({});
   const [dayModalSchedules, setDayModalSchedules] = useState([]);
   const [isDayModalVisible, setDayModalVisible] = useState(false);
+  const { showToast } = useToast();
+  const { theme } = useTheme(); // Use the theme hook
 
-  const dotColors = ['#007AFF', '#28a745', '#ff9500', '#ff3b30', '#5856d6', '#34c759', '#af52de', '#ffcc00'];
+  const dotColors = [theme.colors.primary, theme.colors.success, theme.colors.warning, theme.colors.error, '#5856d6', '#34c759', '#af52de', '#ffcc00'];
 
   useFocusEffect(
     useCallback(() => {
@@ -91,8 +95,8 @@ export default function CalendarScreen() {
           // Prepare colored and descriptive schedules
           const coloredSchedules = classSchedules.map(s => ({
             ...s,
-            color: classColorMap[s.class_id] || '#007AFF',
-            badgeColor: classColorMap[s.class_id] || '#007AFF',
+            color: classColorMap[s.class_id] || theme.colors.primary,
+            badgeColor: classColorMap[s.class_id] || theme.colors.primary,
             description: s.description || '',
             class_info: s.class_info || '',
           }));
@@ -101,14 +105,14 @@ export default function CalendarScreen() {
           setMarkedDates(formattedMarkedDates);
         } catch (error) {
           console.error('Error fetching schedules:', error.message);
-          Alert.alert('Error', 'Failed to fetch schedules.');
+          showToast('Failed to fetch schedules.', 'error');
         } finally {
           setLoading(false);
         }
       };
 
       fetchSchedules();
-    }, [])
+    }, [theme.colors.primary, theme.colors.success, theme.colors.warning, theme.colors.error])
   );
 
   const upcomingSchedules = schedules.filter(s => new Date(s.start_time) >= new Date());
@@ -135,19 +139,19 @@ export default function CalendarScreen() {
     <TouchableOpacity
       key={schedule.id}
       onPress={() => openScheduleModal(schedule)}
-      style={styles.dayCard}
+      style={[styles.dayCard, { backgroundColor: theme.colors.cardBackground }]}
     >
       <View style={styles.infoRow}>
-        <FontAwesomeIcon icon={faCalendarAlt} size={14} color="#007AFF" style={styles.icon} />
-        <Text style={styles.scheduleDate}>{new Date(schedule.start_time).toLocaleDateString()}</Text>
+        <FontAwesomeIcon icon={faCalendarAlt} size={14} color={theme.colors.primary} style={styles.icon} />
+        <Text style={[styles.scheduleDate, { color: theme.colors.text }]}>{new Date(schedule.start_time).toLocaleDateString()}</Text>
       </View>
       <View style={styles.infoRow}>
-        <FontAwesomeIcon icon={faClock} size={14} color="#007AFF" style={styles.icon} />
-        <Text style={styles.scheduleTime}>
+        <FontAwesomeIcon icon={faClock} size={14} color={theme.colors.primary} style={styles.icon} />
+        <Text style={[styles.scheduleTime, { color: theme.colors.text }]}>
           {new Date(schedule.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(schedule.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
       </View>
-      <Text style={styles.tapText}>Tap to view class details</Text>
+      <Text style={[styles.tapText, { color: theme.colors.placeholder }]}>Tap to view class details</Text>
     </TouchableOpacity>
   );
 
@@ -155,19 +159,19 @@ export default function CalendarScreen() {
     const isOpen = dropdowns[title];
     return (
       <View key={title} style={styles.dropdownContainer}>
-        <TouchableOpacity onPress={() => toggleDropdown(title)} style={styles.dropdownHeader}>
+        <TouchableOpacity onPress={() => toggleDropdown(title)} style={[styles.dropdownHeader, { backgroundColor: theme.colors.inputBackground }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={[styles.colorStripe, { backgroundColor: schedulesArray[0].color }]} />
-            <FontAwesomeIcon icon={faBook} size={18} color="#007AFF" style={{ marginRight: 6 }} />
-            <Text style={styles.scheduleTitle}>{title}</Text>
+            <FontAwesomeIcon icon={faBook} size={18} color={theme.colors.primary} style={{ marginRight: 6 }} />
+            <Text style={[styles.scheduleTitle, { color: theme.colors.primary }]}>{title}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {schedulesArray[0].description ? (
               <View style={[styles.badgeContainer, { backgroundColor: schedulesArray[0].badgeColor }]}>
-                <Text style={styles.badgeText}>{schedulesArray[0].description}</Text>
+                <Text style={[styles.badgeText, { color: theme.colors.buttonPrimaryText }]}>{schedulesArray[0].description}</Text>
               </View>
             ) : null}
-            <FontAwesomeIcon icon={isOpen ? faChevronUp : faChevronDown} size={18} color="#007AFF" style={{ marginLeft: 8 }} />
+            <FontAwesomeIcon icon={isOpen ? faChevronUp : faChevronDown} size={18} color={theme.colors.primary} style={{ marginLeft: 8 }} />
           </View>
         </TouchableOpacity>
         {isOpen && (
@@ -196,24 +200,46 @@ export default function CalendarScreen() {
   const pastGrouped = groupSchedulesByTitle(pastSchedules);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      <Text style={styles.header}>Class Calendar</Text>
-      <Text style={styles.descriptionText}>View all your scheduled classes and tap on class days for more details.</Text>
+    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} contentContainerStyle={styles.scrollContent}>
+      <Text style={[styles.header, { color: theme.colors.text }]}>Class Calendar</Text>
+      <Text style={[styles.descriptionText, { color: theme.colors.text }]}>View all your scheduled classes and tap on class days for more details.</Text>
 
       <Calendar
         onDayPress={onDayPress}
         markedDates={markedDates}
         markingType="multi-dot"
+        theme={{
+          backgroundColor: theme.colors.background,
+          calendarBackground: theme.colors.background,
+          dayTextColor: theme.colors.text,
+          textDisabledColor: theme.colors.placeholder,
+          monthTextColor: theme.colors.text,
+          textSectionTitleColor: theme.colors.text,
+          selectedDayBackgroundColor: theme.colors.primary,
+          selectedDayTextColor: theme.colors.buttonPrimaryText,
+          todayTextColor: theme.colors.primary,
+          arrowColor: theme.colors.primary,
+          dotColor: theme.colors.primary,
+          textDayFontFamily: 'System',
+          textMonthFontFamily: 'System',
+          textDayHeaderFontFamily: 'System',
+          textDayFontWeight: '300',
+          textMonthFontWeight: 'bold',
+          textDayHeaderFontWeight: '500',
+          textDayFontSize: 16,
+          textMonthFontSize: 16,
+          textDayHeaderFontSize: 13,
+        }}
       />
 
-      <Text style={styles.listHeader}>Upcoming Classes</Text>
+      <Text style={[styles.listHeader, { color: theme.colors.text }]}>Upcoming Classes</Text>
       {Object.keys(upcomingGrouped).length === 0 ? (
-        <Text style={styles.emptyText}>You have no upcoming classes.</Text>
+        <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>You have no upcoming classes.</Text>
       ) : Object.entries(upcomingGrouped).map(([title, scheds]) => renderClassDropdown(title, scheds))}
 
-      <Text style={styles.listHeader}>Past Classes</Text>
+      <Text style={[styles.listHeader, { color: theme.colors.text }]}>Past Classes</Text>
       {Object.keys(pastGrouped).length === 0 ? (
-        <Text style={styles.emptyText}>No past classes yet.</Text>
+        <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No past classes yet.</Text>
       ) : Object.entries(pastGrouped).map(([title, scheds]) => renderClassDropdown(title, scheds))}
 
       {/* Class Detail Modal */}
@@ -223,30 +249,30 @@ export default function CalendarScreen() {
         style={styles.centeredModal}
       >
         {selectedSchedule && (
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
             <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseButton}>
-              <FontAwesomeIcon icon={faTimes} size={20} color="#666" />
+              <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
             </TouchableOpacity>
-            <Text style={styles.modalHeader}>{selectedSchedule.title}</Text>
-            <Text style={styles.modalDescription}>Here is the detailed information for this class.</Text>
+            <Text style={[styles.modalHeader, { color: theme.colors.text }]}>{selectedSchedule.title}</Text>
+            <Text style={[styles.modalDescription, { color: theme.colors.text }]}>Here is the detailed information for this class.</Text>
 
             {selectedSchedule.description ? (
-              <Text style={styles.modalDescriptionBadge}>{selectedSchedule.description}</Text>
+              <Text style={[styles.modalDescriptionBadge, { backgroundColor: theme.colors.primary, color: theme.colors.buttonPrimaryText }]}>{selectedSchedule.description}</Text>
             ) : null}
 
             <View style={styles.infoRow}>
-              <FontAwesomeIcon icon={faCalendarAlt} size={14} color="#007AFF" style={styles.icon} />
-              <Text style={styles.scheduleDate}>{new Date(selectedSchedule.start_time).toLocaleDateString()}</Text>
+              <FontAwesomeIcon icon={faCalendarAlt} size={14} color={theme.colors.primary} style={styles.icon} />
+              <Text style={[styles.scheduleDate, { color: theme.colors.text }]}>{new Date(selectedSchedule.start_time).toLocaleDateString()}</Text>
             </View>
             <View style={styles.infoRow}>
-              <FontAwesomeIcon icon={faClock} size={14} color="#007AFF" style={styles.icon} />
-              <Text style={styles.scheduleTime}>
+              <FontAwesomeIcon icon={faClock} size={14} color={theme.colors.primary} style={styles.icon} />
+              <Text style={[styles.scheduleTime, { color: theme.colors.text }]}>
                 {new Date(selectedSchedule.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(selectedSchedule.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Text>
             </View>
 
             {selectedSchedule.class_info ? (
-              <Text style={styles.classInfo}>{selectedSchedule.class_info}</Text>
+              <Text style={[styles.classInfo, { color: theme.colors.text }]}>{selectedSchedule.class_info}</Text>
             ) : null}
           </View>
         )}
@@ -258,12 +284,12 @@ export default function CalendarScreen() {
         onBackdropPress={() => setDayModalVisible(false)}
         style={styles.centeredModal}
       >
-        <View style={styles.modalContent}>
+        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
           <TouchableOpacity onPress={() => setDayModalVisible(false)} style={styles.modalCloseButton}>
-            <FontAwesomeIcon icon={faTimes} size={20} color="#666" />
+            <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
           </TouchableOpacity>
-          <Text style={styles.modalHeader}>Classes for selected day</Text>
-          <Text style={styles.modalDescription}>Tap a class to view its details.</Text>
+          <Text style={[styles.modalHeader, { color: theme.colors.text }]}>Classes for selected day</Text>
+          <Text style={[styles.modalDescription, { color: theme.colors.text }]}>Tap a class to view its details.</Text>
           {dayModalSchedules.map(renderDayCard)}
         </View>
       </Modal>
@@ -272,33 +298,33 @@ export default function CalendarScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 24 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 5, color: '#333' },
-  descriptionText: { fontSize: 14, color: '#666', marginBottom: 15 },
-  listHeader: { fontSize: 20, fontWeight: 'bold', marginTop: 20, marginBottom: 5, color: '#333' },
+  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 5 },
+  descriptionText: { fontSize: 14, marginBottom: 15 },
+  listHeader: { fontSize: 20, fontWeight: 'bold', marginTop: 20, marginBottom: 5 },
 
   dropdownContainer: { marginBottom: 15 },
-  dropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#f0f4f8', borderRadius: 10 },
-  scheduleTitle: { fontSize: 18, fontWeight: 'bold', color: '#007AFF' },
+  dropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10 },
+  scheduleTitle: { fontSize: 18, fontWeight: 'bold' },
   colorStripe: { width: 6, height: '100%', marginRight: 6, borderRadius: 3 },
   badgeContainer: { borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start', marginLeft: 8 },
   badgeText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
 
-  dayCard: { backgroundColor: '#f8f9fa', padding: 12, borderRadius: 8, marginBottom: 8 },
-  tapText: { fontSize: 12, color: '#666', marginTop: 4, fontStyle: 'italic' },
+  dayCard: { padding: 12, borderRadius: 8, marginBottom: 8 },
+  tapText: { fontSize: 12, marginTop: 4, fontStyle: 'italic' },
   infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   icon: { marginRight: 8, width: 18, textAlign: 'center' },
-  scheduleDate: { fontSize: 14, color: '#666' },
-  scheduleTime: { fontSize: 14, color: '#666' },
-  emptyText: { textAlign: 'center', marginTop: 20, color: '#666', fontSize: 16 },
+  scheduleDate: { fontSize: 14 },
+  scheduleTime: { fontSize: 14 },
+  emptyText: { textAlign: 'center', marginTop: 20, fontSize: 16 },
 
   centeredModal: { justifyContent: 'center', alignItems: 'center', margin: 0 },
-  modalContent: { backgroundColor: 'white', padding: 22, borderRadius: 15, width: '90%' },
+  modalContent: { padding: 22, borderRadius: 15, width: '90%' },
   modalHeader: { fontSize: 22, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' },
-  modalDescription: { fontSize: 14, color: '#666', marginBottom: 10, textAlign: 'center' },
-  modalDescriptionBadge: { fontSize: 14, color: '#fff', backgroundColor: '#007AFF', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'center', marginBottom: 10 },
-  classInfo: { fontSize: 14, color: '#444', marginTop: 10 },
+  modalDescription: { fontSize: 14, marginBottom: 10, textAlign: 'center' },
+  modalDescriptionBadge: { fontSize: 14, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'center', marginBottom: 10 },
+  classInfo: { fontSize: 14, marginTop: 10 },
   modalCloseButton: { position: 'absolute', top: 10, right: 10, padding: 5, zIndex: 1 },
 });

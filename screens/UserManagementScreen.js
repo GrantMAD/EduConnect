@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TextInput, FlatList, TouchableOpacity, Modal, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TextInput, FlatList, TouchableOpacity, Modal, Image } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { Picker } from '@react-native-picker/picker';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import UserManagementScreenSkeleton from '../components/skeletons/UserManagementScreenSkeleton';
 import { faTimes } from '@fortawesome/free-solid-svg-icons';
+import { useToast } from '../context/ToastContext';
 
 const defaultUserImage = require('../assets/user.png');
 
@@ -15,6 +16,7 @@ export default function UserManagementScreen() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -73,9 +75,9 @@ export default function UserManagementScreen() {
       .eq('id', selectedUser.id);
 
     if (error) {
-      Alert.alert('Error', 'Failed to update user role.');
+      showToast('Failed to update user role.', 'error');
     } else {
-      Alert.alert('Success', 'User role updated successfully.');
+      showToast('User role updated successfully.', 'success');
       // Update the local state to reflect the change immediately
       setUsers(users.map(u => u.id === selectedUser.id ? { ...u, role: newRole } : u));
       setSelectedUser({ ...selectedUser, role: newRole });

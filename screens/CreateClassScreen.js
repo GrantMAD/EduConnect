@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Button, Platform, ScrollView, Modal, Image } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Button, Platform, ScrollView, Modal, Image } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faPlusCircle, faMinusCircle, faUser, faClock } from '@fortawesome/free-solid-svg-icons';
 import { Calendar } from 'react-native-calendars';
+import { useToast } from '../context/ToastContext';
 const defaultUserImage = require('../assets/user.png');
 
 export default function CreateClassScreen({ navigation }) {
@@ -25,6 +26,7 @@ export default function CreateClassScreen({ navigation }) {
   const [classInfo, setClassInfo] = useState('');
 
   const { schoolId } = useSchool();
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (schoolId) {
@@ -60,7 +62,7 @@ export default function CreateClassScreen({ navigation }) {
       setStudents(data);
     } catch (error) {
       console.error('Error fetching students:', error.message);
-      Alert.alert('Error', 'Failed to fetch students.');
+      showToast('Failed to fetch students.', 'error');
     } finally {
       setFetchingStudents(false);
     }
@@ -105,7 +107,7 @@ export default function CreateClassScreen({ navigation }) {
     const [endHours, endMinutes] = tempEndTime.split(':').map(Number);
 
     if (isNaN(startHours) || isNaN(startMinutes) || isNaN(endHours) || isNaN(endMinutes) || startHours > 23 || startMinutes > 59 || endHours > 23 || endMinutes > 59) {
-      Alert.alert('Invalid Time', 'Please enter a valid time in HH:MM format.');
+      showToast('Please enter a valid time in HH:MM format.', 'error');
       return;
     }
 
@@ -116,7 +118,7 @@ export default function CreateClassScreen({ navigation }) {
     endTime.setHours(endHours, endMinutes);
 
     if (startTime >= endTime) {
-      Alert.alert('Invalid Time', 'End time must be after start time.');
+      showToast('End time must be after start time.', 'error');
       return;
     }
 
@@ -131,7 +133,7 @@ export default function CreateClassScreen({ navigation }) {
 
   const handleCreateClass = async () => {
     if (!className || !subject) {
-      Alert.alert('Error', 'Class Name and Subject cannot be empty.');
+      showToast('Class Name and Subject cannot be empty.', 'error');
       return;
     }
 
@@ -139,13 +141,13 @@ export default function CreateClassScreen({ navigation }) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        Alert.alert('Error', 'User not authenticated.');
+        showToast('User not authenticated.', 'error');
         setLoading(false);
         return;
       }
 
       if (!schoolId) {
-        Alert.alert('Error', 'School ID not available.');
+        showToast('School ID not available.', 'error');
         setLoading(false);
         return;
       }
@@ -191,11 +193,11 @@ export default function CreateClassScreen({ navigation }) {
         if (scheduleError) throw scheduleError;
       }
 
-      Alert.alert('Success', `Class '${className}' created successfully!`);
+      showToast(`Class '${className}' created successfully!`, 'success');
       navigation.goBack();
     } catch (error) {
       console.error('Error creating class:', error.message);
-      Alert.alert('Error', 'Failed to create class.');
+      showToast('Failed to create class.', 'error');
     } finally {
       setLoading(false);
     }

@@ -7,6 +7,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faBullhorn, faCalendar, faUser, faTag, faTimes, faUsers } from '@fortawesome/free-solid-svg-icons';
+import { useTheme } from '../context/ThemeContext'; // Import useTheme
 
 const placeholderImage = require('../assets/user.png'); // Using existing asset as placeholder
 
@@ -47,6 +48,7 @@ export default function AnnouncementsScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
 
   const { schoolId } = useSchool();
+  const { theme } = useTheme(); // Use the theme hook
 
   useEffect(() => {
     const initializeUserAndClasses = async () => {
@@ -220,7 +222,7 @@ export default function AnnouncementsScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.welcomeContainer}>
           <View style={[styles.skeleton, { width: '70%', height: 24, borderRadius: 4, marginBottom: 5 }]} />
           <View style={[styles.skeleton, { width: '90%', height: 16, borderRadius: 4 }]} />
@@ -239,11 +241,11 @@ export default function AnnouncementsScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Welcome Area */}
       <View style={styles.welcomeContainer}>
-        <Text style={styles.welcomeText}>Welcome to Announcements!</Text>
-        <Text style={styles.welcomeDescription}>Stay updated with the latest news and updates from your school.</Text>
+        <Text style={[styles.welcomeText, { color: theme.colors.text }]}>Welcome to Announcements!</Text>
+        <Text style={[styles.welcomeDescription, { color: theme.colors.text }]}>Stay updated with the latest news and updates from your school.</Text>
       </View>
 
       {/* Placeholder Image Area */}
@@ -255,10 +257,10 @@ export default function AnnouncementsScreen({ navigation }) {
         {schoolData?.logo_url ? (
           <Image source={{ uri: schoolData.logo_url }} style={styles.placeholderImage} />
         ) : (
-          <View style={styles.placeholderImageContainer}>
-            <Text style={styles.placeholderText}>Currently no school image</Text>
+          <View style={[styles.placeholderImageContainer, { backgroundColor: theme.colors.inputBackground }]}>
+            <Text style={[styles.placeholderText, { color: theme.colors.placeholder }]}>Currently no school image</Text>
             {userRole === 'admin' && (
-              <Text style={styles.placeholderSubText}>Press here to change your school's image in the settings</Text>
+              <Text style={[styles.placeholderSubText, { color: theme.colors.placeholder }]}>Press here to change your school's image in the settings</Text>
             )}
           </View>
         )}
@@ -266,62 +268,62 @@ export default function AnnouncementsScreen({ navigation }) {
 
       {/* List of Announcements Area */}
       <View style={styles.sectionHeaderContainer}>
-        <Text style={styles.sectionHeader}>Latest Announcements</Text>
+        <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Latest Announcements</Text>
         {(userRole === 'admin' || userRole === 'teacher') && (
           <TouchableOpacity
             style={styles.addTextButton}
             onPress={() => navigation.navigate('CreateAnnouncement')}
           >
-            <Text style={styles.addTextButtonText}>+ Add Announcement</Text>
+            <Text style={[styles.addTextButtonText, { color: theme.colors.primary }]}>+ Add Announcement</Text>
           </TouchableOpacity>
         )}
       </View>
-      <Text style={styles.announcementCount}>{announcements.length} announcements</Text>
+      <Text style={[styles.announcementCount, { color: theme.colors.placeholder }]}>{announcements.length} announcements</Text>
       <FlatList
         data={announcements}
         keyExtractor={(item) => item.id.toString()}
         onRefresh={onRefresh}
         refreshing={refreshing}
         renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => handleCardPress(item)} style={styles.cardContainer}>
-            <View style={[styles.typeIndicator, item.type === 'general' ? styles.generalType : styles.classType]} />
+          <TouchableOpacity onPress={() => handleCardPress(item)} style={[styles.cardContainer, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }]}>
+            <View style={[styles.typeIndicator, item.type === 'general' ? { backgroundColor: theme.colors.primary } : { backgroundColor: theme.colors.success }]} />
             <View style={styles.cardContent}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <FontAwesomeIcon icon={faBullhorn} size={18} color="#007AFF" style={{ marginRight: 10 }} />
-                  <Text style={styles.title}>{item.title}</Text>
+                  <FontAwesomeIcon icon={faBullhorn} size={18} color={theme.colors.primary} style={{ marginRight: 10 }} />
+                  <Text style={[styles.title, { color: theme.colors.text }]}>{item.title}</Text>
                 </View>
                 {new Date(item.created_at) > new Date(Date.now() - 48 * 60 * 60 * 1000) ? (
-                  <View style={styles.newBadge}>
-                    <Text style={styles.newBadgeText}>NEW</Text>
+                  <View style={[styles.newBadge, { backgroundColor: theme.colors.error }]}>
+                    <Text style={[styles.newBadgeText, { color: theme.colors.buttonPrimaryText }]}>NEW</Text>
                   </View>
                 ) : (
-                  <View style={styles.oldBadge}>
-                    <Text style={styles.oldBadgeText}>OLD</Text>
+                  <View style={[styles.oldBadge, { backgroundColor: theme.colors.buttonSecondary }]}>
+                    <Text style={[styles.oldBadgeText, { color: theme.colors.buttonPrimaryText }]}>OLD</Text>
                   </View>
                 )}
               </View>
               <View style={styles.postedByContainer}>
-                <Text style={styles.postedBy}>Posted by: {item.author ? item.author.full_name : 'Unknown Author'}</Text>
-                <Text style={styles.timeSince}>{timeSince(item.created_at)}</Text>
+                <Text style={[styles.postedBy, { color: theme.colors.placeholder }]}>Posted by: {item.author ? item.author.full_name : 'Unknown Author'}</Text>
+                <Text style={[styles.timeSince, { color: theme.colors.placeholder }]}>{timeSince(item.created_at)}</Text>
               </View>
-              <View style={styles.separator} />
-              <Text style={styles.messagePreview} numberOfLines={3}>
+              <View style={[styles.separator, { backgroundColor: theme.colors.cardBorder }]} />
+              <Text style={[styles.messagePreview, { color: theme.colors.text }]} numberOfLines={3}>
                 {item.message.length > 100 ? item.message.substring(0, 100) + '...' : item.message}
               </Text>
               {item.class?.name && (
                 <View>
-                  <View style={styles.separator} />
+                  <View style={[styles.separator, { backgroundColor: theme.colors.cardBorder }]} />
                   <View style={styles.classLabelContainer}>
-                    <FontAwesomeIcon icon={faUsers} size={12} color="#888" />
-                    <Text style={styles.classLabel}>For class: {item.class.name}</Text>
+                    <FontAwesomeIcon icon={faUsers} size={12} color={theme.colors.placeholder} />
+                    <Text style={[styles.classLabel, { color: theme.colors.placeholder }]}>For class: {item.class.name}</Text>
                   </View>
                 </View>
               )}
             </View>
           </TouchableOpacity>
         )}
-        ListEmptyComponent={<Text style={styles.emptyText}>No announcements yet.</Text>}
+        ListEmptyComponent={<Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No announcements yet.</Text>}
       />
 
       {/* Announcement Detail Modal */}
@@ -332,34 +334,34 @@ export default function AnnouncementsScreen({ navigation }) {
         animationOut="fadeOutDown"
         backdropOpacity={0.4}
       >
-        <View style={styles.modalContent}>
+        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
           <TouchableOpacity onPress={() => setShowModal(false)} style={styles.modalCloseButton}>
-            <FontAwesomeIcon icon={faTimes} size={20} color="#666" />
+            <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
           </TouchableOpacity>
         
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
-            <FontAwesomeIcon icon={faBullhorn} size={24} color="#007AFF" style={{ marginRight: 10, marginTop: 2 }} />
-            <Text style={styles.modalTitle}>{selectedAnnouncement?.title}</Text>
+            <FontAwesomeIcon icon={faBullhorn} size={24} color={theme.colors.primary} style={{ marginRight: 10, marginTop: 2 }} />
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>{selectedAnnouncement?.title}</Text>
           </View>
 
-          <View style={styles.modalSeparator} />
+          <View style={[styles.modalSeparator, { backgroundColor: theme.colors.cardBorder }]} />
 
           <ScrollView style={styles.modalMessageScrollView}>
-            <Text style={styles.modalMessageText}>{selectedAnnouncement?.message}</Text>
+            <Text style={[styles.modalMessageText, { color: theme.colors.text }]}>{selectedAnnouncement?.message}</Text>
           </ScrollView>
 
-          <View style={styles.modalSeparator} />
+          <View style={[styles.modalSeparator, { backgroundColor: theme.colors.cardBorder }]} />
 
           {selectedAnnouncement?.class?.name && (
             <View style={styles.modalDetailRow}>
-              <FontAwesomeIcon icon={faTag} size={16} color="#007AFF" style={styles.modalIcon} />
-              <Text style={styles.modalDetailText}>For class: {selectedAnnouncement.class.name}</Text>
+              <FontAwesomeIcon icon={faTag} size={16} color={theme.colors.primary} style={styles.modalIcon} />
+              <Text style={[styles.modalDetailText, { color: theme.colors.text }]}>For class: {selectedAnnouncement.class.name}</Text>
             </View>
           )}
 
           <View style={styles.modalDetailRow}>
-            <FontAwesomeIcon icon={faCalendar} size={16} color="#007AFF" style={styles.modalIcon} />
-            <Text style={styles.modalDetailText}>Posted: {timeSince(selectedAnnouncement?.created_at)}</Text>
+            <FontAwesomeIcon icon={faCalendar} size={16} color={theme.colors.primary} style={styles.modalIcon} />
+            <Text style={[styles.modalDetailText, { color: theme.colors.text }]}>Posted: {timeSince(selectedAnnouncement?.created_at)}</Text>
           </View>
         </View>
       </Modal>
@@ -370,7 +372,6 @@ export default function AnnouncementsScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
     padding: 16,
   },
   welcomeContainer: {
@@ -380,12 +381,10 @@ const styles = StyleSheet.create({
   welcomeText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
     marginBottom: 5,
   },
   welcomeDescription: {
     fontSize: 16,
-    color: '#666',
     textAlign: 'center',
   },
   imageContainer: {
@@ -403,24 +402,21 @@ const styles = StyleSheet.create({
   placeholderImageContainer: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#e9ecef',
     justifyContent: 'center',
     alignItems: 'center',
   },
   placeholderText: {
-    color: '#6c757d',
     fontSize: 16,
     textAlign: 'center',
     fontWeight: 'bold',
   },
   placeholderSubText: {
-    color: '#6c757d',
     fontSize: 12,
     textAlign: 'center',
     marginTop: 5,
   },
   skeleton: {
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#E0E0E0', // Skeletons can remain a fixed color or be themed
   },
   addButtonText: {
     color: '#fff',
@@ -436,11 +432,9 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
   },
   announcementCount: {
     fontSize: 14,
-    color: '#888',
     marginBottom: 10,
   },
   addTextButton: {
@@ -448,16 +442,13 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   addTextButtonText: {
-    color: '#007AFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
   cardContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
     borderRadius: 10,
     marginBottom: 10,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1.41,
@@ -469,10 +460,10 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   generalType: {
-    backgroundColor: '#007AFF', // Blue for general announcements
+    // backgroundColor handled by theme.colors.primary
   },
   classType: {
-    backgroundColor: '#28a745', // Green for class-specific announcements
+    // backgroundColor handled by theme.colors.success
   },
   cardContent: {
     flex: 1,
@@ -482,35 +473,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
     marginBottom: 5,
-    color: '#333',
   },
   newBadge: {
-    backgroundColor: '#FF3B30',
     borderRadius: 5,
     paddingHorizontal: 6,
     paddingVertical: 2,
     marginLeft: 10,
   },
   newBadgeText: {
-    color: '#fff',
     fontSize: 10,
     fontWeight: 'bold',
   },
   oldBadge: {
-    backgroundColor: '#6c757d',
     borderRadius: 5,
     paddingHorizontal: 6,
     paddingVertical: 2,
     marginLeft: 10,
   },
   oldBadgeText: {
-    color: '#fff',
     fontSize: 10,
     fontWeight: 'bold',
   },
   postedBy: {
     fontSize: 12,
-    color: '#888',
   },
   postedByContainer: {
     flexDirection: 'row',
@@ -518,21 +503,17 @@ const styles = StyleSheet.create({
   },
   timeSince: {
     fontSize: 12,
-    color: '#888',
     fontStyle: 'italic',
   },
   messagePreview: {
     fontSize: 14,
-    color: '#555',
   },
   classLabel: {
     fontSize: 12,
-    color: '#888',
     marginLeft: 5,
   },
   separator: {
     height: 1,
-    backgroundColor: '#eee',
     marginVertical: 10,
   },
   classLabelContainer: {
@@ -542,13 +523,11 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: 'center',
     marginTop: 20,
-    color: '#666',
   },
   modalContent: {
-    backgroundColor: 'white',
     padding: 22,
     borderRadius: 10,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderWidth: 1,
     maxHeight: '90%', // Increased modal height
     marginVertical: 50, // Added vertical margin for gap
   },
@@ -560,7 +539,6 @@ const styles = StyleSheet.create({
   },
   modalMessageText: {
     fontSize: 16,
-    color: '#333',
     marginBottom: 12,
   },
   modalMessageScrollView: {
@@ -569,7 +547,6 @@ const styles = StyleSheet.create({
   },
   modalSeparator: {
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
     marginVertical: 10,
     width: '100%',
   },
@@ -585,17 +562,14 @@ const styles = StyleSheet.create({
   },
   modalDetailText: {
     fontSize: 14,
-    color: '#555',
     flexShrink: 1,
   },
   modalClass: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 8,
   },
   modalDate: {
     fontSize: 12,
-    color: '#999',
     marginBottom: 20,
   },
   closeButtonText: {

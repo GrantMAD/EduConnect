@@ -2,9 +2,11 @@ import React from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
 import CardSkeleton from './CardSkeleton';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
+import { useTheme } from '../../context/ThemeContext'; // Import useTheme
 
 const SkeletonPiece = ({ style }) => {
     const progress = useSharedValue(0);
+    const { theme } = useTheme(); // Use the theme hook
   
     React.useEffect(() => {
       progress.value = withRepeat(withTiming(1, { duration: 1000 }), -1, true);
@@ -17,14 +19,15 @@ const SkeletonPiece = ({ style }) => {
       };
     });
   
-    return <Animated.View style={[styles.skeleton, animatedStyle, style]} />;
+    return <Animated.View style={[styles.skeleton, { backgroundColor: theme.colors.cardBorder }, animatedStyle, style]} />;
   };
 
 const CardListSkeleton = () => {
+  const { theme } = useTheme(); // Use the theme hook
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <SkeletonPiece style={{ width: '90%', height: 16, borderRadius: 4, marginBottom: 10 }} />
-        <View style={styles.hr} />
+        <View style={[styles.hr, { borderBottomColor: theme.colors.cardBorder }]} />
         <FlatList
             data={[1, 2, 3, 4, 5]}
             keyExtractor={(item) => item.toString()}
@@ -37,16 +40,14 @@ const CardListSkeleton = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
         padding: 16,
     },
     hr: {
-        borderBottomColor: '#ccc',
         borderBottomWidth: 1,
         marginVertical: 10,
     },
     skeleton: {
-        backgroundColor: '#E0E0E0',
+        // backgroundColor handled by theme
     },
 });
 

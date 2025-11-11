@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
+import { useTheme } from '../../context/ThemeContext'; // Import useTheme
 
 const SkeletonPiece = ({ style }) => {
   const progress = useSharedValue(0);
+  const { theme } = useTheme(); // Use the theme hook
 
   React.useEffect(() => {
     progress.value = withRepeat(withTiming(1, { duration: 1000 }), -1, true);
@@ -16,16 +18,17 @@ const SkeletonPiece = ({ style }) => {
     };
   });
 
-  return <Animated.View style={[styles.skeleton, animatedStyle, style]} />;
+  return <Animated.View style={[styles.skeleton, { backgroundColor: theme.colors.cardBorder }, animatedStyle, style]} />;
 };
 
 const SettingsScreenSkeleton = () => {
+  const { theme } = useTheme(); // Use the theme hook
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <SkeletonPiece style={{ width: '50%', height: 32, borderRadius: 4, marginBottom: 8 }} />
       <SkeletonPiece style={{ width: '80%', height: 16, borderRadius: 4, marginBottom: 32 }} />
 
-      <View style={styles.separator} />
+      <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
       <View style={styles.section}>
         <SkeletonPiece style={{ width: '60%', height: 20, borderRadius: 4, marginBottom: 8 }} />
         <SkeletonPiece style={{ width: '90%', height: 14, borderRadius: 4, marginBottom: 16 }} />
@@ -38,7 +41,7 @@ const SettingsScreenSkeleton = () => {
         </View>
       </View>
 
-      <View style={styles.separator} />
+      <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
       <View style={styles.section}>
         <SkeletonPiece style={{ width: '60%', height: 20, borderRadius: 4, marginBottom: 8 }} />
         <SkeletonPiece style={{ width: '90%', height: 14, borderRadius: 4, marginBottom: 16 }} />
@@ -51,7 +54,7 @@ const SettingsScreenSkeleton = () => {
         </View>
       </View>
 
-      <View style={styles.separator} />
+      <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
       <View style={styles.section}>
         <SkeletonPiece style={{ width: '60%', height: 20, borderRadius: 4, marginBottom: 8 }} />
         <SkeletonPiece style={{ width: '90%', height: 14, borderRadius: 4, marginBottom: 16 }} />
@@ -70,14 +73,12 @@ const SettingsScreenSkeleton = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
     padding: 24,
   },
   skeleton: {
-    backgroundColor: '#E0E0E0',
+    // backgroundColor handled by theme
   },
   separator: {
-    borderBottomColor: '#e0e0e0',
     borderBottomWidth: 1,
     marginBottom: 24,
   },

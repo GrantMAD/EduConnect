@@ -45,6 +45,7 @@ import CreateAssignmentScreen from '../screens/CreateAssignmentScreen';
 import CreateHomeworkScreen from '../screens/CreateHomeworkScreen';
 
 import CreateMarketplaceItemScreen from '../screens/CreateMarketplaceItemScreen';
+import { useTheme } from '../context/ThemeContext'; // Import useTheme
 
 const Tab = createMaterialTopTabNavigator();
 const Drawer = createDrawerNavigator();
@@ -56,6 +57,7 @@ const CustomHeader = ({ navigation, showActions = false }) => {
   const [hasUnread, setHasUnread] = useState(false);
   const insets = useSafeAreaInsets();
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const { theme } = useTheme(); // Use the theme hook
 
   const toggleDropdown = () => setShowDropdown(!showDropdown);
 
@@ -169,10 +171,10 @@ const CustomHeader = ({ navigation, showActions = false }) => {
         paddingHorizontal: 20,
         height: 65 + insets.top,
         paddingTop: insets.top,
-        backgroundColor: '#f8f9fb',
+        backgroundColor: theme.colors.headerBackground,
         borderBottomWidth: 1,
-        borderBottomColor: '#e2e5e9',
-        shadowColor: '#000',
+        borderBottomColor: theme.colors.cardBorder,
+        shadowColor: theme.colors.text,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
@@ -183,17 +185,17 @@ const CustomHeader = ({ navigation, showActions = false }) => {
       {/* Drawer Button */}
       <TouchableOpacity
         onPress={() => navigation.openDrawer()}
-        style={{ backgroundColor: '#fff', padding: 8, borderRadius: 10, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 }}
+        style={{ backgroundColor: theme.colors.surface, padding: 8, borderRadius: 10, shadowColor: theme.colors.text, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 }}
       >
-        <FontAwesomeIcon icon={faBars} size={20} color="#007AFF" />
+        <FontAwesomeIcon icon={faBars} size={20} color={theme.colors.primary} />
       </TouchableOpacity>
 
       {/* Notification Bell */}
       <TouchableOpacity
         onPress={() => setShowDropdown(true)}
-        style={{ backgroundColor: '#fff', padding: 8, borderRadius: 10, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 3, elevation: 2, position: 'relative' }}
+        style={{ backgroundColor: theme.colors.surface, padding: 8, borderRadius: 10, shadowColor: theme.colors.text, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2, position: 'relative' }}
       >
-        <FontAwesomeIcon icon={faBell} size={20} color="#007AFF" />
+        <FontAwesomeIcon icon={faBell} size={20} color={theme.colors.primary} />
         {hasUnread && (
           <Animated.View
             style={{
@@ -203,9 +205,9 @@ const CustomHeader = ({ navigation, showActions = false }) => {
               width: 10,
               height: 10,
               borderRadius: 5,
-              backgroundColor: '#ff3b30',
+              backgroundColor: theme.colors.error,
               transform: [{ scale: pulseAnim }],
-              shadowColor: '#ff3b30',
+              shadowColor: theme.colors.error,
               shadowOpacity: 0.8,
               shadowRadius: 6,
               elevation: 5,
@@ -223,14 +225,14 @@ const CustomHeader = ({ navigation, showActions = false }) => {
         backdropOpacity={0.1}
         style={{ margin: 0, justifyContent: 'flex-start', alignItems: 'flex-end', marginTop: 90, marginRight: 25 }}
       >
-        <View style={{ width: 300, backgroundColor: '#fff', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 15, maxHeight: 420 }}>
-          <Text style={{ fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 10, textAlign: 'center' }}>
+        <View style={{ width: 300, backgroundColor: theme.colors.surface, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 15, maxHeight: 420 }}>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: theme.colors.text, marginBottom: 10, textAlign: 'center' }}>
             Notifications
           </Text>
-          <View style={{ borderBottomColor: '#eee', borderBottomWidth: 1, marginBottom: 8 }} />
+          <View style={{ borderBottomColor: theme.colors.cardBorder, borderBottomWidth: 1, marginBottom: 8 }} />
 
           {notifications.length === 0 ? (
-            <Text style={{ textAlign: 'center', color: '#666', paddingVertical: 10 }}>No notifications</Text>
+            <Text style={{ textAlign: 'center', color: theme.colors.text, paddingVertical: 10 }}>No notifications</Text>
           ) : (
             notifications.slice(0, 6).map((n) => (
               <TouchableOpacity
@@ -240,24 +242,24 @@ const CustomHeader = ({ navigation, showActions = false }) => {
                   navigation.navigate('Notifications', { selectedNotificationId: n.id });
                 }}
                 style={{
-                  backgroundColor: n.is_read ? '#f9f9f9' : '#e6f0ff',
+                  backgroundColor: n.is_read ? theme.colors.background : theme.colors.notification,
                   borderRadius: 12,
                   padding: 12,
                   marginBottom: 8,
-                  shadowColor: '#000',
+                  shadowColor: theme.colors.text,
                   shadowOffset: { width: 0, height: 1 },
                   shadowOpacity: 0.1,
                   shadowRadius: 2,
                   elevation: 2,
                 }}
               >
-                <Text style={{ fontSize: 15, fontWeight: n.is_read ? '500' : '700', color: n.is_read ? '#444' : '#007AFF', marginBottom: 4 }} numberOfLines={1}>
+                <Text style={{ fontSize: 15, fontWeight: n.is_read ? '500' : '700', color: n.is_read ? theme.colors.text : theme.colors.primary, marginBottom: 4 }} numberOfLines={1}>
                   {n.title}
                 </Text>
-                <Text style={{ fontSize: 13, color: '#666' }} numberOfLines={2}>
+                <Text style={{ fontSize: 13, color: theme.colors.text }} numberOfLines={2}>
                   {n.message}
                 </Text>
-                <Text style={{ fontSize: 11, color: '#999', textAlign: 'right', marginTop: 4 }}>
+                <Text style={{ fontSize: 11, color: theme.colors.placeholder, textAlign: 'right', marginTop: 4 }}>
                   {new Date(n.created_at).toLocaleString()}
                 </Text>
               </TouchableOpacity>
@@ -266,9 +268,9 @@ const CustomHeader = ({ navigation, showActions = false }) => {
 
           <TouchableOpacity
             onPress={() => { setShowDropdown(false); navigation.navigate('Notifications'); }}
-            style={{ marginTop: 10, paddingVertical: 10, borderRadius: 8, backgroundColor: '#007AFF', alignItems: 'center' }}
+            style={{ marginTop: 10, paddingVertical: 10, borderRadius: 8, backgroundColor: theme.colors.primary, alignItems: 'center' }}
           >
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>View All Notifications</Text>
+            <Text style={{ color: theme.colors.buttonPrimaryText, fontWeight: '600', fontSize: 14 }}>View All Notifications</Text>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -277,61 +279,64 @@ const CustomHeader = ({ navigation, showActions = false }) => {
 };
 
 // Bottom Tabs
-const HomeTabs = () => (
-  <Tab.Navigator
-    tabBarPosition="bottom"
-    screenOptions={{
-      tabBarActiveTintColor: '#007AFF',
-      tabBarInactiveTintColor: '#7b7b7b',
-      tabBarStyle: {
-        backgroundColor: '#fff',
-        borderTopColor: '#ddd',
-        height: 70,
-        paddingBottom: 10,
-        paddingTop: 6,
-        marginBottom: 5,
-      },
-      tabBarLabelStyle: {
-        fontSize: 12,
-        fontWeight: '600',
-        marginBottom: 2,
-      },
-      tabBarIndicatorStyle: {
-        backgroundColor: '#007AFF',
-        height: 3,
-      },
-    }}
-  >
-    <Tab.Screen
-      name="Announcements"
-      component={AnnouncementsScreen}
-      options={{
-        tabBarIcon: ({ color }) => <FontAwesomeIcon icon={faBullhorn} color={color} size={20} />,
+const HomeTabs = () => {
+  const { theme } = useTheme(); // Use the theme hook
+  return (
+    <Tab.Navigator
+      tabBarPosition="bottom"
+      screenOptions={{
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.placeholder,
+        tabBarStyle: {
+          backgroundColor: theme.colors.surface,
+          borderTopColor: theme.colors.cardBorder,
+          height: 70,
+          paddingBottom: 10,
+          paddingTop: 6,
+          marginBottom: 5,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+          marginBottom: 2,
+        },
+        tabBarIndicatorStyle: {
+          backgroundColor: theme.colors.primary,
+          height: 3,
+        },
       }}
-    />
-    <Tab.Screen
-      name="Calendar"
-      component={CalendarScreen}
-      options={{
-        tabBarIcon: ({ color }) => <FontAwesomeIcon icon={faCalendar} color={color} size={20} />,
-      }}
-    />
-    <Tab.Screen
-      name="Homework"
-      component={HomeworkScreen}
-      options={{
-        tabBarIcon: ({ color }) => <FontAwesomeIcon icon={faBookOpen} color={color} size={20} />,
-      }}
-    />
-    <Tab.Screen
-      name="Market"
-      component={MarketScreen}
-      options={{
-        tabBarIcon: ({ color }) => <FontAwesomeIcon icon={faStore} color={color} size={20} />,
-      }}
-    />
-  </Tab.Navigator>
-);
+    >
+      <Tab.Screen
+        name="Announcements"
+        component={AnnouncementsScreen}
+        options={{
+          tabBarIcon: ({ color }) => <FontAwesomeIcon icon={faBullhorn} color={color} size={20} />,
+        }}
+      />
+      <Tab.Screen
+        name="Calendar"
+        component={CalendarScreen}
+        options={{
+          tabBarIcon: ({ color }) => <FontAwesomeIcon icon={faCalendar} color={color} size={20} />,
+        }}
+      />
+      <Tab.Screen
+        name="Homework"
+        component={HomeworkScreen}
+        options={{
+          tabBarIcon: ({ color }) => <FontAwesomeIcon icon={faBookOpen} color={color} size={20} />,
+        }}
+      />
+      <Tab.Screen
+        name="Market"
+        component={MarketScreen}
+        options={{
+          tabBarIcon: ({ color }) => <FontAwesomeIcon icon={faStore} color={color} size={20} />,
+        }}
+      />
+    </Tab.Navigator>
+  );
+};
 
 // Stack Navigator
 const MainStackNavigator = () => (
@@ -368,6 +373,7 @@ const CustomDrawerContent = (props) => {
   const [userRole, setUserRole] = useState(null); // Add userRole state
   const [isManageDropdownOpen, setManageDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { theme } = useTheme(); // Use the theme hook
 
   const mainStackState = props.state.routes.find(route => route.name === 'MainStack')?.state;
   const activeMainStackRouteName = mainStackState?.routes[mainStackState.index]?.name;
@@ -405,23 +411,23 @@ const CustomDrawerContent = (props) => {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 70 }}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 70, backgroundColor: theme.colors.background }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, height: '100%', paddingTop: 70 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 25, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#e1e4e8', paddingHorizontal: 20 }}>
+    <View style={{ flex: 1, height: '100%', paddingTop: 70, backgroundColor: theme.colors.background }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 25, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: theme.colors.cardBorder, paddingHorizontal: 20 }}>
         <Image
           source={userAvatar ? { uri: userAvatar } : defaultUserImage}
-          style={{ width: 55, height: 55, borderRadius: 27.5, marginRight: 12, borderWidth: 2, borderColor: '#007AFF' }}
+          style={{ width: 55, height: 55, borderRadius: 27.5, marginRight: 12, borderWidth: 2, borderColor: theme.colors.primary }}
         />
         <View>
-          <Text style={{ fontSize: 15, fontWeight: '700', color: '#222' }}>Welcome,</Text>
-          <Text style={{ fontSize: 15, fontWeight: '600', color: '#007AFF' }}>{userName || 'User'}</Text>
-          <Text style={{ fontSize: 12, color: '#777' }}>{userEmail || ''}</Text>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: theme.colors.text }}>Welcome,</Text>
+          <Text style={{ fontSize: 15, fontWeight: '600', color: theme.colors.primary }}>{userName || 'User'}</Text>
+          <Text style={{ fontSize: 12, color: theme.colors.placeholder }}>{userEmail || ''}</Text>
         </View>
       </View>
 
@@ -432,13 +438,13 @@ const CustomDrawerContent = (props) => {
           alignItems: 'center',
           paddingVertical: 12,
           paddingHorizontal: 20,
-          backgroundColor: activeMainStackRouteName === 'HomeTabs' ? '#d0e6ff' : 'transparent',
+          backgroundColor: activeMainStackRouteName === 'HomeTabs' ? theme.colors.primary + '20' : 'transparent',
           borderRadius: 8,
         }}
       >
-        <FontAwesomeIcon icon={faHome} size={18} color="#007AFF" style={{ marginRight: 15 }} />
+        <FontAwesomeIcon icon={faHome} size={18} color={theme.colors.primary} style={{ marginRight: 15 }} />
         <View>
-          <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Home</Text>
+          <Text style={{ fontSize: 16, color: theme.colors.text, fontWeight: '500' }}>Home</Text>
         </View>
       </TouchableOpacity>
 
@@ -449,15 +455,15 @@ const CustomDrawerContent = (props) => {
           alignItems: 'center',
           paddingVertical: 12,
           paddingHorizontal: 20,
-          backgroundColor: activeMainStackRouteName === 'Profile' ? '#d0e6ff' : 'transparent',
+          backgroundColor: activeMainStackRouteName === 'Profile' ? theme.colors.primary + '20' : 'transparent',
           borderRadius: 8,
         }}
       >
 
-        <FontAwesomeIcon icon={faUser} size={18} color="#007AFF" style={{ marginRight: 15 }} />
+        <FontAwesomeIcon icon={faUser} size={18} color={theme.colors.primary} style={{ marginRight: 15 }} />
         <View>
-          <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Profile</Text>
-          <Text style={{ fontSize: 12, color: '#666' }}>Manage your personal information</Text>
+          <Text style={{ fontSize: 16, color: theme.colors.text, fontWeight: '500' }}>Profile</Text>
+          <Text style={{ fontSize: 12, color: theme.colors.placeholder }}>Manage your personal information</Text>
         </View>
       </TouchableOpacity>
 
@@ -469,14 +475,14 @@ const CustomDrawerContent = (props) => {
             alignItems: 'center',
             paddingVertical: 12,
             paddingHorizontal: 20,
-            backgroundColor: activeMainStackRouteName === 'CreateClass' ? '#d0e6ff' : 'transparent',
+            backgroundColor: activeMainStackRouteName === 'CreateClass' ? theme.colors.primary + '20' : 'transparent',
             borderRadius: 8,
           }}
         >
-          <FontAwesomeIcon icon={faBookOpen} size={18} color="#007AFF" style={{ marginRight: 15 }} />
+          <FontAwesomeIcon icon={faBookOpen} size={18} color={theme.colors.primary} style={{ marginRight: 15 }} />
           <View>
-            <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Classes</Text>
-            <Text style={{ fontSize: 12, color: '#666' }}>Create and manage classes</Text>
+            <Text style={{ fontSize: 16, color: theme.colors.text, fontWeight: '500' }}>Classes</Text>
+            <Text style={{ fontSize: 12, color: theme.colors.placeholder }}>Create and manage classes</Text>
           </View>
         </TouchableOpacity>
       )}
@@ -488,14 +494,14 @@ const CustomDrawerContent = (props) => {
           alignItems: 'center',
           paddingVertical: 12,
           paddingHorizontal: 20,
-          backgroundColor: activeMainStackRouteName === 'Settings' ? '#d0e6ff' : 'transparent',
+          backgroundColor: activeMainStackRouteName === 'Settings' ? theme.colors.primary + '20' : 'transparent',
           borderRadius: 8,
         }}
       >
-        <FontAwesomeIcon icon={faGear} size={18} color="#007AFF" style={{ marginRight: 15 }} />
+        <FontAwesomeIcon icon={faGear} size={18} color={theme.colors.primary} style={{ marginRight: 15 }} />
         <View>
-          <Text style={{ fontSize: 16, color: '#333', fontWeight: '500' }}>Settings</Text>
-          <Text style={{ fontSize: 12, color: '#666' }}>Adjust app settings and preferences</Text>
+          <Text style={{ fontSize: 16, color: theme.colors.text, fontWeight: '500' }}>Settings</Text>
+          <Text style={{ fontSize: 12, color: theme.colors.placeholder }}>Adjust app settings and preferences</Text>
         </View>
       </TouchableOpacity>
 
@@ -507,8 +513,8 @@ const CustomDrawerContent = (props) => {
         }}
         style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20, marginBottom: 20 }}
       >
-        <FontAwesomeIcon icon={faRightFromBracket} size={18} color="#d9534f" style={{ marginRight: 15 }} />
-        <Text style={{ fontSize: 16, color: '#d9534f', fontWeight: '500' }}>Sign Out</Text>
+        <FontAwesomeIcon icon={faRightFromBracket} size={18} color={theme.colors.error} style={{ marginRight: 15 }} />
+        <Text style={{ fontSize: 16, color: theme.colors.error, fontWeight: '500' }}>Sign Out</Text>
       </TouchableOpacity>
     </View>
   );
@@ -516,6 +522,7 @@ const CustomDrawerContent = (props) => {
 
 export default function MainNavigation() {
   const drawerWidth = Dimensions.get('window').width * 0.75;
+  const { theme } = useTheme(); // Use the theme hook
 
   return (
     <Drawer.Navigator
@@ -525,9 +532,9 @@ export default function MainNavigation() {
         drawerType: 'front',
         drawerStyle: {
           width: drawerWidth,
-          backgroundColor: 'rgba(248, 249, 251, 0.9)',
+          backgroundColor: theme.colors.background, // Use theme background for drawer
         },
-        overlayColor: 'rgba(0,0,0,0.4)',
+        overlayColor: theme.colors.backdrop, // Use theme backdrop color
         swipeEdgeWidth: 50,
       }}
     >

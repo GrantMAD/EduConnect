@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
+import { useTheme } from '../../context/ThemeContext'; // Import useTheme
 
 const SkeletonPiece = ({ style }) => {
   const progress = useSharedValue(0);
+  const { theme } = useTheme(); // Use the theme hook
 
   React.useEffect(() => {
     progress.value = withRepeat(withTiming(1, { duration: 1000 }), -1, true);
@@ -16,12 +18,13 @@ const SkeletonPiece = ({ style }) => {
     };
   });
 
-  return <Animated.View style={[styles.skeleton, animatedStyle, style]} />;
+  return <Animated.View style={[styles.skeleton, { backgroundColor: theme.colors.cardBorder }, animatedStyle, style]} />;
 };
 
 const SchoolDataScreenSkeleton = () => {
+  const { theme } = useTheme(); // Use the theme hook
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <SkeletonPiece style={{ width: '60%', height: 24, borderRadius: 4, marginBottom: 10 }} />
       <SkeletonPiece style={{ width: '90%', height: 16, borderRadius: 4, marginBottom: 20 }} />
 
@@ -31,7 +34,7 @@ const SchoolDataScreenSkeleton = () => {
           <SkeletonPiece style={{ width: '40%', height: 20, borderRadius: 4 }} />
         </View>
         <SkeletonPiece style={{ width: '80%', height: 14, borderRadius: 4, marginBottom: 16 }} />
-        <SkeletonPiece style={styles.logoPlaceholder} />
+        <SkeletonPiece style={[styles.logoPlaceholder, { backgroundColor: theme.colors.cardBorder }]} />
         <SkeletonPiece style={{ width: '50%', height: 14, borderRadius: 4, alignSelf: 'center' }} />
       </View>
 
@@ -44,10 +47,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#f8f9fa',
   },
   skeleton: {
-    backgroundColor: '#E0E0E0',
+    // backgroundColor handled by theme
   },
   section: {
     marginBottom: 24,
@@ -56,7 +58,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 150,
     borderRadius: 10,
-    backgroundColor: '#E0E0E0',
+    // backgroundColor handled by theme
     marginBottom: 16,
   },
 });

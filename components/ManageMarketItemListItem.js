@@ -2,20 +2,23 @@ import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTag } from '@fortawesome/free-solid-svg-icons';
+import { useTheme } from '../context/ThemeContext'; // Import useTheme
 
 const ManageMarketItemListItem = ({ item, onPress }) => {
+  const { theme } = useTheme(); // Use the theme hook
+
   return (
-    <TouchableOpacity style={styles.container} onPress={() => onPress(item)}>
+    <TouchableOpacity style={[styles.container, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }]} onPress={() => onPress(item)}>
       <Image
         source={{ uri: item.image_url || 'https://via.placeholder.com/50' }}
         style={styles.image}
       />
       <View style={styles.infoContainer}>
-        <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+        <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
         <View style={styles.priceCategoryContainer}>
-          <FontAwesomeIcon icon={faTag} size={12} color="#666" style={styles.icon} />
-          <Text style={styles.category}>{item.category}</Text>
-          <Text style={styles.price}>R {item.price.toFixed(2)}</Text>
+          <FontAwesomeIcon icon={faTag} size={12} color={theme.colors.placeholder} style={styles.icon} />
+          <Text style={[styles.category, { color: theme.colors.placeholder }]}>{item.category}</Text>
+          <Text style={[styles.price, { color: theme.colors.primary }]}>R {item.price.toFixed(2)}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -25,12 +28,10 @@ const ManageMarketItemListItem = ({ item, onPress }) => {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
     borderRadius: 10,
     padding: 10,
     marginBottom: 10,
     alignItems: 'center',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -49,7 +50,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
     marginBottom: 4,
   },
   priceCategoryContainer: {
@@ -61,13 +61,11 @@ const styles = StyleSheet.create({
   },
   category: {
     fontSize: 12,
-    color: '#666',
     marginRight: 10,
   },
   price: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#007AFF',
   },
 });
 

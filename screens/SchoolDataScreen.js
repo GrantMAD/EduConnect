@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, Image, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Image, TouchableOpacity, Platform } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import SchoolDataScreenSkeleton from '../components/skeletons/SchoolDataScreenSkeleton';
 import { faImage } from '@fortawesome/free-solid-svg-icons';
@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from "expo-file-system/legacy";
 import { Buffer } from 'buffer';
 import { useSchool } from '../context/SchoolContext';
+import { useToast } from '../context/ToastContext';
 
 export default function SchoolDataScreen() {
   const { schoolId } = useSchool();
@@ -16,6 +17,7 @@ export default function SchoolDataScreen() {
   const [saving, setSaving] = useState(false);
   const [logoLocalUri, setLogoLocalUri] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (schoolId) {
@@ -36,7 +38,7 @@ export default function SchoolDataScreen() {
       setSchoolData(data);
     } catch (error) {
       console.error(error.message);
-      Alert.alert('Error', 'Failed to fetch school data.');
+      showToast('Failed to fetch school data.', 'error');
     } finally {
       setLoading(false);
     }
@@ -46,7 +48,7 @@ export default function SchoolDataScreen() {
     if (Platform.OS !== 'web') {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission required', 'Please grant media library access to upload photos.');
+        showToast('Please grant media library access to upload photos.', 'error');
         return;
       }
     }
@@ -86,7 +88,7 @@ export default function SchoolDataScreen() {
       return publicData?.publicUrl || null;
     } catch (error) {
       console.error("Upload error:", error);
-      Alert.alert('Error', 'Failed to upload logo.');
+      showToast('Failed to upload logo.', 'error');
       return null;
     } finally {
       setUploading(false);
@@ -110,10 +112,10 @@ export default function SchoolDataScreen() {
 
       setSchoolData(prev => ({ ...prev, logo_url: logoUrl }));
       setLogoLocalUri(null);
-      Alert.alert('Success', 'School data updated successfully!');
+      showToast('School data updated successfully!', 'success');
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', 'Failed to update school data.');
+      showToast('Failed to update school data.', 'error');
     } finally {
       setSaving(false);
     }

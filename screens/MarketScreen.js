@@ -16,6 +16,7 @@ import { faPlus, faSearch, faStore, faBook, faLaptop, faPen, faCouch, faTshirt, 
 import { supabase } from '../lib/supabase';
 import MarketplaceItemCard from '../components/MarketplaceItemCard';
 import SellerProfileModal from '../components/SellerProfileModal';
+import { useTheme } from '../context/ThemeContext'; // Import useTheme
 
 export default function MarketScreen({ navigation }) {
   const [items, setItems] = useState([]);
@@ -24,6 +25,7 @@ export default function MarketScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedSeller, setSelectedSeller] = useState(null);
+  const { theme } = useTheme(); // Use the theme hook
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -101,18 +103,18 @@ export default function MarketScreen({ navigation }) {
     if (loading) return <MarketScreenSkeleton />;
   
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.mainHeaderContainer}>
-          <FontAwesomeIcon icon={faStore} size={24} color="#333" style={styles.mainHeaderIcon} />
-          <Text style={styles.header}>Marketplace</Text>
+          <FontAwesomeIcon icon={faStore} size={24} color={theme.colors.text} style={styles.mainHeaderIcon} />
+          <Text style={[styles.header, { color: theme.colors.text }]}>Marketplace</Text>
         </View>
-        <Text style={styles.description}>Browse items for sale from other students. Press on an item to view the seller's details and contact information.</Text>
-        <View style={styles.searchContainer}>
-          <FontAwesomeIcon icon={faSearch} size={16} color="#888" style={styles.searchIcon} />
+        <Text style={[styles.description, { color: theme.colors.text }]}>Browse items for sale from other students. Press on an item to view the seller's details and contact information.</Text>
+        <View style={[styles.searchContainer, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }]}>
+          <FontAwesomeIcon icon={faSearch} size={16} color={theme.colors.placeholder} style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: theme.colors.text }]}
             placeholder="Search for items..."
-            placeholderTextColor="#999"
+            placeholderTextColor={theme.colors.placeholder}
             value={searchQuery}
             onChangeText={handleSearch}
           />
@@ -132,24 +134,24 @@ export default function MarketScreen({ navigation }) {
           )}
           renderSectionHeader={({ section: { title } }) => (
             <View style={styles.sectionHeaderContainer}>
-              <FontAwesomeIcon icon={categoryIcons[title]} size={18} color="#333" style={styles.sectionHeaderIcon} />
+              <FontAwesomeIcon icon={categoryIcons[title]} size={18} color={theme.colors.text} style={styles.sectionHeaderIcon} />
               <View>
-                <Text style={styles.sectionHeader}>{title}</Text>
-                <Text style={styles.sectionDescription}>{categoryDescriptions[title]}</Text>
+                <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>{title}</Text>
+                <Text style={[styles.sectionDescription, { color: theme.colors.text }]}>{categoryDescriptions[title]}</Text>
               </View>
             </View>
           )}
           ListEmptyComponent={() => (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No items found.</Text>
+              <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No items found.</Text>
             </View>
           )}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={{ paddingBottom: 100 }}
         />
   
-        <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreateMarketplaceItem')}>
-          <FontAwesomeIcon icon={faPlus} size={24} color="#fff" />
+        <TouchableOpacity style={[styles.fab, { backgroundColor: theme.colors.primary, shadowColor: theme.colors.text }]} onPress={() => navigation.navigate('CreateMarketplaceItem')}>
+          <FontAwesomeIcon icon={faPlus} size={24} color={theme.colors.buttonPrimaryText} />
         </TouchableOpacity>
   
         <SellerProfileModal
@@ -161,19 +163,18 @@ export default function MarketScreen({ navigation }) {
     );}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f7f7f7', padding: 16 },
-  header: { fontSize: 24, fontWeight: '700', color: '#333' },
+  container: { flex: 1, padding: 16 },
+  header: { fontSize: 24, fontWeight: '700' },
   mainHeaderContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   mainHeaderIcon: { marginRight: 10 },
-  description: { fontSize: 14, color: '#777', marginBottom: 16 },
+  description: { fontSize: 14, marginBottom: 16 },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     borderRadius: 10,
     paddingHorizontal: 12,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
@@ -182,14 +183,13 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     height: 40,
-    color: '#333',
   },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 50 },
-  emptyText: { fontSize: 16, color: '#888' },
+  emptyText: { fontSize: 16 },
   sectionHeaderContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   sectionHeaderIcon: { marginRight: 10 },
-  sectionHeader: { fontSize: 20, fontWeight: 'bold', color: '#333' },
-  sectionDescription: { fontSize: 12, color: '#777' },
+  sectionHeader: { fontSize: 20, fontWeight: 'bold' },
+  sectionDescription: { fontSize: 12 },
   fab: {
     position: 'absolute',
     width: 56,
@@ -198,10 +198,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     right: 20,
     bottom: 20,
-    backgroundColor: '#007AFF',
     borderRadius: 28,
     elevation: 6,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,

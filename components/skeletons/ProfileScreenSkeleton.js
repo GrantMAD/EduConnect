@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
+import { useTheme } from '../../context/ThemeContext'; // Import useTheme
 
 const SkeletonPiece = ({ style }) => {
   const progress = useSharedValue(0);
+  const { theme } = useTheme(); // Use the theme hook
 
   React.useEffect(() => {
     progress.value = withRepeat(withTiming(1, { duration: 1000 }), -1, true);
@@ -16,18 +18,19 @@ const SkeletonPiece = ({ style }) => {
     };
   });
 
-  return <Animated.View style={[styles.skeleton, animatedStyle, style]} />;
+  return <Animated.View style={[styles.skeleton, { backgroundColor: theme.colors.cardBorder }, animatedStyle, style]} />;
 };
 
 const ProfileScreenSkeleton = () => {
+  const { theme } = useTheme(); // Use the theme hook
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <SkeletonPiece style={styles.avatar} />
+    <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <SkeletonPiece style={[styles.avatar, { borderColor: theme.colors.cardBorder }]} />
       <SkeletonPiece style={{ width: '60%', height: 32, borderRadius: 4, marginBottom: 8 }} />
       <SkeletonPiece style={{ width: '80%', height: 16, borderRadius: 4, marginBottom: 32 }} />
 
       {/* Card 1: User Information */}
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }]}>
         <View style={styles.cardHeader}>
           <SkeletonPiece style={{ width: 20, height: 20, borderRadius: 4, marginRight: 10 }} />
           <SkeletonPiece style={{ width: '50%', height: 20, borderRadius: 4 }} />
@@ -54,7 +57,7 @@ const ProfileScreenSkeleton = () => {
       </View>
 
       {/* Card 2: My Children (for Parents) */}
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }]}>
         <View style={styles.cardHeader}>
           <SkeletonPiece style={{ width: 20, height: 20, borderRadius: 4, marginRight: 10 }} />
           <SkeletonPiece style={{ width: '50%', height: 20, borderRadius: 4 }} />
@@ -63,7 +66,7 @@ const ProfileScreenSkeleton = () => {
 
         <View style={styles.associatedChildrenContainer}>
             <SkeletonPiece style={{ width: '70%', height: 16, borderRadius: 4, marginBottom: 10 }} />
-            <View style={styles.childItem}>
+            <View style={[styles.childItem, { borderBottomColor: theme.colors.cardBorder }]}>
                 <SkeletonPiece style={{ width: 16, height: 16, borderRadius: 8, marginRight: 10 }} />
                 <View>
                     <SkeletonPiece style={{ width: 100, height: 16, borderRadius: 4, marginBottom: 5 }} />
@@ -77,18 +80,16 @@ const ProfileScreenSkeleton = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, backgroundColor: '#f8f9fa', padding: 24, alignItems: 'center' },
+  container: { flexGrow: 1, padding: 24, alignItems: 'center' },
   skeleton: {
-    backgroundColor: '#E0E0E0',
+    // backgroundColor handled by theme
   },
-  avatar: { width: 120, height: 120, borderRadius: 60, borderWidth: 4, borderColor: '#E0E0E0', marginBottom: 16 },
+  avatar: { width: 120, height: 120, borderRadius: 60, borderWidth: 4, marginBottom: 16 },
   card: {
-    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 15,
     marginBottom: 20,
     width: '100%',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -108,7 +109,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
 });
 

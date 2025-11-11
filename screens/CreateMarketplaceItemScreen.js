@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  Alert,
   Image,
   TouchableOpacity,
   ActivityIndicator,
@@ -24,6 +23,7 @@ import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer';
+import { useToast } from '../context/ToastContext';
 
 export default function CreateMarketplaceItemScreen({ route, navigation }) {
   const { item: existingItem } = route.params || {};
@@ -34,6 +34,7 @@ export default function CreateMarketplaceItemScreen({ route, navigation }) {
   const [category, setCategory] = useState(existingItem?.category || 'Books');
   const [image, setImage] = useState(existingItem ? { uri: existingItem.image_url } : null);
   const [uploading, setUploading] = useState(false);
+  const { showToast } = useToast();
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -69,14 +70,14 @@ export default function CreateMarketplaceItemScreen({ route, navigation }) {
       return publicData?.publicUrl || null;
     } catch (error) {
       console.error("Upload error:", error);
-      Alert.alert('Error', 'Failed to upload image.');
+      showToast('Failed to upload image.');
       return null;
     }
   };
 
   const handleSaveItem = async () => {
     if (!title || !price || !category) {
-      Alert.alert('Error', 'Please fill in all required fields.');
+      showToast('Please fill in all required fields.', 'error');
       return;
     }
 
@@ -107,7 +108,7 @@ export default function CreateMarketplaceItemScreen({ route, navigation }) {
           .update(itemData)
           .eq('id', existingItem.id);
         if (error) throw error;
-        Alert.alert('Success', 'Item updated successfully!');
+        showToast('Item updated successfully!', 'success');
       } else {
         const { data: userProfile } = await supabase
           .from('users')
@@ -118,12 +119,12 @@ export default function CreateMarketplaceItemScreen({ route, navigation }) {
 
         const { error } = await supabase.from('marketplace_items').insert([{ ...itemData, school_id: userProfile.school_id }]);
         if (error) throw error;
-        Alert.alert('Success', 'Item created successfully!');
+        showToast('Item created successfully!', 'success');
       }
 
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Error', error.message);
+      showToast(error.message, 'error');
     } finally {
       setUploading(false);
     }

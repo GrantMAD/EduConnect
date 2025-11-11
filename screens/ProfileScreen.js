@@ -7,6 +7,8 @@ import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer';
+import { useToast } from '../context/ToastContext';
+import { useTheme } from '../context/ThemeContext'; // Import useTheme
 
 export default function ProfileScreen() {
   const defaultUserImage = require('../assets/user.png');
@@ -31,6 +33,8 @@ export default function ProfileScreen() {
   const [associatedChildren, setAssociatedChildren] = useState([]);
   const [showManageChildren, setShowManageChildren] = useState(false);
   const scrollViewRef = useRef(null);
+  const { showToast } = useToast();
+  const { theme } = useTheme(); // Use the theme hook
 
   useEffect(() => {
     fetchUserData();
@@ -71,7 +75,7 @@ export default function ProfileScreen() {
 
     } catch (error) {
       console.error('Error fetching students or relationships:', error.message);
-      Alert.alert('Error', 'Failed to load student data.');
+      showToast('Failed to load student data.', 'error');
     }
   };
 
@@ -113,7 +117,7 @@ export default function ProfileScreen() {
       }
     } catch (error) {
       console.error(error.message);
-      Alert.alert('Error', 'Failed to fetch profile.');
+      showToast('Failed to fetch profile.', 'error');
     } finally {
       setLoading(false);
     }
@@ -131,7 +135,7 @@ export default function ProfileScreen() {
     if (Platform.OS !== 'web') {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission required', 'Please grant media library access to upload photos.');
+        showToast('Please grant media library access to upload photos.', 'error');
         return;
       }
     }
@@ -190,7 +194,7 @@ export default function ProfileScreen() {
       return publicData?.publicUrl || null;
     } catch (error) {
       console.error("Upload error:", error);
-      Alert.alert('Error', 'Failed to upload avatar.');
+      showToast('Failed to upload avatar.', 'error');
       return null;
     } finally {
       setUploading(false);
@@ -227,10 +231,10 @@ export default function ProfileScreen() {
       setUserData(prev => ({ ...prev, avatar_url: avatarUrl }));
       setAvatarLocalUri(null);
       setIsEditing(false);
-      Alert.alert('Success', 'Profile updated successfully!');
+      showToast('Profile updated successfully!', 'success');
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', 'Failed to update profile.');
+      showToast('Failed to update profile.', 'error');
     } finally {
       setSaving(false);
     }
@@ -238,7 +242,7 @@ export default function ProfileScreen() {
 
   const handleSendAssociationRequest = async () => {
     if (selectedStudents.length === 0) {
-      Alert.alert('Error', 'Please select at least one student.');
+      showToast('Please select at least one student.', 'error');
       return;
     }
 
@@ -278,11 +282,11 @@ export default function ProfileScreen() {
 
       if (notificationError) throw notificationError;
 
-      Alert.alert('Success', 'Association requests sent successfully!');
+      showToast('Association requests sent successfully!', 'success');
       setSelectedStudents([]); 
     } catch (error) {
       console.error('Error sending association request:', error.message);
-      Alert.alert('Error', 'Failed to send association requests.');
+      showToast('Failed to send association requests.', 'error');
     } finally {
       setSaving(false);
     }
@@ -315,10 +319,10 @@ export default function ProfileScreen() {
               if (error) throw error;
 
               setAssociatedChildren(prev => prev.filter(id => id !== childId));
-              Alert.alert('Success', `${childName} has been removed.`);
+              showToast(`${childName} has been removed.`, 'success');
             } catch (error) {
               console.error('Error removing child:', error.message);
-              Alert.alert('Error', 'Failed to remove child.');
+              showToast('Failed to remove child.', 'error');
             } finally {
               setSaving(false);
             }
@@ -334,120 +338,132 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView ref={scrollViewRef} contentContainerStyle={styles.container}>
+    <ScrollView ref={scrollViewRef} contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Profile Image and Description */}
       {isEditing ? (
         <TouchableOpacity onPress={pickImage} activeOpacity={0.7} style={{ marginBottom: 16 }}>
-          <Image source={avatarLocalUri ? { uri: avatarLocalUri } : (userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage)} style={styles.avatar} />
-          <Text style={{ textAlign: 'center', color: '#007AFF', marginTop: 4 }}>Tap to change photo</Text>
+          <Image source={avatarLocalUri ? { uri: avatarLocalUri } : (userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage)} style={[styles.avatar, { borderColor: theme.colors.primary }]} />
+          <Text style={{ textAlign: 'center', color: theme.colors.primary, marginTop: 4 }}>Tap to change photo</Text>
         </TouchableOpacity>
       ) : (
-        <Image source={userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage} style={styles.avatar} />
+        <Image source={userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage} style={[styles.avatar, { borderColor: theme.colors.primary }]} />
       )}
 
-      <Text style={styles.header}>My Profile</Text>
-      <Text style={styles.description}>View and edit your profile information.</Text>
+      <Text style={[styles.header, { color: theme.colors.text }]}>My Profile</Text>
+      <Text style={[styles.description, { color: theme.colors.text }]}>View and edit your profile information.</Text>
 
       {/* User Information */}
       <View style={styles.sectionHeaderContainer}>
-        <FontAwesomeIcon icon={faAddressCard} size={20} color="#007AFF" style={styles.sectionHeaderIcon} />
-        <Text style={styles.sectionTitle}>Personal Information</Text>
+        <FontAwesomeIcon icon={faAddressCard} size={20} color={theme.colors.primary} style={styles.sectionHeaderIcon} />
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Personal Information</Text>
       </View>
       <View style={{ alignSelf: 'stretch' }}>
-        <Text style={styles.sectionDescription}>Manage your personal details and account settings.</Text>
+        <Text style={[styles.sectionDescription, { color: theme.colors.text }]}>Manage your personal details and account settings.</Text>
       </View>
 
       <View style={styles.infoContainer}>
         <View style={styles.infoRow}>
-          <FontAwesomeIcon icon={faUser} size={16} color="#666" style={styles.infoIcon} />
-          <Text style={styles.label}>Full Name</Text>
+          <FontAwesomeIcon icon={faUser} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
+          <Text style={[styles.label, { color: theme.colors.text }]}>Full Name</Text>
         </View>
         {isEditing ? (
-          <TextInput style={styles.input} value={userData.full_name} onChangeText={text => setUserData({ ...userData, full_name: text })} placeholder="Enter full name" />
+          <TextInput
+            style={[styles.input, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
+            value={userData.full_name}
+            onChangeText={text => setUserData({ ...userData, full_name: text })}
+            placeholder="Enter full name"
+            placeholderTextColor={theme.colors.placeholder}
+          />
         ) : (
-          <Text style={styles.value}>{userData.full_name}</Text>
+          <Text style={[styles.value, { color: theme.colors.text }]}>{userData.full_name}</Text>
         )}
       </View>
 
       <View style={styles.infoContainer}>
         <View style={styles.infoRow}>
-          <FontAwesomeIcon icon={faEnvelope} size={16} color="#666" style={styles.infoIcon} />
-          <Text style={styles.label}>Email</Text>
+          <FontAwesomeIcon icon={faEnvelope} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
+          <Text style={[styles.label, { color: theme.colors.text }]}>Email</Text>
         </View>
-        <Text style={styles.value}>{userData.email}</Text>
+        <Text style={[styles.value, { color: theme.colors.text }]}>{userData.email}</Text>
       </View>
 
       <View style={styles.infoContainer}>
         <View style={styles.infoRow}>
-          <FontAwesomeIcon icon={faPhone} size={16} color="#666" style={styles.infoIcon} />
-          <Text style={styles.label}>Phone Number</Text>
+          <FontAwesomeIcon icon={faPhone} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
+          <Text style={[styles.label, { color: theme.colors.text }]}>Phone Number</Text>
         </View>
         {isEditing ? (
-          <TextInput style={styles.input} value={userData.number} onChangeText={text => setUserData({ ...userData, number: text })} placeholder="Enter phone number" />
+          <TextInput
+            style={[styles.input, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
+            value={userData.number}
+            onChangeText={text => setUserData({ ...userData, number: text })}
+            placeholder="Enter phone number"
+            placeholderTextColor={theme.colors.placeholder}
+          />
         ) : (
-          <Text style={styles.value}>{userData.number || 'Not provided'}</Text>
+          <Text style={[styles.value, { color: theme.colors.text }]}>{userData.number || 'Not provided'}</Text>
         )}
       </View>
 
       <View style={styles.infoContainer}>
         <View style={styles.infoRow}>
-          <FontAwesomeIcon icon={faBriefcase} size={16} color="#666" style={styles.infoIcon} />
-          <Text style={styles.label}>Role</Text>
+          <FontAwesomeIcon icon={faBriefcase} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
+          <Text style={[styles.label, { color: theme.colors.text }]}>Role</Text>
         </View>
-        <Text style={styles.value}>{userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}</Text>
+        <Text style={[styles.value, { color: theme.colors.text }]}>{userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}</Text>
       </View>
 
       {!isEditing && (
-        <TouchableOpacity style={styles.editProfileButton} onPress={handleEdit}>
-          <FontAwesomeIcon icon={faEdit} size={18} color="#fff" />
-          <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+        <TouchableOpacity style={[styles.editProfileButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={handleEdit}>
+          <FontAwesomeIcon icon={faEdit} size={18} color={theme.colors.buttonPrimaryText} />
+          <Text style={[styles.editProfileButtonText, { color: theme.colors.buttonPrimaryText }]}>Edit Profile</Text>
         </TouchableOpacity>
       )}
 
       {isEditing && (
         <View style={styles.buttonGroup}>
-          <TouchableOpacity style={styles.button} onPress={handleSave} disabled={saving}>
-            <Text style={styles.buttonText}>{saving ? "Saving..." : "Save"}</Text>
+          <TouchableOpacity style={[styles.button, { backgroundColor: theme.colors.buttonPrimary }]} onPress={handleSave} disabled={saving}>
+            <Text style={[styles.buttonText, { color: theme.colors.buttonPrimaryText }]}>{saving ? "Saving..." : "Save"}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={handleCancel}>
-            <Text style={[styles.buttonText, styles.cancelButtonText]}>Cancel</Text>
+          <TouchableOpacity style={[styles.button, styles.cancelButton, { borderColor: theme.colors.primary }]} onPress={handleCancel}>
+            <Text style={[styles.buttonText, styles.cancelButtonText, { color: theme.colors.primary }]}>Cancel</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      <View style={styles.separator} />
+      <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
       {/* My Children (for Parents) */}
       {userData.role === 'parent' && (
         <>
           <View style={styles.sectionHeaderContainer}>
-            <FontAwesomeIcon icon={faUserFriends} size={20} color="#007AFF" style={styles.sectionHeaderIcon} />
-            <Text style={styles.sectionTitle}>My Children</Text>
-            <TouchableOpacity onPress={() => setShowManageChildren(!showManageChildren)} style={styles.manageChildrenButton}>
-              <Text style={styles.manageChildrenButtonText}>{showManageChildren ? 'Close' : 'Manage Children'}</Text>
+            <FontAwesomeIcon icon={faUserFriends} size={20} color={theme.colors.primary} style={styles.sectionHeaderIcon} />
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>My Children</Text>
+            <TouchableOpacity onPress={() => setShowManageChildren(!showManageChildren)} style={[styles.manageChildrenButton, { backgroundColor: theme.colors.buttonPrimary }]}>
+              <Text style={[styles.manageChildrenButtonText, { color: theme.colors.buttonPrimaryText }]}>{showManageChildren ? 'Close' : 'Manage Children'}</Text>
             </TouchableOpacity>
           </View>
           <View style={{ alignSelf: 'stretch' }}>
-            <Text style={styles.sectionDescription}>View and manage your associated children.</Text>
+            <Text style={[styles.sectionDescription, { color: theme.colors.text }]}>View and manage your associated children.</Text>
           </View>
 
           <View style={styles.associatedChildrenContainer}>
             {associatedChildren.length === 0 ? (
-              <Text style={styles.noChildrenText}>No children associated yet.</Text>
+              <Text style={[styles.noChildrenText, { color: theme.colors.placeholder }]}>No children associated yet.</Text>
             ) : (
               associatedChildren.map(childId => {
                 const child = students.find(s => s.id === childId);
                 return child ? (
-                  <View key={child.id} style={styles.childItem}>
-                    <FontAwesomeIcon icon={faUserFriends} size={16} color="#666" style={{ marginRight: 10 }} />
+                  <View key={child.id} style={[styles.childItem, { borderBottomColor: theme.colors.cardBorder }]}>
+                    <FontAwesomeIcon icon={faUserFriends} size={16} color={theme.colors.placeholder} style={{ marginRight: 10 }} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.childName}>{child.full_name || 'N/A'}</Text>
-                      <Text style={styles.childEmail}>{child.email || 'N/A'}</Text>
+                      <Text style={[styles.childName, { color: theme.colors.text }]}>{child.full_name || 'N/A'}</Text>
+                      <Text style={[styles.childEmail, { color: theme.colors.placeholder }]}>{child.email || 'N/A'}</Text>
                     </View>
                     <TouchableOpacity
                       onPress={() => handleRemoveChild(child.id, child.full_name || child.email)}
                       style={{
                         marginLeft: 'auto',
-                        backgroundColor: '#d9534f',
+                        backgroundColor: theme.colors.error,
                         borderRadius: 12,
                         width: 24,
                         height: 24,
@@ -455,7 +471,7 @@ export default function ProfileScreen() {
                         alignItems: 'center',
                       }}
                     >
-                      <FontAwesomeIcon icon={faMinus} size={14} color="#fff" />
+                      <FontAwesomeIcon icon={faMinus} size={14} color={theme.colors.buttonPrimaryText} />
                     </TouchableOpacity>
                   </View>
                 ) : null;
@@ -465,17 +481,18 @@ export default function ProfileScreen() {
 
           {/* Manage Children Area (conditionally rendered) */}
           {showManageChildren && (
-            <View style={styles.manageChildrenSection}>
+            <View style={[styles.manageChildrenSection, { borderTopColor: theme.colors.cardBorder }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 10 }}>
-                <FontAwesomeIcon icon={faUserFriends} size={18} color="#007AFF" style={{ marginRight: 10 }} />
-                <Text style={styles.manageChildrenHeader}>Manage Children</Text>
+                <FontAwesomeIcon icon={faUserFriends} size={18} color={theme.colors.primary} style={{ marginRight: 10 }} />
+                <Text style={[styles.manageChildrenHeader, { color: theme.colors.text }]}>Manage Children</Text>
               </View>
-              <Text style={styles.sectionDescription}>Search for students to send association requests. You can search by name or email.</Text>
+              <Text style={[styles.sectionDescription, { color: theme.colors.text }]}>Search for students to send association requests. You can search by name or email.</Text>
 
               {/* Student Search Input */}
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
                 placeholder="Search for students"
+                placeholderTextColor={theme.colors.placeholder}
                 value={studentSearch}
                 onChangeText={setStudentSearch}
               />
@@ -499,20 +516,20 @@ export default function ProfileScreen() {
                       );
                     }}
                   >
-                    <FontAwesomeIcon icon={faUserFriends} size={16} color="#666" style={{ marginRight: 10 }} />
+                    <FontAwesomeIcon icon={faUserFriends} size={16} color={theme.colors.placeholder} style={{ marginRight: 10 }} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.childName}>{student.full_name || 'N/A'}</Text>
-                      <Text style={styles.childEmail}>{student.email || 'N/A'}</Text>
+                      <Text style={[styles.childName, { color: theme.colors.text }]}>{student.full_name || 'N/A'}</Text>
+                      <Text style={[styles.childEmail, { color: theme.colors.placeholder }]}>{student.email || 'N/A'}</Text>
                     </View>
-                    <View style={[selectedStudents.includes(student.id) ? styles.checkboxChecked : styles.checkboxUnchecked, { marginLeft: 'auto' }]} />
+                    <View style={[selectedStudents.includes(student.id) ? styles.checkboxChecked : styles.checkboxUnchecked, { marginLeft: 'auto', borderColor: theme.colors.inputBorder, backgroundColor: selectedStudents.includes(student.id) ? theme.colors.primary : 'transparent' }]} />
                   </TouchableOpacity>
                 ))}
               </View>
 
               {/* Send Request Button */}
               {selectedStudents.length > 0 && (
-                <TouchableOpacity style={styles.button} onPress={handleSendAssociationRequest} disabled={saving}>
-                  <Text style={styles.buttonText}>Send Association Request ({selectedStudents.length})</Text>
+                <TouchableOpacity style={[styles.button, { backgroundColor: theme.colors.buttonPrimary }]} onPress={handleSendAssociationRequest} disabled={saving}>
+                  <Text style={[styles.buttonText, { color: theme.colors.buttonPrimaryText }]}>Send Association Request ({selectedStudents.length})</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -524,10 +541,10 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, backgroundColor: '#f8f9fa', padding: 24, alignItems: 'center' },
-  avatar: { width: 120, height: 120, borderRadius: 60, borderWidth: 4, borderColor: '#007AFF', marginBottom: 16 },
-  header: { fontSize: 32, fontWeight: 'bold', marginBottom: 8, color: '#333' },
-  description: { fontSize: 16, color: '#666', marginBottom: 32, textAlign: 'center' },
+  container: { flexGrow: 1, padding: 24, alignItems: 'center' },
+  avatar: { width: 120, height: 120, borderRadius: 60, borderWidth: 4, marginBottom: 16 },
+  header: { fontSize: 32, fontWeight: 'bold', marginBottom: 8 },
+  description: { fontSize: 16, marginBottom: 32, textAlign: 'center' },
   sectionHeaderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -541,38 +558,34 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
   },
   sectionDescription: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 15,
   },
   manageChildrenButton: {
-    backgroundColor: '#007AFF',
     paddingVertical: 8,
     paddingHorizontal: 15,
     borderRadius: 8,
     marginLeft: 'auto',
   },
   manageChildrenButtonText: {
-    color: '#fff',
     fontWeight: '600',
     fontSize: 14,
   },
   infoContainer: { width: '100%', marginBottom: 16, alignSelf: 'flex-start' },
   label: { fontSize: 14, fontWeight: 'bold' },
-  value: { fontSize: 16, color: '#333' },
-  input: { backgroundColor: '#f0f0f0', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 16, borderWidth: 1, borderColor: '#e0e0e0', width: '100%' },
+  value: { fontSize: 16 },
+  input: { borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 16, borderWidth: 1, width: '100%' },
   buttonGroup: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 20,
   },
-  button: { backgroundColor: '#007AFF', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8, alignItems: 'center', marginHorizontal: 5 },
-  buttonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
-  cancelButton: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#007AFF' },
-  cancelButtonText: { color: '#007AFF' },
+  button: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8, alignItems: 'center', marginHorizontal: 5 },
+  buttonText: { fontWeight: '600', fontSize: 16 },
+  cancelButton: { backgroundColor: 'transparent', borderWidth: 1 },
+  cancelButtonText: {},
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -583,7 +596,6 @@ const styles = StyleSheet.create({
   },
   editProfileButton: {
     flexDirection: 'row',
-    backgroundColor: '#007AFF',
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
@@ -592,7 +604,6 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   editProfileButtonText: {
-    color: '#fff',
     fontWeight: '600',
     fontSize: 16,
     marginLeft: 10,
@@ -600,19 +611,12 @@ const styles = StyleSheet.create({
   manageChildrenHeader: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
   },
   manageChildrenSection: {
     marginTop: 20,
     paddingTop: 20,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
     alignSelf: 'flex-start',
-  },
-  sectionDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 15,
   },
   studentListContainer: {
     marginTop: 10,
@@ -636,13 +640,11 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#ccc',
   },
   checkboxChecked: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -656,22 +658,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
     width: '100%',
   },
   childName: {
     fontSize: 16,
-    color: '#333',
     fontWeight: 'bold',
   },
   childEmail: {
     fontSize: 14,
-    color: '#666',
   },
   noChildrenText: {
     textAlign: 'center',
-    color: '#666',
     fontStyle: 'italic',
     paddingVertical: 10,
+  },
+  separator: {
+    borderBottomWidth: 1,
+    marginVertical: 24,
   },
 });

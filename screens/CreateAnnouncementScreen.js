@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Switch, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Switch, ScrollView } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { Picker } from '@react-native-picker/picker';
+import { useToast } from '../context/ToastContext';
 
 export default function CreateAnnouncementScreen({ navigation }) {
   const [title, setTitle] = useState('');
@@ -11,6 +12,7 @@ export default function CreateAnnouncementScreen({ navigation }) {
   const [selectedClass, setSelectedClass] = useState(null);
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(false);
+  const { showToast } = useToast();
 
   const { schoolId } = useSchool();
 
@@ -31,12 +33,12 @@ export default function CreateAnnouncementScreen({ navigation }) {
 
   const handleSaveAnnouncement = async () => {
     if (!title || !message) {
-      Alert.alert('Error', 'Title and Message cannot be empty.');
+      showToast('Title and Message cannot be empty.', 'error');
       return;
     }
 
     if (isClassSpecific && !selectedClass) {
-      Alert.alert('Error', 'Please select a class for a class-specific announcement.');
+      showToast('Please select a class for a class-specific announcement.', 'error');
       return;
     }
 
@@ -44,13 +46,13 @@ export default function CreateAnnouncementScreen({ navigation }) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        Alert.alert('Error', 'User not authenticated.');
+        showToast('User not authenticated.', 'error');
         setLoading(false);
         return;
       }
 
       if (!schoolId) {
-        Alert.alert('Error', 'School ID not available. Cannot create announcement.');
+        showToast('School ID not available. Cannot create announcement.', 'error');
         setLoading(false);
         return;
       }
@@ -97,12 +99,12 @@ export default function CreateAnnouncementScreen({ navigation }) {
             if (notificationError) {
               // Log the error but don't block the user, as the announcement was created.
               console.error('Failed to create notifications:', notificationError);
-              Alert.alert('Warning', 'Announcement created, but failed to send notifications.');
+              showToast('Announcement created, but failed to send notifications.', 'warning');
             }
           }
         } catch (notificationError) {
           console.error('An error occurred while sending notifications:', notificationError);
-          Alert.alert('Warning', 'Announcement created, but an error occurred while sending notifications.');
+          showToast('Announcement created, but an error occurred while sending notifications.', 'warning');
         }
       } else { // It's a class-specific announcement
         try {
@@ -144,20 +146,20 @@ export default function CreateAnnouncementScreen({ navigation }) {
               const { error: notificationError } = await supabase.from('notifications').insert(notifications);
               if (notificationError) {
                 console.error('Failed to create class notifications:', notificationError);
-                Alert.alert('Warning', 'Announcement created, but failed to send class notifications.');
+                showToast('Announcement created, but failed to send class notifications.', 'warning');
               }
             }
           }
         } catch (notificationError) {
           console.error('An error occurred while sending class notifications:', notificationError);
-          Alert.alert('Warning', 'Announcement created, but an error occurred while sending class notifications.');
+          showToast('Announcement created, but an error occurred while sending class notifications.', 'warning');
         }
       }
 
-      Alert.alert('Success', 'Announcement created successfully!');
+      showToast('Announcement created successfully!', 'success');
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Error', 'Failed to create announcement.');
+      showToast('Failed to create announcement.', 'error');
     } finally {
       setLoading(false);
     }
