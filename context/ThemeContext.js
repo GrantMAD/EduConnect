@@ -2,6 +2,9 @@ import React, { createContext, useState, useContext, useCallback, useEffect } fr
 import { DefaultTheme, DarkTheme, Provider as PaperProvider } from 'react-native-paper';
 import { useColorScheme } from 'react-native';
 import { supabase } from '../lib/supabase'; // Import supabase
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
+
+const THEME_STORAGE_KEY = 'theme_preference';
 
 // Define custom light theme
 const CustomDefaultTheme = {
@@ -70,21 +73,42 @@ export const ThemeProvider = ({ children, session }) => { // Accept session prop
 
   useEffect(() => {
     const loadThemePreference = async () => {
-      if (session?.user) { // Use session.user
-        const { data, error } = await supabase
-          .from('users')
-          .select('theme_preference')
-          .eq('id', session.user.id)
-          .single();
+      let preferredTheme = null;
 
-        if (data && data.theme_preference !== null) {
-          setIsDarkTheme(data.theme_preference === 'dark');
-        } else {
-          // Fallback to system preference if no user preference is set
-          setIsDarkTheme(colorScheme === 'dark');
+      // 1. Try to load from AsyncStorage (local device preference)
+      try {
+        const storedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+        if (storedTheme !== null) {
+          preferredTheme = storedTheme;
         }
+      } catch (e) {
+        console.error('Failed to load theme from AsyncStorage', e);
+      }
+
+      // 2. If user is logged in, try to load from Supabase (cloud preference)
+      if (session?.user) {
+        try {
+          const { data, error } = await supabase
+            .from('users')
+            .select('theme_preference')
+            .eq('id', session.user.id)
+            .single();
+
+          if (data && data.theme_preference !== null) {
+            // Supabase preference overrides local preference for logged-in users
+            preferredTheme = data.theme_preference;
+            // Also update AsyncStorage to match Supabase for consistency
+            await AsyncStorage.setItem(THEME_STORAGE_KEY, preferredTheme);
+          }
+        } catch (e) {
+          console.error('Failed to load theme from Supabase', e);
+        }
+      }
+
+      // 3. Apply the determined theme, or fallback to system preference
+      if (preferredTheme !== null) {
+        setIsDarkTheme(preferredTheme === 'dark');
       } else {
-        // If no user session, use system preference
         setIsDarkTheme(colorScheme === 'dark');
       }
       setIsThemeLoaded(true);
@@ -96,14 +120,21 @@ export const ThemeProvider = ({ children, session }) => { // Accept session prop
   const toggleTheme = useCallback(async () => {
     setIsDarkTheme(prev => {
       const newTheme = !prev;
-      // Save preference to Supabase
-      if (session?.user) { // Use session.user
+      const themeString = newTheme ? 'dark' : 'light';
+
+      // Save preference to AsyncStorage
+      AsyncStorage.setItem(THEME_STORAGE_KEY, themeString).catch(e =>
+        console.error('Failed to save theme to AsyncStorage', e)
+      );
+
+      // Save preference to Supabase if user is logged in
+      if (session?.user) {
         supabase
           .from('users')
-          .update({ theme_preference: newTheme ? 'dark' : 'light' })
+          .update({ theme_preference: themeString })
           .eq('id', session.user.id)
           .then(({ error }) => {
-            if (error) console.error('Error saving theme preference:', error);
+            if (error) console.error('Error saving theme preference to Supabase:', error);
           });
       }
       return newTheme;

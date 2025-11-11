@@ -21,6 +21,7 @@ import {
   faCog
 } from '@fortawesome/free-solid-svg-icons';
 import Modal from 'react-native-modal';
+import { ProgressBar } from 'react-native-paper'; // Import ProgressBar
 
 import { supabase } from '../lib/supabase';
 const defaultUserImage = require('../assets/user.png');
@@ -370,7 +371,7 @@ const CustomDrawerContent = (props) => {
   const [userAvatar, setUserAvatar] = useState(null);
   const [userName, setUserName] = useState(null);
   const [userEmail, setUserEmail] = useState(null);
-  const [userRole, setUserRole] = useState(null); // Add userRole state
+  const [userRole, setUserRole] = useState(null);
   const [isManageDropdownOpen, setManageDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const { theme } = useTheme(); // Use the theme hook
@@ -386,7 +387,7 @@ const CustomDrawerContent = (props) => {
         if (user) {
           const { data: profile } = await supabase
             .from('users')
-            .select('full_name, avatar_url, role')
+            .select('full_name, avatar_url, role') // Revert to original select fields
             .eq('id', user.id)
             .single();
 
