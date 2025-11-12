@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Modal,
   Pressable,
   Image,
+  Switch,
 } from "react-native";
 import { supabase } from "../lib/supabase";
 import { useSchool } from "../context/SchoolContext";
@@ -25,10 +26,20 @@ import {
   faUserGraduate,
   faCalendarAlt,
   faUserPlus,
+  faArrowLeft,
 } from "@fortawesome/free-solid-svg-icons";
 import { useToast } from "../context/ToastContext";
 
 const defaultUserImage = require("../assets/user.png");
+
+// Helper to get a date in YYYY-MM-DD format
+const getDateString = (date) => {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 export default function ManageUsersInClassScreen() {
   const route = useRoute();
@@ -37,13 +48,14 @@ export default function ManageUsersInClassScreen() {
   const { schoolId } = useSchool();
   const { showToast } = useToast();
 
-  const [classStudents, setClassStudents] = useState([]);
+  const [classMembers, setClassMembers] = useState([]);
   const [allStudents, setAllStudents] = useState([]);
   const [classSchedules, setClassSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchingStudents, setFetchingStudents] = useState(false);
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedScheduleDate, setSelectedScheduleDate] = useState(null);
 
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
@@ -51,46 +63,54 @@ export default function ManageUsersInClassScreen() {
   const [tempEndTime, setTempEndTime] = useState("");
   const [tempClassInfo, setTempClassInfo] = useState("");
 
+  const classStudentIds = classMembers.map((member) => member.users.id);
   const availableStudents = allStudents.filter(
-    (student) => !classStudents.some((cs) => cs.id === student.id)
+    (student) => !classStudentIds.includes(student.id)
   );
 
-  useEffect(() => {
-    if (schoolId && classId) {
-      fetchClassDetails();
-      fetchAllStudents();
-      fetchClassSchedules();
-    }
-  }, [schoolId, classId]);
-
-  // Fetch Functions
-  const fetchClassDetails = async () => {
-    setLoading(true);
+  const fetchClassMembers = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from("classes")
-        .select("users")
-        .eq("id", classId)
-        .single();
+        .from("class_members")
+        .select("id, role, attendance, users (id, full_name, email, avatar_url)")
+        .eq("class_id", classId)
+        .eq("role", "student");
+
       if (error) throw error;
-
-      if (data?.users?.length) {
-        const { data: studentDetails, error: studentDetailsError } = await supabase
-          .from("users")
-          .select("id, full_name, email, avatar_url")
-          .in("id", data.users);
-        if (studentDetailsError) throw studentDetailsError;
-
-        setClassStudents(studentDetails || []);
-      }
+      setClassMembers(data || []);
     } catch (error) {
       console.error(error);
       showToast("Failed to fetch class details.", 'error');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [classId, showToast]);
 
+  const fetchClassSchedules = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("class_schedules")
+        .select("id, start_time, end_time, class_info")
+        .eq("class_id", classId)
+        .order("start_time", { ascending: true });
+      if (error) throw error;
+      setClassSchedules(data);
+    } catch (error) {
+      console.error(error);
+      showToast("Failed to fetch class schedules.", 'error');
+    }
+  }, [classId, showToast]);
+
+  useEffect(() => {
+    setLoading(true);
+    if (schoolId && classId) {
+      Promise.all([
+        fetchClassMembers(),
+        fetchAllStudents(),
+        fetchClassSchedules(),
+      ]).finally(() => setLoading(false));
+    }
+  }, [schoolId, classId, fetchClassMembers, fetchClassSchedules]);
+
+  // Fetch Functions
   const fetchAllStudents = async () => {
     setFetchingStudents(true);
     try {
@@ -113,30 +133,20 @@ export default function ManageUsersInClassScreen() {
     }
   };
 
-  const fetchClassSchedules = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("class_schedules")
-        .select("id, start_time, end_time, class_info")
-        .eq("class_id", classId)
-        .order("start_time", { ascending: true });
-      if (error) throw error;
-
-      setClassSchedules(data);
-    } catch (error) {
-      console.error(error);
-      showToast("Failed to fetch class schedules.", 'error');
-    }
-  };
-
   // Add/Remove Functions
   const addStudentToClass = async (studentId) => {
     setSaving(true);
     try {
-      const newIds = [...new Set([...classStudents.map((s) => s.id), studentId])];
-      const { error } = await supabase.from("classes").update({ users: newIds }).eq("id", classId);
+      const { error } = await supabase.from("class_members").insert([
+        {
+          class_id: classId,
+          user_id: studentId,
+          school_id: schoolId,
+          role: "student",
+        },
+      ]);
       if (error) throw error;
-      fetchClassDetails();
+      fetchClassMembers();
       showToast("Student added to class.", 'success');
     } catch (error) {
       console.error(error);
@@ -149,10 +159,13 @@ export default function ManageUsersInClassScreen() {
   const removeStudentFromClass = async (studentId) => {
     setSaving(true);
     try {
-      const newIds = classStudents.map((s) => s.id).filter((id) => id !== studentId);
-      const { error } = await supabase.from("classes").update({ users: newIds }).eq("id", classId);
+      const { error } = await supabase
+        .from("class_members")
+        .delete()
+        .eq("class_id", classId)
+        .eq("user_id", studentId);
       if (error) throw error;
-      fetchClassDetails();
+      fetchClassMembers();
       showToast("Student removed from class.", 'success');
     } catch (error) {
       console.error(error);
@@ -161,13 +174,54 @@ export default function ManageUsersInClassScreen() {
     }
   };
 
+  // Attendance
+  const handleAttendanceChange = async (member, isPresent) => {
+    if (!selectedScheduleDate) return;
+    const { id: memberId, attendance } = member;
+
+    // Optimistically update UI
+    const updatedMembers = classMembers.map((m) =>
+      m.id === memberId
+        ? {
+            ...m,
+            attendance: {
+              ...m.attendance,
+              [selectedScheduleDate]: isPresent,
+            },
+          }
+        : m
+    );
+    setClassMembers(updatedMembers);
+
+    // Update database
+    const newAttendance = { ...attendance, [selectedScheduleDate]: isPresent };
+    try {
+      const { error } = await supabase
+        .from("class_members")
+        .update({ attendance: newAttendance })
+        .eq("id", memberId);
+      if (error) {
+        showToast("Failed to save attendance.", 'error');
+        setClassMembers(classMembers); // Revert UI on error
+        throw error;
+      }
+    } catch (error) {
+      console.error("Error updating attendance:", error);
+    }
+  };
+
   // Schedule Edit
-  const formatTime = (date) => date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const formatTime = (date) => {
+    const d = new Date(date);
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
 
   const handleEditSchedule = (schedule) => {
     setSelectedSchedule(schedule);
-    setTempStartTime(formatTime(new Date(schedule.start_time)));
-    setTempEndTime(formatTime(new Date(schedule.end_time)));
+    setTempStartTime(formatTime(schedule.start_time));
+    setTempEndTime(formatTime(schedule.end_time));
     setTempClassInfo(schedule.class_info || "");
     setEditModalVisible(true);
   };
@@ -209,43 +263,59 @@ export default function ManageUsersInClassScreen() {
 
   // Render Items
   const renderSchedule = ({ item }) => (
-    <View style={styles.card}>
-      <View style={styles.cardRow}>
-        <FontAwesomeIcon icon={faCalendarAlt} size={14} color="#555" />
-        <Text style={styles.cardTitle}> {new Date(item.start_time).toLocaleDateString()}</Text>
+    <TouchableOpacity onPress={() => setSelectedScheduleDate(getDateString(item.start_time))}>
+      <View style={styles.card}>
+        <View style={styles.cardRow}>
+          <FontAwesomeIcon icon={faCalendarAlt} size={14} color="#555" />
+          <Text style={styles.cardTitle}> {new Date(item.start_time).toLocaleDateString()}</Text>
+        </View>
+        <View style={styles.cardRow}>
+          <FontAwesomeIcon icon={faClock} size={14} color="#555" />
+          <Text style={styles.scheduleTimeText}>
+            {formatTime(item.start_time)} - {formatTime(item.end_time)}
+          </Text>
+        </View>
+        {item.class_info ? <Text style={styles.cardInfo}>{item.class_info}</Text> : null}
+        <TouchableOpacity onPress={() => handleEditSchedule(item)} style={styles.editButton}>
+          <FontAwesomeIcon icon={faEdit} size={18} color="#007AFF" />
+        </TouchableOpacity>
       </View>
-      <View style={styles.cardRow}>
-        <FontAwesomeIcon icon={faClock} size={14} color="#555" />
-        <Text style={styles.scheduleTimeText}>
-          {new Date(item.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} -{" "}
-          {new Date(item.end_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-        </Text>
-      </View>
-      {item.class_info ? <Text style={styles.cardInfo}>{item.class_info}</Text> : null}
-      <TouchableOpacity onPress={() => handleEditSchedule(item)} style={styles.editButton}>
-        <FontAwesomeIcon icon={faEdit} size={18} color="#007AFF" />
-      </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 
-  const renderStudent = ({ item }) => (
-    <View style={styles.card}>
-      <View style={styles.cardRow}>
-        <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={styles.avatar} />
-        <View>
-          <Text style={styles.cardTitle}>{item.full_name}</Text>
-          <Text style={styles.cardSub}>{item.email}</Text>
+  const renderStudent = ({ item }) => {
+    const student = item.users;
+    const isPresent = item.attendance?.[selectedScheduleDate] ?? false;
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardRow}>
+          <Image source={student.avatar_url ? { uri: student.avatar_url } : defaultUserImage} style={styles.avatar} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardTitle}>{student.full_name}</Text>
+            <Text style={styles.cardSub}>{student.email}</Text>
+          </View>
+          <View style={styles.attendanceContainer}>
+            <Text style={styles.attendanceLabel}>Present</Text>
+            <Switch
+              trackColor={{ false: "#767577", true: "#81b0ff" }}
+              thumbColor={isPresent ? "#007AFF" : "#f4f3f4"}
+              ios_backgroundColor="#3e3e3e"
+              onValueChange={(value) => handleAttendanceChange(item, value)}
+              value={isPresent}
+            />
+          </View>
+          <TouchableOpacity
+            onPress={() => removeStudentFromClass(student.id)}
+            disabled={saving}
+            style={styles.removeButton}
+          >
+            <FontAwesomeIcon icon={faMinusCircle} size={20} color="#dc3545" />
+          </TouchableOpacity>
         </View>
       </View>
-      <TouchableOpacity
-        onPress={() => removeStudentFromClass(item.id)}
-        disabled={saving}
-        style={styles.removeButton}
-      >
-        <FontAwesomeIcon icon={faMinusCircle} size={20} color="#dc3545" />
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   const renderAddStudent = ({ item }) => (
     <View style={styles.card}>
@@ -267,66 +337,78 @@ export default function ManageUsersInClassScreen() {
   );
 
   // Main FlatList Header
-  const renderHeader = () => (
-    <>
-      <Text style={styles.header}>Manage {className}</Text>
-      <Text style={styles.description}>Here you can manage the students and schedule for this class.</Text>
-
-      {/* Class Schedule Section */}
-      <View style={{ marginBottom: 25 }}>
-        <View style={styles.sectionHeader}>
-          <FontAwesomeIcon icon={faCalendarAlt} size={18} color="#007AFF" />
-          <Text style={styles.sectionTitle}>Class Schedule</Text>
-        </View>
-        <Text style={styles.sectionDescription}>View and edit the scheduled dates and times for this class.</Text>
-        <FlatList
-          scrollEnabled={false}
-          data={classSchedules}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderSchedule}
-          ListEmptyComponent={<ActivityIndicator size="small" />}
-        />
-      </View>
-
-      {/* Students Section */}
-      <View style={{ marginBottom: 25 }}>
-        <View style={styles.sectionHeader}>
-          <FontAwesomeIcon icon={faUserGraduate} size={18} color="#007AFF" />
-          <Text style={styles.sectionTitle}>Students in this Class</Text>
-        </View>
-        <Text style={styles.sectionDescription}>These are the students currently enrolled in this class.</Text>
-        <FlatList
-          scrollEnabled={false}
-          data={classStudents}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderStudent}
-          ListEmptyComponent={<Text style={styles.emptyText}>No students yet.</Text>}
-        />
-
-        {/* Add Students Subsection */}
-        <View style={{ marginTop: 20 }}>
-          <View style={styles.sectionHeader}>
-            <FontAwesomeIcon icon={faUserPlus} size={18} color="#007AFF" />
-            <Text style={styles.sectionTitle}>Add Students</Text>
+  const renderHeader = () => {
+    if (!selectedScheduleDate) {
+      return (
+        <>
+          <Text style={styles.header}>Manage {className}</Text>
+          <Text style={styles.description}>Select a class session below to manage attendance.</Text>
+          <View style={{ marginBottom: 25 }}>
+            <View style={styles.sectionHeader}>
+              <FontAwesomeIcon icon={faCalendarAlt} size={18} color="#007AFF" />
+              <Text style={styles.sectionTitle}>Class Schedule</Text>
+            </View>
+            <Text style={styles.sectionDescription}>Tap a session to manage attendance, or use the edit icon to modify its details.</Text>
+            <FlatList
+              scrollEnabled={false}
+              data={classSchedules}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={renderSchedule}
+              ListEmptyComponent={<Text style={styles.emptyText}>No scheduled sessions for this class.</Text>}
+            />
           </View>
-          <Text style={styles.sectionDescription}>Search for and add more students to this class.</Text>
-          <TextInput
-            style={styles.input}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search for students..."
-          />
+        </>
+      );
+    }
+
+    return (
+      <>
+        <TouchableOpacity onPress={() => setSelectedScheduleDate(null)} style={styles.backButton}>
+          <FontAwesomeIcon icon={faArrowLeft} size={16} color="#007AFF" />
+          <Text style={styles.backButtonText}>Back to Schedules</Text>
+        </TouchableOpacity>
+        <Text style={styles.header}>Attendance for {new Date(selectedScheduleDate).toLocaleDateString()}</Text>
+
+        {/* Students Section */}
+        <View style={{ marginBottom: 25 }}>
+          <View style={styles.sectionHeader}>
+            <FontAwesomeIcon icon={faUserGraduate} size={18} color="#007AFF" />
+            <Text style={styles.sectionTitle}>Students in this Class</Text>
+          </View>
+          <Text style={styles.sectionDescription}>Mark student attendance for the selected date.</Text>
           <FlatList
             scrollEnabled={false}
-            data={availableStudents}
+            data={classMembers}
             keyExtractor={(item) => item.id.toString()}
-            renderItem={renderAddStudent}
-            ListEmptyComponent={<Text style={styles.emptyText}>No students found.</Text>}
+            renderItem={renderStudent}
+            ListEmptyComponent={<Text style={styles.emptyText}>No students yet.</Text>}
           />
+
+          {/* Add Students Subsection */}
+          <View style={{ marginTop: 20 }}>
+            <View style={styles.sectionHeader}>
+              <FontAwesomeIcon icon={faUserPlus} size={18} color="#007AFF" />
+              <Text style={styles.sectionTitle}>Add Students</Text>
+            </View>
+            <Text style={styles.sectionDescription}>Search for and add more students to this class.</Text>
+            <TextInput
+              style={styles.input}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search for students..."
+            />
+            <FlatList
+              scrollEnabled={false}
+              data={availableStudents}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={renderAddStudent}
+              ListEmptyComponent={<Text style={styles.emptyText}>No students found.</Text>}
+            />
+          </View>
         </View>
-      </View>
-    </>
-  );
+      </>
+    );
+  };
 
   if (loading) {
     return <ManageUsersInClassScreenSkeleton />;
@@ -345,20 +427,35 @@ export default function ManageUsersInClassScreen() {
         <Pressable style={styles.modalOverlay} onPress={() => setEditModalVisible(false)}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>Edit Schedule</Text>
+            <Text style={styles.modalDescription}>Adjust the time and information for this class session.</Text>
+            <View style={styles.timeInputRow}>
+                <FontAwesomeIcon icon={faClock} size={24} color="#888" style={{ marginRight: 15, marginTop: 20 }} />
+                <View style={styles.timeInputGroup}>
+                    <Text style={styles.timeInputLabel}>Start Time</Text>
+                    <TextInput
+                        style={styles.timeInput}
+                        placeholder="HH:MM"
+                        keyboardType="numeric"
+                        maxLength={5}
+                        value={tempStartTime}
+                        onChangeText={setTempStartTime}
+                    />
+                </View>
+                <Text style={styles.timeSeparator}>-</Text>
+                <View style={styles.timeInputGroup}>
+                    <Text style={styles.timeInputLabel}>End Time</Text>
+                    <TextInput
+                        style={styles.timeInput}
+                        placeholder="HH:MM"
+                        keyboardType="numeric"
+                        maxLength={5}
+                        value={tempEndTime}
+                        onChangeText={setTempEndTime}
+                    />
+                </View>
+            </View>
             <TextInput
-              style={styles.modalInput}
-              placeholder="Start Time (HH:MM)"
-              value={tempStartTime}
-              onChangeText={setTempStartTime}
-            />
-            <TextInput
-              style={styles.modalInput}
-              placeholder="End Time (HH:MM)"
-              value={tempEndTime}
-              onChangeText={setTempEndTime}
-            />
-            <TextInput
-              style={[styles.modalInput, { height: 80 }]}
+              style={[styles.modalInput, { height: 80, textAlign: 'left', textAlignVertical: 'top' }]}
               multiline
               placeholder="Class Information"
               value={tempClassInfo}
@@ -387,6 +484,8 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
   sectionTitle: { fontSize: 16, fontWeight: "600", marginLeft: 8, color: "#333" },
   sectionDescription: { fontSize: 13, color: "#777", marginBottom: 10, marginLeft: 5 },
+  backButton: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  backButtonText: { color: '#007AFF', fontSize: 16, marginLeft: 8 },
 
   card: {
     backgroundColor: "#fff",
@@ -411,9 +510,21 @@ const styles = StyleSheet.create({
   removeButton: { position: "absolute", right: 12, top: 12 },
   editButton: { position: "absolute", right: 12, top: 12 },
 
+  attendanceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 40, // Add space between switch and remove button
+  },
+  attendanceLabel: {
+    marginRight: 8,
+    fontSize: 14,
+    color: '#555',
+  },
+
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", alignItems: "center" },
   modalContainer: { backgroundColor: "#fff", padding: 20, borderRadius: 15, width: "85%" },
   modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 12, textAlign: "center" },
+  modalDescription: { fontSize: 14, color: '#666', marginBottom: 10, textAlign: 'center' },
   modalInput: { borderWidth: 1, borderColor: "#ddd", borderRadius: 8, padding: 10, fontSize: 15, marginBottom: 10, backgroundColor: "#fafafa" },
   modalButtons: { flexDirection: "row", justifyContent: "space-between", marginTop: 10 },
   modalButton: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: "center", marginHorizontal: 5 },
@@ -421,4 +532,10 @@ const styles = StyleSheet.create({
   cancelButton: { backgroundColor: "#f1f1f1" },
   saveText: { color: "#fff", fontWeight: "700" },
   cancelText: { color: "#333", fontWeight: "600" },
+
+  timeInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 30 },
+  timeInputGroup: { alignItems: 'center' },
+  timeInputLabel: { fontSize: 12, color: '#666', marginBottom: 5 },
+  timeInput: { fontSize: 18, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 15, paddingVertical: 10, width: 100, textAlign: 'center' },
+  timeSeparator: { fontSize: 18, fontWeight: 'bold', marginHorizontal: 10, marginTop: 20 },
 });

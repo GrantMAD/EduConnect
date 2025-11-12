@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, TouchableOpacity, Text, Image, Dimensions, Animated, Alert, ActivityIndicator, LayoutAnimation } from 'react-native';
+import { View, TouchableOpacity, Text, Image, Dimensions, Animated, Alert, ActivityIndicator, LayoutAnimation, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
@@ -18,7 +18,8 @@ import {
   faGear,
   faChevronDown,
   faChevronUp,
-  faCog
+  faCog,
+  faChild
 } from '@fortawesome/free-solid-svg-icons';
 import Modal from 'react-native-modal';
 import { ProgressBar } from 'react-native-paper'; // Import ProgressBar
@@ -46,6 +47,7 @@ import CreateAssignmentScreen from '../screens/CreateAssignmentScreen';
 import CreateHomeworkScreen from '../screens/CreateHomeworkScreen';
 
 import CreateMarketplaceItemScreen from '../screens/CreateMarketplaceItemScreen';
+import MyChildrenScreen from '../screens/MyChildrenScreen';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
 
 const Tab = createMaterialTopTabNavigator();
@@ -226,46 +228,55 @@ const CustomHeader = ({ navigation, showActions = false }) => {
         backdropOpacity={0.1}
         style={{ margin: 0, justifyContent: 'flex-start', alignItems: 'flex-end', marginTop: 90, marginRight: 25 }}
       >
-        <View style={{ width: 300, backgroundColor: theme.colors.surface, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 15, maxHeight: 420 }}>
-          <Text style={{ fontSize: 18, fontWeight: '700', color: theme.colors.text, marginBottom: 10, textAlign: 'center' }}>
-            Notifications
+        <View style={{ width: 300, backgroundColor: theme.colors.surface, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 15 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+            <FontAwesomeIcon icon={faBell} size={18} color={theme.colors.primary} style={{ marginRight: 8 }} />
+            <Text style={{ fontSize: 18, fontWeight: '700', color: theme.colors.text }}>
+              Notifications
+            </Text>
+          </View>
+          <Text style={{ fontSize: 12, color: theme.colors.placeholder, marginBottom: 10 }}>
+            You have {notifications.length} new notifications.
           </Text>
           <View style={{ borderBottomColor: theme.colors.cardBorder, borderBottomWidth: 1, marginBottom: 8 }} />
-
-          {notifications.length === 0 ? (
-            <Text style={{ textAlign: 'center', color: theme.colors.text, paddingVertical: 10 }}>No notifications</Text>
-          ) : (
-            notifications.slice(0, 6).map((n) => (
-              <TouchableOpacity
-                key={n.id}
-                onPress={() => {
-                  setShowDropdown(false);
-                  navigation.navigate('Notifications', { selectedNotificationId: n.id });
-                }}
-                style={{
-                  backgroundColor: n.is_read ? theme.colors.background : theme.colors.notification,
-                  borderRadius: 12,
-                  padding: 12,
-                  marginBottom: 8,
-                  shadowColor: theme.colors.text,
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 2,
-                  elevation: 2,
-                }}
-              >
-                <Text style={{ fontSize: 15, fontWeight: n.is_read ? '500' : '700', color: n.is_read ? theme.colors.text : theme.colors.primary, marginBottom: 4 }} numberOfLines={1}>
-                  {n.title}
-                </Text>
-                <Text style={{ fontSize: 13, color: theme.colors.text }} numberOfLines={2}>
-                  {n.message}
-                </Text>
-                <Text style={{ fontSize: 11, color: theme.colors.placeholder, textAlign: 'right', marginTop: 4 }}>
-                  {new Date(n.created_at).toLocaleString()}
-                </Text>
-              </TouchableOpacity>
-            ))
-          )}
+          <ScrollView style={{ flexGrow: 0, maxHeight: 300 }}>
+            {notifications.length === 0 ? (
+              <Text style={{ textAlign: 'center', color: theme.colors.text, paddingVertical: 10 }}>No notifications</Text>
+            ) : (
+              notifications.slice(0, 6).map((n) => (
+                <TouchableOpacity
+                  key={n.id}
+                  onPress={() => {
+                    setShowDropdown(false);
+                    navigation.navigate('Notifications', { selectedNotificationId: n.id });
+                  }}
+                  style={{
+                    backgroundColor: n.is_read ? theme.colors.background : theme.colors.notification,
+                    borderRadius: 12,
+                    padding: 12,
+                    marginBottom: 8,
+                    shadowColor: theme.colors.text,
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 2,
+                    elevation: 2,
+                    borderWidth: 1,
+                    borderColor: theme.colors.cardBorder,
+                  }}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: n.is_read ? '500' : '700', color: n.is_read ? theme.colors.text : theme.colors.primary, marginBottom: 4 }} numberOfLines={1}>
+                    {n.title}
+                  </Text>
+                  <Text style={{ fontSize: 13, color: theme.colors.text }} numberOfLines={2}>
+                    {n.message}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: theme.colors.placeholder, textAlign: 'right', marginTop: 4 }}>
+                    {new Date(n.created_at).toLocaleString()}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
 
           <TouchableOpacity
             onPress={() => { setShowDropdown(false); navigation.navigate('Notifications'); }}
@@ -348,6 +359,7 @@ const MainStackNavigator = () => (
   >
     <Stack.Screen name="HomeTabs" component={HomeTabs} />
     <Stack.Screen name="Profile" component={ProfileScreen} />
+    <Stack.Screen name="MyChildren" component={MyChildrenScreen} />
     <Stack.Screen name="Settings" component={SettingsScreen} />
     <Stack.Screen name="UserManagement" component={UserManagementScreen} />
     <Stack.Screen name="Notifications">
@@ -467,6 +479,26 @@ const CustomDrawerContent = (props) => {
           <Text style={{ fontSize: 12, color: theme.colors.placeholder }}>Manage your personal information</Text>
         </View>
       </TouchableOpacity>
+
+      {userRole === 'parent' && (
+        <TouchableOpacity
+          onPress={() => props.navigation.navigate('MainStack', { screen: 'MyChildren' })}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 12,
+            paddingHorizontal: 20,
+            backgroundColor: activeMainStackRouteName === 'MyChildren' ? theme.colors.primary + '20' : 'transparent',
+            borderRadius: 8,
+          }}
+        >
+          <FontAwesomeIcon icon={faChild} size={18} color={theme.colors.primary} style={{ marginRight: 15 }} />
+          <View>
+            <Text style={{ fontSize: 16, color: theme.colors.text, fontWeight: '500' }}>My Children</Text>
+            <Text style={{ fontSize: 12, color: theme.colors.placeholder }}>View your children's progress</Text>
+          </View>
+        </TouchableOpacity>
+      )}
 
       {['admin', 'teacher'].includes(userRole) && (
         <TouchableOpacity

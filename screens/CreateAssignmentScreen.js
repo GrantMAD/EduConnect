@@ -111,16 +111,24 @@ const CreateAssignmentScreen = ({ navigation }) => {
 
       // --- Notification Logic ---
       try {
-        const { data: classData, error: classError } = await supabase
+        // Fetch class name
+        const { data: classInfo, error: classInfoError } = await supabase
           .from('classes')
-          .select('users, name')
+          .select('name')
           .eq('id', selectedClass)
           .single();
+        if (classInfoError) throw classInfoError;
 
-        if (classError) throw classError;
+        // Fetch students from the class
+        const { data: members, error: membersError } = await supabase
+          .from('class_members')
+          .select('user_id')
+          .eq('class_id', selectedClass)
+          .eq('role', 'student');
+        if (membersError) throw membersError;
 
-        if (classData && classData.users && classData.users.length > 0) {
-          const studentIds = classData.users;
+        if (members && members.length > 0) {
+          const studentIds = members.map(m => m.user_id);
           
           const { data: parents, error: parentsError } = await supabase
             .rpc('get_parents_of_students', { p_student_ids: studentIds });
@@ -136,7 +144,7 @@ const CreateAssignmentScreen = ({ navigation }) => {
             const notifications = recipientIds.map(userId => ({
               user_id: userId,
               type: 'new_assignment',
-              title: `New Assignment for ${classData.name}`,
+              title: `New Assignment for ${classInfo.name}`,
               message: `A new assignment has been set: "${newAssignment.title}"`,
               data: { assignment_id: newAssignment.id }
             }));

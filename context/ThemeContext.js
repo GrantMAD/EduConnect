@@ -17,7 +17,7 @@ const CustomDefaultTheme = {
     text: '#333333', // Dark text
     placeholder: '#666666',
     backdrop: 'rgba(0, 0, 0, 0.5)',
-    notification: '#ff8000',
+    notification: '#f0f0f0',
     // Custom colors for specific elements
     cardBackground: '#ffffff',
     cardBorder: '#e0e0e0',
@@ -46,7 +46,7 @@ const CustomDarkTheme = {
     text: '#ffffff', // Light text
     placeholder: '#aaaaaa',
     backdrop: 'rgba(0, 0, 0, 0.7)',
-    notification: '#ff8000',
+    notification: '#2c2c2c',
     // Custom colors for specific elements
     cardBackground: '#1e1e1e',
     cardBorder: '#333333',

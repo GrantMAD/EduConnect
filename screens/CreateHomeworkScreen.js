@@ -86,16 +86,24 @@ const CreateHomeworkScreen = ({ navigation }) => {
 
     // --- Notification Logic ---
     try {
-      const { data: classData, error: classError } = await supabase
+      // Fetch class name
+      const { data: classInfo, error: classInfoError } = await supabase
         .from('classes')
-        .select('users, name')
+        .select('name')
         .eq('id', selectedClass)
         .single();
+      if (classInfoError) throw classInfoError;
 
-      if (classError) throw classError;
+      // Fetch students from the class
+      const { data: members, error: membersError } = await supabase
+        .from('class_members')
+        .select('user_id')
+        .eq('class_id', selectedClass)
+        .eq('role', 'student');
+      if (membersError) throw membersError;
 
-      if (classData && classData.users && classData.users.length > 0) {
-        const studentIds = classData.users;
+      if (members && members.length > 0) {
+        const studentIds = members.map(m => m.user_id);
         
         const { data: parents, error: parentsError } = await supabase
           .rpc('get_parents_of_students', { p_student_ids: studentIds });
@@ -111,7 +119,7 @@ const CreateHomeworkScreen = ({ navigation }) => {
           const notifications = recipientIds.map(userId => ({
             user_id: userId,
             type: 'new_homework',
-            title: `New Homework for ${classData.name}`,
+            title: `New Homework for ${classInfo.name}`,
             message: `A new piece of homework has been set: "${newHomework.subject}"`,
             data: { homework_id: newHomework.id }
           }));
@@ -119,7 +127,6 @@ const CreateHomeworkScreen = ({ navigation }) => {
           const { error: notificationError } = await supabase.from('notifications').insert(notifications);
           if (notificationError) {
             console.error('Failed to create homework notifications:', notificationError);
-            // Non-blocking alert
             showToast('Homework created, but failed to send notifications.', 'warning');
           }
         }

@@ -108,16 +108,24 @@ export default function CreateAnnouncementScreen({ navigation }) {
         }
       } else { // It's a class-specific announcement
         try {
-          const { data: classData, error: classError } = await supabase
+          // Fetch class name
+          const { data: classInfo, error: classInfoError } = await supabase
             .from('classes')
-            .select('users, name')
+            .select('name')
             .eq('id', selectedClass)
             .single();
+          if (classInfoError) throw classInfoError;
 
-          if (classError) throw classError;
+          // Fetch students from the class
+          const { data: members, error: membersError } = await supabase
+            .from('class_members')
+            .select('user_id')
+            .eq('class_id', selectedClass)
+            .eq('role', 'student');
+          if (membersError) throw membersError;
 
-          if (classData && classData.users && classData.users.length > 0) {
-            const studentIds = classData.users;
+          if (members && members.length > 0) {
+            const studentIds = members.map(m => m.user_id);
             
             // Fetch parents of the students in the class using the RPC function
             const { data: parents, error: parentsError } = await supabase
@@ -125,7 +133,6 @@ export default function CreateAnnouncementScreen({ navigation }) {
 
             if (parentsError) {
               console.error('Error fetching parents via RPC:', parentsError);
-              // Don't throw, just log, so students still get notified
             }
 
             const parentIds = parents ? parents.map(p => p.parent_id) : [];
@@ -137,7 +144,7 @@ export default function CreateAnnouncementScreen({ navigation }) {
             const notifications = recipientIds.map(userId => ({
               user_id: userId,
               type: 'new_class_announcement',
-              title: `New Announcement in ${classData.name}`,
+              title: `New Announcement in ${classInfo.name}`,
               message: `A new announcement has been posted: "${newAnnouncementData.title}"`,
               data: { announcement_id: newAnnouncementData.id },
             }));

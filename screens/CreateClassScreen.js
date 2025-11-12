@@ -140,28 +140,34 @@ export default function CreateClassScreen({ navigation }) {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        showToast('User not authenticated.', 'error');
+      if (!user || !schoolId) {
+        showToast('User or School not identified.', 'error');
         setLoading(false);
         return;
       }
 
-      if (!schoolId) {
-        showToast('School ID not available.', 'error');
-        setLoading(false);
-        return;
-      }
-
+      // Step 1: Create the class without the 'users' array
       const { data: newClass, error: classError } = await supabase
         .from('classes')
-        .insert({ name: className, subject: subject, school_id: schoolId, teacher_id: user.id, users: selectedStudents })
+        .insert({ name: className, subject: subject, school_id: schoolId, teacher_id: user.id })
         .select()
         .single();
 
       if (classError) throw classError;
 
-      // Notify students they've been added to the class
+      // Step 2: If students are selected, insert them into class_members table
       if (selectedStudents.length > 0) {
+        const classMembersToInsert = selectedStudents.map(studentId => ({
+          class_id: newClass.id,
+          user_id: studentId,
+          school_id: schoolId,
+          role: 'student',
+        }));
+
+        const { error: membersError } = await supabase.from('class_members').insert(classMembersToInsert);
+        if (membersError) throw membersError;
+
+        // Notify students they've been added to the class
         const notifications = selectedStudents.map(studentId => ({
           user_id: studentId,
           type: 'added_to_class',
@@ -171,12 +177,11 @@ export default function CreateClassScreen({ navigation }) {
 
         const { error: notificationError } = await supabase.from('notifications').insert(notifications);
         if (notificationError) {
-          // Log the error, but don't block the main success message
           console.error('Failed to create student notifications:', notificationError);
         }
       }
 
-
+      // Step 3: Insert schedules if they exist
       if (schedules.length > 0) {
         const scheduleToInsert = schedules.map(schedule => ({
           class_id: newClass.id,

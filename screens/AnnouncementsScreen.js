@@ -92,6 +92,9 @@ export default function AnnouncementsScreen({ navigation }) {
         .eq('id', schoolId)
         .single();
       if (error) throw error;
+      if (data?.logo_url) {
+        await Image.prefetch(data.logo_url);
+      }
       setSchoolData(data);
     } catch (error) {
       console.error('Error fetching school data:', error.message);
@@ -119,43 +122,45 @@ export default function AnnouncementsScreen({ navigation }) {
       }
 
       try {
-        // Fetch user's role first, as it's not passed directly
+        // Fetch user's role first
         const { data: userData, error: userError } = await supabase.from('users').select('role').eq('id', user.id).single();
         if (userError) throw userError;
         const role = userData?.role;
 
-        let studentOrTeacherClassIds = [];
-        let parentClassIds = [];
+        let associatedClassIds = [];
 
-        // Fetch classes for student/teacher roles
-        const { data: studentClasses, error: studentError } = await supabase.from('classes').select('id').eq('school_id', schoolId).contains('users', [user.id]);
-        const { data: teacherClasses, error: teacherError } = await supabase.from('classes').select('id').eq('school_id', schoolId).eq('teacher_id', user.id);
-        if (studentError) throw studentError;
-        if (teacherError) throw teacherError;
-        studentOrTeacherClassIds = [...(studentClasses || []).map(c => c.id), ...(teacherClasses || []).map(c => c.id)];
+        // Fetch classes the user is directly a member of (student or teacher)
+        const { data: memberClasses, error: memberError } = await supabase
+          .from('class_members')
+          .select('class_id')
+          .eq('user_id', user.id);
+        if (memberError) throw memberError;
+        if (memberClasses) {
+          associatedClassIds.push(...memberClasses.map(m => m.class_id));
+        }
 
         // If user is a parent, fetch their children's classes
         if (role === 'parent') {
-          const { data: children, error: childrenError } = await supabase.from('parent_child_relationships').select('child_id').eq('parent_id', user.id);
+          const { data: children, error: childrenError } = await supabase
+            .from('parent_child_relationships')
+            .select('child_id')
+            .eq('parent_id', user.id);
           if (childrenError) throw childrenError;
 
           if (children && children.length > 0) {
             const childIds = children.map(c => c.child_id);
-            
-            // Fetch all classes and filter client-side. This is less efficient but reliable without a DB function.
-            const { data: allClasses, error: allClassesError } = await supabase.from('classes').select('id, users').eq('school_id', schoolId);
-            if (allClassesError) throw allClassesError;
-
-            if (allClasses) {
-              parentClassIds = allClasses
-                .filter(c => c.users && c.users.some(studentId => childIds.includes(studentId)))
-                .map(c => c.id);
+            const { data: childClasses, error: childClassesError } = await supabase
+              .from('class_members')
+              .select('class_id')
+              .in('user_id', childIds);
+            if (childClassesError) throw childClassesError;
+            if (childClasses) {
+              associatedClassIds.push(...childClasses.map(m => m.class_id));
             }
           }
         }
 
-        const allAssociatedClasses = [...studentOrTeacherClassIds, ...parentClassIds];
-        const uniqueClassIds = [...new Set(allAssociatedClasses)];
+        const uniqueClassIds = [...new Set(associatedClassIds)];
         setUserClasses(uniqueClassIds);
 
       } catch (error) {
