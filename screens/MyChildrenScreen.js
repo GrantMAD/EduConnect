@@ -17,13 +17,39 @@ const ChildItem = ({ child, theme }) => {
   const fetchChildData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data: classMembersData, error: classMembersError } = await supabase
         .from('class_members')
-        .select('attendance, classes (name, teacher:users(full_name))')
+        .select('id, attendance, class_id, classes (id, name, teacher:users(full_name))')
         .eq('user_id', child.id);
 
-      if (error) throw error;
-      setClasses(data || []);
+      if (classMembersError) throw classMembersError;
+
+      const processedClasses = await Promise.all(classMembersData.map(async (member) => {
+        const { data: schedules, error: schedulesError } = await supabase
+          .from('class_schedules')
+          .select('start_time')
+          .eq('class_id', member.class_id)
+          .order('start_time', { ascending: true });
+
+        if (schedulesError) throw schedulesError;
+
+        const fullAttendance = schedules.map(schedule => {
+          const scheduleDate = new Date(schedule.start_time).toISOString().split('T')[0]; // YYYY-MM-DD
+          const isPresent = member.attendance?.[scheduleDate]; // true, false, or undefined
+
+          return {
+            date: scheduleDate,
+            status: isPresent === true ? 'present' : (isPresent === false ? 'absent' : 'unmarked')
+          };
+        });
+
+        return {
+          ...member,
+          fullAttendance: fullAttendance,
+        };
+      }));
+
+      setClasses(processedClasses || []);
     } catch (error) {
       console.error('Error fetching child classes:', error.message);
     } finally {
@@ -56,8 +82,6 @@ const ChildItem = ({ child, theme }) => {
             <ActivityIndicator color={theme.colors.primary} />
           ) : (
             classes.map((classInfo, index) => {
-              const attendanceEntries = Object.entries(classInfo.attendance || {});
-
               return (
                 <View key={index} style={[styles.classContainer, { backgroundColor: theme.colors.background }]}>
                   <View style={styles.classHeader}>
@@ -70,26 +94,43 @@ const ChildItem = ({ child, theme }) => {
                     </View>
                   </View>
 
-                  {attendanceEntries.length > 0 ? (
+                  {classInfo.fullAttendance.length > 0 ? (
                     <>
                       <Text style={[styles.attendanceSectionTitle, { color: theme.colors.text }]}>Attendance</Text>
                       <View style={styles.attendanceGrid}>
-                        {attendanceEntries.map(([date, present]) => (
-                          <View key={date} style={[styles.attendanceItem, { backgroundColor: present ? theme.colors.success + '20' : theme.colors.error + '20' }]}>
-                            <FontAwesomeIcon icon={present ? faCheckCircle : faTimesCircle} size={12} color={present ? theme.colors.success : theme.colors.error} style={{ marginRight: 4 }} />
-                            <Text style={[styles.attendanceDate, { color: present ? theme.colors.success : theme.colors.error }]}>
-                              {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </Text>
-                          </View>
-                        ))}
+                        {classInfo.fullAttendance.map((entry) => {
+                          const isPresent = entry.status === 'present';
+                          const isAbsent = entry.status === 'absent';
+                          const isUnmarked = entry.status === 'unmarked';
+
+                          const itemBackgroundColor = isPresent ? theme.colors.success + '20' :
+                                                      isAbsent ? theme.colors.error + '20' :
+                                                      theme.colors.placeholder + '20'; // Light gray for unmarked
+                          const itemTextColor = isPresent ? theme.colors.success :
+                                                isAbsent ? theme.colors.error :
+                                                theme.colors.placeholder; // Gray for unmarked
+                          const itemIcon = isPresent ? faCheckCircle :
+                                           isAbsent ? faTimesCircle :
+                                           faUser; // A generic user icon for unmarked
+
+                          return (
+                            <View key={entry.date} style={[styles.attendanceItem, { backgroundColor: itemBackgroundColor }]}>
+                              <FontAwesomeIcon icon={itemIcon} size={12} color={itemTextColor} style={{ marginRight: 4 }} />
+                              <Text style={[styles.attendanceDate, { color: itemTextColor }]}>
+                                {new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </Text>
+                            </View>
+                          );
+                        })}
                       </View>
                       <Text style={[styles.attendanceLegend, { color: theme.colors.placeholder, marginTop: 10 }]}>
-                        <FontAwesomeIcon icon={faCheckCircle} size={12} color={theme.colors.success} /> = Present,{' '}
-                        <FontAwesomeIcon icon={faTimesCircle} size={12} color={theme.colors.error} /> = Absent
+                        <FontAwesomeIcon icon={faCheckCircle} size={12} color={theme.colors.success} /> = Present{' '}
+                        <FontAwesomeIcon icon={faTimesCircle} size={12} color={theme.colors.error} /> = Absent{' '}
+                        <FontAwesomeIcon icon={faUser} size={12} color={theme.colors.placeholder} /> = Unmarked
                       </Text>
                     </>
                   ) : (
-                    <Text style={{ color: theme.colors.placeholder, textAlign: 'center', marginVertical: 10 }}>No attendance records yet.</Text>
+                    <Text style={{ color: theme.colors.placeholder, textAlign: 'center', marginVertical: 10 }}>No scheduled sessions for this class.</Text>
                   )}
                 </View>
               );
@@ -202,6 +243,8 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 25,
     marginRight: 16,
+    borderWidth: 2,
+    borderColor: "#007AFF",
   },
   childName: {
     fontSize: 18,

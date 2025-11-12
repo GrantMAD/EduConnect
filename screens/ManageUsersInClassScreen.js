@@ -29,6 +29,7 @@ import {
   faArrowLeft,
 } from "@fortawesome/free-solid-svg-icons";
 import { useToast } from "../context/ToastContext";
+import { Calendar } from "react-native-calendars";
 
 const defaultUserImage = require("../assets/user.png");
 
@@ -62,6 +63,13 @@ export default function ManageUsersInClassScreen() {
   const [tempStartTime, setTempStartTime] = useState("");
   const [tempEndTime, setTempEndTime] = useState("");
   const [tempClassInfo, setTempClassInfo] = useState("");
+
+  const [isAddModalVisible, setAddModalVisible] = useState(false);
+  const [newScheduleDate, setNewScheduleDate] = useState(null);
+  const [newStartTime, setNewStartTime] = useState('');
+  const [newEndTime, setNewEndTime] = useState('');
+  const [newClassInfo, setNewClassInfo] = useState('');
+  const [classSubject, setClassSubject] = useState(''); // New state for class subject
 
   const classStudentIds = classMembers.map((member) => member.users.id);
   const availableStudents = allStudents.filter(
@@ -99,6 +107,24 @@ export default function ManageUsersInClassScreen() {
     }
   }, [classId, showToast]);
 
+  const fetchClassDetails = useCallback(async () => {
+    try {
+        const { data, error } = await supabase
+            .from('classes')
+            .select('subject')
+            .eq('id', classId)
+            .single();
+
+        if (error) throw error;
+        if (data) {
+            setClassSubject(data.subject);
+        }
+    } catch (error) {
+        console.error("Failed to fetch class subject:", error);
+        showToast("Failed to fetch class subject.", 'error');
+    }
+  }, [classId, showToast]);
+
   useEffect(() => {
     setLoading(true);
     if (schoolId && classId) {
@@ -106,9 +132,10 @@ export default function ManageUsersInClassScreen() {
         fetchClassMembers(),
         fetchAllStudents(),
         fetchClassSchedules(),
+        fetchClassDetails(), // <--- Add this
       ]).finally(() => setLoading(false));
     }
-  }, [schoolId, classId, fetchClassMembers, fetchClassSchedules]);
+  }, [schoolId, classId, fetchClassMembers, fetchClassSchedules, fetchClassDetails]);
 
   // Fetch Functions
   const fetchAllStudents = async () => {
@@ -210,6 +237,34 @@ export default function ManageUsersInClassScreen() {
     }
   };
 
+  const handleEditTimeChange = (text, isStart) => {
+    const cleaned = text.replace(/[^0-9]/g, '');
+    let newText = cleaned;
+    if (cleaned.length > 2) {
+      newText = cleaned.slice(0, 2) + ':' + cleaned.slice(2, 4);
+    }
+
+    if (isStart) {
+      setTempStartTime(newText);
+    } else {
+      setTempEndTime(newText);
+    }
+  };
+
+  const handleNewTimeChange = (text, isStart) => {
+    const cleaned = text.replace(/[^0-9]/g, '');
+    let newText = cleaned;
+    if (cleaned.length > 2) {
+      newText = cleaned.slice(0, 2) + ':' + cleaned.slice(2, 4);
+    }
+
+    if (isStart) {
+      setNewStartTime(newText);
+    } else {
+      setNewEndTime(newText);
+    }
+  };
+
   // Schedule Edit
   const formatTime = (date) => {
     const d = new Date(date);
@@ -261,21 +316,87 @@ export default function ManageUsersInClassScreen() {
     }
   };
 
+  const openAddScheduleModal = () => {
+    setNewScheduleDate(null);
+    setNewStartTime('');
+    setNewEndTime('');
+    setNewClassInfo('');
+    setAddModalVisible(true);
+  }
+
+  const handleDayPress = (day) => {
+    setNewScheduleDate(day.dateString);
+  };
+
+  const handleAddSchedule = async () => {
+    if (!newScheduleDate || !newStartTime || !newEndTime) {
+      return showToast("Please select a date and enter start/end times.", 'error');
+    }
+  
+    const [startHours, startMinutes] = newStartTime.split(":").map(Number);
+    const [endHours, endMinutes] = newEndTime.split(":").map(Number);
+  
+    if ([startHours, startMinutes, endHours, endMinutes].some(isNaN)) {
+      return showToast("Enter a valid time in HH:MM format.", 'error');
+    }
+  
+    const startTime = new Date(newScheduleDate);
+    startTime.setHours(startHours, startMinutes);
+    const endTime = new Date(newScheduleDate);
+    endTime.setHours(endHours, endMinutes);
+  
+    if (startTime >= endTime) {
+      return showToast("End time must be after start time.", 'error');
+    }
+  
+    setSaving(true);
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || !schoolId) {
+          showToast('User or School not identified.', 'error');
+          setSaving(false);
+          return;
+        }
+
+      const { error } = await supabase.from("class_schedules").insert({
+        class_id: classId,
+        start_time: startTime.toISOString(),
+        end_time: endTime.toISOString(),
+        title: className,
+        description: classSubject, // Added description
+        class_info: newClassInfo,
+        school_id: schoolId,
+        created_by: user.id,
+      });
+  
+      if (error) throw error;
+  
+      fetchClassSchedules();
+      setAddModalVisible(false);
+      showToast("New session added successfully.", 'success');
+    } catch (error) {
+      console.error(error);
+      showToast("Failed to add new session.", 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Render Items
   const renderSchedule = ({ item }) => (
     <TouchableOpacity onPress={() => setSelectedScheduleDate(getDateString(item.start_time))}>
       <View style={styles.card}>
         <View style={styles.cardRow}>
-          <FontAwesomeIcon icon={faCalendarAlt} size={14} color="#555" />
+          <FontAwesomeIcon icon={faCalendarAlt} size={14} color="#007AFF" />
           <Text style={styles.cardTitle}> {new Date(item.start_time).toLocaleDateString()}</Text>
         </View>
         <View style={styles.cardRow}>
-          <FontAwesomeIcon icon={faClock} size={14} color="#555" />
+          <FontAwesomeIcon icon={faClock} size={14} color="#007AFF" />
           <Text style={styles.scheduleTimeText}>
             {formatTime(item.start_time)} - {formatTime(item.end_time)}
           </Text>
         </View>
-        {item.class_info ? <Text style={styles.cardInfo}>{item.class_info}</Text> : null}
+        {item.class_info ? <View><View style={styles.horizontalRule} /><Text style={styles.cardInfo}>{item.class_info}</Text></View> : null}
         <TouchableOpacity onPress={() => handleEditSchedule(item)} style={styles.editButton}>
           <FontAwesomeIcon icon={faEdit} size={18} color="#007AFF" />
         </TouchableOpacity>
@@ -318,7 +439,7 @@ export default function ManageUsersInClassScreen() {
   };
 
   const renderAddStudent = ({ item }) => (
-    <View style={styles.card}>
+    <View style={styles.addStudentCard}>
       <View style={styles.cardRow}>
         <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={styles.avatar} />
         <View>
@@ -329,7 +450,7 @@ export default function ManageUsersInClassScreen() {
       <TouchableOpacity
         onPress={() => addStudentToClass(item.id)}
         disabled={saving}
-        style={styles.addButton}
+        style={{ marginRight: 12 }}
       >
         <FontAwesomeIcon icon={faPlusCircle} size={20} color="#28a745" />
       </TouchableOpacity>
@@ -344,9 +465,15 @@ export default function ManageUsersInClassScreen() {
           <Text style={styles.header}>Manage {className}</Text>
           <Text style={styles.description}>Select a class session below to manage attendance.</Text>
           <View style={{ marginBottom: 25 }}>
-            <View style={styles.sectionHeader}>
-              <FontAwesomeIcon icon={faCalendarAlt} size={18} color="#007AFF" />
-              <Text style={styles.sectionTitle}>Class Schedule</Text>
+            <View style={styles.sectionHeaderContainer}>
+              <View style={styles.sectionHeader}>
+                <FontAwesomeIcon icon={faCalendarAlt} size={18} color="#007AFF" />
+                <Text style={styles.sectionTitle}>Class Schedule</Text>
+              </View>
+              <TouchableOpacity style={styles.addButtonHeader} onPress={openAddScheduleModal}>
+                <FontAwesomeIcon icon={faPlusCircle} size={20} color="#007AFF" />
+                <Text style={styles.addButtonTextHeader}>Add New Session</Text>
+              </TouchableOpacity>
             </View>
             <Text style={styles.sectionDescription}>Tap a session to manage attendance, or use the edit icon to modify its details.</Text>
             <FlatList
@@ -434,11 +561,11 @@ export default function ManageUsersInClassScreen() {
                     <Text style={styles.timeInputLabel}>Start Time</Text>
                     <TextInput
                         style={styles.timeInput}
-                        placeholder="HH:MM"
+                        placeholder="10:00"
                         keyboardType="numeric"
                         maxLength={5}
                         value={tempStartTime}
-                        onChangeText={setTempStartTime}
+                        onChangeText={(text) => handleEditTimeChange(text, true)}
                     />
                 </View>
                 <Text style={styles.timeSeparator}>-</Text>
@@ -446,11 +573,11 @@ export default function ManageUsersInClassScreen() {
                     <Text style={styles.timeInputLabel}>End Time</Text>
                     <TextInput
                         style={styles.timeInput}
-                        placeholder="HH:MM"
+                        placeholder="11:00"
                         keyboardType="numeric"
                         maxLength={5}
                         value={tempEndTime}
-                        onChangeText={setTempEndTime}
+                        onChangeText={(text) => handleEditTimeChange(text, false)}
                     />
                 </View>
             </View>
@@ -466,8 +593,67 @@ export default function ManageUsersInClassScreen() {
               <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setEditModalVisible(false)}>
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={handleUpdateSchedule}>
-                <Text style={styles.saveText}>Save</Text>
+              <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={handleUpdateSchedule} disabled={saving}>
+                <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Add Schedule Modal */}
+      <Modal visible={isAddModalVisible} transparent animationType="fade" onRequestClose={() => setAddModalVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setAddModalVisible(false)}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Add New Session</Text>
+            <Text style={styles.modalDescription}>Select a date from the calendar to set the time for the new session.</Text>
+            
+            <Calendar onDayPress={handleDayPress} markedDates={{ [newScheduleDate]: { selected: true, selectedColor: '#007AFF' } }} />
+
+            {newScheduleDate && (
+              <>
+                <View style={styles.timeInputRow}>
+                    <FontAwesomeIcon icon={faClock} size={24} color="#888" style={{ marginRight: 15, marginTop: 20 }} />
+                    <View style={styles.timeInputGroup}>
+                        <Text style={styles.timeInputLabel}>Start Time</Text>
+                        <TextInput
+                            style={styles.timeInput}
+                            placeholder="10:00"
+                            keyboardType="numeric"
+                            maxLength={5}
+                            value={newStartTime}
+                            onChangeText={(text) => handleNewTimeChange(text, true)}
+                        />
+                    </View>
+                    <Text style={styles.timeSeparator}>-</Text>
+                    <View style={styles.timeInputGroup}>
+                        <Text style={styles.timeInputLabel}>End Time</Text>
+                        <TextInput
+                            style={styles.timeInput}
+                            placeholder="11:00"
+                            keyboardType="numeric"
+                            maxLength={5}
+                            value={newEndTime}
+                            onChangeText={(text) => handleNewTimeChange(text, false)}
+                        />
+                    </View>
+                </View>
+                <TextInput
+                  style={[styles.modalInput, { height: 80, textAlign: 'left', textAlignVertical: 'top' }]}
+                  multiline
+                  placeholder="Class Information (Optional)"
+                  value={newClassInfo}
+                  onChangeText={setNewClassInfo}
+                />
+              </>
+            )}
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setAddModalVisible(false)}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={handleAddSchedule} disabled={saving}>
+                <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -481,38 +667,78 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f9fafb", padding: 16 },
   header: { fontSize: 22, fontWeight: "700", marginBottom: 16, textAlign: "center" },
   description: { fontSize: 14, color: "#666", marginBottom: 20, textAlign: "center" },
-  sectionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  sectionHeader: { flexDirection: "row", alignItems: "center" },
   sectionTitle: { fontSize: 16, fontWeight: "600", marginLeft: 8, color: "#333" },
-  sectionDescription: { fontSize: 13, color: "#777", marginBottom: 10, marginLeft: 5 },
-  backButton: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  backButtonText: { color: '#007AFF', fontSize: 16, marginLeft: 8 },
-
-  card: {
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 8,
-    elevation: 1,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
-  cardRow: { flexDirection: "row", alignItems: "center", marginBottom: 5 },
-  avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10, borderWidth: 1, borderColor: "#ddd" },
-  cardTitle: { fontSize: 15, fontWeight: "600", color: "#222" },
-  cardSub: { fontSize: 13, color: "#555", marginTop: 2 },
-  scheduleTimeText: { fontSize: 13, color: "#555", marginTop: 2, marginLeft: 5 },
-  cardInfo: { fontSize: 13, color: "#666", marginTop: 4, fontStyle: "italic" },
-  emptyText: { textAlign: "center", color: "#777", marginVertical: 10 },
-  input: { backgroundColor: "#fff", padding: 10, borderRadius: 10, borderWidth: 1, borderColor: "#ddd", marginBottom: 8 },
-
-  addButton: { position: "absolute", right: 12, top: 12 },
-  removeButton: { position: "absolute", right: 12, top: 12 },
-  editButton: { position: "absolute", right: 12, top: 12 },
-
-  attendanceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    sectionDescription: { fontSize: 13, color: "#777", marginBottom: 10, marginLeft: 5 },
+    backButton: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+    backButtonText: { color: '#007AFF', fontSize: 16, marginLeft: 8 },
+  
+    sectionHeaderContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+  
+        card: {
+          backgroundColor: "#fff",
+          padding: 12,
+          borderRadius: 10,
+          marginBottom: 8,
+          elevation: 1,
+          shadowColor: "#000",
+          shadowOpacity: 0.05,
+          shadowRadius: 2,
+        },    cardRow: { flexDirection: "row", alignItems: "center", marginBottom: 5 },
+    avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10, borderWidth: 2, borderColor: "#007AFF" },
+    cardTitle: { fontSize: 15, fontWeight: "600", color: "#222" },
+    cardSub: { fontSize: 13, color: "#555", marginTop: 2 },
+    scheduleTimeText: { fontSize: 13, color: "#555", marginTop: 2, marginLeft: 5 },
+    cardInfo: { fontSize: 13, color: "#666", marginTop: 4, fontStyle: "italic" },
+    emptyText: { textAlign: "center", color: "#777", marginVertical: 10 },
+    input: { backgroundColor: "#fff", padding: 10, borderRadius: 10, borderWidth: 1, borderColor: "#ddd", marginBottom: 8 },
+  
+    horizontalRule: {
+      borderBottomColor: '#eee',
+      borderBottomWidth: 1,
+      marginVertical: 8,
+      width: '100%', // Ensure it spans the full width of the card content
+    },
+  
+    addStudentCard: {
+      backgroundColor: "#fff",
+      padding: 12,
+      borderRadius: 10,
+      marginBottom: 8,
+      elevation: 1,
+      shadowColor: "#000",
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+  
+    addButtonHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 8,
+      backgroundColor: '#e0f2fe', // Light blue background
+    },
+    addButtonTextHeader: {
+      color: '#007AFF',
+      fontSize: 14,
+      fontWeight: '600',
+      marginLeft: 5,
+    },
+  
+    removeButton: { position: "absolute", right: 12, top: 12 },
+    editButton: { position: "absolute", right: 12, top: 12 },
+  
+    attendanceContainer: {
+      flexDirection: 'row',    alignItems: 'center',
     marginRight: 40, // Add space between switch and remove button
   },
   attendanceLabel: {
