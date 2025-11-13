@@ -35,29 +35,52 @@ export default function CalendarScreen() {
           // Fetch user's role
           const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('role')
+            .select('role, school_id')
             .eq('id', user.id)
             .single();
           if (userError) throw userError;
 
           const userRole = userData.role;
+          const userSchoolId = userData.school_id;
           let classIds = [];
 
-          // Admins and teachers can see all classes
           if (userRole === 'teacher' || userRole === 'admin') {
             const { data: allClasses, error: allClassesError } = await supabase
               .from('classes')
-              .select('id');
+              .select('id')
+              .eq('school_id', userSchoolId); // Filter by school_id
             if (allClassesError) throw allClassesError;
             classIds = allClasses.map(c => c.id);
           } else {
-            // Regular users see only their classes
-            const { data: userClasses, error: classesError } = await supabase
-              .from('classes')
-              .select('id')
-              .contains('users', [user.id]);
-            if (classesError) throw classesError;
-            classIds = userClasses.map(c => c.id);
+            // Fetch classes the user is directly a member of (student, parent, etc.)
+            const { data: directClasses, error: directClassesError } = await supabase
+              .from('class_members')
+              .select('class_id')
+              .eq('user_id', user.id);
+            if (directClassesError) throw directClassesError;
+            classIds = directClasses.map(c => c.class_id);
+
+            // If the user is a parent, also fetch their children's classes
+            if (userRole === 'parent') {
+              const { data: relationships, error: relError } = await supabase
+                .from('parent_child_relationships')
+                .select('child_id')
+                .eq('parent_id', user.id);
+              if (relError) throw relError;
+
+              const childIds = relationships.map(rel => rel.child_id);
+
+              if (childIds.length > 0) {
+                const { data: childrenClasses, error: childrenClassesError } = await supabase
+                  .from('class_members')
+                  .select('class_id')
+                  .in('user_id', childIds);
+                if (childrenClassesError) throw childrenClassesError;
+                
+                const childrenClassIds = childrenClasses.map(c => c.class_id);
+                classIds = [...new Set([...classIds, ...childrenClassIds])]; // Combine and remove duplicates
+              }
+            }
           }
 
           if (classIds.length === 0) {
@@ -75,6 +98,7 @@ export default function CalendarScreen() {
             .order('start_time', { ascending: true });
           if (schedulesError) throw schedulesError;
 
+          
           // Assign colors to classes
           const classColorMap = {};
           classIds.forEach((id, index) => {

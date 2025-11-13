@@ -27,9 +27,14 @@ import {
   faCalendarAlt,
   faUserPlus,
   faArrowLeft,
+  faClipboardList,
+  faFileAlt,
+  faTag,
+  faGraduationCap,
 } from "@fortawesome/free-solid-svg-icons";
 import { useToast } from "../context/ToastContext";
 import { Calendar } from "react-native-calendars";
+import MarksModal from '../components/MarksModal';
 
 const defaultUserImage = require("../assets/user.png");
 
@@ -57,6 +62,20 @@ export default function ManageUsersInClassScreen() {
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedScheduleDate, setSelectedScheduleDate] = useState(null);
+  const [isMarksModalVisible, setMarksModalVisible] = useState(false);
+  const [expandedStudents, setExpandedStudents] = useState({});
+  const [studentMarks, setStudentMarks] = useState({});
+
+  const handleCloseMarksModal = (success) => {
+    setMarksModalVisible(false);
+    if (success) {
+      for (const studentId in expandedStudents) {
+        if (expandedStudents[studentId]) {
+          fetchStudentMarks(studentId, classId);
+        }
+      }
+    }
+  };
 
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
@@ -157,6 +176,26 @@ export default function ManageUsersInClassScreen() {
       showToast("Failed to fetch all students.", 'error');
     } finally {
       setFetchingStudents(false);
+    }
+  };
+
+  const fetchStudentMarks = async (studentId, classId) => {
+    try {
+      const { data, error } = await supabase
+        .from('student_marks')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('class_id', classId);
+
+      if (error) throw error;
+
+      setStudentMarks(prevMarks => ({
+        ...prevMarks,
+        [studentId]: data,
+      }));
+    } catch (error) {
+      console.error("Error fetching student marks:", error);
+      showToast("Failed to fetch student marks.", 'error');
     }
   };
 
@@ -404,39 +443,211 @@ export default function ManageUsersInClassScreen() {
     </TouchableOpacity>
   );
 
-  const renderStudent = ({ item }) => {
-    const student = item.users;
-    const isPresent = item.attendance?.[selectedScheduleDate] ?? false;
+        const renderStudent = ({ item }) => {
 
-    return (
-      <View style={styles.card}>
-        <View style={styles.cardRow}>
-          <Image source={student.avatar_url ? { uri: student.avatar_url } : defaultUserImage} style={styles.avatar} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.cardTitle}>{student.full_name}</Text>
-            <Text style={styles.cardSub}>{student.email}</Text>
-          </View>
-          <View style={styles.attendanceContainer}>
-            <Text style={styles.attendanceLabel}>Present</Text>
-            <Switch
-              trackColor={{ false: "#767577", true: "#81b0ff" }}
-              thumbColor={isPresent ? "#007AFF" : "#f4f3f4"}
-              ios_backgroundColor="#3e3e3e"
-              onValueChange={(value) => handleAttendanceChange(item, value)}
-              value={isPresent}
-            />
-          </View>
-          <TouchableOpacity
-            onPress={() => removeStudentFromClass(student.id)}
-            disabled={saving}
-            style={styles.removeButton}
-          >
-            <FontAwesomeIcon icon={faMinusCircle} size={20} color="#dc3545" />
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
+          const student = item.users;
+
+          const isPresent = item.attendance?.[selectedScheduleDate] ?? false;
+
+          const isExpanded = expandedStudents[student.id];
+
+      
+
+          const toggleExpand = () => {
+
+            setExpandedStudents(prev => ({
+
+              ...prev,
+
+              [student.id]: !prev[student.id],
+
+            }));
+
+            if (!isExpanded && !studentMarks[student.id]) {
+
+              fetchStudentMarks(student.id, classId);
+
+            }
+
+          };
+
+      
+
+          return (
+
+            <View style={styles.card}>
+
+              <TouchableOpacity onPress={toggleExpand}>
+
+                <View style={styles.cardRow}>
+
+                  <Image source={student.avatar_url ? { uri: student.avatar_url } : defaultUserImage} style={styles.avatar} />
+
+                  <View style={{ flex: 1 }}>
+
+                    <Text style={styles.cardTitle}>{student.full_name}</Text>
+
+                    <Text style={styles.cardSub}>{student.email}</Text>
+
+                  </View>
+
+                  <View style={styles.attendanceContainer}>
+
+                    <Text style={styles.attendanceLabel}>Present</Text>
+
+                    <Switch
+
+                      trackColor={{ false: "#767577", true: "#81b0ff" }}
+
+                      thumbColor={isPresent ? "#007AFF" : "#f4f3f4"}
+
+                      ios_backgroundColor="#3e3e3e"
+
+                      onValueChange={(value) => handleAttendanceChange(item, value)}
+
+                      value={isPresent}
+
+                    />
+
+                  </View>
+
+                  <TouchableOpacity
+
+                    onPress={() => removeStudentFromClass(student.id)}
+
+                    disabled={saving}
+
+                    style={styles.removeButton}
+
+                  >
+
+                    <FontAwesomeIcon icon={faMinusCircle} size={20} color="#dc3545" />
+
+                  </TouchableOpacity>
+
+                </View>
+
+              </TouchableOpacity>
+
+                              {isExpanded && (
+
+                                <View style={styles.expandedContent}>
+
+                                  {studentMarks[student.id] ? (
+
+                                    studentMarks[student.id].length > 0 ? (
+
+                                                                      <>
+
+                                                                        <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 5}}>
+
+                                                                          <FontAwesomeIcon icon={faFileAlt} size={16} color="#007AFF" style={{marginRight: 5}} />
+
+                                                                          <Text style={styles.marksHeader}>Tests</Text>
+
+                                                                        </View>
+
+                                                                                                            {studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('test:')).length > 0 ? (
+
+                                                                                                              studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('test:')).map((mark, index) => (
+
+                                                                                                                <View key={mark.id || index} style={styles.markItem}>
+
+                                                                                                                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+
+                                                                                                                    <FontAwesomeIcon icon={faTag} size={14} color="#888" style={{marginRight: 5}} />
+
+                                                                                                                    <Text style={styles.markAssessmentName}>{mark.assessment_name.replace(/test: /i, '')}</Text>
+
+                                                                                                                  </View>
+
+                                                                                                                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+
+                                                                                                                    <FontAwesomeIcon icon={faGraduationCap} size={14} color="#888" style={{marginRight: 5}} />
+
+                                                                                                                    <Text style={styles.markValue}>{mark.mark}</Text>
+
+                                                                                                                  </View>
+
+                                                                                                                </View>
+
+                                                                                                              ))
+
+                                                                                                            ) : (
+
+                                                                                                              <Text style={styles.emptyText}>No tests recorded.</Text>
+
+                                                                                                            )}
+
+                                                                                          
+
+                                                                                                            <View style={styles.horizontalRule} />
+
+                                                                                          
+
+                                                                                                            <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 5}}>
+
+                                                                                                              <FontAwesomeIcon icon={faClipboardList} size={16} color="#007AFF" style={{marginRight: 5}} />
+
+                                                                                                              <Text style={styles.marksHeader}>Assignments</Text>
+
+                                                                                                            </View>
+
+                                                                                                            {studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).length > 0 ? (
+
+                                                                                                              studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).map((mark, index) => (
+
+                                                                                                                <View key={mark.id || index} style={styles.markItem}>
+
+                                                                                                                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+
+                                                                                                                    <FontAwesomeIcon icon={faTag} size={14} color="#888" style={{marginRight: 5}} />
+
+                                                                                                                    <Text style={styles.markAssessmentName}>{mark.assessment_name.replace(/assignment: /i, '')}</Text>
+
+                                                                                                                  </View>
+
+                                                                                                                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+
+                                                                                                                    <FontAwesomeIcon icon={faGraduationCap} size={14} color="#888" style={{marginRight: 5}} />
+
+                                                                                                                    <Text style={styles.markValue}>{mark.mark}</Text>
+
+                                                                                                                  </View>
+
+                                                                                                                </View>
+
+                                                                                                              ))
+
+                                                                                                            ) : (
+
+                                                                                                              <Text style={styles.emptyText}>No assignments recorded.</Text>
+
+                                                                                                            )}
+
+                                                                      </>
+
+                                    ) : (
+
+                                      <Text style={styles.emptyText}>No marks recorded for this student.</Text>
+
+                                    )
+
+                                  ) : (
+
+                                    <ActivityIndicator size="small" color="#007AFF" />
+
+                                  )}
+
+                                </View>
+
+                              )}
+
+            </View>
+
+          );
+
+        };
 
   const renderAddStudent = ({ item }) => (
     <View style={styles.addStudentCard}>
@@ -462,8 +673,8 @@ export default function ManageUsersInClassScreen() {
     if (!selectedScheduleDate) {
       return (
         <>
-          <Text style={styles.header}>Manage {className}</Text>
-          <Text style={styles.description}>Select a class session below to manage attendance.</Text>
+          <Text style={[styles.header, {textAlign: 'center'}]}>Manage {className}</Text>
+          <Text style={[styles.description, {textAlign: 'center'}]}>Select a class session below to manage attendance.</Text>
           <View style={{ marginBottom: 25 }}>
             <View style={styles.sectionHeaderContainer}>
               <View style={styles.sectionHeader}>
@@ -494,15 +705,22 @@ export default function ManageUsersInClassScreen() {
           <FontAwesomeIcon icon={faArrowLeft} size={16} color="#007AFF" />
           <Text style={styles.backButtonText}>Back to Schedules</Text>
         </TouchableOpacity>
-        <Text style={styles.header}>Attendance for {new Date(selectedScheduleDate).toLocaleDateString()}</Text>
+        <Text style={styles.header}>Class Information</Text>
+        <Text style={styles.description}>This section allows you to manage class details, attendance, and student marks.</Text>
+        <Text style={styles.subHeader}>Attendance for {new Date(selectedScheduleDate).toLocaleDateString()}</Text>
 
         {/* Students Section */}
         <View style={{ marginBottom: 25 }}>
           <View style={styles.sectionHeader}>
-            <FontAwesomeIcon icon={faUserGraduate} size={18} color="#007AFF" />
-            <Text style={styles.sectionTitle}>Students in this Class</Text>
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              <FontAwesomeIcon icon={faUserGraduate} size={18} color="#007AFF" />
+              <Text style={styles.sectionTitle}>Students in this Class</Text>
+            </View>
+            <TouchableOpacity style={styles.addButtonHeader} onPress={() => setMarksModalVisible(true)}>
+              <Text style={styles.addButtonTextHeader}>Enter Marks</Text>
+            </TouchableOpacity>
           </View>
-          <Text style={styles.sectionDescription}>Mark student attendance for the selected date.</Text>
+          <Text style={styles.sectionDescription}>Mark student attendance for the selected date. Press the "Enter Marks" button to input marks for students.</Text>
           <FlatList
             scrollEnabled={false}
             data={classMembers}
@@ -514,8 +732,10 @@ export default function ManageUsersInClassScreen() {
           {/* Add Students Subsection */}
           <View style={{ marginTop: 20 }}>
             <View style={styles.sectionHeader}>
-              <FontAwesomeIcon icon={faUserPlus} size={18} color="#007AFF" />
-              <Text style={styles.sectionTitle}>Add Students</Text>
+              <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                <FontAwesomeIcon icon={faUserPlus} size={18} color="#007AFF" />
+                <Text style={styles.sectionTitle}>Add Students</Text>
+              </View>
             </View>
             <Text style={styles.sectionDescription}>Search for and add more students to this class.</Text>
             <TextInput
@@ -547,6 +767,13 @@ export default function ManageUsersInClassScreen() {
         ListHeaderComponent={renderHeader}
         data={[]}
         keyExtractor={(item, index) => index.toString()}
+      />
+
+      <MarksModal
+        visible={isMarksModalVisible}
+        onClose={handleCloseMarksModal}
+        classId={classId}
+        classMembers={classMembers}
       />
 
       {/* Edit Schedule Modal */}
@@ -666,8 +893,9 @@ export default function ManageUsersInClassScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f9fafb", padding: 16 },
   header: { fontSize: 22, fontWeight: "700", marginBottom: 16, textAlign: "center" },
-  description: { fontSize: 14, color: "#666", marginBottom: 20, textAlign: "center" },
-  sectionHeader: { flexDirection: "row", alignItems: "center" },
+  subHeader: { fontSize: 18, fontWeight: "600", marginBottom: 16 },
+  description: { fontSize: 14, color: "#666", marginBottom: 20 },
+  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   sectionTitle: { fontSize: 16, fontWeight: "600", marginLeft: 8, color: "#333" },
     sectionDescription: { fontSize: 13, color: "#777", marginBottom: 10, marginLeft: 5 },
     backButton: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
@@ -689,7 +917,36 @@ const styles = StyleSheet.create({
           shadowColor: "#000",
           shadowOpacity: 0.05,
           shadowRadius: 2,
-        },    cardRow: { flexDirection: "row", alignItems: "center", marginBottom: 5 },
+        },
+    expandedContent: {
+      marginTop: 10,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: '#eee',
+    },
+    markItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 5,
+    },
+    markAssessmentName: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: '#333',
+    },
+    markValue: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      color: '#007AFF',
+    },
+    marksHeader: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: '#333',
+      marginTop: 5,
+      marginBottom: 5,
+    },
+    cardRow: { flexDirection: "row", alignItems: "center", marginBottom: 5 },
     avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10, borderWidth: 2, borderColor: "#007AFF" },
     cardTitle: { fontSize: 15, fontWeight: "600", color: "#222" },
     cardSub: { fontSize: 13, color: "#555", marginTop: 2 },

@@ -3,7 +3,7 @@ import { View, Text, FlatList, StyleSheet, ActivityIndicator, Image, TouchableOp
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faUser, faChalkboard, faCheckCircle, faTimesCircle, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { faUser, faChalkboard, faCheckCircle, faTimesCircle, faChevronDown, faChevronUp, faTag, faGraduationCap, faCalendarCheck } from '@fortawesome/free-solid-svg-icons';
 import MyChildrenScreenSkeleton from '../components/skeletons/MyChildrenScreenSkeleton';
 
 
@@ -33,6 +33,14 @@ const ChildItem = ({ child, theme }) => {
 
         if (schedulesError) throw schedulesError;
 
+        const { data: marks, error: marksError } = await supabase
+          .from('student_marks')
+          .select('assessment_name, mark')
+          .eq('student_id', child.id)
+          .eq('class_id', member.class_id);
+
+        if (marksError) throw marksError;
+
         const fullAttendance = schedules.map(schedule => {
           const scheduleDate = new Date(schedule.start_time).toISOString().split('T')[0]; // YYYY-MM-DD
           const isPresent = member.attendance?.[scheduleDate]; // true, false, or undefined
@@ -46,6 +54,7 @@ const ChildItem = ({ child, theme }) => {
         return {
           ...member,
           fullAttendance: fullAttendance,
+          marks: marks || [],
         };
       }));
 
@@ -96,7 +105,11 @@ const ChildItem = ({ child, theme }) => {
 
                   {classInfo.fullAttendance.length > 0 ? (
                     <>
-                      <Text style={[styles.attendanceSectionTitle, { color: theme.colors.text }]}>Attendance</Text>
+                      <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                        <FontAwesomeIcon icon={faCalendarCheck} size={16} color={theme.colors.primary} style={{marginRight: 5}} />
+                        <Text style={[styles.attendanceSectionTitle, { color: theme.colors.text }]}>Attendance</Text>
+                      </View>
+                      <Text style={[styles.sectionDescription, {color: theme.colors.placeholder}]}>Here is the attendance for this class.</Text>
                       <View style={styles.attendanceGrid}>
                         {classInfo.fullAttendance.map((entry) => {
                           const isPresent = entry.status === 'present';
@@ -131,6 +144,52 @@ const ChildItem = ({ child, theme }) => {
                     </>
                   ) : (
                     <Text style={{ color: theme.colors.placeholder, textAlign: 'center', marginVertical: 10 }}>No scheduled sessions for this class.</Text>
+                  )}
+
+                  {classInfo.marks.length > 0 && (
+                    <>
+                      <View style={styles.horizontalRule} />
+                      <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                        <FontAwesomeIcon icon={faGraduationCap} size={16} color={theme.colors.primary} style={{marginRight: 5}} />
+                        <Text style={[styles.marksSectionTitle, { color: theme.colors.text }]}>Marks</Text>
+                      </View>
+                      <Text style={[styles.sectionDescription, {color: theme.colors.placeholder}]}>Here are the marks for this class.</Text>
+                      <Text style={[styles.marksHeader, { color: theme.colors.text }]}>Tests</Text>
+                      {classInfo.marks.filter(m => m.assessment_name.toLowerCase().startsWith('test:')).length > 0 ? (
+                        classInfo.marks.filter(m => m.assessment_name.toLowerCase().startsWith('test:')).map((mark, index) => (
+                          <View key={index} style={styles.markItem}>
+                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                              <FontAwesomeIcon icon={faTag} size={14} color={theme.colors.placeholder} style={{marginRight: 5}} />
+                              <Text style={[styles.markAssessmentName, {color: theme.colors.text}]}>{mark.assessment_name.replace(/test: /i, '')}</Text>
+                            </View>
+                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                              <FontAwesomeIcon icon={faGraduationCap} size={14} color={theme.colors.placeholder} style={{marginRight: 5}} />
+                              <Text style={[styles.markValue, {color: theme.colors.primary}]}>{mark.mark}</Text>
+                            </View>
+                          </View>
+                        ))
+                      ) : (
+                        <Text style={[styles.emptyText, {color: theme.colors.placeholder}]}>No tests recorded.</Text>
+                      )}
+
+                      <Text style={[styles.marksHeader, { color: theme.colors.text, marginTop: 10 }]}>Assignments</Text>
+                      {classInfo.marks.filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).length > 0 ? (
+                        classInfo.marks.filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).map((mark, index) => (
+                          <View key={index} style={styles.markItem}>
+                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                              <FontAwesomeIcon icon={faTag} size={14} color={theme.colors.placeholder} style={{marginRight: 5}} />
+                              <Text style={[styles.markAssessmentName, {color: theme.colors.text}]}>{mark.assessment_name.replace(/assignment: /i, '')}</Text>
+                            </View>
+                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                              <FontAwesomeIcon icon={faGraduationCap} size={14} color={theme.colors.placeholder} style={{marginRight: 5}} />
+                              <Text style={[styles.markValue, {color: theme.colors.primary}]}>{mark.mark}</Text>
+                            </View>
+                          </View>
+                        ))
+                      ) : (
+                        <Text style={[styles.emptyText, {color: theme.colors.placeholder}]}>No assignments recorded.</Text>
+                      )}
+                    </>
                   )}
                 </View>
               );
@@ -305,6 +364,39 @@ const styles = StyleSheet.create({
   attendanceDate: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  sectionDescription: {
+    fontSize: 14,
+    marginBottom: 10,
+  },
+  horizontalRule: {
+    borderTopWidth: 1,
+    borderColor: '#eee',
+    marginVertical: 10,
+  },
+  marksSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  marksHeader: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  markItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 5,
+    paddingLeft: 10,
+  },
+  markAssessmentName: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  markValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   emptyContainer: {
     flex: 1,
