@@ -35,6 +35,7 @@ import {
 import { useToast } from "../context/ToastContext";
 import { Calendar } from "react-native-calendars";
 import MarksModal from '../components/MarksModal';
+import ManageMarksModal from '../components/ManageMarksModal';
 
 const defaultUserImage = require("../assets/user.png");
 
@@ -65,6 +66,8 @@ export default function ManageUsersInClassScreen() {
   const [isMarksModalVisible, setMarksModalVisible] = useState(false);
   const [expandedStudents, setExpandedStudents] = useState({});
   const [studentMarks, setStudentMarks] = useState({});
+  const [isManageMarksModalVisible, setManageMarksModalVisible] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   const handleCloseMarksModal = (success) => {
     setMarksModalVisible(false);
@@ -75,6 +78,19 @@ export default function ManageUsersInClassScreen() {
         }
       }
     }
+  };
+
+  const handleOpenManageMarksModal = (student) => {
+    setSelectedStudent(student);
+    setManageMarksModalVisible(true);
+  };
+
+  const handleCloseManageMarksModal = (shouldRefresh) => {
+    setManageMarksModalVisible(false);
+    if (shouldRefresh && selectedStudent) {
+      fetchStudentMarks(selectedStudent.users.id, classId);
+    }
+    setSelectedStudent(null);
   };
 
   const [isEditModalVisible, setEditModalVisible] = useState(false);
@@ -624,7 +640,9 @@ export default function ManageUsersInClassScreen() {
                                                                                                               <Text style={styles.emptyText}>No assignments recorded.</Text>
 
                                                                                                             )}
-
+                                                                        <TouchableOpacity style={styles.manageMarksButton} onPress={() => handleOpenManageMarksModal(item)}>
+                                                                            <Text style={styles.manageMarksButtonText}>Manage Marks</Text>
+                                                                        </TouchableOpacity>
                                                                       </>
 
                                     ) : (
@@ -720,7 +738,7 @@ export default function ManageUsersInClassScreen() {
               <Text style={styles.addButtonTextHeader}>Enter Marks</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.sectionDescription}>Mark student attendance for the selected date. Press the "Enter Marks" button to input marks for students.</Text>
+          <Text style={styles.sectionDescription}>Mark student attendance for the selected date. Tap on a student's card to view their marks and access the "Manage Marks" button to edit or delete them.</Text>
           <FlatList
             scrollEnabled={false}
             data={classMembers}
@@ -774,6 +792,13 @@ export default function ManageUsersInClassScreen() {
         onClose={handleCloseMarksModal}
         classId={classId}
         classMembers={classMembers}
+      />
+
+      <ManageMarksModal
+        visible={isManageMarksModalVisible}
+        onClose={handleCloseManageMarksModal}
+        student={selectedStudent}
+        classId={classId}
       />
 
       {/* Edit Schedule Modal */}
@@ -1021,4 +1046,15 @@ const styles = StyleSheet.create({
   timeInputLabel: { fontSize: 12, color: '#666', marginBottom: 5 },
   timeInput: { fontSize: 18, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 15, paddingVertical: 10, width: 100, textAlign: 'center' },
   timeSeparator: { fontSize: 18, fontWeight: 'bold', marginHorizontal: 10, marginTop: 20 },
+  manageMarksButton: {
+    backgroundColor: '#007AFF',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  manageMarksButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
 });

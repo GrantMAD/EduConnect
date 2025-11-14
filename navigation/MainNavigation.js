@@ -48,6 +48,7 @@ import CreateHomeworkScreen from '../screens/CreateHomeworkScreen';
 
 import CreateMarketplaceItemScreen from '../screens/CreateMarketplaceItemScreen';
 import MyChildrenScreen from '../screens/MyChildrenScreen';
+import ResourcesScreen from '../screens/ResourcesScreen';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
 
 const Tab = createMaterialTopTabNavigator();
@@ -375,6 +376,7 @@ const MainStackNavigator = () => (
     <Stack.Screen name="CreateAssignment" component={CreateAssignmentScreen} />
     <Stack.Screen name="CreateMarketplaceItem" component={CreateMarketplaceItemScreen} />
     <Stack.Screen name="ManageMarketData" component={ManageMarketDataScreen} />
+    <Stack.Screen name="Resources" component={ResourcesScreen} />
   </Stack.Navigator>
 );
 
@@ -519,6 +521,24 @@ const CustomDrawerContent = (props) => {
           </View>
         </TouchableOpacity>
       )}
+
+      <TouchableOpacity
+        onPress={() => props.navigation.navigate('MainStack', { screen: 'Resources' })}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingVertical: 12,
+          paddingHorizontal: 20,
+          backgroundColor: activeMainStackRouteName === 'Resources' ? theme.colors.primary + '20' : 'transparent',
+          borderRadius: 8,
+        }}
+      >
+        <FontAwesomeIcon icon={faBookOpen} size={18} color={theme.colors.primary} style={{ marginRight: 15 }} />
+        <View>
+          <Text style={{ fontSize: 16, color: theme.colors.text, fontWeight: '500' }}>Resources</Text>
+          <Text style={{ fontSize: 12, color: theme.colors.placeholder }}>View school resources</Text>
+        </View>
+      </TouchableOpacity>
 
       <TouchableOpacity
         onPress={() => props.navigation.navigate('MainStack', { screen: 'Settings' })}
