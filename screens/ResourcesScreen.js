@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faBook, faPlus, faFileAlt } from '@fortawesome/free-solid-svg-icons';
+import { faBook, faPlus, faFileAlt, faThumbsUp, faThumbsDown } from '@fortawesome/free-solid-svg-icons';
 import CreateResourceModal from '../components/CreateResourceModal';
 import ResourceDetailModal from '../components/ResourceDetailModal';
 import { useSchool } from '../context/SchoolContext';
@@ -18,7 +18,6 @@ export default function ResourcesScreen() {
   const [selectedResource, setSelectedResource] = useState(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
 
-  // Load role + resources when screen loads
   useEffect(() => {
     if (schoolId) {
       fetchUserRole();
@@ -29,13 +28,11 @@ export default function ResourcesScreen() {
   const fetchUserRole = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
     const { data, error } = await supabase
       .from('users')
       .select('role')
       .eq('id', user.id)
       .single();
-
     if (!error) setUserRole(data.role);
   };
 
@@ -51,10 +48,8 @@ export default function ResourcesScreen() {
         uploaded_by,
         created_at,
         category,
-        users:uploaded_by (
-          full_name,
-          email
-        )
+        users:uploaded_by(full_name,email),
+        votes:resource_votes(vote)
       `)
       .eq('school_id', schoolId)
       .order('created_at', { ascending: false });
@@ -63,7 +58,10 @@ export default function ResourcesScreen() {
       const groupedResources = data.reduce((acc, resource) => {
         const category = resource.category || 'Uncategorized';
         if (!acc[category]) acc[category] = [];
-        acc[category].push(resource);
+        // Count votes
+        const upvotes = resource.votes.filter(v => v.vote === 1).length;
+        const downvotes = resource.votes.filter(v => v.vote === -1).length;
+        acc[category].push({ ...resource, upvotes, downvotes });
         return acc;
       }, {});
       setResources(groupedResources);
@@ -73,7 +71,6 @@ export default function ResourcesScreen() {
 
   const handleOpenFile = async (url) => {
     if (!url) return;
-
     try {
       const localPath = `${RNFetchBlob.fs.dirs.CacheDir}/${url.split('/').pop()}`;
       await RNFetchBlob.config({ path: localPath }).fetch('GET', url);
@@ -111,26 +108,33 @@ export default function ResourcesScreen() {
             <View key={category} style={styles.categoryContainer}>
               <Text style={styles.categoryHeader}>{category}</Text>
               {resources[category].map((item) => (
-                <TouchableOpacity
-                  key={item.id.toString()}
-                  onPress={() => {
-                    setSelectedResource(item);
-                    setDetailModalVisible(true);
-                  }}
-                >
-                  <View style={styles.card}>
-                    <FontAwesomeIcon icon={faFileAlt} size={24} color="#007AFF" style={{ marginRight: 10 }} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.title}>{item.title}</Text>
-                      <Text style={styles.description} numberOfLines={2} ellipsizeMode="tail">
-                        {item.description}
-                      </Text>
-                      <Text style={styles.uploader}>
-                        Uploaded by: {item.users?.full_name ?? item.users?.email ?? "Unknown"}
-                      </Text>
+                <View key={item.id.toString()} style={styles.resourceItemContainer}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSelectedResource(item);
+                      setDetailModalVisible(true);
+                    }}
+                  >
+                    <View style={styles.card}>
+                      <FontAwesomeIcon icon={faFileAlt} size={24} color="#007AFF" style={{ marginRight: 10 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.title}>{item.title}</Text>
+                        <Text style={styles.description} numberOfLines={2} ellipsizeMode="tail">
+                          {item.description}
+                        </Text>
+                        <Text style={styles.uploader}>
+                          Uploaded by: {item.users?.full_name ?? item.users?.email ?? "Unknown"}
+                        </Text>
+                      </View>
                     </View>
+                  </TouchableOpacity>
+                  <View style={styles.voteSummaryContainer}>
+                    <FontAwesomeIcon icon={faThumbsUp} size={16} color="#28A745" />
+                    <Text style={styles.voteCount}>{item.upvotes}</Text>
+                    <FontAwesomeIcon icon={faThumbsDown} size={16} color="#FF3B30" style={{ marginLeft: 12 }} />
+                    <Text style={styles.voteCount}>{item.downvotes}</Text>
                   </View>
-                </TouchableOpacity>
+                </View>
               ))}
             </View>
           ))
@@ -150,6 +154,7 @@ export default function ResourcesScreen() {
         onClose={() => setDetailModalVisible(false)}
         resource={selectedResource}
         onOpenFile={handleOpenFile}
+        onVotesChanged={fetchResources} 
       />
     </View>
   );
@@ -164,7 +169,7 @@ const styles = StyleSheet.create({
   header: { fontSize: 22, fontWeight: '700' },
   addButton: { flexDirection: 'row', backgroundColor: '#007AFF', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   addButtonText: { color: '#fff', fontWeight: '600', marginLeft: 8 },
-  card: { flexDirection: 'row', backgroundColor: '#f8f8f8', padding: 12, borderRadius: 10, marginBottom: 12, alignItems: 'center', borderWidth: 1, borderColor: '#eee' },
+  card: { flexDirection: 'row', backgroundColor: '#f8f8f8', padding: 12, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: '#eee' },
   title: { fontSize: 16, fontWeight: '700' },
   description: { color: '#555', marginVertical: 4 },
   uploader: { color: '#777', fontSize: 12 },
@@ -172,4 +177,26 @@ const styles = StyleSheet.create({
   categoryContainer: { marginBottom: 20 },
   categoryHeader: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, marginLeft: 5 },
   noResourcesText: { textAlign: 'center', marginTop: 20, fontSize: 16, color: '#777' },
+  resourceItemContainer: {
+    marginBottom: 20,
+  },
+  voteSummaryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: -10,
+    right: 15,
+    backgroundColor: '#fff',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.23,
+    shadowRadius: 2.62,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  voteCount: { marginLeft: 4, marginRight: 8, fontSize: 14, color: '#555' },
 });
