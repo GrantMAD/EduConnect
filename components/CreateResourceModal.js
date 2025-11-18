@@ -20,6 +20,7 @@ export default function CreateResourceModal({ visible, onClose }) {
   const [description, setDescription] = useState('');
   const [file, setFile] = useState(null);
   const [category, setCategory] = useState('General');
+  const [customCategory, setCustomCategory] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
   // Pick a document
@@ -80,6 +81,8 @@ export default function CreateResourceModal({ visible, onClose }) {
         file_url = urlData.publicUrl;
       }
 
+      const finalCategory = category === 'custom' ? customCategory : category;
+
       // Save to table
       await supabase.from('resources').insert([
         {
@@ -87,7 +90,7 @@ export default function CreateResourceModal({ visible, onClose }) {
           description,
           file_url,
           uploaded_by: user.id,
-          category,
+          category: finalCategory,
           school_id: schoolId,
         },
       ]);
@@ -97,6 +100,8 @@ export default function CreateResourceModal({ visible, onClose }) {
       setTitle('');
       setDescription('');
       setFile(null);
+      setCategory('General');
+      setCustomCategory('');
     } catch (err) {
       console.error('Error uploading resource:', err);
       alert('Failed to upload resource. Please try again.');
@@ -136,10 +141,18 @@ export default function CreateResourceModal({ visible, onClose }) {
               <Picker.Item label="Homework" value="Homework" />
               <Picker.Item label="Study Guide" value="Study Guide" />
               <Picker.Item label="Notes" value="Notes" />
-              <Picker.Item label="Video" value="Video" />
-              <Picker.Item label="Other" value="Other" />
+              <Picker.Item label="Create New Category" value="custom" />
             </Picker>
           </View>
+
+          {category === 'custom' && (
+            <TextInput
+              style={styles.input}
+              placeholder="Enter Custom Category"
+              value={customCategory}
+              onChangeText={setCustomCategory}
+            />
+          )}
 
           <TouchableOpacity style={styles.button} onPress={pickDocument}>
             <Text style={styles.buttonText}>

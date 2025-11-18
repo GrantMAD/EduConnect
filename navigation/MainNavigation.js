@@ -19,7 +19,8 @@ import {
   faChevronDown,
   faChevronUp,
   faCog,
-  faChild
+  faChild,
+  faPoll
 } from '@fortawesome/free-solid-svg-icons';
 import Modal from 'react-native-modal';
 import { ProgressBar } from 'react-native-paper'; // Import ProgressBar
@@ -49,6 +50,8 @@ import CreateHomeworkScreen from '../screens/CreateHomeworkScreen';
 import CreateMarketplaceItemScreen from '../screens/CreateMarketplaceItemScreen';
 import MyChildrenScreen from '../screens/MyChildrenScreen';
 import ResourcesScreen from '../screens/ResourcesScreen';
+import PollsScreen from '../screens/PollsScreen';
+import CreatePollScreen from '../screens/CreatePollScreen';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
 
 const Tab = createMaterialTopTabNavigator();
@@ -377,6 +380,8 @@ const MainStackNavigator = () => (
     <Stack.Screen name="CreateMarketplaceItem" component={CreateMarketplaceItemScreen} />
     <Stack.Screen name="ManageMarketData" component={ManageMarketDataScreen} />
     <Stack.Screen name="Resources" component={ResourcesScreen} />
+    <Stack.Screen name="Polls" component={PollsScreen} />
+    <Stack.Screen name="CreatePoll" component={CreatePollScreen} />
   </Stack.Navigator>
 );
 
@@ -537,6 +542,24 @@ const CustomDrawerContent = (props) => {
         <View>
           <Text style={{ fontSize: 16, color: theme.colors.text, fontWeight: '500' }}>Resources</Text>
           <Text style={{ fontSize: 12, color: theme.colors.placeholder }}>View school resources</Text>
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => props.navigation.navigate('MainStack', { screen: 'Polls' })}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingVertical: 12,
+          paddingHorizontal: 20,
+          backgroundColor: activeMainStackRouteName === 'Polls' ? theme.colors.primary + '20' : 'transparent',
+          borderRadius: 8,
+        }}
+      >
+        <FontAwesomeIcon icon={faPoll} size={18} color={theme.colors.primary} style={{ marginRight: 15 }} />
+        <View>
+          <Text style={{ fontSize: 16, color: theme.colors.text, fontWeight: '500' }}>Polls</Text>
+          <Text style={{ fontSize: 12, color: theme.colors.placeholder }}>Vote on school-wide polls</Text>
         </View>
       </TouchableOpacity>
 

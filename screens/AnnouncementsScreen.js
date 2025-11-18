@@ -4,9 +4,9 @@ import AnnouncementCardSkeleton from '../components/skeletons/AnnouncementCardSk
 import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { useFocusEffect } from '@react-navigation/native';
-import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faBullhorn, faCalendar, faUser, faTag, faTimes, faUsers } from '@fortawesome/free-solid-svg-icons';
+import { faBullhorn, faCalendar, faUser, faTimes } from '@fortawesome/free-solid-svg-icons';
+import AnnouncementDetailModal from '../components/AnnouncementDetailModal';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
 
 const placeholderImage = require('../assets/user.png'); // Using existing asset as placeholder
@@ -331,45 +331,11 @@ export default function AnnouncementsScreen({ navigation }) {
         ListEmptyComponent={<Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No announcements yet.</Text>}
       />
 
-      {/* Announcement Detail Modal */}
-      <Modal
-        isVisible={showModal}
-        onBackdropPress={() => setShowModal(false)}
-        animationIn="fadeInUp"
-        animationOut="fadeOutDown"
-        backdropOpacity={0.4}
-      >
-        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-          <TouchableOpacity onPress={() => setShowModal(false)} style={styles.modalCloseButton}>
-            <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
-          </TouchableOpacity>
-        
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
-            <FontAwesomeIcon icon={faBullhorn} size={24} color={theme.colors.primary} style={{ marginRight: 10, marginTop: 2 }} />
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>{selectedAnnouncement?.title}</Text>
-          </View>
-
-          <View style={[styles.modalSeparator, { backgroundColor: theme.colors.cardBorder }]} />
-
-          <ScrollView style={styles.modalMessageScrollView}>
-            <Text style={[styles.modalMessageText, { color: theme.colors.text }]}>{selectedAnnouncement?.message}</Text>
-          </ScrollView>
-
-          <View style={[styles.modalSeparator, { backgroundColor: theme.colors.cardBorder }]} />
-
-          {selectedAnnouncement?.class?.name && (
-            <View style={styles.modalDetailRow}>
-              <FontAwesomeIcon icon={faTag} size={16} color={theme.colors.primary} style={styles.modalIcon} />
-              <Text style={[styles.modalDetailText, { color: theme.colors.text }]}>For class: {selectedAnnouncement.class.name}</Text>
-            </View>
-          )}
-
-          <View style={styles.modalDetailRow}>
-            <FontAwesomeIcon icon={faCalendar} size={16} color={theme.colors.primary} style={styles.modalIcon} />
-            <Text style={[styles.modalDetailText, { color: theme.colors.text }]}>Posted: {timeSince(selectedAnnouncement?.created_at)}</Text>
-          </View>
-        </View>
-      </Modal>
+      <AnnouncementDetailModal
+        visible={showModal}
+        onClose={() => setShowModal(false)}
+        announcement={selectedAnnouncement}
+      />
     </View>
   );
 }
@@ -528,64 +494,5 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: 'center',
     marginTop: 20,
-  },
-  modalContent: {
-    padding: 22,
-    borderRadius: 10,
-    borderWidth: 1,
-    maxHeight: '90%', // Increased modal height
-    marginVertical: 50, // Added vertical margin for gap
-  },
-  modalTitle: {
-    fontSize: 20, // Reduced font size
-    fontWeight: 'bold',
-    marginBottom: 3,
-    flexShrink: 1, // Allow title to wrap
-  },
-  modalMessageText: {
-    fontSize: 16,
-    marginBottom: 12,
-  },
-  modalMessageScrollView: {
-    flexShrink: 1,
-    flexGrow: 1, // Allow ScrollView to grow and take available space
-  },
-  modalSeparator: {
-    borderBottomWidth: 1,
-    marginVertical: 10,
-    width: '100%',
-  },
-  modalDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center', // Changed to center for better alignment
-    marginBottom: 8,
-    width: '100%',
-    flexWrap: 'wrap',
-  },
-  modalIcon: {
-    marginRight: 10,
-  },
-  modalDetailText: {
-    fontSize: 14,
-    flexShrink: 1,
-  },
-  modalClass: {
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  modalDate: {
-    fontSize: 12,
-    marginBottom: 20,
-  },
-  closeButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  modalCloseButton: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    padding: 5,
-    zIndex: 1,
   },
 });

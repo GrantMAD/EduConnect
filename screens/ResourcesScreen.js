@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faBook, faPlus, faFileAlt, faThumbsUp, faThumbsDown } from '@fortawesome/free-solid-svg-icons';
@@ -12,6 +12,8 @@ import FileViewer from 'react-native-file-viewer';
 export default function ResourcesScreen() {
   const { schoolId } = useSchool();
   const [resources, setResources] = useState({});
+  const [filteredResources, setFilteredResources] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -24,6 +26,20 @@ export default function ResourcesScreen() {
       fetchResources();
     }
   }, [schoolId]);
+
+  useEffect(() => {
+    const lowercasedFilter = searchTerm.toLowerCase();
+    const filteredData = Object.keys(resources).reduce((acc, category) => {
+      const categoryResources = resources[category].filter((resource) =>
+        resource.title.toLowerCase().includes(lowercasedFilter)
+      );
+      if (categoryResources.length > 0) {
+        acc[category] = categoryResources;
+      }
+      return acc;
+    }, {});
+    setFilteredResources(filteredData);
+  }, [searchTerm, resources]);
 
   const fetchUserRole = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -64,6 +80,12 @@ export default function ResourcesScreen() {
         acc[category].push({ ...resource, upvotes, downvotes });
         return acc;
       }, {});
+
+      // Sort resources within each category by upvotes
+      for (const category in groupedResources) {
+        groupedResources[category].sort((a, b) => b.upvotes - a.upvotes);
+      }
+
       setResources(groupedResources);
     }
     setLoading(false);
@@ -100,14 +122,21 @@ export default function ResourcesScreen() {
 
       <Text style={styles.descriptionText}>Access and manage all your educational resources here.</Text>
 
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search by title..."
+        value={searchTerm}
+        onChangeText={setSearchTerm}
+      />
+
       <ScrollView style={styles.scrollView}>
-        {Object.keys(resources).length === 0 ? (
+        {Object.keys(filteredResources).length === 0 ? (
           <Text style={styles.noResourcesText}>No resources available yet.</Text>
         ) : (
-          Object.keys(resources).map((category) => (
+          Object.keys(filteredResources).map((category) => (
             <View key={category} style={styles.categoryContainer}>
               <Text style={styles.categoryHeader}>{category}</Text>
-              {resources[category].map((item) => (
+              {filteredResources[category].map((item) => (
                 <View key={item.id.toString()} style={styles.resourceItemContainer}>
                   <TouchableOpacity
                     onPress={() => {
@@ -177,6 +206,14 @@ const styles = StyleSheet.create({
   categoryContainer: { marginBottom: 20 },
   categoryHeader: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, marginLeft: 5 },
   noResourcesText: { textAlign: 'center', marginTop: 20, fontSize: 16, color: '#777' },
+  searchInput: {
+    height: 40,
+    borderColor: '#DDD',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    marginBottom: 20,
+  },
   resourceItemContainer: {
     marginBottom: 20,
   },
