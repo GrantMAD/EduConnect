@@ -19,11 +19,11 @@ import {
   faList,
   faPen,
 } from '@fortawesome/free-solid-svg-icons';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../../context/ToastContext';
 
 export default function CreateMarketplaceItemScreen({ route, navigation }) {
   const { item: existingItem } = route.params || {};

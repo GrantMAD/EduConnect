@@ -1,21 +1,21 @@
 import 'react-native-gesture-handler';
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { supabase } from './lib/supabase';
-import AuthNavigation from './navigation/AuthNavigation';
-import { ActivityIndicator, View } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
-import { SchoolProvider } from './context/SchoolContext'; // Import SchoolProvider
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import AuthGate from './screens/AuthGate'; // Import AuthGate
-import MainNavigation from './navigation/MainNavigation'; // Import MainNavigation
-import SchoolSetupScreen from './screens/SchoolSetupScreen'; // Import SchoolSetupScreen
-import RoleSelectionScreen from './screens/RoleSelectionScreen'; // Import RoleSelectionScreen
+import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
-import { ThemeProvider } from './context/ThemeContext'; // Import ThemeProvider
+import { SchoolProvider } from './context/SchoolContext';
+import { supabase } from './lib/supabase';
+
+import AuthNavigation from './navigation/AuthNavigation';
+import MainNavigation from './navigation/MainNavigation';
+import AuthGate from './screens/auth/AuthGate';
+import RoleSelectionScreen from './screens/RoleSelectionScreen';
+import SchoolSetupScreen from './screens/SchoolSetupScreen';
 
 const RootStack = createNativeStackNavigator();
-
 // Define AuthStack screens
 const AuthStack = () => (
   <RootStack.Navigator screenOptions={{ headerShown: false }}>

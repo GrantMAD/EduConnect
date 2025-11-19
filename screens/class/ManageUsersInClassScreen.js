@@ -13,11 +13,11 @@ import {
   Image,
   Switch,
 } from "react-native";
-import { supabase } from "../lib/supabase";
-import { useSchool } from "../context/SchoolContext";
+import { supabase } from '../../lib/supabase';
+import { useSchool } from '../../context/SchoolContext';
 import { useRoute } from "@react-navigation/native";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
-import ManageUsersInClassScreenSkeleton from '../components/skeletons/ManageUsersInClassScreenSkeleton';
+import ManageUsersInClassScreenSkeleton from '../../components/skeletons/ManageUsersInClassScreenSkeleton';
 import {
   faPlusCircle,
   faMinusCircle,
@@ -32,12 +32,12 @@ import {
   faTag,
   faGraduationCap,
 } from "@fortawesome/free-solid-svg-icons";
-import { useToast } from "../context/ToastContext";
+import { useToast } from "../../context/ToastContext";
 import { Calendar } from "react-native-calendars";
-import MarksModal from '../components/MarksModal';
-import ManageMarksModal from '../components/ManageMarksModal';
+import MarksModal from '../../components/MarksModal';
+import ManageMarksModal from '../../components/ManageMarksModal';
 
-const defaultUserImage = require("../assets/user.png");
+const defaultUserImage = require("../../assets/user.png");
 
 // Helper to get a date in YYYY-MM-DD format
 const getDateString = (date) => {
@@ -144,19 +144,19 @@ export default function ManageUsersInClassScreen() {
 
   const fetchClassDetails = useCallback(async () => {
     try {
-        const { data, error } = await supabase
-            .from('classes')
-            .select('subject')
-            .eq('id', classId)
-            .single();
+      const { data, error } = await supabase
+        .from('classes')
+        .select('subject')
+        .eq('id', classId)
+        .single();
 
-        if (error) throw error;
-        if (data) {
-            setClassSubject(data.subject);
-        }
+      if (error) throw error;
+      if (data) {
+        setClassSubject(data.subject);
+      }
     } catch (error) {
-        console.error("Failed to fetch class subject:", error);
-        showToast("Failed to fetch class subject.", 'error');
+      console.error("Failed to fetch class subject:", error);
+      showToast("Failed to fetch class subject.", 'error');
     }
   }, [classId, showToast]);
 
@@ -265,12 +265,12 @@ export default function ManageUsersInClassScreen() {
     const updatedMembers = classMembers.map((m) =>
       m.id === memberId
         ? {
-            ...m,
-            attendance: {
-              ...m.attendance,
-              [selectedScheduleDate]: isPresent,
-            },
-          }
+          ...m,
+          attendance: {
+            ...m.attendance,
+            [selectedScheduleDate]: isPresent,
+          },
+        }
         : m
     );
     setClassMembers(updatedMembers);
@@ -387,31 +387,31 @@ export default function ManageUsersInClassScreen() {
     if (!newScheduleDate || !newStartTime || !newEndTime) {
       return showToast("Please select a date and enter start/end times.", 'error');
     }
-  
+
     const [startHours, startMinutes] = newStartTime.split(":").map(Number);
     const [endHours, endMinutes] = newEndTime.split(":").map(Number);
-  
+
     if ([startHours, startMinutes, endHours, endMinutes].some(isNaN)) {
       return showToast("Enter a valid time in HH:MM format.", 'error');
     }
-  
+
     const startTime = new Date(newScheduleDate);
     startTime.setHours(startHours, startMinutes);
     const endTime = new Date(newScheduleDate);
     endTime.setHours(endHours, endMinutes);
-  
+
     if (startTime >= endTime) {
       return showToast("End time must be after start time.", 'error');
     }
-  
+
     setSaving(true);
     try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user || !schoolId) {
-          showToast('User or School not identified.', 'error');
-          setSaving(false);
-          return;
-        }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !schoolId) {
+        showToast('User or School not identified.', 'error');
+        setSaving(false);
+        return;
+      }
 
       const { error } = await supabase.from("class_schedules").insert({
         class_id: classId,
@@ -423,9 +423,9 @@ export default function ManageUsersInClassScreen() {
         school_id: schoolId,
         created_by: user.id,
       });
-  
+
       if (error) throw error;
-  
+
       fetchClassSchedules();
       setAddModalVisible(false);
       showToast("New session added successfully.", 'success');
@@ -459,213 +459,213 @@ export default function ManageUsersInClassScreen() {
     </TouchableOpacity>
   );
 
-        const renderStudent = ({ item }) => {
+  const renderStudent = ({ item }) => {
 
-          const student = item.users;
+    const student = item.users;
 
-          const isPresent = item.attendance?.[selectedScheduleDate] ?? false;
+    const isPresent = item.attendance?.[selectedScheduleDate] ?? false;
 
-          const isExpanded = expandedStudents[student.id];
+    const isExpanded = expandedStudents[student.id];
 
-      
 
-          const toggleExpand = () => {
 
-            setExpandedStudents(prev => ({
+    const toggleExpand = () => {
 
-              ...prev,
+      setExpandedStudents(prev => ({
 
-              [student.id]: !prev[student.id],
+        ...prev,
 
-            }));
+        [student.id]: !prev[student.id],
 
-            if (!isExpanded && !studentMarks[student.id]) {
+      }));
 
-              fetchStudentMarks(student.id, classId);
+      if (!isExpanded && !studentMarks[student.id]) {
 
-            }
+        fetchStudentMarks(student.id, classId);
 
-          };
+      }
 
-      
+    };
 
-          return (
 
-            <View style={styles.card}>
 
-              <TouchableOpacity onPress={toggleExpand}>
+    return (
 
-                <View style={styles.cardRow}>
+      <View style={styles.card}>
 
-                  <Image source={student.avatar_url ? { uri: student.avatar_url } : defaultUserImage} style={styles.avatar} />
+        <TouchableOpacity onPress={toggleExpand}>
 
-                  <View style={{ flex: 1 }}>
+          <View style={styles.cardRow}>
 
-                    <Text style={styles.cardTitle}>{student.full_name}</Text>
+            <Image source={student.avatar_url ? { uri: student.avatar_url } : defaultUserImage} style={styles.avatar} />
 
-                    <Text style={styles.cardSub}>{student.email}</Text>
+            <View style={{ flex: 1 }}>
 
-                  </View>
+              <Text style={styles.cardTitle}>{student.full_name}</Text>
 
-                  <View style={styles.attendanceContainer}>
-
-                    <Text style={styles.attendanceLabel}>Present</Text>
-
-                    <Switch
-
-                      trackColor={{ false: "#767577", true: "#81b0ff" }}
-
-                      thumbColor={isPresent ? "#007AFF" : "#f4f3f4"}
-
-                      ios_backgroundColor="#3e3e3e"
-
-                      onValueChange={(value) => handleAttendanceChange(item, value)}
-
-                      value={isPresent}
-
-                    />
-
-                  </View>
-
-                  <TouchableOpacity
-
-                    onPress={() => removeStudentFromClass(student.id)}
-
-                    disabled={saving}
-
-                    style={styles.removeButton}
-
-                  >
-
-                    <FontAwesomeIcon icon={faMinusCircle} size={20} color="#dc3545" />
-
-                  </TouchableOpacity>
-
-                </View>
-
-              </TouchableOpacity>
-
-                              {isExpanded && (
-
-                                <View style={styles.expandedContent}>
-
-                                  {studentMarks[student.id] ? (
-
-                                    studentMarks[student.id].length > 0 ? (
-
-                                                                      <>
-
-                                                                        <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 5}}>
-
-                                                                          <FontAwesomeIcon icon={faFileAlt} size={16} color="#007AFF" style={{marginRight: 5}} />
-
-                                                                          <Text style={styles.marksHeader}>Tests</Text>
-
-                                                                        </View>
-
-                                                                                                            {studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('test:')).length > 0 ? (
-
-                                                                                                              studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('test:')).map((mark, index) => (
-
-                                                                                                                <View key={mark.id || index} style={styles.markItem}>
-
-                                                                                                                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-
-                                                                                                                    <FontAwesomeIcon icon={faTag} size={14} color="#888" style={{marginRight: 5}} />
-
-                                                                                                                    <Text style={styles.markAssessmentName}>{mark.assessment_name.replace(/test: /i, '')}</Text>
-
-                                                                                                                  </View>
-
-                                                                                                                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-
-                                                                                                                    <FontAwesomeIcon icon={faGraduationCap} size={14} color="#888" style={{marginRight: 5}} />
-
-                                                                                                                    <Text style={styles.markValue}>{mark.mark}</Text>
-
-                                                                                                                  </View>
-
-                                                                                                                </View>
-
-                                                                                                              ))
-
-                                                                                                            ) : (
-
-                                                                                                              <Text style={styles.emptyText}>No tests recorded.</Text>
-
-                                                                                                            )}
-
-                                                                                          
-
-                                                                                                            <View style={styles.horizontalRule} />
-
-                                                                                          
-
-                                                                                                            <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 5}}>
-
-                                                                                                              <FontAwesomeIcon icon={faClipboardList} size={16} color="#007AFF" style={{marginRight: 5}} />
-
-                                                                                                              <Text style={styles.marksHeader}>Assignments</Text>
-
-                                                                                                            </View>
-
-                                                                                                            {studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).length > 0 ? (
-
-                                                                                                              studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).map((mark, index) => (
-
-                                                                                                                <View key={mark.id || index} style={styles.markItem}>
-
-                                                                                                                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-
-                                                                                                                    <FontAwesomeIcon icon={faTag} size={14} color="#888" style={{marginRight: 5}} />
-
-                                                                                                                    <Text style={styles.markAssessmentName}>{mark.assessment_name.replace(/assignment: /i, '')}</Text>
-
-                                                                                                                  </View>
-
-                                                                                                                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-
-                                                                                                                    <FontAwesomeIcon icon={faGraduationCap} size={14} color="#888" style={{marginRight: 5}} />
-
-                                                                                                                    <Text style={styles.markValue}>{mark.mark}</Text>
-
-                                                                                                                  </View>
-
-                                                                                                                </View>
-
-                                                                                                              ))
-
-                                                                                                            ) : (
-
-                                                                                                              <Text style={styles.emptyText}>No assignments recorded.</Text>
-
-                                                                                                            )}
-                                                                        <TouchableOpacity style={styles.manageMarksButton} onPress={() => handleOpenManageMarksModal(item)}>
-                                                                            <Text style={styles.manageMarksButtonText}>Manage Marks</Text>
-                                                                        </TouchableOpacity>
-                                                                      </>
-
-                                    ) : (
-
-                                      <Text style={styles.emptyText}>No marks recorded for this student.</Text>
-
-                                    )
-
-                                  ) : (
-
-                                    <ActivityIndicator size="small" color="#007AFF" />
-
-                                  )}
-
-                                </View>
-
-                              )}
+              <Text style={styles.cardSub}>{student.email}</Text>
 
             </View>
 
-          );
+            <View style={styles.attendanceContainer}>
 
-        };
+              <Text style={styles.attendanceLabel}>Present</Text>
+
+              <Switch
+
+                trackColor={{ false: "#767577", true: "#81b0ff" }}
+
+                thumbColor={isPresent ? "#007AFF" : "#f4f3f4"}
+
+                ios_backgroundColor="#3e3e3e"
+
+                onValueChange={(value) => handleAttendanceChange(item, value)}
+
+                value={isPresent}
+
+              />
+
+            </View>
+
+            <TouchableOpacity
+
+              onPress={() => removeStudentFromClass(student.id)}
+
+              disabled={saving}
+
+              style={styles.removeButton}
+
+            >
+
+              <FontAwesomeIcon icon={faMinusCircle} size={20} color="#dc3545" />
+
+            </TouchableOpacity>
+
+          </View>
+
+        </TouchableOpacity>
+
+        {isExpanded && (
+
+          <View style={styles.expandedContent}>
+
+            {studentMarks[student.id] ? (
+
+              studentMarks[student.id].length > 0 ? (
+
+                <>
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
+
+                    <FontAwesomeIcon icon={faFileAlt} size={16} color="#007AFF" style={{ marginRight: 5 }} />
+
+                    <Text style={styles.marksHeader}>Tests</Text>
+
+                  </View>
+
+                  {studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('test:')).length > 0 ? (
+
+                    studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('test:')).map((mark, index) => (
+
+                      <View key={mark.id || index} style={styles.markItem}>
+
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+
+                          <FontAwesomeIcon icon={faTag} size={14} color="#888" style={{ marginRight: 5 }} />
+
+                          <Text style={styles.markAssessmentName}>{mark.assessment_name.replace(/test: /i, '')}</Text>
+
+                        </View>
+
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+
+                          <FontAwesomeIcon icon={faGraduationCap} size={14} color="#888" style={{ marginRight: 5 }} />
+
+                          <Text style={styles.markValue}>{mark.mark}</Text>
+
+                        </View>
+
+                      </View>
+
+                    ))
+
+                  ) : (
+
+                    <Text style={styles.emptyText}>No tests recorded.</Text>
+
+                  )}
+
+
+
+                  <View style={styles.horizontalRule} />
+
+
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 5 }}>
+
+                    <FontAwesomeIcon icon={faClipboardList} size={16} color="#007AFF" style={{ marginRight: 5 }} />
+
+                    <Text style={styles.marksHeader}>Assignments</Text>
+
+                  </View>
+
+                  {studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).length > 0 ? (
+
+                    studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).map((mark, index) => (
+
+                      <View key={mark.id || index} style={styles.markItem}>
+
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+
+                          <FontAwesomeIcon icon={faTag} size={14} color="#888" style={{ marginRight: 5 }} />
+
+                          <Text style={styles.markAssessmentName}>{mark.assessment_name.replace(/assignment: /i, '')}</Text>
+
+                        </View>
+
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+
+                          <FontAwesomeIcon icon={faGraduationCap} size={14} color="#888" style={{ marginRight: 5 }} />
+
+                          <Text style={styles.markValue}>{mark.mark}</Text>
+
+                        </View>
+
+                      </View>
+
+                    ))
+
+                  ) : (
+
+                    <Text style={styles.emptyText}>No assignments recorded.</Text>
+
+                  )}
+                  <TouchableOpacity style={styles.manageMarksButton} onPress={() => handleOpenManageMarksModal(item)}>
+                    <Text style={styles.manageMarksButtonText}>Manage Marks</Text>
+                  </TouchableOpacity>
+                </>
+
+              ) : (
+
+                <Text style={styles.emptyText}>No marks recorded for this student.</Text>
+
+              )
+
+            ) : (
+
+              <ActivityIndicator size="small" color="#007AFF" />
+
+            )}
+
+          </View>
+
+        )}
+
+      </View>
+
+    );
+
+  };
 
   const renderAddStudent = ({ item }) => (
     <View style={styles.addStudentCard}>
@@ -691,8 +691,8 @@ export default function ManageUsersInClassScreen() {
     if (!selectedScheduleDate) {
       return (
         <>
-          <Text style={[styles.header, {textAlign: 'center'}]}>Manage {className}</Text>
-          <Text style={[styles.description, {textAlign: 'center'}]}>Select a class session below to manage attendance.</Text>
+          <Text style={[styles.header, { textAlign: 'center' }]}>Manage {className}</Text>
+          <Text style={[styles.description, { textAlign: 'center' }]}>Select a class session below to manage attendance.</Text>
           <View style={{ marginBottom: 25 }}>
             <View style={styles.sectionHeaderContainer}>
               <View style={styles.sectionHeader}>
@@ -730,7 +730,7 @@ export default function ManageUsersInClassScreen() {
         {/* Students Section */}
         <View style={{ marginBottom: 25 }}>
           <View style={styles.sectionHeader}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <FontAwesomeIcon icon={faUserGraduate} size={18} color="#007AFF" />
               <Text style={styles.sectionTitle}>Students in this Class</Text>
             </View>
@@ -750,7 +750,7 @@ export default function ManageUsersInClassScreen() {
           {/* Add Students Subsection */}
           <View style={{ marginTop: 20 }}>
             <View style={styles.sectionHeader}>
-              <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <FontAwesomeIcon icon={faUserPlus} size={18} color="#007AFF" />
                 <Text style={styles.sectionTitle}>Add Students</Text>
               </View>
@@ -808,30 +808,30 @@ export default function ManageUsersInClassScreen() {
             <Text style={styles.modalTitle}>Edit Schedule</Text>
             <Text style={styles.modalDescription}>Adjust the time and information for this class session.</Text>
             <View style={styles.timeInputRow}>
-                <FontAwesomeIcon icon={faClock} size={24} color="#888" style={{ marginRight: 15, marginTop: 20 }} />
-                <View style={styles.timeInputGroup}>
-                    <Text style={styles.timeInputLabel}>Start Time</Text>
-                    <TextInput
-                        style={styles.timeInput}
-                        placeholder="10:00"
-                        keyboardType="numeric"
-                        maxLength={5}
-                        value={tempStartTime}
-                        onChangeText={(text) => handleEditTimeChange(text, true)}
-                    />
-                </View>
-                <Text style={styles.timeSeparator}>-</Text>
-                <View style={styles.timeInputGroup}>
-                    <Text style={styles.timeInputLabel}>End Time</Text>
-                    <TextInput
-                        style={styles.timeInput}
-                        placeholder="11:00"
-                        keyboardType="numeric"
-                        maxLength={5}
-                        value={tempEndTime}
-                        onChangeText={(text) => handleEditTimeChange(text, false)}
-                    />
-                </View>
+              <FontAwesomeIcon icon={faClock} size={24} color="#888" style={{ marginRight: 15, marginTop: 20 }} />
+              <View style={styles.timeInputGroup}>
+                <Text style={styles.timeInputLabel}>Start Time</Text>
+                <TextInput
+                  style={styles.timeInput}
+                  placeholder="10:00"
+                  keyboardType="numeric"
+                  maxLength={5}
+                  value={tempStartTime}
+                  onChangeText={(text) => handleEditTimeChange(text, true)}
+                />
+              </View>
+              <Text style={styles.timeSeparator}>-</Text>
+              <View style={styles.timeInputGroup}>
+                <Text style={styles.timeInputLabel}>End Time</Text>
+                <TextInput
+                  style={styles.timeInput}
+                  placeholder="11:00"
+                  keyboardType="numeric"
+                  maxLength={5}
+                  value={tempEndTime}
+                  onChangeText={(text) => handleEditTimeChange(text, false)}
+                />
+              </View>
             </View>
             <TextInput
               style={[styles.modalInput, { height: 80, textAlign: 'left', textAlignVertical: 'top' }]}
@@ -859,36 +859,36 @@ export default function ManageUsersInClassScreen() {
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>Add New Session</Text>
             <Text style={styles.modalDescription}>Select a date from the calendar to set the time for the new session.</Text>
-            
+
             <Calendar onDayPress={handleDayPress} markedDates={{ [newScheduleDate]: { selected: true, selectedColor: '#007AFF' } }} />
 
             {newScheduleDate && (
               <>
                 <View style={styles.timeInputRow}>
-                    <FontAwesomeIcon icon={faClock} size={24} color="#888" style={{ marginRight: 15, marginTop: 20 }} />
-                    <View style={styles.timeInputGroup}>
-                        <Text style={styles.timeInputLabel}>Start Time</Text>
-                        <TextInput
-                            style={styles.timeInput}
-                            placeholder="10:00"
-                            keyboardType="numeric"
-                            maxLength={5}
-                            value={newStartTime}
-                            onChangeText={(text) => handleNewTimeChange(text, true)}
-                        />
-                    </View>
-                    <Text style={styles.timeSeparator}>-</Text>
-                    <View style={styles.timeInputGroup}>
-                        <Text style={styles.timeInputLabel}>End Time</Text>
-                        <TextInput
-                            style={styles.timeInput}
-                            placeholder="11:00"
-                            keyboardType="numeric"
-                            maxLength={5}
-                            value={newEndTime}
-                            onChangeText={(text) => handleNewTimeChange(text, false)}
-                        />
-                    </View>
+                  <FontAwesomeIcon icon={faClock} size={24} color="#888" style={{ marginRight: 15, marginTop: 20 }} />
+                  <View style={styles.timeInputGroup}>
+                    <Text style={styles.timeInputLabel}>Start Time</Text>
+                    <TextInput
+                      style={styles.timeInput}
+                      placeholder="10:00"
+                      keyboardType="numeric"
+                      maxLength={5}
+                      value={newStartTime}
+                      onChangeText={(text) => handleNewTimeChange(text, true)}
+                    />
+                  </View>
+                  <Text style={styles.timeSeparator}>-</Text>
+                  <View style={styles.timeInputGroup}>
+                    <Text style={styles.timeInputLabel}>End Time</Text>
+                    <TextInput
+                      style={styles.timeInput}
+                      placeholder="11:00"
+                      keyboardType="numeric"
+                      maxLength={5}
+                      value={newEndTime}
+                      onChangeText={(text) => handleNewTimeChange(text, false)}
+                    />
+                  </View>
                 </View>
                 <TextInput
                   style={[styles.modalInput, { height: 80, textAlign: 'left', textAlignVertical: 'top' }]}
@@ -922,105 +922,105 @@ const styles = StyleSheet.create({
   description: { fontSize: 14, color: "#666", marginBottom: 20 },
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   sectionTitle: { fontSize: 16, fontWeight: "600", marginLeft: 8, color: "#333" },
-    sectionDescription: { fontSize: 13, color: "#777", marginBottom: 10, marginLeft: 5 },
-    backButton: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-    backButtonText: { color: '#007AFF', fontSize: 16, marginLeft: 8 },
-  
-    sectionHeaderContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 8,
-    },
-  
-        card: {
-          backgroundColor: "#fff",
-          padding: 12,
-          borderRadius: 10,
-          marginBottom: 8,
-          elevation: 1,
-          shadowColor: "#000",
-          shadowOpacity: 0.05,
-          shadowRadius: 2,
-        },
-    expandedContent: {
-      marginTop: 10,
-      paddingTop: 10,
-      borderTopWidth: 1,
-      borderTopColor: '#eee',
-    },
-    markItem: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: 5,
-    },
-    markAssessmentName: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: '#333',
-    },
-    markValue: {
-      fontSize: 14,
-      fontWeight: 'bold',
-      color: '#007AFF',
-    },
-    marksHeader: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: '#333',
-      marginTop: 5,
-      marginBottom: 5,
-    },
-    cardRow: { flexDirection: "row", alignItems: "center", marginBottom: 5 },
-    avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10, borderWidth: 2, borderColor: "#007AFF" },
-    cardTitle: { fontSize: 15, fontWeight: "600", color: "#222" },
-    cardSub: { fontSize: 13, color: "#555", marginTop: 2 },
-    scheduleTimeText: { fontSize: 13, color: "#555", marginTop: 2, marginLeft: 5 },
-    cardInfo: { fontSize: 13, color: "#666", marginTop: 4, fontStyle: "italic" },
-    emptyText: { textAlign: "center", color: "#777", marginVertical: 10 },
-    input: { backgroundColor: "#fff", padding: 10, borderRadius: 10, borderWidth: 1, borderColor: "#ddd", marginBottom: 8 },
-  
-    horizontalRule: {
-      borderBottomColor: '#eee',
-      borderBottomWidth: 1,
-      marginVertical: 8,
-      width: '100%', // Ensure it spans the full width of the card content
-    },
-  
-    addStudentCard: {
-      backgroundColor: "#fff",
-      padding: 12,
-      borderRadius: 10,
-      marginBottom: 8,
-      elevation: 1,
-      shadowColor: "#000",
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-  
-    addButtonHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 6,
-      paddingHorizontal: 10,
-      borderRadius: 8,
-      backgroundColor: '#e0f2fe', // Light blue background
-    },
-    addButtonTextHeader: {
-      color: '#007AFF',
-      fontSize: 14,
-      fontWeight: '600',
-      marginLeft: 5,
-    },
-  
-    removeButton: { position: "absolute", right: 12, top: 12 },
-    editButton: { position: "absolute", right: 12, top: 12 },
-  
-    attendanceContainer: {
-      flexDirection: 'row',    alignItems: 'center',
+  sectionDescription: { fontSize: 13, color: "#777", marginBottom: 10, marginLeft: 5 },
+  backButton: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  backButtonText: { color: '#007AFF', fontSize: 16, marginLeft: 8 },
+
+  sectionHeaderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+
+  card: {
+    backgroundColor: "#fff",
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 8,
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  expandedContent: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  markItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 5,
+  },
+  markAssessmentName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+  },
+  markValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#007AFF',
+  },
+  marksHeader: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 5,
+    marginBottom: 5,
+  },
+  cardRow: { flexDirection: "row", alignItems: "center", marginBottom: 5 },
+  avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10, borderWidth: 2, borderColor: "#007AFF" },
+  cardTitle: { fontSize: 15, fontWeight: "600", color: "#222" },
+  cardSub: { fontSize: 13, color: "#555", marginTop: 2 },
+  scheduleTimeText: { fontSize: 13, color: "#555", marginTop: 2, marginLeft: 5 },
+  cardInfo: { fontSize: 13, color: "#666", marginTop: 4, fontStyle: "italic" },
+  emptyText: { textAlign: "center", color: "#777", marginVertical: 10 },
+  input: { backgroundColor: "#fff", padding: 10, borderRadius: 10, borderWidth: 1, borderColor: "#ddd", marginBottom: 8 },
+
+  horizontalRule: {
+    borderBottomColor: '#eee',
+    borderBottomWidth: 1,
+    marginVertical: 8,
+    width: '100%', // Ensure it spans the full width of the card content
+  },
+
+  addStudentCard: {
+    backgroundColor: "#fff",
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 8,
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  addButtonHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#e0f2fe', // Light blue background
+  },
+  addButtonTextHeader: {
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 5,
+  },
+
+  removeButton: { position: "absolute", right: 12, top: 12 },
+  editButton: { position: "absolute", right: 12, top: 12 },
+
+  attendanceContainer: {
+    flexDirection: 'row', alignItems: 'center',
     marginRight: 40, // Add space between switch and remove button
   },
   attendanceLabel: {

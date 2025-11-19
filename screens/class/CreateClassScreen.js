@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Button, Platform, ScrollView, Modal, Image } from 'react-native';
-import { supabase } from '../lib/supabase';
-import { useSchool } from '../context/SchoolContext';
+import { supabase } from '../../lib/supabase';
+import { useSchool } from '../../context/SchoolContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faPlusCircle, faMinusCircle, faUser, faClock } from '@fortawesome/free-solid-svg-icons';
 import { Calendar } from 'react-native-calendars';
-import { useToast } from '../context/ToastContext';
-const defaultUserImage = require('../assets/user.png');
+import { useToast } from '../../context/ToastContext';
+const defaultUserImage = require('../../assets/user.png');
 
 export default function CreateClassScreen({ navigation }) {
   const [className, setClassName] = useState('');
@@ -17,7 +17,7 @@ export default function CreateClassScreen({ navigation }) {
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [fetchingStudents, setFetchingStudents] = useState(false);
-  
+
   const [schedules, setSchedules] = useState([]);
   const [isModalVisible, setModalVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -263,10 +263,10 @@ export default function CreateClassScreen({ navigation }) {
           {students.filter(s => selectedStudents.includes(s.id)).map(item => (
             <TouchableOpacity key={item.id} style={styles.studentItem} onPress={() => toggleStudentSelection(item.id)}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Image
-                    source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage}
-                    style={styles.studentAvatar}
-                  />
+                <Image
+                  source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage}
+                  style={styles.studentAvatar}
+                />
                 <View>
                   <Text>{item.full_name}</Text>
                   <Text style={{ color: 'gray' }}>{item.email}</Text>
@@ -306,44 +306,44 @@ export default function CreateClassScreen({ navigation }) {
             <Text style={styles.modalDescription}>Input the start and end times for your class.</Text>
             <Text style={styles.modalDate}>{selectedDate}</Text>
             <View style={styles.timeInputRow}>
-                <FontAwesomeIcon icon={faClock} size={24} color="#888" style={{ marginRight: 15, marginTop: 20 }} />
-                <View style={styles.timeInputGroup}>
-                    <Text style={styles.timeInputLabel}>Start Time</Text>
-                    <TextInput
-                        style={styles.timeInput}
-                        placeholder="10:00"
-                        keyboardType="numeric"
-                        maxLength={5}
-                        value={tempStartTime}
-                        onChangeText={(text) => handleTimeChange(text, true)}
-                    />
-                </View>
-                <Text style={styles.timeSeparator}>-</Text>
-                <View style={styles.timeInputGroup}>
-                    <Text style={styles.timeInputLabel}>End Time</Text>
-                    <TextInput
-                        style={styles.timeInput}
-                        placeholder="11:00"
-                        keyboardType="numeric"
-                        maxLength={5}
-                        value={tempEndTime}
-                        onChangeText={(text) => handleTimeChange(text, false)}
-                    />
-                </View>
+              <FontAwesomeIcon icon={faClock} size={24} color="#888" style={{ marginRight: 15, marginTop: 20 }} />
+              <View style={styles.timeInputGroup}>
+                <Text style={styles.timeInputLabel}>Start Time</Text>
+                <TextInput
+                  style={styles.timeInput}
+                  placeholder="10:00"
+                  keyboardType="numeric"
+                  maxLength={5}
+                  value={tempStartTime}
+                  onChangeText={(text) => handleTimeChange(text, true)}
+                />
+              </View>
+              <Text style={styles.timeSeparator}>-</Text>
+              <View style={styles.timeInputGroup}>
+                <Text style={styles.timeInputLabel}>End Time</Text>
+                <TextInput
+                  style={styles.timeInput}
+                  placeholder="11:00"
+                  keyboardType="numeric"
+                  maxLength={5}
+                  value={tempEndTime}
+                  onChangeText={(text) => handleTimeChange(text, false)}
+                />
+              </View>
             </View>
             <TextInput
-                style={styles.infoInput}
-                placeholder="Enter class information for this day..."
-                value={classInfo}
-                onChangeText={setClassInfo}
-                multiline
+              style={styles.infoInput}
+              placeholder="Enter class information for this day..."
+              value={classInfo}
+              onChangeText={setClassInfo}
+              multiline
             />
             <View style={styles.modalButtonContainer}>
               <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setModalVisible(false)}>
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={handleSaveSchedule}>
-                  <Text style={styles.saveButtonText}>Save</Text>
+                <Text style={styles.saveButtonText}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>

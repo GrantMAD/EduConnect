@@ -11,12 +11,12 @@ import {
   Image,
 } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import ManagementListSkeleton from '../components/skeletons/ManagementListSkeleton';
+import ManagementListSkeleton from '../../components/skeletons/ManagementListSkeleton';
 import { faPlus, faEdit, faTrash, faStore, faTag, faDollarSign, faTimes } from '@fortawesome/free-solid-svg-icons';
-import { supabase } from '../lib/supabase';
-import ManageMarketItemListItem from '../components/ManageMarketItemListItem';
+import { supabase } from '../../lib/supabase';
+import ManageMarketItemListItem from '../../components/ManageMarketItemListItem';
 import Modal from 'react-native-modal';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../../context/ToastContext';
 
 export default function ManageMarketDataScreen({ navigation }) {
   const [items, setItems] = useState([]);

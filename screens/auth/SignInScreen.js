@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, Text, Image, ActivityIndicator } from 'react-native';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
-import { useToast } from '../context/ToastContext';
-import { useTheme } from '../context/ThemeContext'; // Import useTheme
+import { useToast } from '../../context/ToastContext';
+import { useTheme } from '../../context/ThemeContext'; // Import useTheme
 
-const logo = require('../assets/splash.png');
+const logo = require('../../assets/splash.png');
 
 export default function SignInScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -62,7 +62,7 @@ export default function SignInScreen({ navigation }) {
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-        <Text style={[styles.link, { color: theme.colors.primary }]}>Don't have an account? <Text style={{fontWeight: 'bold', color: theme.colors.primary }}>Sign Up</Text></Text>
+        <Text style={[styles.link, { color: theme.colors.primary }]}>Don't have an account? <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>Sign Up</Text></Text>
       </TouchableOpacity>
     </View>
   );
