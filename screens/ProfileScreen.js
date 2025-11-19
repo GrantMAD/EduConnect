@@ -1,17 +1,34 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, TextInput, StyleSheet, ActivityIndicator, Alert, ScrollView, Image, TouchableOpacity, Platform } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import ProfileScreenSkeleton from '../components/skeletons/ProfileScreenSkeleton';
-import { faEdit, faSave, faUserFriends, faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone, faMinus } from '@fortawesome/free-solid-svg-icons';
+import { faEdit, faSave, faUserFriends, faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone, faMinus, faTrophy, faMedal } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer';
 import { useToast } from '../context/ToastContext';
-import { useTheme } from '../context/ThemeContext'; // Import useTheme
+import { useTheme } from '../context/ThemeContext';
+import { useGamification } from '../context/GamificationContext';
 
 export default function ProfileScreen() {
   const defaultUserImage = require('../assets/user.png');
+  const gamificationData = useGamification();
+  const { current_level = 1, current_xp = 0, badges = [], loading: gamificationLoading, refreshGamificationState } = gamificationData || {};
+
+  useFocusEffect(
+    useCallback(() => {
+      if (refreshGamificationState) {
+        refreshGamificationState();
+      }
+    }, [refreshGamificationState])
+  );
+
+  // Calculate progress
+  const xpForNextLevel = 100; // Based on linear 100 XP per level
+  const currentLevelProgress = current_xp % xpForNextLevel;
+  const progressPercent = (currentLevelProgress / xpForNextLevel) * 100;
 
   const [userData, setUserData] = useState({
     id: '',
@@ -34,7 +51,7 @@ export default function ProfileScreen() {
   const [showManageChildren, setShowManageChildren] = useState(false);
   const scrollViewRef = useRef(null);
   const { showToast } = useToast();
-  const { theme } = useTheme(); // Use the theme hook
+  const { theme } = useTheme();
 
   useEffect(() => {
     fetchUserData();
@@ -246,7 +263,7 @@ export default function ProfileScreen() {
       return;
     }
 
-    setSaving(true); 
+    setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated.");
@@ -270,9 +287,9 @@ export default function ProfileScreen() {
           user_id: childId,
           type: 'parent_child_request',
           title: 'Parent Association Request',
-          message: `Your parent ${userData.full_name || userData.email} wants to associate with you.`, 
+          message: `Your parent ${userData.full_name || userData.email} wants to associate with you.`,
           is_read: false,
-          related_user_id: user.id, 
+          related_user_id: user.id,
         };
       });
 
@@ -283,7 +300,7 @@ export default function ProfileScreen() {
       if (notificationError) throw notificationError;
 
       showToast('Association requests sent successfully!', 'success');
-      setSelectedStudents([]); 
+      setSelectedStudents([]);
     } catch (error) {
       console.error('Error sending association request:', error.message);
       showToast('Failed to send association requests.', 'error');
@@ -350,6 +367,38 @@ export default function ProfileScreen() {
       )}
 
       <Text style={[styles.header, { color: theme.colors.text }]}>My Profile</Text>
+
+      {/* Gamification Card */}
+      <View style={[styles.gamificationCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+        <View style={styles.levelContainer}>
+          <View style={[styles.levelBadge, { backgroundColor: theme.colors.primary }]}>
+            <FontAwesomeIcon icon={faTrophy} size={20} color="#fff" />
+          </View>
+          <View style={{ flex: 1, marginLeft: 15 }}>
+            <Text style={[styles.levelText, { color: theme.colors.text }]}>Level {current_level}</Text>
+            <Text style={[styles.xpText, { color: theme.colors.placeholder }]}>{current_xp} Total XP</Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={[styles.nextLevelText, { color: theme.colors.primary }]}>{Math.round(progressPercent)}% to Lvl {current_level + 1}</Text>
+          </View>
+        </View>
+
+        <View style={[styles.progressBarBackground, { backgroundColor: theme.colors.inputBackground }]}>
+          <View style={[styles.progressBarFill, { width: `${progressPercent}%`, backgroundColor: theme.colors.primary }]} />
+        </View>
+
+        {badges && badges.length > 0 && (
+          <View style={styles.badgesContainer}>
+            {badges.map((badge, index) => (
+              <View key={index} style={styles.badgeItem}>
+                <FontAwesomeIcon icon={faMedal} size={16} color="#FFD700" />
+                <Text style={[styles.badgeText, { color: theme.colors.text }]}>{badge.name}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+
       <Text style={[styles.description, { color: theme.colors.text }]}>View and edit your profile information.</Text>
 
       {/* User Information */}
@@ -503,7 +552,7 @@ export default function ProfileScreen() {
                   !associatedChildren.includes(student.id) &&
                   student.id !== userData.id &&
                   (student.full_name?.toLowerCase().includes(studentSearch.toLowerCase()) ||
-                   student.email?.toLowerCase().includes(studentSearch.toLowerCase()))
+                    student.email?.toLowerCase().includes(studentSearch.toLowerCase()))
                 ).map(student => (
                   <TouchableOpacity
                     key={student.id}
@@ -675,5 +724,73 @@ const styles = StyleSheet.create({
   separator: {
     borderBottomWidth: 1,
     marginVertical: 24,
+  },
+  gamificationCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    width: '100%',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  levelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  levelBadge: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  levelText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  xpText: {
+    fontSize: 14,
+  },
+  nextLevelText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  progressBarBackground: {
+    height: 8,
+    borderRadius: 4,
+    width: '100%',
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  badgesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  badgeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+    marginBottom: 4,
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
   },
 });

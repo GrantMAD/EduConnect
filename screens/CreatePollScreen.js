@@ -7,8 +7,11 @@ import { Picker } from '@react-native-picker/picker';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faPlus, faMinus, faQuestionCircle, faListOl, faUsers, faCalendar } from '@fortawesome/free-solid-svg-icons';
 import { Calendar } from 'react-native-calendars';
+import { useGamification } from '../context/GamificationContext';
 
 export default function CreatePollScreen({ navigation }) {
+  const gamificationData = useGamification();
+  const { awardXP = () => { } } = gamificationData || {};
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '']);
   const [targetRoles, setTargetRoles] = useState(['all']);
@@ -100,7 +103,7 @@ export default function CreatePollScreen({ navigation }) {
           console.error('Error creating notifications:', notifError);
         }
       }
-
+      awardXP('poll_creation', 10);
       navigation.navigate('Polls', { pollCreated: true });
     } catch (error) {
       console.error('Error creating poll:', error);

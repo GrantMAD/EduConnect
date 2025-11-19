@@ -6,6 +6,7 @@ import { faTimes, faUser, faCalendar, faFileAlt, faThumbsUp, faThumbsDown, faDow
 import RNFetchBlob from 'rn-fetch-blob';
 import FileViewer from 'react-native-file-viewer';
 import { supabase } from '../lib/supabase';
+import { useGamification } from '../context/GamificationContext';
 
 const timeSince = (date) => {
   if (!date) return '';
@@ -24,6 +25,8 @@ const timeSince = (date) => {
 };
 
 export default function ResourceDetailModal({ visible, onClose, resource, onVotesChanged }) {
+  const gamificationData = useGamification();
+  const { awardXP = () => { } } = gamificationData || {};
   const [userId, setUserId] = useState(null);
   const [userVote, setUserVote] = useState(null); // 1 or -1
   const [upvotes, setUpvotes] = useState(0);
@@ -52,6 +55,11 @@ export default function ResourceDetailModal({ visible, onClose, resource, onVote
     };
 
     if (visible) fetchData();
+
+    // Award XP for viewing resource
+    if (visible && resource && awardXP) {
+      awardXP('resource_view', 5);
+    }
 
     return () => { isMounted = false; };
   }, [visible, resource]);

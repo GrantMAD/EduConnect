@@ -7,6 +7,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import { SchoolProvider } from './context/SchoolContext';
+import { GamificationProvider } from './context/GamificationContext';
 import { supabase } from './lib/supabase';
 
 import AuthNavigation from './navigation/AuthNavigation';
@@ -16,6 +17,7 @@ import RoleSelectionScreen from './screens/RoleSelectionScreen';
 import SchoolSetupScreen from './screens/SchoolSetupScreen';
 
 const RootStack = createNativeStackNavigator();
+
 // Define AuthStack screens
 const AuthStack = () => (
   <RootStack.Navigator screenOptions={{ headerShown: false }}>
@@ -71,7 +73,9 @@ export default function App() {
         <NavigationContainer>
           <StatusBar style="auto" />
           <SchoolProvider>
-            {session ? <AppStack /> : <AuthStack />}
+            <GamificationProvider session={session}>
+              {session ? <AppStack /> : <AuthStack />}
+            </GamificationProvider>
           </SchoolProvider>
         </NavigationContainer>
       </ToastProvider>

@@ -4,6 +4,7 @@ import { Picker } from '@react-native-picker/picker';
 import { Calendar } from 'react-native-calendars';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
+import { useGamification } from '../context/GamificationContext';
 
 const CreateHomeworkScreen = ({ navigation }) => {
   const [classes, setClasses] = useState([]);
@@ -17,6 +18,8 @@ const CreateHomeworkScreen = ({ navigation }) => {
   const [user, setUser] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
   const { showToast } = useToast();
+  const gamificationData = useGamification();
+  const { awardXP = () => { } } = gamificationData || {};
 
   useEffect(() => {
     const fetchData = async () => {
@@ -104,7 +107,7 @@ const CreateHomeworkScreen = ({ navigation }) => {
 
       if (members && members.length > 0) {
         const studentIds = members.map(m => m.user_id);
-        
+
         const { data: parents, error: parentsError } = await supabase
           .rpc('get_parents_of_students', { p_student_ids: studentIds });
 
@@ -137,7 +140,10 @@ const CreateHomeworkScreen = ({ navigation }) => {
     }
     // --- End Notification Logic ---
 
-    showToast('Homework created successfully.', 'success');
+    // Award XP for Content Creation
+    awardXP('content_creation', 20);
+
+    showToast('Homework created successfully. +20 XP', 'success');
     navigation.goBack();
     setIsCreating(false);
   };

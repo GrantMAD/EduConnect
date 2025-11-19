@@ -66,7 +66,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginHorizontal: 20,
     alignSelf: 'center',
-    zIndex: 9999,
+    zIndex: 99999, // Very high z-index to appear above modals
+    elevation: 99999, // For Android
   },
   toastText: {
     fontSize: 14,

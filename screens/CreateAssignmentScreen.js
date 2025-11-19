@@ -14,6 +14,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Calendar } from 'react-native-calendars';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import { useToast } from '../context/ToastContext';
+import { useGamification } from '../context/GamificationContext';
 
 const CreateAssignmentScreen = ({ navigation }) => {
   const [classes, setClasses] = useState([]);
@@ -26,6 +27,8 @@ const CreateAssignmentScreen = ({ navigation }) => {
   const [user, setUser] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
   const { showToast } = useToast();
+  const gamificationData = useGamification();
+  const { awardXP = () => { } } = gamificationData || {};
 
   useEffect(() => {
     const fetchData = async () => {
@@ -129,7 +132,7 @@ const CreateAssignmentScreen = ({ navigation }) => {
 
         if (members && members.length > 0) {
           const studentIds = members.map(m => m.user_id);
-          
+
           const { data: parents, error: parentsError } = await supabase
             .rpc('get_parents_of_students', { p_student_ids: studentIds });
 
@@ -163,7 +166,11 @@ const CreateAssignmentScreen = ({ navigation }) => {
       // --- End Notification Logic ---
 
       console.log('Assignment inserted successfully.');
-      showToast('Assignment created successfully.', 'success');
+
+      // Award XP for Content Creation
+      awardXP('content_creation', 20);
+
+      showToast('Assignment created successfully. +20 XP', 'success');
       navigation.goBack();
     } catch (error) {
       console.error('Error creating assignment:', error);

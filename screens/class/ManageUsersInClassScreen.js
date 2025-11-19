@@ -31,11 +31,13 @@ import {
   faFileAlt,
   faTag,
   faGraduationCap,
+  faCheckCircle,
 } from "@fortawesome/free-solid-svg-icons";
 import { useToast } from "../../context/ToastContext";
 import { Calendar } from "react-native-calendars";
 import MarksModal from '../../components/MarksModal';
 import ManageMarksModal from '../../components/ManageMarksModal';
+import { useGamification } from '../../context/GamificationContext';
 
 const defaultUserImage = require("../../assets/user.png");
 
@@ -54,6 +56,8 @@ export default function ManageUsersInClassScreen() {
 
   const { schoolId } = useSchool();
   const { showToast } = useToast();
+  const gamificationData = useGamification();
+  const { awardXP = () => { } } = gamificationData || {};
 
   const [classMembers, setClassMembers] = useState([]);
   const [allStudents, setAllStudents] = useState([]);
@@ -686,6 +690,47 @@ export default function ManageUsersInClassScreen() {
     </View>
   );
 
+  const markAllPresent = async () => {
+    if (!selectedScheduleDate) return;
+    setSaving(true);
+    try {
+      const updates = classMembers.map(member => {
+        const currentAttendance = member.attendance || {};
+        return {
+          ...member,
+          attendance: {
+            ...currentAttendance,
+            [selectedScheduleDate]: true
+          }
+        };
+      });
+
+      // Optimistic update
+      setClassMembers(updates);
+
+      // Batch update in Supabase
+      const promises = updates.map(member =>
+        supabase
+          .from('class_members')
+          .update({ attendance: member.attendance })
+          .eq('id', member.id)
+      );
+
+      await Promise.all(promises);
+
+      // Award XP
+      awardXP('attendance_submission', 15);
+
+      showToast('All students marked present. +15 XP', 'success');
+    } catch (error) {
+      console.error('Error marking all present:', error);
+      showToast('Failed to update attendance.', 'error');
+      fetchClassMembers(); // Revert on error
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Main FlatList Header
   const renderHeader = () => {
     if (!selectedScheduleDate) {
@@ -734,9 +779,15 @@ export default function ManageUsersInClassScreen() {
               <FontAwesomeIcon icon={faUserGraduate} size={18} color="#007AFF" />
               <Text style={styles.sectionTitle}>Students in this Class</Text>
             </View>
-            <TouchableOpacity style={styles.addButtonHeader} onPress={() => setMarksModalVisible(true)}>
-              <Text style={styles.addButtonTextHeader}>Enter Marks</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row' }}>
+              <TouchableOpacity style={[styles.addButtonHeader, { marginRight: 10, backgroundColor: '#28a745' }]} onPress={markAllPresent}>
+                <FontAwesomeIcon icon={faCheckCircle} size={14} color="#fff" style={{ marginRight: 5 }} />
+                <Text style={[styles.addButtonTextHeader, { color: '#fff' }]}>Mark All Present</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.addButtonHeader} onPress={() => setMarksModalVisible(true)}>
+                <Text style={styles.addButtonTextHeader}>Enter Marks</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           <Text style={styles.sectionDescription}>Mark student attendance for the selected date. Tap on a student's card to view their marks and access the "Manage Marks" button to edit or delete them.</Text>
           <FlatList

@@ -10,6 +10,8 @@ import { faPlus, faPoll, faClock, faCheckCircle } from '@fortawesome/free-solid-
 import CardListSkeleton from '../components/skeletons/CardListSkeleton';
 import PollVoteModal from '../components/PollVoteModal';
 
+import { useGamification } from '../context/GamificationContext';
+
 export default function PollsScreen({ navigation, route }) {
   const [polls, setPolls] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,73 +22,55 @@ export default function PollsScreen({ navigation, route }) {
   const { schoolId } = useSchool();
   const { theme } = useTheme();
   const { showToast } = useToast();
+  const gamificationData = useGamification();
+  const { awardXP = () => { } } = gamificationData || {};
 
   const initializeScreen = async () => {
     setLoading(true);
-    let currentUserRole = null;
-    let currentUserId = null;
-
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        currentUserId = user.id;
-        const { data: userData, error: userError } = await supabase
+        setUserId(user.id);
+        const { data: userData } = await supabase
           .from('users')
           .select('role')
           .eq('id', user.id)
           .single();
-        if (userError) throw userError;
-        currentUserRole = userData.role;
+        setUserRole(userData?.role);
       }
+
+      await fetchPolls();
     } catch (error) {
-      console.error('Error fetching user role:', error);
+      console.error('Error initializing polls screen:', error);
     } finally {
-      setUserId(currentUserId);
-      setUserRole(currentUserRole);
+      setLoading(false);
     }
+  };
 
-    if (schoolId && currentUserRole) {
-      try {
-        let { data: pollsData, error: pollsError } = await supabase
-          .from('polls')
-          .select('*, poll_votes(*), users(full_name)')
-          .eq('school_id', schoolId);
+  const fetchPolls = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('polls')
+        .select(`
+          *,
+          users (full_name),
+          poll_votes (user_id, selected_option)
+        `)
+        .eq('school_id', schoolId)
+        .order('created_at', { ascending: false });
 
-        if (pollsError) throw pollsError;
-
-        // Admins can see all polls, others see polls targeted to them
-        const filteredPolls = pollsData.filter(poll => {
-          if (currentUserRole === 'admin') return true; // Admins see all polls
-          if (poll.target_roles.includes('all')) return true;
-          return poll.target_roles.includes(currentUserRole);
-        });
-
-        setPolls(filteredPolls);
-      } catch (error) {
-        console.error('Error fetching polls:', error);
-        alert('Failed to fetch polls.');
-      }
+      if (error) throw error;
+      setPolls(data || []);
+    } catch (error) {
+      console.error('Error fetching polls:', error);
     }
-    setLoading(false);
   };
 
   useFocusEffect(
     React.useCallback(() => {
-      if (route.params?.pollCreated) {
-        showToast('Poll created successfully!', 'success');
-        initializeScreen();
-        navigation.setParams({ pollCreated: false });
-      }
-    }, [route.params?.pollCreated])
-  );
-
-  useEffect(() => {
-    if (schoolId) {
       initializeScreen();
-    } else {
-      setLoading(false);
-    }
-  }, [schoolId]);
+    }, [schoolId])
+  );
 
   const handleVote = async (pollId, option) => {
     try {
@@ -99,7 +83,8 @@ export default function PollsScreen({ navigation, route }) {
 
       if (error) throw error;
 
-      showToast('Vote cast successfully!', 'success');
+      awardXP('poll_vote', 5);
+      showToast('Vote cast successfully! +5 XP', 'success');
       setIsVoteModalVisible(false);
       initializeScreen();
     } catch (error) {

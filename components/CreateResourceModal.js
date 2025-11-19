@@ -13,8 +13,11 @@ import ReactNativeBlobUtil from 'react-native-blob-util';
 import { Picker } from '@react-native-picker/picker';
 import { useSchool } from '../context/SchoolContext';
 import { supabase } from '../lib/supabase';
+import { useGamification } from '../context/GamificationContext';
 
 export default function CreateResourceModal({ visible, onClose }) {
+  const gamificationData = useGamification();
+  const { awardXP = () => { } } = gamificationData || {};
   const { schoolId } = useSchool();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -94,6 +97,7 @@ export default function CreateResourceModal({ visible, onClose }) {
           school_id: schoolId,
         },
       ]);
+      awardXP('resource_creation', 20);
 
       // Reset UI
       onClose();

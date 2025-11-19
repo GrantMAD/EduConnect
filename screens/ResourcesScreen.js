@@ -8,100 +8,104 @@ import ResourceDetailModal from '../components/ResourceDetailModal';
 import { useSchool } from '../context/SchoolContext';
 import RNFetchBlob from 'rn-fetch-blob';
 import FileViewer from 'react-native-file-viewer';
+import { useGamification } from '../context/GamificationContext';
 
 export default function ResourcesScreen() {
   const { schoolId } = useSchool();
-  const [resources, setResources] = useState({});
-  const [filteredResources, setFilteredResources] = useState({});
-  const [searchTerm, setSearchTerm] = useState('');
+  const gamificationData = useGamification();
+  const { awardXP = () => { } } = gamificationData || {};
+
+  const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState(null);
+  const [userRole, setUserRole] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedResource, setSelectedResource] = useState(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [selectedResource, setSelectedResource] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    if (schoolId) {
-      fetchUserRole();
-      fetchResources();
-    }
+    fetchUserRole();
+    fetchResources();
   }, [schoolId]);
 
-  useEffect(() => {
-    const lowercasedFilter = searchTerm.toLowerCase();
-    const filteredData = Object.keys(resources).reduce((acc, category) => {
-      const categoryResources = resources[category].filter((resource) =>
-        resource.title.toLowerCase().includes(lowercasedFilter)
-      );
-      if (categoryResources.length > 0) {
-        acc[category] = categoryResources;
-      }
-      return acc;
-    }, {});
-    setFilteredResources(filteredData);
-  }, [searchTerm, resources]);
-
   const fetchUserRole = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data, error } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-    if (!error) setUserRole(data.role);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+      setUserRole(data.role);
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+    }
   };
 
   const fetchResources = async () => {
     if (!schoolId) return;
-    const { data, error } = await supabase
-      .from('resources')
-      .select(`
-        id,
-        title,
-        description,
-        file_url,
-        uploaded_by,
-        created_at,
-        category,
-        users:uploaded_by(full_name,email),
-        votes:resource_votes(vote)
-      `)
-      .eq('school_id', schoolId)
-      .order('created_at', { ascending: false });
 
-    if (!error) {
-      const groupedResources = data.reduce((acc, resource) => {
-        const category = resource.category || 'Uncategorized';
-        if (!acc[category]) acc[category] = [];
-        // Count votes
-        const upvotes = resource.votes.filter(v => v.vote === 1).length;
-        const downvotes = resource.votes.filter(v => v.vote === -1).length;
-        acc[category].push({ ...resource, upvotes, downvotes });
-        return acc;
-      }, {});
-
-      // Sort resources within each category by upvotes
-      for (const category in groupedResources) {
-        groupedResources[category].sort((a, b) => b.upvotes - a.upvotes);
-      }
-
-      setResources(groupedResources);
-    }
-    setLoading(false);
-  };
-
-  const handleOpenFile = async (url) => {
-    if (!url) return;
+    setLoading(true);
     try {
-      const localPath = `${RNFetchBlob.fs.dirs.CacheDir}/${url.split('/').pop()}`;
-      await RNFetchBlob.config({ path: localPath }).fetch('GET', url);
-      await FileViewer.open(localPath);
-    } catch (err) {
+      const { data, error } = await supabase
+        .from('resources')
+        .select(`
+          *,
+          users (full_name, email)
+        `)
+        .eq('school_id', schoolId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Calculate vote counts for each resource
+      const resourcesWithVotes = await Promise.all(
+        data.map(async (resource) => {
+          const { data: votes } = await supabase
+            .from('resource_votes')
+            .select('vote')
+            .eq('resource_id', resource.id);
+
+          const upvotes = votes?.filter(v => v.vote === 1).length || 0;
+          const downvotes = votes?.filter(v => v.vote === -1).length || 0;
+
+          return { ...resource, upvotes, downvotes };
+        })
+      );
+
+      setResources(resourcesWithVotes);
+    } catch (error) {
+      console.error('Error fetching resources:', error);
+    } finally {
+      setLoading(false);
       console.error('Cannot open file:', err);
       alert('Failed to open file. Make sure you have an app that can open this file type.');
     }
   };
+
+  // Group resources by category
+  const groupedResources = resources.reduce((acc, resource) => {
+    const category = resource.category || 'General';
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(resource);
+    return acc;
+  }, {});
+
+  // Filter resources by search term
+  const filteredResources = Object.keys(groupedResources).reduce((acc, category) => {
+    const filtered = groupedResources[category].filter(resource =>
+      resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      resource.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    if (filtered.length > 0) {
+      acc[category] = filtered;
+    }
+    return acc;
+  }, {});
 
   if (loading) return <ActivityIndicator size="large" style={{ marginTop: 40 }} />;
 
@@ -182,8 +186,7 @@ export default function ResourcesScreen() {
         visible={detailModalVisible}
         onClose={() => setDetailModalVisible(false)}
         resource={selectedResource}
-        onOpenFile={handleOpenFile}
-        onVotesChanged={fetchResources} 
+        onVotesChanged={fetchResources}
       />
     </View>
   );

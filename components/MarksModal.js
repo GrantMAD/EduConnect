@@ -7,42 +7,15 @@ import { useToast } from '../context/ToastContext';
 
 const defaultUserImage = require("../assets/user.png");
 
+import { useGamification } from '../context/GamificationContext';
+
 const MarksModal = ({ visible, onClose, classId, classMembers }) => {
   const { showToast } = useToast();
-  const [marks, setMarks] = useState({});
-  const [saving, setSaving] = useState(false);
+  const gamificationData = useGamification();
+  const { awardXP = () => { } } = gamificationData || {};
+  // ... existing state
 
-  const handleAddMark = (studentId) => {
-    setMarks((prevMarks) => {
-      const studentMarks = prevMarks[studentId] || [];
-      return {
-        ...prevMarks,
-        [studentId]: [...studentMarks, { assessmentName: '', mark: '', assessmentType: 'test' }],
-      };
-    });
-  };
-
-  const handleMarkChange = (studentId, index, field, value) => {
-    setMarks((prevMarks) => {
-      const studentMarks = [...prevMarks[studentId]];
-      studentMarks[index] = { ...studentMarks[index], [field]: value };
-      return {
-        ...prevMarks,
-        [studentId]: studentMarks,
-      };
-    });
-  };
-
-  const handleRemoveMark = (studentId, index) => {
-    setMarks((prevMarks) => {
-      const studentMarks = [...prevMarks[studentId]];
-      studentMarks.splice(index, 1);
-      return {
-        ...prevMarks,
-        [studentId]: studentMarks,
-      };
-    });
-  };
+  // ...
 
   const saveMarks = async () => {
     setSaving(true);
@@ -79,7 +52,11 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
 
       if (error) throw error;
 
-      showToast('Marks saved successfully.', 'success');
+      // Award XP: 5 XP per student mark entered
+      const xpEarned = marksToSave.length * 5;
+      awardXP('marks_entry', xpEarned);
+
+      showToast(`Marks saved successfully. +${xpEarned} XP`, 'success');
       setMarks({});
       onClose(true); // Pass true to indicate success
     } catch (error) {
@@ -107,8 +84,8 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
       </View>
       {marks[student.users.id] && marks[student.users.id].map((mark, index) => (
         <View key={index} style={styles.markEntryContainer}>
-          <View style={[styles.assessmentTypeContainer, {justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 10}]}>
-            <View style={{flexDirection: 'row'}}>
+          <View style={[styles.assessmentTypeContainer, { justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 10 }]}>
+            <View style={{ flexDirection: 'row' }}>
               <TouchableOpacity
                 style={[styles.assessmentTypeButton, mark.assessmentType === 'test' && styles.assessmentTypeButtonSelected]}
                 onPress={() => handleMarkChange(student.users.id, index, 'assessmentType', 'test')}
@@ -122,22 +99,22 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
                 <Text style={[styles.assessmentTypeButtonText, mark.assessmentType === 'assignment' && styles.assessmentTypeButtonTextSelected]}>Assignment</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={() => handleRemoveMark(student.users.id, index)} style={{alignSelf: 'center'}}>
+            <TouchableOpacity onPress={() => handleRemoveMark(student.users.id, index)} style={{ alignSelf: 'center' }}>
               <FontAwesomeIcon icon={faMinusCircle} size={20} color="#dc3545" />
             </TouchableOpacity>
           </View>
-          <View style={[styles.markInputRow, {paddingHorizontal: 10}]}>
-            <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10, marginRight: 10}}>
-              <FontAwesomeIcon icon={faTag} size={16} color="#888" style={{marginRight: 5}} />
+          <View style={[styles.markInputRow, { paddingHorizontal: 10 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, marginRight: 10 }}>
+              <FontAwesomeIcon icon={faTag} size={16} color="#888" style={{ marginRight: 5 }} />
               <TextInput
-                style={[styles.markInput, {flex: 1}]}
+                style={[styles.markInput, { flex: 1 }]}
                 placeholder="Assessment Name"
                 value={mark.assessmentName}
                 onChangeText={(text) => handleMarkChange(student.users.id, index, 'assessmentName', text)}
               />
             </View>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <FontAwesomeIcon icon={faGraduationCap} size={16} color="#888" style={{marginRight: 5}} />
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <FontAwesomeIcon icon={faGraduationCap} size={16} color="#888" style={{ marginRight: 5 }} />
               <TextInput
                 style={[styles.markInput, { width: 80 }]}
                 placeholder="Mark"
@@ -156,8 +133,8 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <FontAwesomeIcon icon={faPencilAlt} size={20} color="#007AFF" style={{marginRight: 10}} />
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <FontAwesomeIcon icon={faPencilAlt} size={20} color="#007AFF" style={{ marginRight: 10 }} />
               <Text style={styles.modalTitle}>Enter Marks</Text>
             </View>
             <TouchableOpacity onPress={() => onClose(false)}>

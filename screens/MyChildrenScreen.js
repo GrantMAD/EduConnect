@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faUser, faChalkboard, faCheckCircle, faTimesCircle, faChevronDown, faChevronUp, faTag, faGraduationCap, faCalendarCheck } from '@fortawesome/free-solid-svg-icons';
 import MyChildrenScreenSkeleton from '../components/skeletons/MyChildrenScreenSkeleton';
+import { useGamification } from '../context/GamificationContext';
 
 
 const defaultUserImage = require('../assets/user.png');
@@ -95,7 +96,7 @@ const ChildItem = ({ child, theme }) => {
                 <View key={index} style={[styles.classContainer, { backgroundColor: theme.colors.background }]}>
                   <View style={styles.classHeader}>
                     <FontAwesomeIcon icon={faChalkboard} size={16} color={theme.colors.primary} />
-                    <View style={{flex: 1, flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap'}}>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap' }}>
                       <Text style={[styles.className, { color: theme.colors.text }]}>{classInfo.classes?.name || 'Unknown Class'}</Text>
                       {classInfo.classes?.teacher?.full_name && (
                         <Text style={[styles.teacherName, { color: theme.colors.placeholder }]}> (Teacher: {classInfo.classes.teacher.full_name})</Text>
@@ -105,11 +106,11 @@ const ChildItem = ({ child, theme }) => {
 
                   {classInfo.fullAttendance.length > 0 ? (
                     <>
-                      <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                        <FontAwesomeIcon icon={faCalendarCheck} size={16} color={theme.colors.primary} style={{marginRight: 5}} />
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <FontAwesomeIcon icon={faCalendarCheck} size={16} color={theme.colors.primary} style={{ marginRight: 5 }} />
                         <Text style={[styles.attendanceSectionTitle, { color: theme.colors.text }]}>Attendance</Text>
                       </View>
-                      <Text style={[styles.sectionDescription, {color: theme.colors.placeholder}]}>Here is the attendance for this class.</Text>
+                      <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Here is the attendance for this class.</Text>
                       <View style={styles.attendanceGrid}>
                         {classInfo.fullAttendance.map((entry) => {
                           const isPresent = entry.status === 'present';
@@ -117,14 +118,14 @@ const ChildItem = ({ child, theme }) => {
                           const isUnmarked = entry.status === 'unmarked';
 
                           const itemBackgroundColor = isPresent ? theme.colors.success + '20' :
-                                                      isAbsent ? theme.colors.error + '20' :
-                                                      theme.colors.placeholder + '20'; // Light gray for unmarked
+                            isAbsent ? theme.colors.error + '20' :
+                              theme.colors.placeholder + '20'; // Light gray for unmarked
                           const itemTextColor = isPresent ? theme.colors.success :
-                                                isAbsent ? theme.colors.error :
-                                                theme.colors.placeholder; // Gray for unmarked
+                            isAbsent ? theme.colors.error :
+                              theme.colors.placeholder; // Gray for unmarked
                           const itemIcon = isPresent ? faCheckCircle :
-                                           isAbsent ? faTimesCircle :
-                                           faUser; // A generic user icon for unmarked
+                            isAbsent ? faTimesCircle :
+                              faUser; // A generic user icon for unmarked
 
                           return (
                             <View key={entry.date} style={[styles.attendanceItem, { backgroundColor: itemBackgroundColor }]}>
@@ -149,45 +150,45 @@ const ChildItem = ({ child, theme }) => {
                   {classInfo.marks.length > 0 && (
                     <>
                       <View style={styles.horizontalRule} />
-                      <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                        <FontAwesomeIcon icon={faGraduationCap} size={16} color={theme.colors.primary} style={{marginRight: 5}} />
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <FontAwesomeIcon icon={faGraduationCap} size={16} color={theme.colors.primary} style={{ marginRight: 5 }} />
                         <Text style={[styles.marksSectionTitle, { color: theme.colors.text }]}>Marks</Text>
                       </View>
-                      <Text style={[styles.sectionDescription, {color: theme.colors.placeholder}]}>Here are the marks for this class.</Text>
+                      <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Here are the marks for this class.</Text>
                       <Text style={[styles.marksHeader, { color: theme.colors.text }]}>Tests</Text>
                       {classInfo.marks.filter(m => m.assessment_name.toLowerCase().startsWith('test:')).length > 0 ? (
                         classInfo.marks.filter(m => m.assessment_name.toLowerCase().startsWith('test:')).map((mark, index) => (
                           <View key={index} style={styles.markItem}>
-                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                              <FontAwesomeIcon icon={faTag} size={14} color={theme.colors.placeholder} style={{marginRight: 5}} />
-                              <Text style={[styles.markAssessmentName, {color: theme.colors.text}]}>{mark.assessment_name.replace(/test: /i, '')}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <FontAwesomeIcon icon={faTag} size={14} color={theme.colors.placeholder} style={{ marginRight: 5 }} />
+                              <Text style={[styles.markAssessmentName, { color: theme.colors.text }]}>{mark.assessment_name.replace(/test: /i, '')}</Text>
                             </View>
-                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                              <FontAwesomeIcon icon={faGraduationCap} size={14} color={theme.colors.placeholder} style={{marginRight: 5}} />
-                              <Text style={[styles.markValue, {color: theme.colors.primary}]}>{mark.mark}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <FontAwesomeIcon icon={faGraduationCap} size={14} color={theme.colors.placeholder} style={{ marginRight: 5 }} />
+                              <Text style={[styles.markValue, { color: theme.colors.primary }]}>{mark.mark}</Text>
                             </View>
                           </View>
                         ))
                       ) : (
-                        <Text style={[styles.emptyText, {color: theme.colors.placeholder}]}>No tests recorded.</Text>
+                        <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No tests recorded.</Text>
                       )}
 
                       <Text style={[styles.marksHeader, { color: theme.colors.text, marginTop: 10 }]}>Assignments</Text>
                       {classInfo.marks.filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).length > 0 ? (
                         classInfo.marks.filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).map((mark, index) => (
                           <View key={index} style={styles.markItem}>
-                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                              <FontAwesomeIcon icon={faTag} size={14} color={theme.colors.placeholder} style={{marginRight: 5}} />
-                              <Text style={[styles.markAssessmentName, {color: theme.colors.text}]}>{mark.assessment_name.replace(/assignment: /i, '')}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <FontAwesomeIcon icon={faTag} size={14} color={theme.colors.placeholder} style={{ marginRight: 5 }} />
+                              <Text style={[styles.markAssessmentName, { color: theme.colors.text }]}>{mark.assessment_name.replace(/assignment: /i, '')}</Text>
                             </View>
-                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                              <FontAwesomeIcon icon={faGraduationCap} size={14} color={theme.colors.placeholder} style={{marginRight: 5}} />
-                              <Text style={[styles.markValue, {color: theme.colors.primary}]}>{mark.mark}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <FontAwesomeIcon icon={faGraduationCap} size={14} color={theme.colors.placeholder} style={{ marginRight: 5 }} />
+                              <Text style={[styles.markValue, { color: theme.colors.primary }]}>{mark.mark}</Text>
                             </View>
                           </View>
                         ))
                       ) : (
-                        <Text style={[styles.emptyText, {color: theme.colors.placeholder}]}>No assignments recorded.</Text>
+                        <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No assignments recorded.</Text>
                       )}
                     </>
                   )}
@@ -205,6 +206,8 @@ export default function MyChildrenScreen() {
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
   const { theme } = useTheme();
+  const gamificationData = useGamification();
+  const { awardXP = () => { } } = gamificationData || {};
 
   const fetchAssociatedChildren = useCallback(async () => {
     setLoading(true);
@@ -239,6 +242,8 @@ export default function MyChildrenScreen() {
 
   useEffect(() => {
     fetchAssociatedChildren();
+    // Award Daily Check-in XP
+    awardXP('daily_check_in', 5);
   }, [fetchAssociatedChildren]);
 
   if (loading) {
