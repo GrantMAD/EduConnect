@@ -28,6 +28,7 @@ import MyChildrenScreen from '../screens/MyChildrenScreen';
 import ResourcesScreen from '../screens/ResourcesScreen';
 import PollsScreen from '../screens/PollsScreen';
 import CreatePollScreen from '../screens/CreatePollScreen';
+import DashboardScreen from '../screens/DashboardScreen';
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -60,6 +61,7 @@ const MainStackNavigator = () => (
     <Stack.Screen name="Resources" component={ResourcesScreen} />
     <Stack.Screen name="Polls" component={PollsScreen} />
     <Stack.Screen name="CreatePoll" component={CreatePollScreen} />
+    <Stack.Screen name="Dashboard" component={DashboardScreen} />
   </Stack.Navigator>
 );
 

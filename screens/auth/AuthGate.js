@@ -13,7 +13,7 @@ const AuthGate = () => {
 
       if (error) {
         console.error('Error fetching user in AuthGate:', error.message);
-        navigation.replace('Auth'); // Navigate to Auth stack on error
+        await supabase.auth.signOut();
         return;
       }
 
@@ -27,7 +27,7 @@ const AuthGate = () => {
 
         if (profileError) {
           console.error('Error fetching user profile in AuthGate:', profileError.message);
-          navigation.replace('Auth'); // Navigate to Auth stack on error
+          await supabase.auth.signOut();
           return;
         }
 
@@ -46,7 +46,7 @@ const AuthGate = () => {
           navigation.replace('RoleSelection');
         }
       } else {
-        navigation.replace('Auth'); // No user, go to Auth stack
+        await supabase.auth.signOut();
       }
       setLoading(false);
     };

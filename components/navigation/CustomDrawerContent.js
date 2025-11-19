@@ -8,7 +8,8 @@ import {
     faBookOpen,
     faPoll,
     faGear,
-    faRightFromBracket
+    faRightFromBracket,
+    faChartLine
 } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
@@ -21,7 +22,22 @@ const CustomDrawerContent = (props) => {
     const [userEmail, setUserEmail] = useState(null);
     const [userRole, setUserRole] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [profileCompletion, setProfileCompletion] = useState(0);
     const { theme } = useTheme();
+
+    const calculateProfileCompletion = (profile) => {
+        let completed = 0;
+        const fields = [
+            profile?.full_name,
+            profile?.avatar_url,
+            profile?.number,
+            profile?.school_id
+        ];
+        fields.forEach(field => {
+            if (field) completed += 25;
+        });
+        return completed;
+    };
 
     const mainStackState = props.state.routes.find(route => route.name === 'MainStack')?.state;
     const activeMainStackRouteName = mainStackState?.routes[mainStackState.index]?.name;
@@ -42,8 +58,10 @@ const CustomDrawerContent = (props) => {
                         setUserAvatar(profile.avatar_url);
                         setUserName(profile.full_name || user.email);
                         setUserRole(profile.role);
+                        setProfileCompletion(calculateProfileCompletion(profile));
                     } else {
                         setUserName(user.email);
+                        setProfileCompletion(0);
                     }
                     setUserEmail(user.email);
                 }
@@ -109,8 +127,14 @@ const CustomDrawerContent = (props) => {
             >
 
                 <FontAwesomeIcon icon={faUser} size={18} color={theme.colors.primary} style={{ marginRight: 15 }} />
-                <View>
-                    <Text style={{ fontSize: 16, color: theme.colors.text, fontWeight: '500' }}>Profile</Text>
+                <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 4 }}>
+                        <Text style={{ fontSize: 16, color: theme.colors.text, fontWeight: '500', marginRight: 8 }}>Profile</Text>
+                        <View style={{ flex: 1, height: 4, backgroundColor: theme.colors.cardBorder, borderRadius: 2, overflow: 'hidden', marginRight: 6 }}>
+                            <View style={{ width: `${profileCompletion}%`, height: '100%', backgroundColor: theme.colors.primary, borderRadius: 2 }} />
+                        </View>
+                        <Text style={{ fontSize: 10, color: theme.colors.placeholder, fontWeight: '600', minWidth: 32 }}>{profileCompletion}%</Text>
+                    </View>
                     <Text style={{ fontSize: 12, color: theme.colors.placeholder }}>Manage your personal information</Text>
                 </View>
             </TouchableOpacity>
@@ -210,6 +234,27 @@ const CustomDrawerContent = (props) => {
             </TouchableOpacity>
 
             <View style={{ flex: 1 }} />
+
+            {['admin', 'teacher'].includes(userRole) && (
+                <TouchableOpacity
+                    onPress={() => props.navigation.navigate('MainStack', { screen: 'Dashboard' })}
+                    style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingVertical: 12,
+                        paddingHorizontal: 20,
+                        backgroundColor: activeMainStackRouteName === 'Dashboard' ? theme.colors.primary + '20' : 'transparent',
+                        borderRadius: 8,
+                        marginBottom: 12,
+                    }}
+                >
+                    <FontAwesomeIcon icon={faChartLine} size={18} color={theme.colors.primary} style={{ marginRight: 15 }} />
+                    <View>
+                        <Text style={{ fontSize: 16, color: theme.colors.text, fontWeight: '500' }}>Dashboard</Text>
+                        <Text style={{ fontSize: 12, color: theme.colors.placeholder }}>Monitor school activity</Text>
+                    </View>
+                </TouchableOpacity>
+            )}
 
             <TouchableOpacity
                 onPress={async () => {

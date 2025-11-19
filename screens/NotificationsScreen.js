@@ -61,6 +61,19 @@ export default function NotificationsScreen({ route, navigation }) {
         tableName = 'assignments';
         selectFields = 'title, description, due_date, file_url';
         break;
+      case 'new_poll':
+        // Navigate to Polls screen instead of showing modal
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', notification.id);
+
+        setNotifications(prev =>
+          prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
+        );
+
+        navigation.navigate('Polls');
+        return;
       default:
         return; // Not a pressable notification
     }
@@ -257,18 +270,21 @@ export default function NotificationsScreen({ route, navigation }) {
     const iconName = item.type === 'school_join_request'
       ? 'school'
       : item.type === 'new_general_announcement' || item.type === 'new_class_announcement'
-      ? 'bullhorn'
-      : item.type === 'added_to_class'
-      ? 'user-plus'
-      : item.type === 'new_homework' || item.type === 'new_assignment'
-      ? 'clipboard-list'
-      : 'bell';
+        ? 'bullhorn'
+        : item.type === 'added_to_class'
+          ? 'user-plus'
+          : item.type === 'new_homework' || item.type === 'new_assignment'
+            ? 'clipboard-list'
+            : item.type === 'new_poll'
+              ? 'poll'
+              : 'bell';
 
     const isPressable = [
-      'new_general_announcement', 
-      'new_class_announcement', 
-      'new_homework', 
-      'new_assignment'
+      'new_general_announcement',
+      'new_class_announcement',
+      'new_homework',
+      'new_assignment',
+      'new_poll'
     ].includes(item.type);
 
     return (
@@ -476,7 +492,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  unreadCard: { },
+  unreadCard: {},
   icon: { marginRight: 16, marginTop: 4 },
   contentContainer: { flex: 1 },
   title: { fontSize: 17, fontWeight: '600', marginBottom: 4 },
@@ -485,8 +501,8 @@ const styles = StyleSheet.create({
   date: { fontSize: 12, textAlign: 'left' },
   buttonsRow: { flexDirection: 'row', marginTop: 12 },
   button: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, marginRight: 10 },
-  acceptButton: { },
-  declineButton: { },
+  acceptButton: {},
+  declineButton: {},
   buttonText: { fontWeight: 'bold' },
   statusText: { marginTop: 8, fontStyle: 'italic', fontSize: 14 },
   actionsContainer: { flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', marginLeft: 16 },

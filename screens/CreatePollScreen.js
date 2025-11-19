@@ -5,12 +5,14 @@ import { useSchool } from '../context/SchoolContext';
 import { useTheme } from '../context/ThemeContext';
 import { Picker } from '@react-native-picker/picker';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faPlus, faMinus, faQuestionCircle, faListOl, faUsers } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faMinus, faQuestionCircle, faListOl, faUsers, faCalendar } from '@fortawesome/free-solid-svg-icons';
+import { Calendar } from 'react-native-calendars';
 
 export default function CreatePollScreen({ navigation }) {
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '']);
   const [targetRoles, setTargetRoles] = useState(['all']);
+  const [endDate, setEndDate] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { schoolId } = useSchool();
   const { theme } = useTheme();
@@ -37,22 +39,67 @@ export default function CreatePollScreen({ navigation }) {
       return;
     }
 
+    if (!endDate) {
+      alert('Please select an end date for the poll.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      const { data, error } = await supabase.from('polls').insert([
-        {
-          question,
-          options,
-          created_by: user.id,
-          school_id: schoolId,
-          target_roles: targetRoles,
-        },
-      ]);
+      const pollData = {
+        question,
+        options,
+        created_by: user.id,
+        school_id: schoolId,
+        target_roles: targetRoles,
+        end_date: new Date(endDate).toISOString(),
+      };
 
-      if (error) throw error;
+      // Insert the poll
+      const { data: insertedPoll, error: pollError } = await supabase.from('polls').insert([pollData]).select();
+
+      if (pollError) throw pollError;
+
+      const newPoll = insertedPoll[0];
+
+      // Fetch users to notify based on target_roles
+      let usersQuery = supabase
+        .from('users')
+        .select('id')
+        .eq('school_id', schoolId)
+        .neq('id', user.id); // Don't notify the creator
+
+      // Filter by roles if not 'all'
+      if (!targetRoles.includes('all')) {
+        usersQuery = usersQuery.in('role', targetRoles);
+      }
+
+      const { data: usersToNotify, error: usersError } = await usersQuery;
+
+      if (usersError) {
+        console.error('Error fetching users to notify:', usersError);
+      } else if (usersToNotify && usersToNotify.length > 0) {
+        // Create notifications for all target users
+        const notifications = usersToNotify.map(targetUser => ({
+          user_id: targetUser.id,
+          type: 'new_poll',
+          title: 'New Poll Available',
+          message: `A new poll has been created: "${question}"`,
+          data: { poll_id: newPoll.id },
+          is_read: false,
+        }));
+
+        const { error: notifError } = await supabase
+          .from('notifications')
+          .insert(notifications);
+
+        if (notifError) {
+          console.error('Error creating notifications:', notifError);
+        }
+      }
 
       navigation.navigate('Polls', { pollCreated: true });
     } catch (error) {
@@ -64,7 +111,10 @@ export default function CreatePollScreen({ navigation }) {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      contentContainerStyle={{ paddingBottom: 40 }}
+    >
       <Text style={[styles.header, { color: theme.colors.text }]}>Create a New Poll</Text>
       <Text style={[styles.description, { color: theme.colors.text }]}>
         Create a poll to gather opinions from the school community.
@@ -126,6 +176,39 @@ export default function CreatePollScreen({ navigation }) {
           <Picker.Item label="Students" value="student" />
         </Picker>
       </View>
+
+      <Text style={[styles.label, { color: theme.colors.text }]}>Poll End Date:</Text>
+      <Text style={[styles.labelDescription, { color: theme.colors.text }]}>
+        Select when this poll should close and stop accepting votes.
+      </Text>
+      <Calendar
+        minDate={new Date().toISOString().split('T')[0]}
+        onDayPress={(day) => {
+          setEndDate(day.dateString);
+        }}
+        markedDates={{
+          [endDate]: { selected: true, marked: true, selectedColor: theme.colors.primary },
+        }}
+        style={styles.calendar}
+        theme={{
+          backgroundColor: theme.colors.background,
+          calendarBackground: theme.colors.background,
+          dayTextColor: theme.colors.text,
+          textDisabledColor: theme.colors.placeholder,
+          monthTextColor: theme.colors.text,
+          textSectionTitleColor: theme.colors.text,
+          selectedDayBackgroundColor: theme.colors.primary,
+          selectedDayTextColor: '#ffffff',
+          todayTextColor: theme.colors.primary,
+          arrowColor: theme.colors.primary,
+          dotColor: theme.colors.primary,
+        }}
+      />
+      {endDate ? (
+        <View style={styles.selectedDateCard}>
+          <Text style={[styles.selectedDateText, { color: theme.colors.text }]}>Selected End Date: {endDate}</Text>
+        </View>
+      ) : null}
 
       <TouchableOpacity
         style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
@@ -231,5 +314,21 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 18,
+  },
+  calendar: {
+    marginBottom: 10,
+  },
+  selectedDateCard: {
+    backgroundColor: '#f8f8f8',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  selectedDateText: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

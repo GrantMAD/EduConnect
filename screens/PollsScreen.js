@@ -6,7 +6,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faPlus, faPoll } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faPoll, faClock, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import CardListSkeleton from '../components/skeletons/CardListSkeleton';
 import PollVoteModal from '../components/PollVoteModal';
 
@@ -54,7 +54,9 @@ export default function PollsScreen({ navigation, route }) {
 
         if (pollsError) throw pollsError;
 
+        // Admins can see all polls, others see polls targeted to them
         const filteredPolls = pollsData.filter(poll => {
+          if (currentUserRole === 'admin') return true; // Admins see all polls
           if (poll.target_roles.includes('all')) return true;
           return poll.target_roles.includes(currentUserRole);
         });
@@ -113,19 +115,38 @@ export default function PollsScreen({ navigation, route }) {
   const renderPollCard = (item) => {
     const userVote = item.poll_votes.find(vote => vote.user_id === userId);
     const totalVotes = item.poll_votes.length;
+    const isExpired = item.end_date ? new Date(item.end_date) < new Date() : false;
 
     return (
       <View style={[styles.card, { backgroundColor: theme.dark ? '#282828' : '#f0f0f0' }]}>
         <View style={styles.cardContent}>
-          {userVote ? (
+          {userVote || isExpired ? (
             <>
               <View style={styles.cardHeader}>
                 <FontAwesomeIcon icon={faPoll} size={20} color={theme.colors.primary} />
                 <Text style={[styles.cardTitle, { color: theme.colors.text }]} numberOfLines={2}>{item.question}</Text>
               </View>
-              <Text style={[styles.cardMeta, { color: theme.colors.text }]}>
-                Created by {item.users.full_name} on {new Date(item.created_at).toLocaleDateString()}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <Text style={[styles.cardMeta, { color: theme.colors.text }]}>
+                  Created by {item.users.full_name} on {new Date(item.created_at).toLocaleDateString()}
+                </Text>
+              </View>
+              {item.end_date && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <FontAwesomeIcon icon={isExpired ? faCheckCircle : faClock} size={14} color={isExpired ? theme.colors.error : theme.colors.primary} style={{ marginRight: 6 }} />
+                  <Text style={[styles.endDateText, { color: isExpired ? theme.colors.error : theme.colors.text }]}>
+                    {isExpired ? 'Ended' : 'Ends'}: {new Date(item.end_date).toLocaleDateString()} at {new Date(item.end_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                </View>
+              )}
+              {userVote && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: theme.colors.success + '20', padding: 8, borderRadius: 6 }}>
+                  <FontAwesomeIcon icon={faCheckCircle} size={14} color={theme.colors.success} style={{ marginRight: 6 }} />
+                  <Text style={[styles.votedText, { color: theme.colors.success }]}>
+                    You have already voted on this poll
+                  </Text>
+                </View>
+              )}
               <View style={styles.resultsContainer}>
                 {item.options.map((option, idx) => {
                   const voteCount = item.poll_votes.filter(v => v.selected_option === option).length;
@@ -157,6 +178,14 @@ export default function PollsScreen({ navigation, route }) {
                 <Text style={[styles.cardMeta, { color: theme.colors.text }]}>
                   Created by {item.users.full_name} on {new Date(item.created_at).toLocaleDateString()}
                 </Text>
+                {item.end_date && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                    <FontAwesomeIcon icon={faClock} size={14} color={theme.colors.primary} style={{ marginRight: 6 }} />
+                    <Text style={[styles.endDateText, { color: theme.colors.text }]}>
+                      Ends: {new Date(item.end_date).toLocaleDateString()} at {new Date(item.end_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
+                )}
               </View>
               <View style={styles.cardAction}>
                 <TouchableOpacity
@@ -268,4 +297,6 @@ const styles = StyleSheet.create({
   resultPercentage: { fontSize: 14, fontWeight: 'bold' },
   progressTrack: { height: 8, borderRadius: 4, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 4 },
+  endDateText: { fontSize: 12, fontWeight: '500' },
+  votedText: { fontSize: 14, fontWeight: '600' },
 });
