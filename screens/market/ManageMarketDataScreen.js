@@ -8,14 +8,13 @@ import {
   RefreshControl,
   TouchableOpacity,
   Alert,
-  Image,
 } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import ManagementListSkeleton from '../../components/skeletons/ManagementListSkeleton';
-import { faPlus, faEdit, faTrash, faStore, faTag, faDollarSign, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faStore } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../../lib/supabase';
 import ManageMarketItemListItem from '../../components/ManageMarketItemListItem';
-import Modal from 'react-native-modal';
+import MarketplaceItemDetailModal from '../../components/MarketplaceItemDetailModal';
 import { useToast } from '../../context/ToastContext';
 
 export default function ManageMarketDataScreen({ navigation }) {
@@ -120,48 +119,13 @@ export default function ManageMarketDataScreen({ navigation }) {
         <FontAwesomeIcon icon={faPlus} size={24} color="#fff" />
       </TouchableOpacity>
 
-      <Modal
-        isVisible={modalVisible}
-        onBackdropPress={() => setModalVisible(false)}
-        animationIn="fadeInUp"
-        animationOut="fadeOutDown"
-        backdropOpacity={0.4}
-      >
-        <View style={styles.modalContent}>
-          <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseButton}>
-            <FontAwesomeIcon icon={faTimes} size={20} color="#666" />
-          </TouchableOpacity>
-
-          {selectedItemForModal && (
-            <View>
-              <Image
-                source={{ uri: selectedItemForModal?.image_url || 'https://via.placeholder.com/150' }}
-                style={styles.modalImage}
-              />
-              <Text style={styles.modalTitle}>{selectedItemForModal.title}</Text>
-              <Text style={styles.modalDescription}>{selectedItemForModal.description}</Text>
-              <View style={styles.modalDetailRow}>
-                <FontAwesomeIcon icon={faTag} size={16} color="#007AFF" style={styles.modalIcon} />
-                <Text style={styles.modalDetailText}>Category: {selectedItemForModal.category}</Text>
-              </View>
-              <View style={styles.modalDetailRow}>
-                <FontAwesomeIcon icon={faDollarSign} size={16} color="#007AFF" style={styles.modalIcon} />
-                <Text style={styles.modalDetailText}>Price: R {selectedItemForModal.price.toFixed(2)}</Text>
-              </View>
-              <View style={styles.modalButtonContainer}>
-                <TouchableOpacity style={[styles.modalButton, styles.modalEditButton]} onPress={() => handleEdit(selectedItemForModal)}>
-                  <FontAwesomeIcon icon={faEdit} size={16} color="#fff" />
-                  <Text style={styles.modalButtonText}>Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.modalButton, styles.modalDeleteButton]} onPress={() => handleDelete(selectedItemForModal.id)}>
-                  <FontAwesomeIcon icon={faTrash} size={16} color="#fff" />
-                  <Text style={styles.modalButtonText}>Delete</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-        </View>
-      </Modal>
+      <MarketplaceItemDetailModal
+        visible={modalVisible}
+        item={selectedItemForModal}
+        onClose={() => setModalVisible(false)}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
     </View>
   );
 }
@@ -205,75 +169,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 10,
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 22,
-    borderRadius: 10,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
-    alignItems: 'center',
-  },
-  modalCloseButton: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    padding: 5,
-    zIndex: 1,
-  },
-  modalImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 15,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  modalDescription: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  modalDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    width: '100%',
-    justifyContent: 'center',
-  },
-  modalIcon: {
-    marginRight: 10,
-  },
-  modalDetailText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  modalButtonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 20,
-    width: '100%',
-  },
-  modalButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-  },
-  modalEditButton: {
-    backgroundColor: '#007AFF',
-  },
-  modalDeleteButton: {
-    backgroundColor: '#ff3b30',
-  },
-  modalButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    marginLeft: 5,
   },
 });

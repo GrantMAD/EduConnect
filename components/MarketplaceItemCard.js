@@ -8,6 +8,18 @@ const MarketplaceItemCard = ({ item, onViewSeller, onEdit, onDelete }) => {
   const { theme } = useTheme(); // Use the theme hook
   const CardWrapper = onViewSeller ? TouchableOpacity : View;
 
+  const getCategoryColor = (category) => {
+    switch (category) {
+      case 'Books': return '#FF9500'; // Orange
+      case 'Electronics': return '#007AFF'; // Blue
+      case 'Stationery': return '#AF52DE'; // Purple
+      case 'Furniture': return '#5856D6'; // Indigo
+      case 'Clothing': return '#FF2D55'; // Pink
+      case 'Other': return '#8E8E93'; // Gray
+      default: return theme.colors.primary;
+    }
+  };
+
   return (
     <CardWrapper style={[styles.card, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }]} {...(onViewSeller && { onPress: () => onViewSeller(item.seller) })}>
       <View style={styles.imageContainer}>
@@ -15,13 +27,20 @@ const MarketplaceItemCard = ({ item, onViewSeller, onEdit, onDelete }) => {
           source={{ uri: item.image_url || 'https://via.placeholder.com/150' }}
           style={styles.image}
         />
+        {item.category && (
+          <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(item.category) }]}>
+            <Text style={styles.categoryText}>{item.category}</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.infoContainer}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>{item.title}</Text>
-        <Text style={[styles.description, { color: theme.colors.text }]} numberOfLines={2}>
-          {item.description}
-        </Text>
+        <View>
+          <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
+          <Text style={[styles.description, { color: theme.colors.text }]} numberOfLines={2}>
+            {item.description}
+          </Text>
+        </View>
 
         <Text style={[styles.price, { color: theme.colors.primary }]}>R {item.price.toFixed(2)}</Text>
       </View>
@@ -54,6 +73,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 4,
+    height: 320, // Fixed height for consistency
   },
   imageContainer: {
     position: 'relative',
@@ -62,8 +82,24 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 180,
   },
+  categoryBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    zIndex: 1,
+  },
+  categoryText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   infoContainer: {
     padding: 14,
+    flex: 1,
+    justifyContent: 'space-between',
   },
   title: {
     fontSize: 18,

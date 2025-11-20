@@ -116,25 +116,23 @@ export default function SettingsScreen({ navigation }) {
         </View>
       )}
 
-      {user && user.role === 'admin' && (
-        <View>
-          <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
-          <View style={styles.section}>
-            <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Marketplace</Text>
-            <Text style={[styles.sectionDescription, { color: theme.colors.text }]}>Manage your marketplace items.</Text>
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => navigation.navigate('ManageMarketData')}
-            >
-              <FontAwesomeIcon icon={faStore} size={18} color={theme.colors.primary} />
-              <View>
-                <Text style={[styles.buttonText, { color: theme.colors.text }]}>Manage Market Data</Text>
-                <Text style={[styles.buttonDescription, { color: theme.colors.placeholder }]}>Oversee marketplace items.</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
+      <View>
+        <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
+        <View style={styles.section}>
+          <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Marketplace</Text>
+          <Text style={[styles.sectionDescription, { color: theme.colors.text }]}>Manage your marketplace items.</Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => navigation.navigate('ManageMarketData')}
+          >
+            <FontAwesomeIcon icon={faStore} size={18} color={theme.colors.primary} />
+            <View>
+              <Text style={[styles.buttonText, { color: theme.colors.text }]}>Manage Market Data</Text>
+              <Text style={[styles.buttonDescription, { color: theme.colors.placeholder }]}>Oversee marketplace items.</Text>
+            </View>
+          </TouchableOpacity>
         </View>
-      )}
+      </View>
     </ScrollView>
   );
 }

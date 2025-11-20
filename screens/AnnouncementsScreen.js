@@ -44,14 +44,15 @@ export default function AnnouncementsScreen({ navigation }) {
   const [allClasses, setAllClasses] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
-  const [schoolData, setSchoolData] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const { schoolId } = useSchool();
+  const { schoolId, loadingSchool, schoolData } = useSchool();
   const { theme } = useTheme(); // Use the theme hook
 
   useEffect(() => {
     const initializeUserAndClasses = async () => {
+      if (loadingSchool) return; // Wait for school data to load
+
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -62,12 +63,16 @@ export default function AnnouncementsScreen({ navigation }) {
       }
       await fetchUserClasses();
       await fetchAllClasses();
-      await fetchSchoolData();
+
+      if (schoolData?.logo_url) {
+        await Image.prefetch(schoolData.logo_url);
+      }
+
       setLoading(false);
     };
 
     initializeUserAndClasses();
-  }, [schoolId]); // Re-run when schoolId changes
+  }, [schoolId, loadingSchool, schoolData]); // Re-run when schoolId, loadingSchool or schoolData changes
 
   const fetchAllClasses = async () => {
     if (!schoolId) return;
@@ -80,24 +85,6 @@ export default function AnnouncementsScreen({ navigation }) {
       setAllClasses(data);
     } catch (error) {
       console.error('Error fetching all classes:', error.message);
-    }
-  };
-
-  const fetchSchoolData = async () => {
-    if (!schoolId) return;
-    try {
-      const { data, error } = await supabase
-        .from('schools')
-        .select('logo_url')
-        .eq('id', schoolId)
-        .single();
-      if (error) throw error;
-      if (data?.logo_url) {
-        await Image.prefetch(data.logo_url);
-      }
-      setSchoolData(data);
-    } catch (error) {
-      console.error('Error fetching school data:', error.message);
     }
   };
 
@@ -114,118 +101,118 @@ export default function AnnouncementsScreen({ navigation }) {
     // This function is now integrated into initializeUserAndClasses
   };
 
-    const fetchUserClasses = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !schoolId) {
-        setUserClasses([]);
-        return;
+  const fetchUserClasses = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !schoolId) {
+      setUserClasses([]);
+      return;
+    }
+
+    try {
+      // Fetch user's role first
+      const { data: userData, error: userError } = await supabase.from('users').select('role').eq('id', user.id).single();
+      if (userError) throw userError;
+      const role = userData?.role;
+
+      let associatedClassIds = [];
+
+      // Fetch classes the user is directly a member of (student or teacher)
+      const { data: memberClasses, error: memberError } = await supabase
+        .from('class_members')
+        .select('class_id')
+        .eq('user_id', user.id);
+      if (memberError) throw memberError;
+      if (memberClasses) {
+        associatedClassIds.push(...memberClasses.map(m => m.class_id));
       }
 
-      try {
-        // Fetch user's role first
-        const { data: userData, error: userError } = await supabase.from('users').select('role').eq('id', user.id).single();
-        if (userError) throw userError;
-        const role = userData?.role;
+      // If user is a parent, fetch their children's classes
+      if (role === 'parent') {
+        const { data: children, error: childrenError } = await supabase
+          .from('parent_child_relationships')
+          .select('child_id')
+          .eq('parent_id', user.id);
+        if (childrenError) throw childrenError;
 
-        let associatedClassIds = [];
-
-        // Fetch classes the user is directly a member of (student or teacher)
-        const { data: memberClasses, error: memberError } = await supabase
-          .from('class_members')
-          .select('class_id')
-          .eq('user_id', user.id);
-        if (memberError) throw memberError;
-        if (memberClasses) {
-          associatedClassIds.push(...memberClasses.map(m => m.class_id));
-        }
-
-        // If user is a parent, fetch their children's classes
-        if (role === 'parent') {
-          const { data: children, error: childrenError } = await supabase
-            .from('parent_child_relationships')
-            .select('child_id')
-            .eq('parent_id', user.id);
-          if (childrenError) throw childrenError;
-
-          if (children && children.length > 0) {
-            const childIds = children.map(c => c.child_id);
-            const { data: childClasses, error: childClassesError } = await supabase
-              .from('class_members')
-              .select('class_id')
-              .in('user_id', childIds);
-            if (childClassesError) throw childClassesError;
-            if (childClasses) {
-              associatedClassIds.push(...childClasses.map(m => m.class_id));
-            }
+        if (children && children.length > 0) {
+          const childIds = children.map(c => c.child_id);
+          const { data: childClasses, error: childClassesError } = await supabase
+            .from('class_members')
+            .select('class_id')
+            .in('user_id', childIds);
+          if (childClassesError) throw childClassesError;
+          if (childClasses) {
+            associatedClassIds.push(...childClasses.map(m => m.class_id));
           }
         }
-
-        const uniqueClassIds = [...new Set(associatedClassIds)];
-        setUserClasses(uniqueClassIds);
-
-      } catch (error) {
-        console.error('Error fetching user classes:', error.message);
-        setUserClasses([]);
-      }
-    };
-
-  
-
-    const fetchAnnouncements = async () => {
-      if (!schoolId) {
-        setLoading(false);
-        return;
       }
 
-      try {
-        let query = supabase.from('announcements').select('*, author:users(full_name), class:classes(name)').eq('school_id', schoolId).order('created_at', { ascending: false });
+      const uniqueClassIds = [...new Set(associatedClassIds)];
+      setUserClasses(uniqueClassIds);
 
-        const { data, error } = await query;
+    } catch (error) {
+      console.error('Error fetching user classes:', error.message);
+      setUserClasses([]);
+    }
+  };
 
-        if (error) throw error;
 
-        if (userRole === 'admin') {
-          setAnnouncements(data);
-        } else if (userRole === 'teacher' || userRole === 'student' || userRole === 'parent') {
-          const filteredAnnouncements = data.filter(announcement => {
-            // Always show general announcements
-            if (!announcement.class_id) {
-              return true;
-            }
-            // Show class-specific announcements if the user is in that class
-            return userClasses.includes(announcement.class_id);
-          });
-          setAnnouncements(filteredAnnouncements);
-        } else {
-          // For other roles or if role not yet loaded, show nothing or general announcements
-          setAnnouncements(data.filter(announcement => !announcement.class_id));
-        }
 
-      } catch (error) {
-        console.error('Error fetching announcements:', error.message);
-        // Alert.alert('Error', 'Failed to fetch announcements.'); // Commented out to avoid spamming on minor fetch issues
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
+  const fetchAnnouncements = async () => {
+    if (!schoolId) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      let query = supabase.from('announcements').select('*, author:users(full_name), class:classes(name)').eq('school_id', schoolId).order('created_at', { ascending: false });
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      if (userRole === 'admin') {
+        setAnnouncements(data);
+      } else if (userRole === 'teacher' || userRole === 'student' || userRole === 'parent') {
+        const filteredAnnouncements = data.filter(announcement => {
+          // Always show general announcements
+          if (!announcement.class_id) {
+            return true;
+          }
+          // Show class-specific announcements if the user is in that class
+          return userClasses.includes(announcement.class_id);
+        });
+        setAnnouncements(filteredAnnouncements);
+      } else {
+        // For other roles or if role not yet loaded, show nothing or general announcements
+        setAnnouncements(data.filter(announcement => !announcement.class_id));
       }
-    };
 
-      
+    } catch (error) {
+      console.error('Error fetching announcements:', error.message);
+      // Alert.alert('Error', 'Failed to fetch announcements.'); // Commented out to avoid spamming on minor fetch issues
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
-        const onRefresh = React.useCallback(async () => {
 
-          setRefreshing(true);
 
-          await fetchAnnouncements();
+  const onRefresh = React.useCallback(async () => {
 
-        }, [schoolId, userRole, userClasses, allClasses]);
+    setRefreshing(true);
+
+    await fetchAnnouncements();
+
+  }, [schoolId, userRole, userClasses, allClasses]);
 
   const handleCardPress = (announcement) => {
     setSelectedAnnouncement(announcement);
     setShowModal(true);
   };
 
-  if (loading) {
+  if (loading || loadingSchool) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.welcomeContainer}>

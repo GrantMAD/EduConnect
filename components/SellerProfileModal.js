@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Image, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Linking, ScrollView } from 'react-native';
+import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTimes, faEnvelope, faPhone } from '@fortawesome/free-solid-svg-icons';
-import { useTheme } from '../context/ThemeContext'; // Import useTheme
+import { faTimes, faEnvelope, faPhone, faUserCircle } from '@fortawesome/free-solid-svg-icons';
+import { useTheme } from '../context/ThemeContext';
 
 export default function SellerProfileModal({ visible, seller, onClose }) {
-  const { theme } = useTheme(); // Use the theme hook
+  const { theme } = useTheme();
 
   if (!seller) return null;
 
@@ -25,89 +26,113 @@ export default function SellerProfileModal({ visible, seller, onClose }) {
 
   return (
     <Modal
-      animationType="fade"
-      transparent={true}
-      visible={visible}
-      onRequestClose={onClose}
+      isVisible={visible}
+      onBackdropPress={onClose}
+      animationIn="slideInUp"
+      animationOut="slideOutDown"
+      backdropOpacity={0.5}
+      style={{ justifyContent: 'flex-end', margin: 0 }}
     >
-      <View style={[styles.centeredView, { backgroundColor: theme.colors.backdrop }]}>
-        <View style={[styles.modalView, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.text }]}>
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <FontAwesomeIcon icon={faTimes} size={24} color={theme.colors.placeholder} />
+      <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+        <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
+          <FontAwesomeIcon icon={faUserCircle} size={26} color={theme.colors.primary} />
+          <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Seller Profile</Text>
+          <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+            <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
           </TouchableOpacity>
+        </View>
 
-          <Image
-            source={seller.avatar_url ? { uri: seller.avatar_url } : defaultAvatar}
-            style={[styles.avatar, { borderColor: theme.colors.primary }]}
-          />
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.profileContainer}>
+            <Image
+              source={seller.avatar_url ? { uri: seller.avatar_url } : defaultAvatar}
+              style={[styles.avatar, { borderColor: theme.colors.primary }]}
+            />
+            <Text style={[styles.sellerName, { color: theme.colors.text }]}>{seller.full_name}</Text>
+          </View>
 
-          <Text style={[styles.sellerName, { color: theme.colors.text }]}>{seller.full_name}</Text>
-
-          <TouchableOpacity onPress={handleEmail} style={styles.infoRow}>
-            <FontAwesomeIcon icon={faEnvelope} size={16} color={theme.colors.primary} style={styles.icon} />
-            <Text style={[styles.infoText, { color: theme.colors.text }]}>{seller.email}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={handleCall} style={styles.infoRow}>
-            <FontAwesomeIcon icon={faPhone} size={16} color={theme.colors.primary} style={styles.icon} />
-            <Text style={[styles.infoText, { color: theme.colors.text }]}>{seller.number || 'No number provided'}</Text>
-          </TouchableOpacity>
+          <View style={[styles.detailsCard, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
+            <TouchableOpacity onPress={handleEmail} style={styles.modalDetailRow}>
+              <FontAwesomeIcon icon={faEnvelope} size={16} color={theme.colors.placeholder} style={styles.modalIcon} />
+              <Text style={[styles.modalDetailText, { color: theme.colors.text }]}>{seller.email}</Text>
+            </TouchableOpacity>
+            <View style={[styles.separator, { backgroundColor: theme.colors.cardBorder }]} />
+            <TouchableOpacity onPress={handleCall} style={styles.modalDetailRow}>
+              <FontAwesomeIcon icon={faPhone} size={16} color={theme.colors.placeholder} style={styles.modalIcon} />
+              <Text style={[styles.modalDetailText, { color: theme.colors.text }]}>{seller.number || 'No number provided'}</Text>
+            </TouchableOpacity>
+          </View>
 
           <Text style={[styles.hintText, { color: theme.colors.placeholder }]}>Tap email or number to contact seller</Text>
-        </View>
+        </ScrollView>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  centeredView: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  modalContent: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 30,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
   },
-  modalView: {
-    width: '85%',
-    borderRadius: 15,
-    padding: 25,
-    alignItems: 'center',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 15,
-    right: 15,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 3,
-    marginBottom: 15,
-  },
-  sellerName: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 20,
-  },
-  infoRow: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    alignSelf: 'flex-start',
-    marginLeft: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
   },
-  icon: {
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginLeft: 15,
+    flex: 1,
+  },
+  modalCloseButton: {
+    padding: 5,
+  },
+  profileContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    marginBottom: 10,
+  },
+  sellerName: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  detailsCard: {
+    borderRadius: 12,
+    padding: 15,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  modalDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+  },
+  modalIcon: {
     marginRight: 12,
   },
-  infoText: {
+  modalDetailText: {
     fontSize: 16,
+  },
+  separator: {
+    height: 1,
+    marginVertical: 12,
   },
   hintText: {
     fontSize: 12,
-    marginTop: 15,
+    textAlign: 'center',
+    marginTop: 5,
   },
 });

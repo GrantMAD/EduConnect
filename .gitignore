@@ -40,4 +40,3 @@ yarn-error.*
 /ios
 /android
 .env
-RECOMMENDED_FEATURES.txt

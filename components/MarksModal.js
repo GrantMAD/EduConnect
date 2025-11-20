@@ -13,9 +13,35 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
   const { showToast } = useToast();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
-  // ... existing state
 
-  // ...
+  const [marks, setMarks] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  const handleAddMark = (studentId) => {
+    setMarks((prevMarks) => {
+      const studentMarks = prevMarks[studentId] || [];
+      return {
+        ...prevMarks,
+        [studentId]: [...studentMarks, { assessmentType: 'test', assessmentName: '', mark: '' }],
+      };
+    });
+  };
+
+  const handleRemoveMark = (studentId, index) => {
+    setMarks((prevMarks) => {
+      const studentMarks = [...(prevMarks[studentId] || [])];
+      studentMarks.splice(index, 1);
+      return { ...prevMarks, [studentId]: studentMarks };
+    });
+  };
+
+  const handleMarkChange = (studentId, index, field, value) => {
+    setMarks((prevMarks) => {
+      const studentMarks = [...(prevMarks[studentId] || [])];
+      studentMarks[index] = { ...studentMarks[index], [field]: value };
+      return { ...prevMarks, [studentId]: studentMarks };
+    });
+  };
 
   const saveMarks = async () => {
     setSaving(true);
