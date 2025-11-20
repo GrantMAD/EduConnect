@@ -25,7 +25,8 @@ export default function NotificationsScreen({ route, navigation }) {
           .from('notifications')
           .select('*')
           .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(100);  // Pagination: Load first 100 notifications
 
         if (error) throw error;
         setNotifications(data || []);

@@ -165,7 +165,7 @@ export default function AnnouncementsScreen({ navigation }) {
     }
 
     try {
-      let query = supabase.from('announcements').select('*, author:users(full_name), class:classes(name)').eq('school_id', schoolId).order('created_at', { ascending: false });
+      let query = supabase.from('announcements').select('*, author:users(full_name), class:classes(name)').eq('school_id', schoolId).order('created_at', { ascending: false }).limit(50);  // Pagination: Load first 50 announcements
 
       const { data, error } = await query;
 

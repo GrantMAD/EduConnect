@@ -49,18 +49,32 @@ export default function PollsScreen({ navigation, route }) {
 
   const fetchPolls = async () => {
     try {
-      const { data, error } = await supabase
-        .from('polls')
-        .select(`
-          *,
-          users (full_name),
-          poll_votes (user_id, selected_option)
-        `)
-        .eq('school_id', schoolId)
-        .order('created_at', { ascending: false });
+      // Fetch polls and user's votes separately for better performance
+      const [pollsResult, userVotesResult] = await Promise.all([
+        supabase
+          .from('polls')
+          .select('id, question, options, end_date, created_at, users:created_by(full_name)')
+          .eq('school_id', schoolId)
+          .order('created_at', { ascending: false })
+          .limit(50),  // Pagination: Load first 50 polls
 
-      if (error) throw error;
-      setPolls(data || []);
+        // Only fetch current user's votes, not all votes
+        userId ? supabase
+          .from('poll_votes')
+          .select('poll_id, selected_option')
+          .eq('user_id', userId)
+          : Promise.resolve({ data: [], error: null })
+      ]);
+
+      if (pollsResult.error) throw pollsResult.error;
+
+      // Merge user votes into polls data
+      const pollsWithUserVotes = (pollsResult.data || []).map(poll => ({
+        ...poll,
+        poll_votes: userVotesResult.data?.filter(v => v.poll_id === poll.id) || []
+      }));
+
+      setPolls(pollsWithUserVotes);
     } catch (error) {
       console.error('Error fetching polls:', error);
     }

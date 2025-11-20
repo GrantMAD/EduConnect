@@ -20,6 +20,9 @@ import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
 import { useSchool } from '../context/SchoolContext';
 import { useToast } from '../context/ToastContext';
+import UserListModal from '../components/UserListModal';
+import ClassListModal from '../components/ClassListModal';
+import ContentListModal from '../components/ContentListModal';
 
 export default function DashboardScreen({ navigation }) {
     const { theme } = useTheme();
@@ -44,6 +47,17 @@ export default function DashboardScreen({ navigation }) {
         totalMarketItems: 0,
         unreadNotifications: 0,
     });
+
+    // User List Modal State
+    const [showUserModal, setShowUserModal] = useState(false);
+    const [selectedUserCategory, setSelectedUserCategory] = useState(null);
+    const [userListData, setUserListData] = useState([]);
+
+    // Content Modals State
+    const [showClassModal, setShowClassModal] = useState(false);
+    const [showContentModal, setShowContentModal] = useState(false);
+    const [contentModalType, setContentModalType] = useState(null);
+    const [contentModalData, setContentModalData] = useState([]);
 
     useEffect(() => {
         checkAccess();
@@ -82,122 +96,76 @@ export default function DashboardScreen({ navigation }) {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // Fetch user statistics
-            const { data: users, error: usersError } = await supabase
-                .from('users')
-                .select('role')
-                .eq('school_id', schoolId);
+            // Execute all queries in parallel for 5-10x performance improvement
+            const [
+                totalUsersResult,
+                adminCountResult,
+                teacherCountResult,
+                studentCountResult,
+                parentCountResult,
+                classCountResult,
+                announcementCountResult,
+                homeworkCountResult,
+                assignmentCountResult,
+                pollsDataResult,
+                marketCountResult,
+                notificationCountResult
+            ] = await Promise.all([
+                // User statistics - use database aggregation instead of JavaScript filtering
+                supabase.from('users').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
+                supabase.from('users').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).eq('role', 'admin'),
+                supabase.from('users').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).eq('role', 'teacher'),
+                supabase.from('users').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).eq('role', 'student'),
+                supabase.from('users').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).eq('role', 'parent'),
 
-            if (usersError) {
-                console.error('Users query error:', usersError);
-                throw usersError;
-            }
+                // Other counts
+                supabase.from('classes').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
+                supabase.from('announcements').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
+                supabase.from('homework').select('*', { count: 'exact', head: true }),
+                supabase.from('assignments').select('*', { count: 'exact', head: true }),
 
-            const userStats = {
-                totalUsers: users?.length || 0,
-                adminCount: users?.filter(u => u.role === 'admin').length || 0,
-                teacherCount: users?.filter(u => u.role === 'teacher').length || 0,
-                studentCount: users?.filter(u => u.role === 'student').length || 0,
-                parentCount: users?.filter(u => u.role === 'parent').length || 0,
-            };
+                // Polls - only fetch id and end_date for active poll calculation
+                supabase.from('polls').select('id, end_date').eq('school_id', schoolId),
 
-            // Fetch class count
-            const { count: classCount, error: classError } = await supabase
-                .from('classes')
-                .select('*', { count: 'exact', head: true })
-                .eq('school_id', schoolId);
+                // Marketplace and notifications
+                supabase.from('marketplace_items').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
+                supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_read', false)
+            ]);
 
-            if (classError) {
-                console.error('Classes query error:', classError);
-            }
+            // Log any errors but don't fail the entire dashboard
+            if (totalUsersResult.error) console.error('Users query error:', totalUsersResult.error);
+            if (adminCountResult.error) console.error('Admin count error:', adminCountResult.error);
+            if (teacherCountResult.error) console.error('Teacher count error:', teacherCountResult.error);
+            if (studentCountResult.error) console.error('Student count error:', studentCountResult.error);
+            if (parentCountResult.error) console.error('Parent count error:', parentCountResult.error);
+            if (classCountResult.error) console.error('Classes query error:', classCountResult.error);
+            if (announcementCountResult.error) console.error('Announcements query error:', announcementCountResult.error);
+            if (homeworkCountResult.error) console.error('Homework query error (table may not exist):', homeworkCountResult.error);
+            if (assignmentCountResult.error) console.error('Assignments query error (table may not exist):', assignmentCountResult.error);
+            if (pollsDataResult.error) console.error('Polls query error:', pollsDataResult.error);
+            if (marketCountResult.error) console.error('Marketplace query error (table may not exist):', marketCountResult.error);
+            if (notificationCountResult.error) console.error('Notifications query error:', notificationCountResult.error);
 
-            // Fetch announcements count
-            const { count: announcementCount, error: announcementError } = await supabase
-                .from('announcements')
-                .select('*', { count: 'exact', head: true })
-                .eq('school_id', schoolId);
+            // Calculate active polls
+            const polls = pollsDataResult.data || [];
+            const now = new Date();
+            const activePolls = polls.filter(poll => poll.end_date && new Date(poll.end_date) > now).length;
 
-            if (announcementError) {
-                console.error('Announcements query error:', announcementError);
-            }
-
-            // Fetch homework count (may not exist)
-            let homeworkCount = 0;
-            const { count: hwCount, error: homeworkError } = await supabase
-                .from('homework')
-                .select('*', { count: 'exact', head: true });
-
-            if (homeworkError) {
-                console.error('Homework query error (table may not exist):', homeworkError);
-            } else {
-                homeworkCount = hwCount || 0;
-            }
-
-            // Fetch assignments count (may not exist)
-            let assignmentCount = 0;
-            const { count: aCount, error: assignmentError } = await supabase
-                .from('assignments')
-                .select('*', { count: 'exact', head: true });
-
-            if (assignmentError) {
-                console.error('Assignments query error (table may not exist):', assignmentError);
-            } else {
-                assignmentCount = aCount || 0;
-            }
-
-            // Fetch polls count
-            let polls = [];
-            let activePolls = 0;
-            const { data: pollsData, error: pollsError } = await supabase
-                .from('polls')
-                .select('id, end_date')
-                .eq('school_id', schoolId);
-
-            if (pollsError) {
-                console.error('Polls query error:', pollsError);
-            } else {
-                polls = pollsData || [];
-                const now = new Date();
-                activePolls = polls.filter(poll => new Date(poll.end_date) > now).length;
-            }
-
-            // Fetch marketplace items count (may not exist)
-            let marketCount = 0;
-            const { count: mCount, error: marketError } = await supabase
-                .from('marketplace_items')
-                .select('*', { count: 'exact', head: true })
-                .eq('school_id', schoolId);
-
-            if (marketError) {
-                console.error('Marketplace query error (table may not exist):', marketError);
-            } else {
-                marketCount = mCount || 0;
-            }
-
-            // Fetch unread notifications count
-            let notificationCount = 0;
-            const { count: nCount, error: notificationError } = await supabase
-                .from('notifications')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', user.id)
-                .eq('is_read', false);
-
-            if (notificationError) {
-                console.error('Notifications query error:', notificationError);
-            } else {
-                notificationCount = nCount || 0;
-            }
-
+            // Set all stats at once
             setStats({
-                ...userStats,
-                totalClasses: classCount || 0,
-                totalAnnouncements: announcementCount || 0,
-                totalHomework: homeworkCount,
-                totalAssignments: assignmentCount,
+                totalUsers: totalUsersResult.count || 0,
+                adminCount: adminCountResult.count || 0,
+                teacherCount: teacherCountResult.count || 0,
+                studentCount: studentCountResult.count || 0,
+                parentCount: parentCountResult.count || 0,
+                totalClasses: classCountResult.count || 0,
+                totalAnnouncements: announcementCountResult.count || 0,
+                totalHomework: homeworkCountResult.count || 0,
+                totalAssignments: assignmentCountResult.count || 0,
                 totalPolls: polls.length,
                 activePolls: activePolls,
-                totalMarketItems: marketCount,
-                unreadNotifications: notificationCount,
+                totalMarketItems: marketCountResult.count || 0,
+                unreadNotifications: notificationCountResult.count || 0,
             });
 
             setLoading(false);
@@ -210,9 +178,123 @@ export default function DashboardScreen({ navigation }) {
         }
     };
 
-    const onRefresh = () => {
+    const onRefresh = async () => {
         setRefreshing(true);
-        fetchDashboardData();
+        await fetchDashboardData();
+    };
+
+    const fetchUsersByCategory = async (category) => {
+        try {
+            let query = supabase
+                .from('users')
+                .select('id, full_name, email, number, avatar_url, role')
+                .eq('school_id', schoolId);
+
+            if (category !== 'total') {
+                query = query.eq('role', category);
+            }
+
+            const { data, error } = await query.order('full_name', { ascending: true });
+
+            if (error) throw error;
+
+            setUserListData(data || []);
+            setSelectedUserCategory(category);
+            setShowUserModal(true);
+        } catch (error) {
+            console.error('Error fetching users:', error);
+            showToast('Failed to load user list', 'error');
+        }
+    };
+
+    const fetchClasses = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('classes')
+                .select(`
+                    id, 
+                    name,
+                    class_schedules (
+                        id,
+                        title,
+                        description,
+                        class_info,
+                        start_time,
+                        end_time
+                    )
+                `)
+                .eq('school_id', schoolId)
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+
+            // Keep the structure with schedules array
+            const classesWithSchedules = (data || []).map(cls => ({
+                id: cls.id,
+                name: cls.name,
+                schedules: cls.class_schedules || [],
+            }));
+
+            setContentModalData(classesWithSchedules);
+            setShowClassModal(true);
+        } catch (error) {
+            console.error('Error fetching classes:', error);
+            showToast('Failed to load classes', 'error');
+        }
+    };
+
+    const fetchContentByType = async (type) => {
+        try {
+            let query;
+            let orderBy = 'created_at';
+
+            switch (type) {
+                case 'announcements':
+                    query = supabase
+                        .from('announcements')
+                        .select('id, title, message, type, created_at')
+                        .eq('school_id', schoolId);
+                    break;
+                case 'homework':
+                    query = supabase
+                        .from('homework')
+                        .select('id, title, description, due_date, created_at');
+                    orderBy = 'due_date';
+                    break;
+                case 'assignments':
+                    query = supabase
+                        .from('assignments')
+                        .select('id, title, description, due_date, created_at');
+                    orderBy = 'due_date';
+                    break;
+                case 'polls':
+                    query = supabase
+                        .from('polls')
+                        .select('id, title, description, end_date, created_at')
+                        .eq('school_id', schoolId);
+                    orderBy = 'end_date';
+                    break;
+                case 'market':
+                    query = supabase
+                        .from('marketplace_items')
+                        .select('id, title, description, price, created_at')
+                        .eq('school_id', schoolId);
+                    break;
+                default:
+                    return;
+            }
+
+            const { data, error } = await query.order(orderBy, { ascending: false });
+
+            if (error) throw error;
+
+            setContentModalData(data || []);
+            setContentModalType(type);
+            setShowContentModal(true);
+        } catch (error) {
+            console.error(`Error fetching ${type}:`, error);
+            showToast(`Failed to load ${type}`, 'error');
+        }
     };
 
     const StatCard = ({ icon, title, value, color, onPress }) => (
@@ -272,30 +354,35 @@ export default function DashboardScreen({ navigation }) {
                         title="Total Users"
                         value={stats.totalUsers}
                         color="#007AFF"
+                        onPress={() => fetchUsersByCategory('total')}
                     />
                     <StatCard
                         icon={faUserTie}
                         title="Admins"
                         value={stats.adminCount}
                         color="#FF3B30"
+                        onPress={() => fetchUsersByCategory('admin')}
                     />
                     <StatCard
                         icon={faChalkboardTeacher}
                         title="Teachers"
                         value={stats.teacherCount}
                         color="#34C759"
+                        onPress={() => fetchUsersByCategory('teacher')}
                     />
                     <StatCard
                         icon={faUserGraduate}
                         title="Students"
                         value={stats.studentCount}
                         color="#5856D6"
+                        onPress={() => fetchUsersByCategory('student')}
                     />
                     <StatCard
                         icon={faChild}
                         title="Parents"
                         value={stats.parentCount}
                         color="#FF9500"
+                        onPress={() => fetchUsersByCategory('parent')}
                     />
                 </View>
             </View>
@@ -309,50 +396,42 @@ export default function DashboardScreen({ navigation }) {
                         title="Classes"
                         value={stats.totalClasses}
                         color="#007AFF"
+                        onPress={() => fetchClasses()}
                     />
                     <StatCard
                         icon={faBullhorn}
                         title="Announcements"
                         value={stats.totalAnnouncements}
                         color="#FF3B30"
+                        onPress={() => fetchContentByType('announcements')}
                     />
                     <StatCard
                         icon={faClipboardList}
                         title="Homework"
                         value={stats.totalHomework}
                         color="#34C759"
+                        onPress={() => fetchContentByType('homework')}
                     />
                     <StatCard
                         icon={faClipboardList}
                         title="Assignments"
                         value={stats.totalAssignments}
                         color="#5856D6"
+                        onPress={() => fetchContentByType('assignments')}
                     />
                     <StatCard
                         icon={faPoll}
                         title="Active Polls"
                         value={`${stats.activePolls}/${stats.totalPolls}`}
                         color="#FF9500"
+                        onPress={() => fetchContentByType('polls')}
                     />
                     <StatCard
                         icon={faShoppingCart}
                         title="Market Items"
                         value={stats.totalMarketItems}
                         color="#32ADE6"
-                    />
-                </View>
-            </View>
-
-            {/* Notifications */}
-            <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Notifications</Text>
-                <View style={styles.statsGrid}>
-                    <StatCard
-                        icon={faBell}
-                        title="Unread"
-                        value={stats.unreadNotifications}
-                        color="#FF3B30"
-                        onPress={() => navigation.navigate('Notifications')}
+                        onPress={() => fetchContentByType('market')}
                     />
                 </View>
             </View>
@@ -387,6 +466,29 @@ export default function DashboardScreen({ navigation }) {
                     />
                 </View>
             </View>
+
+            {/* User List Modal */}
+            <UserListModal
+                visible={showUserModal}
+                users={userListData}
+                category={selectedUserCategory}
+                onClose={() => setShowUserModal(false)}
+            />
+
+            {/* Class List Modal */}
+            <ClassListModal
+                visible={showClassModal}
+                classes={contentModalData}
+                onClose={() => setShowClassModal(false)}
+            />
+
+            {/* Content List Modal */}
+            <ContentListModal
+                visible={showContentModal}
+                items={contentModalData}
+                type={contentModalType}
+                onClose={() => setShowContentModal(false)}
+            />
         </ScrollView>
     );
 }

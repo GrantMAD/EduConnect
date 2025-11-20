@@ -46,7 +46,8 @@ const HomeworkList = () => {
     const { data, error } = await supabase
       .from('homework')
       .select('*')
-      .order('due_date', { ascending: true });
+      .order('due_date', { ascending: true })
+      .limit(50);  // Pagination: Load first 50 items
     if (error) console.error(error);
     else setHomework(data);
     setLoading(false);
@@ -280,7 +281,8 @@ const AssignmentsList = () => {
     const { data, error } = await supabase
       .from('assignments')
       .select('*')
-      .order('due_date', { ascending: true });
+      .order('due_date', { ascending: true })
+      .limit(50);  // Pagination: Load first 50 items
     if (error) console.error(error);
     else setAssignments(data);
     setLoading(false);

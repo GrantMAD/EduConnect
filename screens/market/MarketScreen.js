@@ -69,8 +69,9 @@ export default function MarketScreen({ navigation }) {
   const fetchItems = async () => {
     const { data, error } = await supabase
       .from('marketplace_items')
-      .select('id, created_at, title, description, price, image_url, category, seller:seller_id ( full_name, email, number, avatar_url )')
-      .order('created_at', { ascending: false });
+      .select('id, created_at, title, description, price, image_url, category, seller_id')
+      .order('created_at', { ascending: false })
+      .limit(100);  // Pagination: Load first 100 items
 
     if (!error) setAllItems(data || []);
     setLoading(false);
