@@ -13,6 +13,8 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
+import { useGamification } from '../../context/GamificationContext';
+import { BORDER_STYLES } from '../../constants/GamificationStyles';
 
 const defaultUserImage = require('../../assets/user.png');
 
@@ -24,6 +26,7 @@ const CustomDrawerContent = (props) => {
     const [loading, setLoading] = useState(true);
     const [profileCompletion, setProfileCompletion] = useState(0);
     const { theme } = useTheme();
+    const { equippedItem } = useGamification();
 
     const calculateProfileCompletion = (profile) => {
         let completed = 0;
@@ -88,7 +91,7 @@ const CustomDrawerContent = (props) => {
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 25, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: theme.colors.cardBorder, paddingHorizontal: 20 }}>
                 <Image
                     source={userAvatar ? { uri: userAvatar } : defaultUserImage}
-                    style={{ width: 55, height: 55, borderRadius: 27.5, marginRight: 12, borderWidth: 2, borderColor: theme.colors.primary }}
+                    style={[{ width: 55, height: 55, borderRadius: 27.5, marginRight: 12 }, equippedItem ? BORDER_STYLES[equippedItem.image_url] : { borderWidth: 2, borderColor: theme.colors.primary }]}
                 />
                 <View>
                     <Text style={{ fontSize: 15, fontWeight: '700', color: theme.colors.text }}>Welcome,</Text>

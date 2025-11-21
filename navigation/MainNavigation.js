@@ -30,6 +30,10 @@ import PollsScreen from '../screens/PollsScreen';
 import CreatePollScreen from '../screens/CreatePollScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 
+// Gamification Screens
+import LeaderboardScreen from '../screens/gamification/LeaderboardScreen';
+import ShopScreen from '../screens/gamification/ShopScreen';
+
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
 
@@ -62,6 +66,10 @@ const MainStackNavigator = () => (
     <Stack.Screen name="Polls" component={PollsScreen} />
     <Stack.Screen name="CreatePoll" component={CreatePollScreen} />
     <Stack.Screen name="Dashboard" component={DashboardScreen} />
+
+    {/* Gamification Screens */}
+    <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: 'Leaderboard' }} />
+    <Stack.Screen name="Shop" component={ShopScreen} options={{ title: 'Shop' }} />
   </Stack.Navigator>
 );
 

@@ -3,7 +3,7 @@ import { View, Text, TextInput, StyleSheet, ActivityIndicator, Alert, ScrollView
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import ProfileScreenSkeleton from '../components/skeletons/ProfileScreenSkeleton';
-import { faEdit, faSave, faUserFriends, faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone, faMinus, faTrophy, faMedal } from '@fortawesome/free-solid-svg-icons';
+import { faEdit, faSave, faUserFriends, faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone, faMinus, faTrophy, faMedal, faFire, faStore, faChartBar, faCoins, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -11,11 +11,14 @@ import { Buffer } from 'buffer';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import { useGamification } from '../context/GamificationContext';
+import GamificationInfoModal from '../components/GamificationInfoModal';
+import { BORDER_STYLES } from '../constants/GamificationStyles';
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }) {
   const defaultUserImage = require('../assets/user.png');
   const gamificationData = useGamification();
-  const { current_level = 1, current_xp = 0, badges = [], loading: gamificationLoading, refreshGamificationState } = gamificationData || {};
+  const { current_level = 1, current_xp = 0, coins = 0, streak = {}, badges = [], equippedItem, loading: gamificationLoading, refreshGamificationState } = gamificationData || {};
+  const [showGamificationInfo, setShowGamificationInfo] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -128,6 +131,7 @@ export default function ProfileScreen() {
           role: data.role || '',
           avatar_url: data.avatar_url || '',
           school_id: data.school_id || null,
+          number: data.number || '',
         });
       } else {
         throw new Error("Could not fetch or create user profile.");
@@ -354,16 +358,18 @@ export default function ProfileScreen() {
     return <ProfileScreenSkeleton />;
   }
 
+  const borderStyle = equippedItem ? BORDER_STYLES[equippedItem.image_url] : { borderColor: theme.colors.primary, borderWidth: 2 };
+
   return (
     <ScrollView ref={scrollViewRef} contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Profile Image and Description */}
       {isEditing ? (
         <TouchableOpacity onPress={pickImage} activeOpacity={0.7} style={{ marginBottom: 16 }}>
-          <Image source={avatarLocalUri ? { uri: avatarLocalUri } : (userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage)} style={[styles.avatar, { borderColor: theme.colors.primary }]} />
+          <Image source={avatarLocalUri ? { uri: avatarLocalUri } : (userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage)} style={[styles.avatar, borderStyle]} />
           <Text style={{ textAlign: 'center', color: theme.colors.primary, marginTop: 4 }}>Tap to change photo</Text>
         </TouchableOpacity>
       ) : (
-        <Image source={userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage} style={[styles.avatar, { borderColor: theme.colors.primary }]} />
+        <Image source={userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage} style={[styles.avatar, borderStyle]} />
       )}
 
       <Text style={[styles.header, { color: theme.colors.text }]}>My Profile</Text>
@@ -378,13 +384,51 @@ export default function ProfileScreen() {
             <Text style={[styles.levelText, { color: theme.colors.text }]}>Level {current_level}</Text>
             <Text style={[styles.xpText, { color: theme.colors.placeholder }]}>{current_xp} Total XP</Text>
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={[styles.nextLevelText, { color: theme.colors.primary }]}>{Math.round(progressPercent)}% to Lvl {current_level + 1}</Text>
-          </View>
+          <TouchableOpacity onPress={() => setShowGamificationInfo(true)} style={{ padding: 5 }}>
+            <FontAwesomeIcon icon={faInfoCircle} size={20} color={theme.colors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={{ alignItems: 'flex-end', marginBottom: 10 }}>
+          <Text style={[styles.nextLevelText, { color: theme.colors.primary }]}>{Math.round(progressPercent)}% to Lvl {current_level + 1}</Text>
         </View>
 
         <View style={[styles.progressBarBackground, { backgroundColor: theme.colors.inputBackground }]}>
           <View style={[styles.progressBarFill, { width: `${progressPercent}%`, backgroundColor: theme.colors.primary }]} />
+        </View>
+
+        {/* Stats Row: Streak & Coins */}
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <FontAwesomeIcon icon={faFire} size={20} color="#FF9500" />
+            <Text style={[styles.statValue, { color: theme.colors.text }]}>{streak?.current_streak || 0}</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>Day Streak</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <FontAwesomeIcon icon={faCoins} size={20} color="#FFD700" />
+            <Text style={[styles.statValue, { color: theme.colors.text }]}>{coins}</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>Coins</Text>
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtonsRow}>
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
+            onPress={() => navigation.navigate('Leaderboard')}
+          >
+            <FontAwesomeIcon icon={faChartBar} size={16} color={theme.colors.primary} />
+            <Text style={[styles.actionButtonText, { color: theme.colors.text }]}>Leaderboard</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
+            onPress={() => navigation.navigate('Shop')}
+          >
+            <FontAwesomeIcon icon={faStore} size={16} color={theme.colors.primary} />
+            <Text style={[styles.actionButtonText, { color: theme.colors.text }]}>Shop</Text>
+          </TouchableOpacity>
         </View>
 
         {badges && badges.length > 0 && (
@@ -585,6 +629,10 @@ export default function ProfileScreen() {
           )}
         </>
       )}
+      <GamificationInfoModal
+        visible={showGamificationInfo}
+        onClose={() => setShowGamificationInfo(false)}
+      />
     </ScrollView>
   );
 }
@@ -683,59 +731,62 @@ const styles = StyleSheet.create({
   },
   studentName: {
     fontSize: 16,
+    fontWeight: 'bold',
+  },
+  studentEmail: {
+    fontSize: 14,
   },
   checkboxUnchecked: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     borderWidth: 2,
   },
   checkboxChecked: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
+  noChildrenText: {
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 10,
   },
   associatedChildrenContainer: {
-    marginTop: 10,
-    alignSelf: 'flex-start',
     width: '100%',
+    marginBottom: 20,
   },
   childItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    width: '100%',
   },
   childName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   childEmail: {
     fontSize: 14,
   },
-  noChildrenText: {
-    textAlign: 'center',
-    fontStyle: 'italic',
-    paddingVertical: 10,
-  },
   separator: {
+    height: 1,
+    width: '100%',
+    marginVertical: 20,
     borderBottomWidth: 1,
-    marginVertical: 24,
   },
   gamificationCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
     width: '100%',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 24,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
   },
   levelContainer: {
     flexDirection: 'row',
@@ -743,14 +794,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   levelBadge: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
   levelText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   xpText: {
@@ -792,5 +843,53 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginLeft: 4,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: '80%',
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    width: '48%',
+  },
+  actionButtonText: {
+    fontWeight: '600',
+    fontSize: 14,
+    marginLeft: 8,
   },
 });
