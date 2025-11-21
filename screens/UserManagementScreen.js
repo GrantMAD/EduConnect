@@ -4,12 +4,13 @@ import { supabase } from '../lib/supabase';
 import { Picker } from '@react-native-picker/picker';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import UserManagementScreenSkeleton from '../components/skeletons/UserManagementScreenSkeleton';
-import { faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../context/ToastContext';
 
 const defaultUserImage = require('../assets/user.png');
 
-export default function UserManagementScreen() {
+export default function UserManagementScreen({ navigation, route }) {
+  const { fromDashboard } = route?.params || {};
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -94,6 +95,12 @@ export default function UserManagementScreen() {
 
   return (
     <View style={styles.container}>
+      {fromDashboard && (
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#333" />
+          <Text style={styles.backButtonText}>Return to Dashboard</Text>
+        </TouchableOpacity>
+      )}
       <Text style={styles.header}>User Management</Text>
       <Text style={styles.description}>Manage all users within your school. Press on a user to view their details.</Text>
       <TextInput
@@ -293,5 +300,17 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 16,
     textAlign: 'center',
+  },
+  backButton: {
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
   },
 });

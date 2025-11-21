@@ -4,8 +4,11 @@ import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { Picker } from '@react-native-picker/picker';
 import { useToast } from '../context/ToastContext';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 
-export default function CreateAnnouncementScreen({ navigation }) {
+export default function CreateAnnouncementScreen({ navigation, route }) {
+  const { fromDashboard } = route.params || {};
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [isClassSpecific, setIsClassSpecific] = useState(false);
@@ -126,7 +129,7 @@ export default function CreateAnnouncementScreen({ navigation }) {
 
           if (members && members.length > 0) {
             const studentIds = members.map(m => m.user_id);
-            
+
             // Fetch parents of the students in the class using the RPC function
             const { data: parents, error: parentsError } = await supabase
               .rpc('get_parents_of_students', { p_student_ids: studentIds });
@@ -136,7 +139,7 @@ export default function CreateAnnouncementScreen({ navigation }) {
             }
 
             const parentIds = parents ? parents.map(p => p.parent_id) : [];
-            
+
             // Combine students and parents, ensuring no duplicates
             const recipientIds = [...new Set([...studentIds, ...parentIds])];
 
@@ -174,6 +177,12 @@ export default function CreateAnnouncementScreen({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {fromDashboard && (
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#333" />
+          <Text style={styles.backButtonText}>Return to Dashboard</Text>
+        </TouchableOpacity>
+      )}
       <Text style={styles.header}>Create New Announcement</Text>
       <Text style={styles.description}>Fill in the details below to create a new announcement for your school.</Text>
 
@@ -296,5 +305,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  backButton: {
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
   },
 });

@@ -5,11 +5,12 @@ import { useSchool } from '../context/SchoolContext';
 import { useTheme } from '../context/ThemeContext';
 import { Picker } from '@react-native-picker/picker';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faPlus, faMinus, faQuestionCircle, faListOl, faUsers, faCalendar } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faMinus, faQuestionCircle, faListOl, faUsers, faCalendar, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { Calendar } from 'react-native-calendars';
 import { useGamification } from '../context/GamificationContext';
 
-export default function CreatePollScreen({ navigation }) {
+export default function CreatePollScreen({ navigation, route }) {
+  const { fromDashboard } = route.params || {};
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
   const [question, setQuestion] = useState('');
@@ -118,6 +119,12 @@ export default function CreatePollScreen({ navigation }) {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={{ paddingBottom: 40 }}
     >
+      {fromDashboard && (
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <FontAwesomeIcon icon={faArrowLeft} size={20} color={theme.colors.text} />
+          <Text style={[styles.backButtonText, { color: theme.colors.text }]}>Return to Dashboard</Text>
+        </TouchableOpacity>
+      )}
       <Text style={[styles.header, { color: theme.colors.text }]}>Create a New Poll</Text>
       <Text style={[styles.description, { color: theme.colors.text }]}>
         Create a poll to gather opinions from the school community.
@@ -138,25 +145,27 @@ export default function CreatePollScreen({ navigation }) {
       <Text style={[styles.labelDescription, { color: theme.colors.text }]}>
         Provide at least two options for your poll.
       </Text>
-      {options.map((option, index) => (
-        <View key={index} style={styles.optionContainer}>
-          <FontAwesomeIcon icon={faListOl} size={20} color={theme.colors.primary} style={styles.icon} />
-          <TextInput
-            style={[styles.optionInput, { backgroundColor: theme.colors.inputBackground, color: theme.colors.text, borderColor: theme.colors.border }]}
-            placeholder={`Option ${index + 1}`}
-            placeholderTextColor={theme.colors.placeholder}
-            value={option}
-            onChangeText={(text) => handleOptionChange(text, index)}
-          />
-          {options.length > 2 && (
-            <TouchableOpacity onPress={() => removeOption(index)}>
-              <View style={[styles.removeOptionButton, { backgroundColor: theme.colors.error }]}>
-                <FontAwesomeIcon icon={faMinus} size={16} color="#fff" />
-              </View>
-            </TouchableOpacity>
-          )}
-        </View>
-      ))}
+      {
+        options.map((option, index) => (
+          <View key={index} style={styles.optionContainer}>
+            <FontAwesomeIcon icon={faListOl} size={20} color={theme.colors.primary} style={styles.icon} />
+            <TextInput
+              style={[styles.optionInput, { backgroundColor: theme.colors.inputBackground, color: theme.colors.text, borderColor: theme.colors.border }]}
+              placeholder={`Option ${index + 1}`}
+              placeholderTextColor={theme.colors.placeholder}
+              value={option}
+              onChangeText={(text) => handleOptionChange(text, index)}
+            />
+            {options.length > 2 && (
+              <TouchableOpacity onPress={() => removeOption(index)}>
+                <View style={[styles.removeOptionButton, { backgroundColor: theme.colors.error }]}>
+                  <FontAwesomeIcon icon={faMinus} size={16} color="#fff" />
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+        ))
+      }
       <TouchableOpacity style={styles.addOptionButton} onPress={addOption}>
         <FontAwesomeIcon icon={faPlus} size={16} color={theme.colors.primary} />
         <Text style={[styles.addOptionButtonText, { color: theme.colors.primary }]}>Add Option</Text>
@@ -207,11 +216,13 @@ export default function CreatePollScreen({ navigation }) {
           dotColor: theme.colors.primary,
         }}
       />
-      {endDate ? (
-        <View style={styles.selectedDateCard}>
-          <Text style={[styles.selectedDateText, { color: theme.colors.text }]}>Selected End Date: {endDate}</Text>
-        </View>
-      ) : null}
+      {
+        endDate ? (
+          <View style={styles.selectedDateCard}>
+            <Text style={[styles.selectedDateText, { color: theme.colors.text }]}>Selected End Date: {endDate}</Text>
+          </View>
+        ) : null
+      }
 
       <TouchableOpacity
         style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
@@ -220,7 +231,7 @@ export default function CreatePollScreen({ navigation }) {
       >
         <Text style={styles.createButtonText}>{isSubmitting ? 'Creating poll...' : 'Create Poll'}</Text>
       </TouchableOpacity>
-    </ScrollView>
+    </ScrollView >
   );
 }
 
@@ -333,5 +344,17 @@ const styles = StyleSheet.create({
   selectedDateText: {
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  backButton: {
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
   },
 });

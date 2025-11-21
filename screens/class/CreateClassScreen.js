@@ -3,12 +3,13 @@ import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator,
 import { supabase } from '../../lib/supabase';
 import { useSchool } from '../../context/SchoolContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faPlusCircle, faMinusCircle, faUser, faClock } from '@fortawesome/free-solid-svg-icons';
+import { faPlusCircle, faMinusCircle, faUser, faClock, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { Calendar } from 'react-native-calendars';
 import { useToast } from '../../context/ToastContext';
 const defaultUserImage = require('../../assets/user.png');
 
-export default function CreateClassScreen({ navigation }) {
+export default function CreateClassScreen({ navigation, route }) {
+  const { fromDashboard } = route.params || {};
   const [className, setClassName] = useState('');
   const [subject, setSubject] = useState('');
   const [loading, setLoading] = useState(false);
@@ -215,6 +216,12 @@ export default function CreateClassScreen({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {fromDashboard && (
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#333" />
+          <Text style={styles.backButtonText}>Return to Dashboard</Text>
+        </TouchableOpacity>
+      )}
       <Text style={styles.header}>Create New Class</Text>
 
       <Text style={styles.label}>Class Name</Text>
@@ -393,4 +400,16 @@ const styles = StyleSheet.create({
   saveButtonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
   cancelButton: { backgroundColor: '#f1f1f1' },
   cancelButtonText: { color: '#333', fontWeight: 'bold', textAlign: 'center' },
+  backButton: {
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
 });

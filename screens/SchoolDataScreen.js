@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Image, TouchableOpacity, Platform } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import SchoolDataScreenSkeleton from '../components/skeletons/SchoolDataScreenSkeleton';
-import { faImage } from '@fortawesome/free-solid-svg-icons';
+import { faImage, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from "expo-file-system/legacy";
@@ -10,7 +10,8 @@ import { Buffer } from 'buffer';
 import { useSchool } from '../context/SchoolContext';
 import { useToast } from '../context/ToastContext';
 
-export default function SchoolDataScreen() {
+export default function SchoolDataScreen({ navigation, route }) {
+  const { fromDashboard } = route?.params || {};
   const { schoolId } = useSchool();
   const [schoolData, setSchoolData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -127,6 +128,12 @@ export default function SchoolDataScreen() {
 
   return (
     <View style={styles.container}>
+      {fromDashboard && (
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#333" />
+          <Text style={styles.backButtonText}>Return to Dashboard</Text>
+        </TouchableOpacity>
+      )}
       <Text style={styles.title}>School Data</Text>
       <Text style={styles.description}>
         Manage your school's data, including the main image displayed on the announcements screen.
@@ -221,5 +228,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+  },
+  backButton: {
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
   },
 });

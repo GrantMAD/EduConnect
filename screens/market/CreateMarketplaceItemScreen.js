@@ -18,6 +18,7 @@ import {
   faTags,
   faList,
   faPen,
+  faArrowLeft,
 } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,7 +27,7 @@ import { Buffer } from 'buffer';
 import { useToast } from '../../context/ToastContext';
 
 export default function CreateMarketplaceItemScreen({ route, navigation }) {
-  const { item: existingItem } = route.params || {};
+  const { item: existingItem, fromDashboard } = route.params || {};
 
   const [title, setTitle] = useState(existingItem?.title || '');
   const [description, setDescription] = useState(existingItem?.description || '');
@@ -132,6 +133,12 @@ export default function CreateMarketplaceItemScreen({ route, navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {fromDashboard && (
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#333" />
+          <Text style={styles.backButtonText}>Return to Dashboard</Text>
+        </TouchableOpacity>
+      )}
       <Text style={styles.header}>{existingItem ? 'Edit Marketplace Item' : 'Create Marketplace Item'}</Text>
       <Text style={styles.subHeader}>{existingItem ? 'Update the details of your item.' : 'List an item for sale within your school community.'}</Text>
 
@@ -268,4 +275,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   createButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  backButton: {
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
 });

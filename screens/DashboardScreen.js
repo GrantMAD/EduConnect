@@ -258,7 +258,7 @@ export default function DashboardScreen({ navigation }) {
                 case 'homework':
                     query = supabase
                         .from('homework')
-                        .select('id, title, description, due_date, created_at');
+                        .select('id, subject, description, due_date, created_at');
                     orderBy = 'due_date';
                     break;
                 case 'assignments':
@@ -270,14 +270,14 @@ export default function DashboardScreen({ navigation }) {
                 case 'polls':
                     query = supabase
                         .from('polls')
-                        .select('id, title, description, end_date, created_at')
+                        .select('id, question, options, target_roles, end_date, created_at')
                         .eq('school_id', schoolId);
                     orderBy = 'end_date';
                     break;
                 case 'market':
                     query = supabase
                         .from('marketplace_items')
-                        .select('id, title, description, price, created_at')
+                        .select('id, title, description, price, created_at, image_url')
                         .eq('school_id', schoolId);
                     break;
                 default:
@@ -422,15 +422,15 @@ export default function DashboardScreen({ navigation }) {
                     <StatCard
                         icon={faPoll}
                         title="Active Polls"
-                        value={`${stats.activePolls}/${stats.totalPolls}`}
+                        value={stats.activePolls}
                         color="#FF9500"
                         onPress={() => fetchContentByType('polls')}
                     />
                     <StatCard
                         icon={faShoppingCart}
-                        title="Market Items"
+                        title="Marketplace"
                         value={stats.totalMarketItems}
-                        color="#32ADE6"
+                        color="#FF2D55"
                         onPress={() => fetchContentByType('market')}
                     />
                 </View>
@@ -441,33 +441,55 @@ export default function DashboardScreen({ navigation }) {
                 <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Quick Actions</Text>
                 <View style={styles.actionsContainer}>
                     <QuickActionButton
-                        icon={faPlus}
-                        title="Create Announcement"
-                        onPress={() => navigation.navigate('CreateAnnouncement')}
-                        color="#007AFF"
+                        icon={faBullhorn}
+                        title="New Announcement"
+                        onPress={() => navigation.navigate('CreateAnnouncement', { fromDashboard: true })}
+                        color="#FF3B30"
                     />
                     <QuickActionButton
-                        icon={faPlus}
-                        title="Create Class"
-                        onPress={() => navigation.navigate('CreateClass')}
+                        icon={faBookOpen}
+                        title="New Homework"
+                        onPress={() => navigation.navigate('CreateHomework', { fromDashboard: true })}
                         color="#34C759"
+                    />
+                    <QuickActionButton
+                        icon={faClipboardList}
+                        title="New Assignment"
+                        onPress={() => navigation.navigate('CreateAssignment', { fromDashboard: true })}
+                        color="#5856D6"
+                    />
+                    <QuickActionButton
+                        icon={faPoll}
+                        title="New Poll"
+                        onPress={() => navigation.navigate('CreatePoll', { fromDashboard: true })}
+                        color="#FF9500"
+                    />
+                    <QuickActionButton
+                        icon={faShoppingCart}
+                        title="List Item"
+                        onPress={() => navigation.navigate('CreateMarketplaceItem', { fromDashboard: true })}
+                        color="#FF2D55"
+                    />
+                    <QuickActionButton
+                        icon={faChalkboardTeacher}
+                        title="New Class"
+                        onPress={() => navigation.navigate('CreateClass', { fromDashboard: true })}
+                        color="#007AFF"
                     />
                     <QuickActionButton
                         icon={faUsers}
                         title="Manage Users"
-                        onPress={() => navigation.navigate('UserManagement')}
+                        onPress={() => navigation.navigate('UserManagement', { fromDashboard: true })}
                         color="#5856D6"
                     />
                     <QuickActionButton
-                        icon={faChalkboardTeacher}
+                        icon={faChartLine}
                         title="School Data"
-                        onPress={() => navigation.navigate('SchoolData')}
+                        onPress={() => navigation.navigate('SchoolData', { fromDashboard: true })}
                         color="#FF9500"
                     />
                 </View>
             </View>
-
-            {/* User List Modal */}
             <UserListModal
                 visible={showUserModal}
                 users={userListData}

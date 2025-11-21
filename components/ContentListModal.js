@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Image } from 'react-native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faBullhorn, faSearch, faCalendar, faClipboardList, faChartBar, faShoppingCart, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
+import PollDetailsModal from './PollDetailsModal';
 
 export default function ContentListModal({ visible, items, type, onClose }) {
     const { theme } = useTheme();
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedItems, setExpandedItems] = useState({});
+    const [selectedPoll, setSelectedPoll] = useState(null);
+    const [showPollDetails, setShowPollDetails] = useState(false);
 
     if (!items) return null;
 
@@ -42,7 +45,7 @@ export default function ContentListModal({ visible, items, type, onClose }) {
     const filteredItems = items.filter(item => {
         if (!searchQuery.trim()) return true;
         const query = searchQuery.toLowerCase();
-        const title = (item.title || item.name || '').toLowerCase();
+        const title = (item.title || item.name || item.subject || item.question || '').toLowerCase();
         const description = (item.description || item.message || '').toLowerCase();
         return title.includes(query) || description.includes(query);
     });
@@ -55,13 +58,22 @@ export default function ContentListModal({ visible, items, type, onClose }) {
 
     const renderItemCard = ({ item }) => {
         const isExpanded = expandedItems[item.id];
-        const hasContent = item.message || item.description;
+        const hasContent = item.message || item.description || (type === 'market' && item.image_url);
+
+        const handlePress = () => {
+            if (type === 'polls') {
+                setSelectedPoll(item);
+                setShowPollDetails(true);
+            } else if (hasContent) {
+                toggleItem(item.id);
+            }
+        };
 
         return (
             <TouchableOpacity
                 style={[styles.itemCard, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}
-                onPress={() => hasContent && toggleItem(item.id)}
-                activeOpacity={hasContent ? 0.7 : 1}
+                onPress={handlePress}
+                activeOpacity={hasContent || type === 'polls' ? 0.7 : 1}
             >
                 <View style={styles.cardHeader}>
                     <View style={[styles.iconContainer, { backgroundColor: typeInfo.color + '20' }]}>
@@ -70,7 +82,7 @@ export default function ContentListModal({ visible, items, type, onClose }) {
                     <View style={styles.cardContent}>
                         <View style={styles.titleRow}>
                             <Text style={[styles.itemTitle, { color: theme.colors.text }]} numberOfLines={isExpanded ? undefined : 1}>
-                                {item.title || item.name || 'Untitled'}
+                                {item.title || item.name || item.subject || item.question || 'Untitled'}
                             </Text>
                             {hasContent && (
                                 <FontAwesomeIcon
@@ -113,6 +125,8 @@ export default function ContentListModal({ visible, items, type, onClose }) {
                             )}
                         </View>
 
+
+
                         {!isExpanded && hasContent && (
                             <Text style={[styles.itemDescription, { color: theme.colors.placeholder }]} numberOfLines={2}>
                                 {item.message || item.description}
@@ -123,6 +137,13 @@ export default function ContentListModal({ visible, items, type, onClose }) {
 
                 {isExpanded && hasContent && (
                     <View style={styles.expandedContent}>
+                        {type === 'market' && item.image_url && (
+                            <Image
+                                source={{ uri: item.image_url }}
+                                style={styles.marketImage}
+                                resizeMode="cover"
+                            />
+                        )}
                         <Text style={[styles.fullMessage, { color: theme.colors.text }]}>
                             {item.message || item.description}
                         </Text>
@@ -190,6 +211,12 @@ export default function ContentListModal({ visible, items, type, onClose }) {
                     }
                 />
             </View>
+
+            <PollDetailsModal
+                visible={showPollDetails}
+                poll={selectedPoll}
+                onClose={() => setShowPollDetails(false)}
+            />
         </Modal>
     );
 }
@@ -328,5 +355,12 @@ const styles = StyleSheet.create({
     emptyText: {
         fontSize: 16,
         marginTop: 12,
+    },
+    marketImage: {
+        width: '100%',
+        height: 150,
+        borderRadius: 8,
+        marginBottom: 8,
+        marginTop: 4,
     },
 });

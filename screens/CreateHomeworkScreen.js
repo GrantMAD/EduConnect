@@ -5,8 +5,11 @@ import { Calendar } from 'react-native-calendars';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { useGamification } from '../context/GamificationContext';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 
-const CreateHomeworkScreen = ({ navigation }) => {
+const CreateHomeworkScreen = ({ navigation, route }) => {
+  const { fromDashboard } = route.params || {};
   const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState(null);
   const [schedules, setSchedules] = useState([]);
@@ -154,6 +157,12 @@ const CreateHomeworkScreen = ({ navigation }) => {
 
   return (
     <ScrollView style={styles.container}>
+      {fromDashboard && (
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#333" />
+          <Text style={styles.backButtonText}>Return to Dashboard</Text>
+        </TouchableOpacity>
+      )}
       <Text style={styles.title}>Create Homework</Text>
       <Text style={styles.screenDescription}>
         Start by selecting a class and a scheduled day for the homework.
@@ -348,6 +357,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 10,
+  },
+  backButton: {
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
   },
 });
 
