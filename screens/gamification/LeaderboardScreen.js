@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTrophy, faMedal, faCrown, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
+import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 
 export default function LeaderboardScreen({ navigation }) {
     const { theme } = useTheme();
@@ -89,9 +90,12 @@ export default function LeaderboardScreen({ navigation }) {
                     )}
                 </View>
 
-                <Image
-                    source={user.avatar_url ? { uri: user.avatar_url } : require('../../assets/user.png')}
-                    style={[styles.avatar, item.equippedItem ? BORDER_STYLES[item.equippedItem.image_url] : {}]}
+                <AnimatedAvatarBorder
+                    avatarSource={user.avatar_url ? { uri: user.avatar_url } : require('../../assets/user.png')}
+                    size={48}
+                    borderStyle={item.equippedItem ? BORDER_STYLES[item.equippedItem.image_url] : {}}
+                    isRainbow={item.equippedItem && BORDER_STYLES[item.equippedItem.image_url]?.rainbow}
+                    isAnimated={item.equippedItem && BORDER_STYLES[item.equippedItem.image_url]?.animated}
                 />
 
                 <View style={styles.userInfo}>

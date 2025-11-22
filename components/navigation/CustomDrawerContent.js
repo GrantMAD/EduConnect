@@ -15,6 +15,7 @@ import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
 import { useGamification } from '../../context/GamificationContext';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
+import AnimatedAvatarBorder from '../AnimatedAvatarBorder';
 
 const defaultUserImage = require('../../assets/user.png');
 
@@ -89,10 +90,15 @@ const CustomDrawerContent = (props) => {
     return (
         <View style={{ flex: 1, height: '100%', paddingTop: 70, backgroundColor: theme.colors.background }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 25, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: theme.colors.cardBorder, paddingHorizontal: 20 }}>
-                <Image
-                    source={userAvatar ? { uri: userAvatar } : defaultUserImage}
-                    style={[{ width: 55, height: 55, borderRadius: 27.5, marginRight: 12 }, equippedItem ? BORDER_STYLES[equippedItem.image_url] : { borderWidth: 2, borderColor: theme.colors.primary }]}
-                />
+                <View style={{ marginRight: 12 }}>
+                    <AnimatedAvatarBorder
+                        avatarSource={userAvatar ? { uri: userAvatar } : defaultUserImage}
+                        size={55}
+                        borderStyle={equippedItem ? BORDER_STYLES[equippedItem.image_url] : { borderWidth: 2, borderColor: theme.colors.primary }}
+                        isRainbow={equippedItem && BORDER_STYLES[equippedItem.image_url]?.rainbow}
+                        isAnimated={equippedItem && BORDER_STYLES[equippedItem.image_url]?.animated}
+                    />
+                </View>
                 <View>
                     <Text style={{ fontSize: 15, fontWeight: '700', color: theme.colors.text }}>Welcome,</Text>
                     <Text style={{ fontSize: 15, fontWeight: '600', color: theme.colors.primary }}>{userName || 'User'}</Text>

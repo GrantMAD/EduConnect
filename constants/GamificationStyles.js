@@ -1,12 +1,85 @@
 export const BORDER_STYLES = {
-    'border_blue': { borderColor: '#007AFF', borderWidth: 4 },
-    'border_green': { borderColor: '#34C759', borderWidth: 4 },
-    'border_red': { borderColor: '#FF3B30', borderWidth: 4 },
-    'border_gold': { borderColor: '#FFD700', borderWidth: 4 },
-    'border_silver': { borderColor: '#C0C0C0', borderWidth: 4 },
-    'border_bronze': { borderColor: '#CD7F32', borderWidth: 4 },
-    'border_neon': { borderColor: '#FF00FF', borderWidth: 4, shadowColor: '#FF00FF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 10, elevation: 5 },
-    'border_fire': { borderColor: '#FF4500', borderWidth: 4, borderStyle: 'dashed' },
-    'border_ice': { borderColor: '#00FFFF', borderWidth: 4, shadowColor: '#00FFFF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 10, elevation: 5 },
-    'border_rainbow': { borderColor: '#9400D3', borderWidth: 4, borderStyle: 'dotted' },
+    // Classic borders - unchanged
+    'border_blue': {
+        borderColor: '#007AFF',
+        borderWidth: 4
+    },
+    'border_green': {
+        borderColor: '#34C759',
+        borderWidth: 4
+    },
+    'border_red': {
+        borderColor: '#FF3B30',
+        borderWidth: 4
+    },
+
+    // Metallic borders with glows - INCREASED INTENSITY
+    'border_gold': {
+        borderColor: '#FFD700',
+        borderWidth: 4,
+        shadowColor: '#FFD700',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 20,
+        elevation: 12
+    },
+    'border_silver': {
+        borderColor: '#C0C0C0',
+        borderWidth: 4,
+        shadowColor: '#C0C0C0',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 18,
+        elevation: 11
+    },
+    'border_bronze': {
+        borderColor: '#CD7F32',
+        borderWidth: 4,
+        shadowColor: '#CD7F32',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 18,
+        elevation: 11
+    },
+
+    // Animated/Special effect borders - INCREASED INTENSITY
+    'border_neon': {
+        borderColor: '#FF00FF',
+        borderWidth: 4,
+        shadowColor: '#FF00FF',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 25,
+        elevation: 15,
+        animated: true // Flag for pulsating animation
+    },
+    'border_fire': {
+        borderColor: '#FF4500',
+        borderWidth: 4,
+        shadowColor: '#FF6347',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 22,
+        elevation: 13
+    },
+    'border_ice': {
+        borderColor: '#00FFFF',
+        borderWidth: 4,
+        shadowColor: '#00FFFF',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 20,
+        elevation: 12
+    },
+    'border_rainbow': {
+        borderColor: '#FF00FF', // Will be overridden by gradient in animated component
+        borderWidth: 4,
+        shadowColor: '#FF00FF',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 22,
+        elevation: 15,
+        animated: true, // Flag for pulsating animation
+        rainbow: true // Flag for rainbow gradient
+    },
 };

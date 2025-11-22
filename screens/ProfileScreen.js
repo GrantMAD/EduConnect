@@ -13,6 +13,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useGamification } from '../context/GamificationContext';
 import GamificationInfoModal from '../components/GamificationInfoModal';
 import { BORDER_STYLES } from '../constants/GamificationStyles';
+import AnimatedAvatarBorder from '../components/AnimatedAvatarBorder';
 
 export default function ProfileScreen({ navigation }) {
   const defaultUserImage = require('../assets/user.png');
@@ -359,17 +360,34 @@ export default function ProfileScreen({ navigation }) {
   }
 
   const borderStyle = equippedItem ? BORDER_STYLES[equippedItem.image_url] : { borderColor: theme.colors.primary, borderWidth: 2 };
+  const isAnimated = borderStyle.animated || false;
+  const isRainbow = borderStyle.rainbow || false;
+  const avatarSource = avatarLocalUri ? { uri: avatarLocalUri } : (userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage);
 
   return (
     <ScrollView ref={scrollViewRef} contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Profile Image and Description */}
       {isEditing ? (
         <TouchableOpacity onPress={pickImage} activeOpacity={0.7} style={{ marginBottom: 16 }}>
-          <Image source={avatarLocalUri ? { uri: avatarLocalUri } : (userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage)} style={[styles.avatar, borderStyle]} />
+          <AnimatedAvatarBorder
+            avatarSource={avatarSource}
+            size={120}
+            borderStyle={borderStyle}
+            isRainbow={isRainbow}
+            isAnimated={isAnimated}
+          />
           <Text style={{ textAlign: 'center', color: theme.colors.primary, marginTop: 4 }}>Tap to change photo</Text>
         </TouchableOpacity>
       ) : (
-        <Image source={userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage} style={[styles.avatar, borderStyle]} />
+        <View style={{ marginBottom: 16 }}>
+          <AnimatedAvatarBorder
+            avatarSource={avatarSource}
+            size={120}
+            borderStyle={borderStyle}
+            isRainbow={isRainbow}
+            isAnimated={isAnimated}
+          />
+        </View>
       )}
 
       <Text style={[styles.header, { color: theme.colors.text }]}>My Profile</Text>

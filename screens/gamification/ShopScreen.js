@@ -4,22 +4,13 @@ import { useTheme } from '../../context/ThemeContext';
 import { useGamification } from '../../context/GamificationContext';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faCoins, faLock, faCheck, faTimes, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faCoins, faLock, faCheck, faTimes, faArrowLeft, faStore } from '@fortawesome/free-solid-svg-icons';
+import { BORDER_STYLES } from '../../constants/GamificationStyles';
+import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 
 const defaultUserImage = require('../../assets/user.png');
 
-const BORDER_STYLES = {
-    'border_blue': { borderColor: '#007AFF', borderWidth: 4 },
-    'border_green': { borderColor: '#34C759', borderWidth: 4 },
-    'border_red': { borderColor: '#FF3B30', borderWidth: 4 },
-    'border_gold': { borderColor: '#FFD700', borderWidth: 4 },
-    'border_silver': { borderColor: '#C0C0C0', borderWidth: 4 },
-    'border_bronze': { borderColor: '#CD7F32', borderWidth: 4 },
-    'border_neon': { borderColor: '#FF00FF', borderWidth: 4, shadowColor: '#FF00FF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 10, elevation: 5 },
-    'border_fire': { borderColor: '#FF4500', borderWidth: 4, borderStyle: 'dashed' },
-    'border_ice': { borderColor: '#00FFFF', borderWidth: 4, shadowColor: '#00FFFF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 10, elevation: 5 },
-    'border_rainbow': { borderColor: '#9400D3', borderWidth: 4, borderStyle: 'dotted' },
-};
+
 
 export default function ShopScreen({ navigation }) {
     const { theme } = useTheme();
@@ -103,17 +94,17 @@ export default function ShopScreen({ navigation }) {
 
     const AvatarPreview = ({ item, size = 80 }) => {
         const borderStyle = BORDER_STYLES[item.image_url] || {};
+        const isAnimated = borderStyle.animated || false;
+        const isRainbow = borderStyle.rainbow || false;
 
         return (
             <View style={[styles.avatarContainer, { width: size, height: size }]}>
-                <Image
-                    source={avatarUrl ? { uri: avatarUrl } : defaultUserImage}
-                    style={[
-                        styles.avatarImage,
-                        { width: size, height: size, borderRadius: size / 2 },
-                        borderStyle
-                    ]}
-                    resizeMode="cover"
+                <AnimatedAvatarBorder
+                    avatarSource={avatarUrl ? { uri: avatarUrl } : defaultUserImage}
+                    size={size}
+                    borderStyle={borderStyle}
+                    isRainbow={isRainbow}
+                    isAnimated={isAnimated}
                 />
             </View>
         );
@@ -126,7 +117,12 @@ export default function ShopScreen({ navigation }) {
 
         return (
             <TouchableOpacity
-                style={[styles.itemCard, { backgroundColor: theme.colors.card, borderColor: isEquipped ? theme.colors.primary : theme.colors.cardBorder, borderWidth: isEquipped ? 2 : 1, opacity: isLocked ? 0.6 : 1 }]}
+                style={[styles.itemCard, {
+                    backgroundColor: theme.colors.card,
+                    borderColor: isEquipped ? theme.colors.primary : theme.colors.cardBorder,
+                    borderWidth: isEquipped ? 2 : 0.5,
+                    opacity: isLocked ? 0.6 : 1
+                }]}
                 onPress={() => setSelectedItem(item)}
                 disabled={isLocked}
             >
@@ -171,11 +167,14 @@ export default function ShopScreen({ navigation }) {
                 </TouchableOpacity>
 
                 <View style={styles.titleRow}>
-                    <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Shop</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <FontAwesomeIcon icon={faStore} size={28} color={theme.colors.primary} style={{ marginRight: 12 }} />
+                        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Shop</Text>
+                    </View>
                 </View>
 
                 <Text style={[styles.headerDescription, { color: theme.colors.placeholder }]}>
-                    Spend your hard-earned coins on cool new items!
+                    Spend your hard-earned coins on cool new items! Tap on purchased borders to equip them.
                 </Text>
 
                 <View style={[styles.balanceContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
@@ -276,7 +275,7 @@ const styles = StyleSheet.create({
     },
     headerContainer: {
         padding: 20,
-        paddingTop: 60,
+        paddingTop: 20,
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(0,0,0,0.05)',
     },
@@ -337,14 +336,10 @@ const styles = StyleSheet.create({
         width: '48%',
         marginBottom: 16,
         borderRadius: 12,
-        borderWidth: 1,
         padding: 12,
         alignItems: 'center',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        // Removed shadows for cleaner look
+        elevation: 0,
     },
     avatarContainer: {
         justifyContent: 'center',
