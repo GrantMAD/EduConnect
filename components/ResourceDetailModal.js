@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faUser, faCalendar, faFileAlt, faThumbsUp, faThumbsDown, faDownload } from '@fortawesome/free-solid-svg-icons';
@@ -31,6 +31,7 @@ export default function ResourceDetailModal({ visible, onClose, resource, onVote
   const [userVote, setUserVote] = useState(null); // 1 or -1
   const [upvotes, setUpvotes] = useState(0);
   const [downvotes, setDownvotes] = useState(0);
+  const [isVoting, setIsVoting] = useState(false);
 
   useEffect(() => {
     if (!resource) return;
@@ -65,8 +66,9 @@ export default function ResourceDetailModal({ visible, onClose, resource, onVote
   }, [visible, resource]);
 
   const castVote = async (voteValue) => {
-    if (!userId || !resource || userVote !== null) return; // Prevent re-voting
+    if (!userId || !resource || userVote !== null || isVoting) return; // Prevent re-voting
 
+    setIsVoting(true);
     try {
       const { error } = await supabase
         .from('resource_votes')
@@ -90,6 +92,8 @@ export default function ResourceDetailModal({ visible, onClose, resource, onVote
     } catch (err) {
       console.error('Vote failed:', err);
       Alert.alert('Error', 'Failed to submit vote.');
+    } finally {
+      setIsVoting(false);
     }
   };
 
@@ -147,7 +151,9 @@ export default function ResourceDetailModal({ visible, onClose, resource, onVote
           </View>
 
           <View style={styles.voteSection}>
-            {userVote === null ? (
+            {isVoting ? (
+              <ActivityIndicator size="small" color="#007AFF" />
+            ) : userVote === null ? (
               <>
                 <Text style={styles.votePrompt}>Was this resource helpful?</Text>
                 <View style={styles.voteContainer}>

@@ -46,10 +46,10 @@ export default function ResourcesScreen() {
     }
   };
 
-  const fetchResources = async () => {
+  const fetchResources = async (silent = false) => {
     if (!schoolId) return;
 
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const { data, error } = await supabase
         .from('resources')
@@ -81,9 +81,7 @@ export default function ResourcesScreen() {
     } catch (error) {
       console.error('Error fetching resources:', error);
     } finally {
-      setLoading(false);
-      console.error('Cannot open file:', err);
-      alert('Failed to open file. Make sure you have an app that can open this file type.');
+      if (!silent) setLoading(false);
     }
   };
 
@@ -186,7 +184,7 @@ export default function ResourcesScreen() {
         visible={detailModalVisible}
         onClose={() => setDetailModalVisible(false)}
         resource={selectedResource}
-        onVotesChanged={fetchResources}
+        onVotesChanged={() => fetchResources(true)}
       />
     </View>
   );

@@ -11,6 +11,7 @@ import HomeTabs from './HomeTabs';
 import ProfileScreen from '../screens/ProfileScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import ManagementScreen from '../screens/ManagementScreen';
 import UserManagementScreen from '../screens/UserManagementScreen';
 import CreateAnnouncementScreen from '../screens/CreateAnnouncementScreen';
 import ManageClassesScreen from '../screens/class/ManageClassesScreen';
@@ -48,6 +49,7 @@ const MainStackNavigator = () => (
     <Stack.Screen name="Profile" component={ProfileScreen} />
     <Stack.Screen name="MyChildren" component={MyChildrenScreen} />
     <Stack.Screen name="Settings" component={SettingsScreen} />
+    <Stack.Screen name="Management" component={ManagementScreen} />
     <Stack.Screen name="UserManagement" component={UserManagementScreen} />
     <Stack.Screen name="Notifications">
       {props => <NotificationsScreen {...props} showActions={true} />}

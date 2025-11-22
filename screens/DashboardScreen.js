@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
     faUsers,
@@ -23,6 +23,7 @@ import { useToast } from '../context/ToastContext';
 import UserListModal from '../components/UserListModal';
 import ClassListModal from '../components/ClassListModal';
 import ContentListModal from '../components/ContentListModal';
+import DashboardScreenSkeleton from '../components/skeletons/DashboardScreenSkeleton';
 
 export default function DashboardScreen({ navigation }) {
     const { theme } = useTheme();
@@ -322,12 +323,7 @@ export default function DashboardScreen({ navigation }) {
     );
 
     if (loading) {
-        return (
-            <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
-                <ActivityIndicator size="large" color={theme.colors.primary} />
-                <Text style={[styles.loadingText, { color: theme.colors.text }]}>Loading Dashboard...</Text>
-            </View>
-        );
+        return <DashboardScreenSkeleton />;
     }
 
     return (
@@ -348,6 +344,7 @@ export default function DashboardScreen({ navigation }) {
             {/* User Statistics */}
             <View style={styles.section}>
                 <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>User Statistics</Text>
+                <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Overview of all users in your school</Text>
                 <View style={styles.statsGrid}>
                     <StatCard
                         icon={faUsers}
@@ -390,6 +387,7 @@ export default function DashboardScreen({ navigation }) {
             {/* Content & Activity */}
             <View style={styles.section}>
                 <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Content & Activity</Text>
+                <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Track classes, announcements, and school activities</Text>
                 <View style={styles.statsGrid}>
                     <StatCard
                         icon={faBookOpen}
@@ -439,6 +437,7 @@ export default function DashboardScreen({ navigation }) {
             {/* Quick Actions */}
             <View style={styles.section}>
                 <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Quick Actions</Text>
+                <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Quickly create and manage school content</Text>
                 <View style={styles.actionsContainer}>
                     <QuickActionButton
                         icon={faBullhorn}
@@ -549,6 +548,10 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 20,
         fontWeight: '600',
+        marginBottom: 4,
+    },
+    sectionDescription: {
+        fontSize: 14,
         marginBottom: 16,
     },
     statsGrid: {

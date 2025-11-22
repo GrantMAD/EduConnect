@@ -8,6 +8,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import { SchoolProvider } from './context/SchoolContext';
 import { GamificationProvider } from './context/GamificationContext';
+import { NotificationPreferencesProvider } from './context/NotificationPreferencesContext';
 import { supabase } from './lib/supabase';
 
 import AuthNavigation from './navigation/AuthNavigation';
@@ -70,14 +71,16 @@ export default function App() {
   return (
     <ThemeProvider session={session}>
       <ToastProvider>
-        <NavigationContainer>
-          <StatusBar style="auto" />
-          <SchoolProvider>
-            <GamificationProvider session={session}>
-              {session ? <AppStack /> : <AuthStack />}
-            </GamificationProvider>
-          </SchoolProvider>
-        </NavigationContainer>
+        <NotificationPreferencesProvider>
+          <NavigationContainer>
+            <StatusBar style="auto" />
+            <SchoolProvider>
+              <GamificationProvider session={session}>
+                {session ? <AppStack /> : <AuthStack />}
+              </GamificationProvider>
+            </SchoolProvider>
+          </NavigationContainer>
+        </NotificationPreferencesProvider>
       </ToastProvider>
     </ThemeProvider>
   );

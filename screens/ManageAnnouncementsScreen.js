@@ -5,7 +5,7 @@ import { useSchool } from '../context/SchoolContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import ManagementCardSkeleton from '../components/skeletons/ManagementCardSkeleton';
-import { faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faEdit, faTrash, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import Modal from 'react-native-modal';
 import { TextInput } from 'react-native';
 import { useToast } from '../context/ToastContext';
@@ -146,6 +146,10 @@ export default function ManageAnnouncementsScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <FontAwesomeIcon icon={faArrowLeft} size={20} color="#007AFF" />
+        <Text style={styles.backButtonText}>Back to Management</Text>
+      </TouchableOpacity>
       <Text style={styles.header}>Manage Announcements</Text>
       <Text style={styles.description}>View, edit, or delete announcements for your school.</Text>
 
@@ -326,5 +330,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  backButton: {
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '500',
   },
 });

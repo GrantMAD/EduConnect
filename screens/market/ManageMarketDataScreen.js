@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import ManagementListSkeleton from '../../components/skeletons/ManagementListSkeleton';
-import { faPlus, faStore } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faStore, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../../lib/supabase';
 import ManageMarketItemListItem from '../../components/ManageMarketItemListItem';
 import MarketplaceItemDetailModal from '../../components/MarketplaceItemDetailModal';
@@ -86,6 +86,10 @@ export default function ManageMarketDataScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <FontAwesomeIcon icon={faArrowLeft} size={20} color="#007AFF" />
+        <Text style={styles.backButtonText}>Back to Management</Text>
+      </TouchableOpacity>
       <View style={styles.mainHeaderContainer}>
         <FontAwesomeIcon icon={faStore} size={24} color="#333" style={styles.mainHeaderIcon} />
         <Text style={styles.header}>Manage Your Items</Text>
@@ -169,5 +173,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 10,
+  },
+  backButton: {
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '500',
   },
 });

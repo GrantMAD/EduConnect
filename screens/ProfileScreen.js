@@ -3,7 +3,7 @@ import { View, Text, TextInput, StyleSheet, ActivityIndicator, Alert, ScrollView
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import ProfileScreenSkeleton from '../components/skeletons/ProfileScreenSkeleton';
-import { faEdit, faSave, faUserFriends, faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone, faMinus, faTrophy, faMedal, faFire, faStore, faChartBar, faCoins, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
+import { faUserFriends, faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone, faMinus, faTrophy, faMedal, faFire, faStore, faChartBar, faCoins, faInfoCircle, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -46,9 +46,6 @@ export default function ProfileScreen({ navigation }) {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [avatarLocalUri, setAvatarLocalUri] = useState(null);
-  const [uploading, setUploading] = useState(false);
   const [students, setStudents] = useState([]);
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [studentSearch, setStudentSearch] = useState('');
@@ -146,122 +143,7 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
-  const handleEdit = () => setIsEditing(true);
-  const handleCancel = () => {
-    setIsEditing(false);
-    setShowManageChildren(false);
-    fetchUserData();
-    setAvatarLocalUri(null);
-  };
 
-  const pickImage = async () => {
-    if (Platform.OS !== 'web') {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        showToast('Please grant media library access to upload photos.', 'error');
-        return;
-      }
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setAvatarLocalUri(result.assets[0].uri);
-    }
-  };
-
-  const deleteOldAvatar = async (avatarUrl) => {
-    if (!avatarUrl) return;
-    try {
-      const url = new URL(avatarUrl);
-      const path = url.pathname;
-      const prefix = "/storage/v1/object/public/avatars/";
-      if (!path.startsWith(prefix)) return;
-      const filePath = path.slice(prefix.length);
-
-      const { error } = await supabase.storage.from('avatars').remove([filePath]);
-      if (error) console.warn("Failed to delete old avatar:", error.message);
-    } catch (error) {
-      console.warn("Error deleting old avatar:", error.message);
-    }
-  };
-
-  const uploadAvatar = async (uri) => {
-    setUploading(true);
-    try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) throw userError || new Error("No user logged in");
-
-      const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: 'base64',
-      });
-      const buffer = Buffer.from(base64, "base64");
-
-      const fileExt = uri.split(".").pop()?.toLowerCase() || "jpg";
-      const fileName = `${user.id}_avatar_${Date.now()}.${fileExt}`;
-      const filePath = `${user.id}/${fileName}`;
-      const contentType = `image/${fileExt === "jpg" ? "jpeg" : fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, buffer, { cacheControl: "3600", upsert: true, contentType });
-
-      if (uploadError) throw uploadError;
-
-      const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(filePath);
-      return publicData?.publicUrl || null;
-    } catch (error) {
-      console.error("Upload error:", error);
-      showToast('Failed to upload avatar.', 'error');
-      return null;
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Delete old avatar if replaced
-      if (avatarLocalUri && userData.avatar_url) {
-        await deleteOldAvatar(userData.avatar_url);
-      }
-
-      let avatarUrl = userData.avatar_url;
-      if (avatarLocalUri) {
-        const uploadedUrl = await uploadAvatar(avatarLocalUri);
-        if (uploadedUrl) avatarUrl = uploadedUrl;
-      }
-
-      const { error } = await supabase.from('users').update({
-        full_name: userData.full_name,
-        email: userData.email,
-        role: userData.role,
-        avatar_url: avatarUrl,
-        number: userData.number,
-      }).eq('id', user.id);
-
-      if (error) throw error;
-
-      setUserData(prev => ({ ...prev, avatar_url: avatarUrl }));
-      setAvatarLocalUri(null);
-      setIsEditing(false);
-      showToast('Profile updated successfully!', 'success');
-    } catch (error) {
-      console.error(error);
-      showToast('Failed to update profile.', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleSendAssociationRequest = async () => {
     if (selectedStudents.length === 0) {
@@ -363,37 +245,84 @@ export default function ProfileScreen({ navigation }) {
   const borderStyle = equippedItem ? BORDER_STYLES[equippedItem.image_url] : { borderColor: theme.colors.primary, borderWidth: 2 };
   const isAnimated = borderStyle.animated || false;
   const isRainbow = borderStyle.rainbow || false;
-  const avatarSource = avatarLocalUri ? { uri: avatarLocalUri } : (userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage);
+  const avatarSource = userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage;
 
   return (
     <ScrollView ref={scrollViewRef} contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Profile Image and Description */}
-      {isEditing ? (
-        <TouchableOpacity onPress={pickImage} activeOpacity={0.7} style={{ marginBottom: 16 }}>
-          <AnimatedAvatarBorder
-            avatarSource={avatarSource}
-            size={120}
-            borderStyle={borderStyle}
-            isRainbow={isRainbow}
-            isAnimated={isAnimated}
-          />
-          <Text style={{ textAlign: 'center', color: theme.colors.primary, marginTop: 4 }}>Tap to change photo</Text>
-        </TouchableOpacity>
-      ) : (
-        <View style={{ marginBottom: 16 }}>
-          <AnimatedAvatarBorder
-            avatarSource={avatarSource}
-            size={120}
-            borderStyle={borderStyle}
-            isRainbow={isRainbow}
-            isAnimated={isAnimated}
-          />
-        </View>
-      )}
+      <View style={{ marginBottom: 16 }}>
+        <AnimatedAvatarBorder
+          avatarSource={avatarSource}
+          size={120}
+          borderStyle={borderStyle}
+          isRainbow={isRainbow}
+          isAnimated={isAnimated}
+        />
+      </View>
 
       <Text style={[styles.header, { color: theme.colors.text }]}>My Profile</Text>
 
-      {/* Gamification Card */}
+      {/* Informational Banner */}
+      <TouchableOpacity
+        style={[styles.infoBanner, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.cardBorder }]}
+        onPress={() => navigation.navigate('Settings')}
+      >
+        <View style={styles.infoBannerContent}>
+          <FontAwesomeIcon icon={faGear} size={20} color={theme.colors.primary} />
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={[styles.infoBannerTitle, { color: theme.colors.text }]}>Want to edit your profile?</Text>
+            <Text style={[styles.infoBannerText, { color: theme.colors.placeholder }]}>Go to Settings → Account Management</Text>
+          </View>
+          <FontAwesomeIcon icon={faArrowRight} size={16} color={theme.colors.primary} />
+        </View>
+      </TouchableOpacity>
+
+      {/* User Information */}
+      <View style={styles.sectionHeaderContainer}>
+        <FontAwesomeIcon icon={faAddressCard} size={20} color={theme.colors.primary} style={styles.sectionHeaderIcon} />
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Personal Information</Text>
+      </View>
+
+      <View style={styles.infoContainer}>
+        <View style={styles.infoRow}>
+          <FontAwesomeIcon icon={faUser} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
+          <Text style={[styles.label, { color: theme.colors.text }]}>Full Name</Text>
+        </View>
+        <Text style={[styles.value, { color: theme.colors.text }]}>{userData.full_name}</Text>
+      </View>
+
+      <View style={styles.infoContainer}>
+        <View style={styles.infoRow}>
+          <FontAwesomeIcon icon={faEnvelope} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
+          <Text style={[styles.label, { color: theme.colors.text }]}>Email</Text>
+        </View>
+        <Text style={[styles.value, { color: theme.colors.text }]}>{userData.email}</Text>
+      </View>
+
+      <View style={styles.infoContainer}>
+        <View style={styles.infoRow}>
+          <FontAwesomeIcon icon={faPhone} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
+          <Text style={[styles.label, { color: theme.colors.text }]}>Phone Number</Text>
+        </View>
+        <Text style={[styles.value, { color: theme.colors.text }]}>{userData.number || 'Not provided'}</Text>
+      </View>
+
+      <View style={styles.infoContainer}>
+        <View style={styles.infoRow}>
+          <FontAwesomeIcon icon={faBriefcase} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
+          <Text style={[styles.label, { color: theme.colors.text }]}>Role</Text>
+        </View>
+        <Text style={[styles.value, { color: theme.colors.text }]}>{userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}</Text>
+      </View>
+
+      <View style={styles.sectionHeaderContainer}>
+        <FontAwesomeIcon icon={faTrophy} size={20} color={theme.colors.primary} style={styles.sectionHeaderIcon} />
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Gamification</Text>
+      </View>
+      <View style={{ alignSelf: 'stretch' }}>
+        <Text style={[styles.sectionDescription, { color: theme.colors.text }]}>Track your progress, badges, and achievements.</Text>
+      </View>
+
       <View style={[styles.gamificationCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
         <View style={styles.levelContainer}>
           <View style={[styles.levelBadge, { backgroundColor: theme.colors.primary }]}>
@@ -471,87 +400,6 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
       </View>
-
-      <Text style={[styles.description, { color: theme.colors.text }]}>View and edit your profile information.</Text>
-
-      {/* User Information */}
-      <View style={styles.sectionHeaderContainer}>
-        <FontAwesomeIcon icon={faAddressCard} size={20} color={theme.colors.primary} style={styles.sectionHeaderIcon} />
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Personal Information</Text>
-      </View>
-      <View style={{ alignSelf: 'stretch' }}>
-        <Text style={[styles.sectionDescription, { color: theme.colors.text }]}>Manage your personal details and account settings.</Text>
-      </View>
-
-      <View style={styles.infoContainer}>
-        <View style={styles.infoRow}>
-          <FontAwesomeIcon icon={faUser} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
-          <Text style={[styles.label, { color: theme.colors.text }]}>Full Name</Text>
-        </View>
-        {isEditing ? (
-          <TextInput
-            style={[styles.input, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-            value={userData.full_name}
-            onChangeText={text => setUserData({ ...userData, full_name: text })}
-            placeholder="Enter full name"
-            placeholderTextColor={theme.colors.placeholder}
-          />
-        ) : (
-          <Text style={[styles.value, { color: theme.colors.text }]}>{userData.full_name}</Text>
-        )}
-      </View>
-
-      <View style={styles.infoContainer}>
-        <View style={styles.infoRow}>
-          <FontAwesomeIcon icon={faEnvelope} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
-          <Text style={[styles.label, { color: theme.colors.text }]}>Email</Text>
-        </View>
-        <Text style={[styles.value, { color: theme.colors.text }]}>{userData.email}</Text>
-      </View>
-
-      <View style={styles.infoContainer}>
-        <View style={styles.infoRow}>
-          <FontAwesomeIcon icon={faPhone} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
-          <Text style={[styles.label, { color: theme.colors.text }]}>Phone Number</Text>
-        </View>
-        {isEditing ? (
-          <TextInput
-            style={[styles.input, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-            value={userData.number}
-            onChangeText={text => setUserData({ ...userData, number: text })}
-            placeholder="Enter phone number"
-            placeholderTextColor={theme.colors.placeholder}
-          />
-        ) : (
-          <Text style={[styles.value, { color: theme.colors.text }]}>{userData.number || 'Not provided'}</Text>
-        )}
-      </View>
-
-      <View style={styles.infoContainer}>
-        <View style={styles.infoRow}>
-          <FontAwesomeIcon icon={faBriefcase} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
-          <Text style={[styles.label, { color: theme.colors.text }]}>Role</Text>
-        </View>
-        <Text style={[styles.value, { color: theme.colors.text }]}>{userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}</Text>
-      </View>
-
-      {!isEditing && (
-        <TouchableOpacity style={[styles.editProfileButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={handleEdit}>
-          <FontAwesomeIcon icon={faEdit} size={18} color={theme.colors.buttonPrimaryText} />
-          <Text style={[styles.editProfileButtonText, { color: theme.colors.buttonPrimaryText }]}>Edit Profile</Text>
-        </TouchableOpacity>
-      )}
-
-      {isEditing && (
-        <View style={styles.buttonGroup}>
-          <TouchableOpacity style={[styles.button, { backgroundColor: theme.colors.buttonPrimary }]} onPress={handleSave} disabled={saving}>
-            <Text style={[styles.buttonText, { color: theme.colors.buttonPrimaryText }]}>{saving ? "Saving..." : "Save"}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, styles.cancelButton, { borderColor: theme.colors.primary }]} onPress={handleCancel}>
-            <Text style={[styles.buttonText, styles.cancelButtonText, { color: theme.colors.primary }]}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
       <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
       {/* My Children (for Parents) */}
@@ -669,8 +517,27 @@ export default function ProfileScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 24, alignItems: 'center' },
   avatar: { width: 120, height: 120, borderRadius: 60, borderWidth: 4, marginBottom: 16 },
-  header: { fontSize: 32, fontWeight: 'bold', marginBottom: 8 },
+  header: { fontSize: 32, fontWeight: 'bold', marginBottom: 24 },
   description: { fontSize: 16, marginBottom: 32, textAlign: 'center' },
+  infoBanner: {
+    width: '100%',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 20,
+  },
+  infoBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  infoBannerTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  infoBannerText: {
+    fontSize: 13,
+  },
   sectionHeaderContainer: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -128,12 +128,10 @@ export default function SchoolDataScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-      {fromDashboard && (
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#333" />
-          <Text style={styles.backButtonText}>Return to Dashboard</Text>
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <FontAwesomeIcon icon={faArrowLeft} size={20} color="#007AFF" />
+        <Text style={styles.backButtonText}>{fromDashboard ? 'Return to Dashboard' : 'Back to Management'}</Text>
+      </TouchableOpacity>
       <Text style={styles.title}>School Data</Text>
       <Text style={styles.description}>
         Manage your school's data, including the main image displayed on the announcements screen.
@@ -238,7 +236,7 @@ const styles = StyleSheet.create({
   backButtonText: {
     marginLeft: 8,
     fontSize: 16,
-    color: '#333',
+    color: '#007AFF',
     fontWeight: '500',
   },
 });
