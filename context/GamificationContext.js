@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from './ToastContext';
+import { BADGES } from '../constants/Badges';
 
 const GamificationContext = createContext();
 
@@ -15,7 +16,8 @@ export const GamificationProvider = ({ children, session }) => {
             longest_streak: 0,
             last_activity_date: null
         },
-        equippedItem: null
+        equippedItem: null,
+        nextBadge: null
     });
     const [loading, setLoading] = useState(true);
     const { showToast } = useToast();
@@ -72,10 +74,28 @@ export const GamificationProvider = ({ children, session }) => {
                 .eq('is_equipped', true)
                 .maybeSingle();
 
+            // Fetch user role
+            const { data: userRoleData, error: roleError } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', session.user.id)
+                .single();
+
+            const userRole = userRoleData?.role || 'student'; // Default to student if not found
+
+            // Calculate Badges
+            const roleBadges = BADGES[userRole] || BADGES['student'];
+            const currentXP = userData.current_xp || 0;
+
+            const earnedBadges = roleBadges.filter(badge => currentXP >= badge.min_xp);
+            const nextBadge = roleBadges.find(badge => currentXP < badge.min_xp) || null;
+
             setGamificationState({
                 ...userData,
                 streak: streakData || { current_streak: 0, longest_streak: 0, last_activity_date: null },
-                equippedItem: equippedData?.shop_items || null
+                equippedItem: equippedData?.shop_items || null,
+                badges: earnedBadges,
+                nextBadge: nextBadge
             });
 
             // Check streak logic after fetching

@@ -14,6 +14,7 @@ import { useGamification } from '../context/GamificationContext';
 import GamificationInfoModal from '../components/GamificationInfoModal';
 import { BORDER_STYLES } from '../constants/GamificationStyles';
 import AnimatedAvatarBorder from '../components/AnimatedAvatarBorder';
+import { BADGES } from '../constants/Badges';
 
 export default function ProfileScreen({ navigation }) {
   const defaultUserImage = require('../assets/user.png');
@@ -449,16 +450,26 @@ export default function ProfileScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {badges && badges.length > 0 && (
-          <View style={styles.badgesContainer}>
-            {badges.map((badge, index) => (
-              <View key={index} style={styles.badgeItem}>
-                <FontAwesomeIcon icon={faMedal} size={16} color="#FFD700" />
-                <Text style={[styles.badgeText, { color: theme.colors.text }]}>{badge.name}</Text>
-              </View>
-            ))}
+        {/* Badges Section */}
+        <View style={styles.badgesContainer}>
+          <Text style={[styles.badgesTitle, { color: theme.colors.text }]}>Badges</Text>
+          <View style={styles.badgesGrid}>
+            {(BADGES[userData.role] || BADGES['student']).map((badge, index) => {
+              const isEarned = badges.some(b => b.id === badge.id);
+              return (
+                <View key={index} style={[styles.badgeItem, !isEarned && { opacity: 0.5 }]}>
+                  <View style={[styles.badgeIconContainer, { backgroundColor: isEarned ? '#FFF9C4' : theme.colors.inputBackground }]}>
+                    <FontAwesomeIcon icon={badge.icon} size={24} color={isEarned ? '#FFD700' : theme.colors.placeholder} />
+                  </View>
+                  <Text style={[styles.badgeText, { color: theme.colors.text }]} numberOfLines={1}>{badge.name}</Text>
+                  {!isEarned && (
+                    <Text style={[styles.badgeXpText, { color: theme.colors.placeholder }]}>{badge.min_xp} XP</Text>
+                  )}
+                </View>
+              );
+            })}
           </View>
-        )}
+        </View>
       </View>
 
       <Text style={[styles.description, { color: theme.colors.text }]}>View and edit your profile information.</Text>
@@ -796,6 +807,7 @@ const styles = StyleSheet.create({
   },
   gamificationCard: {
     width: '100%',
+    marginTop: 16,
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
@@ -840,27 +852,41 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   badgesContainer: {
+    marginTop: 20,
+    width: '100%',
+  },
+  badgesTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  badgesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
+    justifyContent: 'space-between',
   },
   badgeItem: {
-    flexDirection: 'row',
+    width: '30%',
     alignItems: 'center',
-    marginRight: 12,
-    marginBottom: 4,
-    backgroundColor: 'rgba(255, 215, 0, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    marginBottom: 16,
+  },
+  badgeIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   badgeText: {
     fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 4,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  badgeXpText: {
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 2,
   },
   statsRow: {
     flexDirection: 'row',

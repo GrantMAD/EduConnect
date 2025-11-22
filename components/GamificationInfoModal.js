@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTimes, faInfoCircle, faTrophy, faCoins, faFire } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faInfoCircle, faTrophy, faCoins, faFire, faMedal } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
 export default function GamificationInfoModal({ visible, onClose }) {
@@ -63,6 +63,19 @@ export default function GamificationInfoModal({ visible, onClose }) {
                             </View>
                             <Text style={[styles.description, { color: theme.colors.text }]}>
                                 Keep your streak alive by logging in or doing an activity every day. Don't miss a day, or your streak will reset!
+                            </Text>
+                        </View>
+
+                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
+
+                        {/* Badges Section */}
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}>
+                                <FontAwesomeIcon icon={faMedal} size={20} color="#FFD700" />
+                                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Badges</Text>
+                            </View>
+                            <Text style={[styles.description, { color: theme.colors.text }]}>
+                                Unlock special badges as you reach XP milestones. Badges are unique to your role (Student, Teacher, or Parent) and show off your achievements!
                             </Text>
                         </View>
 
