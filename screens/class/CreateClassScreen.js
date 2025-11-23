@@ -168,17 +168,35 @@ export default function CreateClassScreen({ navigation, route }) {
         const { error: membersError } = await supabase.from('class_members').insert(classMembersToInsert);
         if (membersError) throw membersError;
 
-        // Notify students they've been added to the class
-        const notifications = selectedStudents.map(studentId => ({
-          user_id: studentId,
-          type: 'added_to_class',
-          title: 'Added to New Class',
-          message: `You have been added to the class: ${newClass.name}`,
-        }));
+        // Fetch preferences for all selected students
+        const { data: recipientsData, error: recipientsError } = await supabase
+          .from('users')
+          .select('id, notification_preferences')
+          .in('id', selectedStudents);
 
-        const { error: notificationError } = await supabase.from('notifications').insert(notifications);
-        if (notificationError) {
-          console.error('Failed to create student notifications:', notificationError);
+        if (recipientsError) {
+          console.error('Error fetching student preferences:', recipientsError);
+        } else {
+          // Filter based on preferences (using 'classSchedule' preference as a proxy for class additions)
+          const finalRecipients = recipientsData.filter(u => {
+            const prefs = u.notification_preferences;
+            return !prefs || prefs.classSchedule !== false;
+          });
+
+          // Notify students they've been added to the class
+          const notifications = finalRecipients.map(student => ({
+            user_id: student.id,
+            type: 'added_to_class',
+            title: 'Added to New Class',
+            message: `You have been added to the class: ${newClass.name}`,
+          }));
+
+          if (notifications.length > 0) {
+            const { error: notificationError } = await supabase.from('notifications').insert(notifications);
+            if (notificationError) {
+              console.error('Failed to create student notifications:', notificationError);
+            }
+          }
         }
       }
 

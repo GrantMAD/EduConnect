@@ -147,18 +147,34 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
           const recipientIds = [...new Set([...studentIds, ...parentIds])];
 
           if (recipientIds.length > 0) {
-            const notifications = recipientIds.map(userId => ({
-              user_id: userId,
+            // Fetch preferences for all potential recipients
+            const { data: recipientsData, error: recipientsError } = await supabase
+              .from('users')
+              .select('id, notification_preferences')
+              .in('id', recipientIds);
+
+            if (recipientsError) throw recipientsError;
+
+            // Filter based on preferences (using 'homework' preference for assignments as well)
+            const finalRecipients = recipientsData.filter(u => {
+              const prefs = u.notification_preferences;
+              return !prefs || prefs.homework !== false;
+            });
+
+            const notifications = finalRecipients.map(userId => ({
+              user_id: userId.id,
               type: 'new_assignment',
               title: `New Assignment for ${classInfo.name}`,
               message: `A new assignment has been set: "${newAssignment.title}"`,
               data: { assignment_id: newAssignment.id }
             }));
 
-            const { error: notificationError } = await supabase.from('notifications').insert(notifications);
-            if (notificationError) {
-              console.error('Failed to create assignment notifications:', notificationError);
-              showToast('Assignment created, but failed to send notifications.', 'warning');
+            if (notifications.length > 0) {
+              const { error: notificationError } = await supabase.from('notifications').insert(notifications);
+              if (notificationError) {
+                console.error('Failed to create assignment notifications:', notificationError);
+                showToast('Assignment created, but failed to send notifications.', 'warning');
+              }
             }
           }
         }

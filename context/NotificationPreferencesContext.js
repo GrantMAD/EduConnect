@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../lib/supabase';
 
 const NotificationPreferencesContext = createContext();
 
@@ -16,22 +16,31 @@ const DEFAULT_PREFERENCES = {
     quietHoursEnd: '07:00',
 };
 
-const STORAGE_KEY = '@notification_preferences';
-
 export const NotificationPreferencesProvider = ({ children }) => {
     const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
     const [loading, setLoading] = useState(true);
 
-    // Load preferences from AsyncStorage on mount
+    // Load preferences from Supabase on mount
     useEffect(() => {
         loadPreferences();
     }, []);
 
     const loadPreferences = async () => {
         try {
-            const stored = await AsyncStorage.getItem(STORAGE_KEY);
-            if (stored) {
-                setPreferences(JSON.parse(stored));
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('notification_preferences')
+                    .eq('id', user.id)
+                    .single();
+
+                if (error) {
+                    console.error('Error fetching notification preferences:', error);
+                } else if (data && data.notification_preferences) {
+                    // Merge with defaults to ensure all keys exist
+                    setPreferences({ ...DEFAULT_PREFERENCES, ...data.notification_preferences });
+                }
             }
         } catch (error) {
             console.error('Error loading notification preferences:', error);
@@ -40,22 +49,42 @@ export const NotificationPreferencesProvider = ({ children }) => {
         }
     };
 
-    const savePreferences = async (newPreferences) => {
+    const updatePreference = async (key, value) => {
         try {
-            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newPreferences));
-            setPreferences(newPreferences);
+            const newPreferences = { ...preferences, [key]: value };
+            setPreferences(newPreferences); // Optimistic update
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { error } = await supabase
+                    .from('users')
+                    .update({ notification_preferences: newPreferences })
+                    .eq('id', user.id);
+
+                if (error) {
+                    throw error;
+                }
+            }
         } catch (error) {
             console.error('Error saving notification preferences:', error);
+            // Revert on error (optional, but good practice)
+            // setPreferences(preferences); 
         }
     };
 
-    const updatePreference = async (key, value) => {
-        const newPreferences = { ...preferences, [key]: value };
-        await savePreferences(newPreferences);
-    };
-
     const resetPreferences = async () => {
-        await savePreferences(DEFAULT_PREFERENCES);
+        try {
+            setPreferences(DEFAULT_PREFERENCES);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                await supabase
+                    .from('users')
+                    .update({ notification_preferences: DEFAULT_PREFERENCES })
+                    .eq('id', user.id);
+            }
+        } catch (error) {
+            console.error('Error resetting preferences:', error);
+        }
     };
 
     // Check if notifications should be sent based on quiet hours

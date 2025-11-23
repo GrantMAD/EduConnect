@@ -72,7 +72,7 @@ export default function CreatePollScreen({ navigation, route }) {
       // Fetch users to notify based on target_roles
       let usersQuery = supabase
         .from('users')
-        .select('id')
+        .select('id, notification_preferences')
         .eq('school_id', schoolId)
         .neq('id', user.id); // Don't notify the creator
 
@@ -86,8 +86,15 @@ export default function CreatePollScreen({ navigation, route }) {
       if (usersError) {
         console.error('Error fetching users to notify:', usersError);
       } else if (usersToNotify && usersToNotify.length > 0) {
+
+        // Filter users who have polls enabled
+        const recipients = usersToNotify.filter(u => {
+          const prefs = u.notification_preferences;
+          return !prefs || prefs.polls !== false;
+        });
+
         // Create notifications for all target users
-        const notifications = usersToNotify.map(targetUser => ({
+        const notifications = recipients.map(targetUser => ({
           user_id: targetUser.id,
           type: 'new_poll',
           title: 'New Poll Available',
@@ -96,12 +103,14 @@ export default function CreatePollScreen({ navigation, route }) {
           is_read: false,
         }));
 
-        const { error: notifError } = await supabase
-          .from('notifications')
-          .insert(notifications);
+        if (notifications.length > 0) {
+          const { error: notifError } = await supabase
+            .from('notifications')
+            .insert(notifications);
 
-        if (notifError) {
-          console.error('Error creating notifications:', notifError);
+          if (notifError) {
+            console.error('Error creating notifications:', notifError);
+          }
         }
       }
       awardXP('poll_creation', 10);

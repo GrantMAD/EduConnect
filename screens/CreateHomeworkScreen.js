@@ -122,18 +122,34 @@ const CreateHomeworkScreen = ({ navigation, route }) => {
         const recipientIds = [...new Set([...studentIds, ...parentIds])];
 
         if (recipientIds.length > 0) {
-          const notifications = recipientIds.map(userId => ({
-            user_id: userId,
+          // Fetch preferences for all potential recipients
+          const { data: recipientsData, error: recipientsError } = await supabase
+            .from('users')
+            .select('id, notification_preferences')
+            .in('id', recipientIds);
+
+          if (recipientsError) throw recipientsError;
+
+          // Filter based on preferences
+          const finalRecipients = recipientsData.filter(u => {
+            const prefs = u.notification_preferences;
+            return !prefs || prefs.homework !== false;
+          });
+
+          const notifications = finalRecipients.map(userId => ({
+            user_id: userId.id,
             type: 'new_homework',
             title: `New Homework for ${classInfo.name}`,
             message: `A new piece of homework has been set: "${newHomework.subject}"`,
             data: { homework_id: newHomework.id }
           }));
 
-          const { error: notificationError } = await supabase.from('notifications').insert(notifications);
-          if (notificationError) {
-            console.error('Failed to create homework notifications:', notificationError);
-            showToast('Homework created, but failed to send notifications.', 'warning');
+          if (notifications.length > 0) {
+            const { error: notificationError } = await supabase.from('notifications').insert(notifications);
+            if (notificationError) {
+              console.error('Failed to create homework notifications:', notificationError);
+              showToast('Homework created, but failed to send notifications.', 'warning');
+            }
           }
         }
       }

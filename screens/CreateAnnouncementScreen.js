@@ -83,13 +83,21 @@ export default function CreateAnnouncementScreen({ navigation, route }) {
         try {
           const { data: users, error: usersError } = await supabase
             .from('users')
-            .select('id')
+            .select('id, notification_preferences')
             .eq('school_id', schoolId);
 
           if (usersError) throw usersError;
 
           const newAnnouncementData = newAnnouncements[0];
-          const notifications = users.map(u => ({
+
+          // Filter users who have announcements enabled
+          const recipients = users.filter(u => {
+            const prefs = u.notification_preferences;
+            // Default to true if prefs or the specific key is missing
+            return !prefs || prefs.announcements !== false;
+          });
+
+          const notifications = recipients.map(u => ({
             user_id: u.id,
             type: 'new_general_announcement',
             title: 'New School Announcement',
@@ -143,9 +151,23 @@ export default function CreateAnnouncementScreen({ navigation, route }) {
             // Combine students and parents, ensuring no duplicates
             const recipientIds = [...new Set([...studentIds, ...parentIds])];
 
+            // Fetch preferences for all potential recipients
+            const { data: recipientsData, error: recipientsError } = await supabase
+              .from('users')
+              .select('id, notification_preferences')
+              .in('id', recipientIds);
+
+            if (recipientsError) throw recipientsError;
+
+            // Filter based on preferences
+            const finalRecipients = recipientsData.filter(u => {
+              const prefs = u.notification_preferences;
+              return !prefs || prefs.announcements !== false;
+            });
+
             const newAnnouncementData = newAnnouncements[0];
-            const notifications = recipientIds.map(userId => ({
-              user_id: userId,
+            const notifications = finalRecipients.map(u => ({
+              user_id: u.id,
               type: 'new_class_announcement',
               title: `New Announcement in ${classInfo.name}`,
               message: `A new announcement has been posted: "${newAnnouncementData.title}"`,
