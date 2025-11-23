@@ -9,6 +9,7 @@ import CalendarScreenSkeleton from '../components/skeletons/CalendarScreenSkelet
 import { faTimes, faCalendarAlt, faClock, faChevronDown, faChevronUp, faBook } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
+import StandardBottomModal from '../components/StandardBottomModal';
 
 export default function CalendarScreen() {
   const [schedules, setSchedules] = useState([]);
@@ -76,7 +77,7 @@ export default function CalendarScreen() {
                   .select('class_id')
                   .in('user_id', childIds);
                 if (childrenClassesError) throw childrenClassesError;
-                
+
                 const childrenClassIds = childrenClasses.map(c => c.class_id);
                 classIds = [...new Set([...classIds, ...childrenClassIds])]; // Combine and remove duplicates
               }
@@ -98,7 +99,7 @@ export default function CalendarScreen() {
             .order('start_time', { ascending: true });
           if (schedulesError) throw schedulesError;
 
-          
+
           // Assign colors to classes
           const classColorMap = {};
           classIds.forEach((id, index) => {
@@ -110,9 +111,11 @@ export default function CalendarScreen() {
           classSchedules.forEach(schedule => {
             const date = schedule.start_time.split('T')[0];
             const color = classColorMap[schedule.class_id];
-            if (!formattedMarkedDates[date]) formattedMarkedDates[date] = { dots: [] };
-            if (!formattedMarkedDates[date].dots.some(dot => dot.key === schedule.class_id)) {
-              formattedMarkedDates[date].dots.push({ key: `${schedule.class_id}`, color });
+            if (!formattedMarkedDates[date]) formattedMarkedDates[date] = { periods: [] };
+            // Avoid duplicate bars for the same class on the same day
+            const existingPeriod = formattedMarkedDates[date].periods.find(p => p.color === color);
+            if (!existingPeriod) {
+              formattedMarkedDates[date].periods.push({ startingDay: true, endingDay: true, color });
             }
           });
 
@@ -231,7 +234,7 @@ export default function CalendarScreen() {
       <Calendar
         onDayPress={onDayPress}
         markedDates={markedDates}
-        markingType="multi-dot"
+        markingType="multi-period"
         theme={{
           backgroundColor: theme.colors.background,
           calendarBackground: theme.colors.background,
@@ -267,17 +270,14 @@ export default function CalendarScreen() {
       ) : Object.entries(pastGrouped).map(([title, scheds]) => renderClassDropdown(title, scheds))}
 
       {/* Class Detail Modal */}
-      <Modal
-        isVisible={isModalVisible}
-        onBackdropPress={() => setModalVisible(false)}
-        style={styles.centeredModal}
+      <StandardBottomModal
+        visible={isModalVisible}
+        onClose={() => setModalVisible(false)}
+        title={selectedSchedule?.title || 'Class Details'}
+        icon={faBook}
       >
         {selectedSchedule && (
-          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
-            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseButton}>
-              <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
-            </TouchableOpacity>
-            <Text style={[styles.modalHeader, { color: theme.colors.text }]}>{selectedSchedule.title}</Text>
+          <View>
             <Text style={[styles.modalDescription, { color: theme.colors.text }]}>Here is the detailed information for this class.</Text>
 
             {selectedSchedule.description ? (
@@ -300,23 +300,20 @@ export default function CalendarScreen() {
             ) : null}
           </View>
         )}
-      </Modal>
+      </StandardBottomModal>
 
       {/* Day Modal */}
-      <Modal
-        isVisible={isDayModalVisible}
-        onBackdropPress={() => setDayModalVisible(false)}
-        style={styles.centeredModal}
+      <StandardBottomModal
+        visible={isDayModalVisible}
+        onClose={() => setDayModalVisible(false)}
+        title="Classes for selected day"
+        icon={faCalendarAlt}
       >
-        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
-          <TouchableOpacity onPress={() => setDayModalVisible(false)} style={styles.modalCloseButton}>
-            <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
-          </TouchableOpacity>
-          <Text style={[styles.modalHeader, { color: theme.colors.text }]}>Classes for selected day</Text>
+        <View>
           <Text style={[styles.modalDescription, { color: theme.colors.text }]}>Tap a class to view its details.</Text>
           {dayModalSchedules.map(renderDayCard)}
         </View>
-      </Modal>
+      </StandardBottomModal>
     </ScrollView>
   );
 }
@@ -336,7 +333,19 @@ const styles = StyleSheet.create({
   badgeContainer: { borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start', marginLeft: 8 },
   badgeText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
 
-  dayCard: { padding: 12, borderRadius: 8, marginBottom: 8 },
+  dayCard: {
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+    elevation: 3,
+  },
   tapText: { fontSize: 12, marginTop: 4, fontStyle: 'italic' },
   infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   icon: { marginRight: 8, width: 18, textAlign: 'center' },
@@ -345,10 +354,7 @@ const styles = StyleSheet.create({
   emptyText: { textAlign: 'center', marginTop: 20, fontSize: 16 },
 
   centeredModal: { justifyContent: 'center', alignItems: 'center', margin: 0 },
-  modalContent: { padding: 22, borderRadius: 15, width: '90%' },
-  modalHeader: { fontSize: 22, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' },
   modalDescription: { fontSize: 14, marginBottom: 10, textAlign: 'center' },
   modalDescriptionBadge: { fontSize: 14, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'center', marginBottom: 10 },
   classInfo: { fontSize: 14, marginTop: 10 },
-  modalCloseButton: { position: 'absolute', top: 10, right: 10, padding: 5, zIndex: 1 },
 });

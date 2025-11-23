@@ -283,6 +283,9 @@ export default function MarketScreen({ navigation }) {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingLeft: 16, paddingRight: 8 }}
               keyExtractor={(item) => item.id.toString()}
+              nestedScrollEnabled={true}
+              removeClippedSubviews={false}
+              keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => (
                 <View style={{ width: 200, marginRight: 16 }}>
                   <MarketplaceItemCard

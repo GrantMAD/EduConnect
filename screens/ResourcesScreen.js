@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faBook, faPlus, faFileAlt, faThumbsUp, faThumbsDown } from '@fortawesome/free-solid-svg-icons';
+import { faBook, faPlus, faFileAlt, faThumbsUp, faThumbsDown, faBookmark, faSortAmountDown, faFilter, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import CreateResourceModal from '../components/CreateResourceModal';
 import ResourceDetailModal from '../components/ResourceDetailModal';
+import StandardBottomModal from '../components/StandardBottomModal';
 import { useSchool } from '../context/SchoolContext';
 import RNFetchBlob from 'rn-fetch-blob';
 import FileViewer from 'react-native-file-viewer';
@@ -22,11 +23,71 @@ export default function ResourcesScreen() {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedResource, setSelectedResource] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('newest'); // 'newest', 'oldest', 'popular'
+  const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
+  const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
+  const [infoModalVisible, setInfoModalVisible] = useState(false);
 
   useEffect(() => {
     fetchUserRole();
     fetchResources();
+    fetchBookmarks();
   }, [schoolId]);
+
+  const fetchBookmarks = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('resource_bookmarks')
+        .select('resource_id')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      const ids = new Set(data.map(item => item.resource_id));
+      setBookmarkedIds(ids);
+    } catch (error) {
+      console.error('Error fetching bookmarks:', error);
+    }
+  };
+
+  const toggleBookmark = async (resourceId) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      if (bookmarkedIds.has(resourceId)) {
+        // Remove bookmark
+        const { error } = await supabase
+          .from('resource_bookmarks')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('resource_id', resourceId);
+        if (error) throw error;
+
+        setBookmarkedIds(prev => {
+          const next = new Set(prev);
+          next.delete(resourceId);
+          return next;
+        });
+      } else {
+        // Add bookmark
+        const { error } = await supabase
+          .from('resource_bookmarks')
+          .insert({ user_id: user.id, resource_id: resourceId });
+        if (error) throw error;
+
+        setBookmarkedIds(prev => {
+          const next = new Set(prev);
+          next.add(resourceId);
+          return next;
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling bookmark:', error);
+    }
+  };
 
   const fetchUserRole = async () => {
     try {
@@ -85,25 +146,41 @@ export default function ResourcesScreen() {
     }
   };
 
-  // Group resources by category
-  const groupedResources = resources.reduce((acc, resource) => {
-    const category = resource.category || 'General';
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(resource);
-    return acc;
-  }, {});
+  // Filter and Sort resources
+  const processResources = () => {
+    let processed = [...resources];
 
-  // Filter resources by search term
-  const filteredResources = Object.keys(groupedResources).reduce((acc, category) => {
-    const filtered = groupedResources[category].filter(resource =>
-      resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      resource.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    if (filtered.length > 0) {
-      acc[category] = filtered;
+    // 1. Filter by Search Term
+    if (searchTerm) {
+      processed = processed.filter(r =>
+        r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.description?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
-    return acc;
-  }, {});
+
+    // 2. Filter by Bookmarks
+    if (showBookmarkedOnly) {
+      processed = processed.filter(r => bookmarkedIds.has(r.id));
+    }
+
+    // 3. Sort
+    processed.sort((a, b) => {
+      if (sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at);
+      if (sortBy === 'oldest') return new Date(a.created_at) - new Date(b.created_at);
+      if (sortBy === 'popular') return (b.upvotes - b.downvotes) - (a.upvotes - a.downvotes);
+      return 0;
+    });
+
+    // 4. Group by Category
+    return processed.reduce((acc, resource) => {
+      const category = resource.category || 'General';
+      if (!acc[category]) acc[category] = [];
+      acc[category].push(resource);
+      return acc;
+    }, {});
+  };
+
+  const filteredResources = processResources();
 
   if (loading) return <ActivityIndicator size="large" style={{ marginTop: 40 }} />;
 
@@ -122,7 +199,12 @@ export default function ResourcesScreen() {
         )}
       </View>
 
-      <Text style={styles.descriptionText}>Access and manage all your educational resources here.</Text>
+      <View style={styles.descriptionContainer}>
+        <Text style={styles.descriptionText}>Access and manage all your educational resources here.</Text>
+        <TouchableOpacity onPress={() => setInfoModalVisible(true)} style={styles.infoButton}>
+          <FontAwesomeIcon icon={faInfoCircle} size={18} color="#007AFF" />
+        </TouchableOpacity>
+      </View>
 
       <TextInput
         style={styles.searchInput}
@@ -130,6 +212,30 @@ export default function ResourcesScreen() {
         value={searchTerm}
         onChangeText={setSearchTerm}
       />
+
+      <View style={styles.controlsContainer}>
+        <TouchableOpacity
+          style={styles.controlButton}
+          onPress={() => {
+            if (sortBy === 'newest') setSortBy('popular');
+            else if (sortBy === 'popular') setSortBy('oldest');
+            else setSortBy('newest');
+          }}
+        >
+          <FontAwesomeIcon icon={faSortAmountDown} size={14} color="#555" />
+          <Text style={styles.controlText}>
+            Sort: {sortBy === 'newest' ? 'Newest' : sortBy === 'popular' ? 'Popular' : 'Oldest'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.controlButton, showBookmarkedOnly && styles.controlButtonActive]}
+          onPress={() => setShowBookmarkedOnly(!showBookmarkedOnly)}
+        >
+          <FontAwesomeIcon icon={faBookmark} size={14} color={showBookmarkedOnly ? "#fff" : "#555"} />
+          <Text style={[styles.controlText, showBookmarkedOnly && { color: '#fff' }]}>My Bookmarks</Text>
+        </TouchableOpacity>
+      </View>
 
       <ScrollView style={styles.scrollView}>
         {Object.keys(filteredResources).length === 0 ? (
@@ -165,6 +271,17 @@ export default function ResourcesScreen() {
                     <FontAwesomeIcon icon={faThumbsDown} size={16} color="#FF3B30" style={{ marginLeft: 12 }} />
                     <Text style={styles.voteCount}>{item.downvotes}</Text>
                   </View>
+
+                  <TouchableOpacity
+                    style={styles.bookmarkButton}
+                    onPress={() => toggleBookmark(item.id)}
+                  >
+                    <FontAwesomeIcon
+                      icon={faBookmark}
+                      size={20}
+                      color={bookmarkedIds.has(item.id) ? "#FFC107" : "#ccc"}
+                    />
+                  </TouchableOpacity>
                 </View>
               ))}
             </View>
@@ -186,6 +303,26 @@ export default function ResourcesScreen() {
         resource={selectedResource}
         onVotesChanged={() => fetchResources(true)}
       />
+
+      <StandardBottomModal
+        visible={infoModalVisible}
+        onClose={() => setInfoModalVisible(false)}
+        title="About Resources"
+        icon={faInfoCircle}
+      >
+        <View>
+          <Text style={styles.modalText}>
+            Welcome to the Resources Hub! Here you can:
+          </Text>
+          <Text style={styles.bulletPoint}>• Browse educational materials uploaded by teachers.</Text>
+          <Text style={styles.bulletPoint}>• Search for specific topics or titles.</Text>
+          <Text style={styles.bulletPoint}>• Bookmark important resources for quick access.</Text>
+          <Text style={styles.bulletPoint}>• Vote on resources to help others find the best content.</Text>
+          {userRole === 'teacher' || userRole === 'admin' ? (
+            <Text style={styles.bulletPoint}>• Upload new resources to share with the school.</Text>
+          ) : null}
+        </View>
+      </StandardBottomModal>
     </View>
   );
 }
@@ -194,7 +331,9 @@ const styles = StyleSheet.create({
   headerContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   headerLeft: { flexDirection: 'row', alignItems: 'center' },
   headerIcon: { marginRight: 10 },
-  descriptionText: { fontSize: 16, color: '#555', marginBottom: 20 },
+  descriptionContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  descriptionText: { fontSize: 16, color: '#555', flex: 1 },
+  infoButton: { padding: 5, marginLeft: 5 },
   container: { padding: 16, flex: 1, backgroundColor: '#fff' },
   header: { fontSize: 22, fontWeight: '700' },
   addButton: { flexDirection: 'row', backgroundColor: '#007AFF', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
@@ -237,4 +376,19 @@ const styles = StyleSheet.create({
     borderColor: '#eee',
   },
   voteCount: { marginLeft: 4, marginRight: 8, fontSize: 14, color: '#555' },
+  controlsContainer: { flexDirection: 'row', marginBottom: 15 },
+  controlButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginRight: 10
+  },
+  controlButtonActive: { backgroundColor: '#007AFF' },
+  controlText: { marginLeft: 6, fontSize: 13, fontWeight: '600', color: '#555' },
+  bookmarkButton: { position: 'absolute', top: 10, right: 10, padding: 5, zIndex: 10 },
+  modalText: { fontSize: 16, color: '#333', marginBottom: 10 },
+  bulletPoint: { fontSize: 15, color: '#555', marginBottom: 8, marginLeft: 10 },
 });
