@@ -3,12 +3,17 @@ import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Keyboard
 import { useChat } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faPaperPlane, faPaperclip, faImage } from '@fortawesome/free-solid-svg-icons';
+import { faPaperPlane, faPaperclip, faImage, faArrowLeft, faUser } from '@fortawesome/free-solid-svg-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
+import { BORDER_STYLES } from '../../constants/GamificationStyles';
+import { supabase } from '../../lib/supabase';
+
+const defaultUserImage = require('../../assets/user.png');
 
 export default function ChatRoomScreen({ route, navigation }) {
-    const { channelId, name } = route.params;
+    const { channelId, name, avatar, equippedItem } = route.params;
     const { messages, user, fetchMessages, subscribeToChannel, unsubscribeFromChannel, sendMessage, uploadAttachment, markAsRead } = useChat();
     const { theme } = useTheme();
     const [inputText, setInputText] = useState('');
@@ -77,24 +82,13 @@ export default function ChatRoomScreen({ route, navigation }) {
     };
 
     const renderMessage = ({ item }) => {
-        const isMyMessage = item.sender_id === item.sender?.id; // Logic might need adjustment based on auth user availability in this scope, but for now assuming sender_id check against context user is better done if we pass user to this component or use hook.
-        // Actually, we need the current user ID to know if it's "my" message.
-        // Let's assume we can get it from supabase.auth or context.
-        // For now, let's just style based on sender_id.
-
-        // We need to know who the current user is.
-        // Let's use a quick hook or prop if possible, but for now let's just render.
-        // Ideally we should pass `user` from `useChat` or `useAuth`.
-
         return (
-            <View style={[
-                styles.messageContainer,
-                // We need to differentiate left/right. 
-                // Since we don't have `user` here easily without importing supabase or context, let's import supabase to check current user.
-                // Or better, update ChatContext to export `user`.
-            ]}>
-                <MessageBubble message={item} theme={theme} />
-            </View>
+            <MessageBubble
+                message={item}
+                theme={theme}
+                recipientAvatar={avatar}
+                recipientEquippedItem={equippedItem}
+            />
         );
     };
 
@@ -106,15 +100,37 @@ export default function ChatRoomScreen({ route, navigation }) {
         >
             {/* Custom Header */}
             <View style={[styles.chatHeader, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.cardBorder }]}>
-                <Text style={[styles.chatHeaderTitle, { color: theme.colors.text }]}>{name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 10, marginRight: 5 }}>
+                        <FontAwesomeIcon icon={faArrowLeft} size={20} color={theme.colors.text} />
+                    </TouchableOpacity>
+
+                    <View style={{ marginRight: 10, overflow: 'visible' }}>
+                        {avatar || equippedItem ? (
+                            <AnimatedAvatarBorder
+                                avatarSource={avatar ? { uri: avatar } : defaultUserImage}
+                                size={32}
+                                borderStyle={equippedItem ? BORDER_STYLES[equippedItem.image_url] : {}}
+                                isRainbow={equippedItem && BORDER_STYLES[equippedItem.image_url]?.rainbow}
+                                isAnimated={equippedItem && BORDER_STYLES[equippedItem.image_url]?.animated}
+                            />
+                        ) : (
+                            <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: theme.colors.primary + '20', justifyContent: 'center', alignItems: 'center' }}>
+                                <FontAwesomeIcon icon={faUser} size={16} color={theme.colors.primary} />
+                            </View>
+                        )}
+                    </View>
+                    <Text style={[styles.chatHeaderTitle, { color: theme.colors.text }]}>{name}</Text>
+                </View>
             </View>
 
             <FlatList
                 ref={flatListRef}
                 data={channelMessages}
                 keyExtractor={item => item.id}
-                renderItem={({ item }) => <MessageBubble message={item} theme={theme} />}
+                renderItem={renderMessage}
                 contentContainerStyle={styles.listContent}
+                style={{ backgroundColor: '#F5F5F5' }}
                 onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
                 onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
             />
@@ -150,9 +166,7 @@ export default function ChatRoomScreen({ route, navigation }) {
 }
 
 // Helper component for message bubble
-import { supabase } from '../../lib/supabase';
-
-const MessageBubble = ({ message, theme }) => {
+const MessageBubble = ({ message, theme, recipientAvatar, recipientEquippedItem }) => {
     const [isMyMessage, setIsMyMessage] = useState(false);
 
     useEffect(() => {
@@ -194,9 +208,23 @@ const MessageBubble = ({ message, theme }) => {
                     </Text>
                 ) : null}
             </View>
-            <Text style={[styles.timestamp, { color: theme.colors.textSecondary, alignSelf: isMyMessage ? 'flex-end' : 'flex-start' }]}>
-                {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </Text>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: isMyMessage ? 'flex-end' : 'flex-start' }}>
+                <Text style={[styles.timestamp, { color: theme.colors.textSecondary }]}>
+                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+                {isMyMessage && (
+                    <View style={{ marginLeft: 6 }}>
+                        <AnimatedAvatarBorder
+                            avatarSource={message.sender?.avatar_url ? { uri: message.sender.avatar_url } : defaultUserImage}
+                            size={16}
+                            borderStyle={message.sender?.equipped_item ? BORDER_STYLES[message.sender.equipped_item.image_url] : {}}
+                            isRainbow={message.sender?.equipped_item && BORDER_STYLES[message.sender.equipped_item.image_url]?.rainbow}
+                            isAnimated={false}
+                        />
+                    </View>
+                )}
+            </View>
         </View>
     );
 };
@@ -209,7 +237,6 @@ const styles = StyleSheet.create({
         paddingVertical: 15,
         paddingHorizontal: 20,
         borderBottomWidth: 1,
-        alignItems: 'center',
     },
     chatHeaderTitle: {
         fontSize: 18,
@@ -223,7 +250,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         padding: 10,
         alignItems: 'center',
-        borderTopWidth: 1,
+        borderBottomWidth: 1,
     },
     input: {
         flex: 1,
@@ -275,6 +302,5 @@ const styles = StyleSheet.create({
     timestamp: {
         fontSize: 10,
         marginTop: 4,
-        marginHorizontal: 4,
     },
 });

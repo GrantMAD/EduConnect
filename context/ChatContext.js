@@ -53,6 +53,40 @@ export const ChatProvider = ({ children, session }) => {
 
       if (error) throw error;
 
+      // Manually fetch equipped items for all users in these channels
+      const userIds = new Set();
+      data.forEach(channel => {
+        channel.channel_members?.forEach(member => {
+          if (member.user_id) userIds.add(member.user_id);
+        });
+      });
+
+      if (userIds.size > 0) {
+        const { data: inventoryData } = await supabase
+          .from('user_inventory')
+          .select('user_id, shop_items(image_url)')
+          .in('user_id', Array.from(userIds))
+          .eq('is_equipped', true);
+
+        if (inventoryData) {
+          const inventoryMap = {};
+          inventoryData.forEach(item => {
+            // Handle potential array or object response for shop_items
+            const shopItem = Array.isArray(item.shop_items) ? item.shop_items[0] : item.shop_items;
+            inventoryMap[item.user_id] = shopItem;
+          });
+
+          // Inject into the data structure
+          data.forEach(channel => {
+            channel.channel_members?.forEach(member => {
+              if (member.users) {
+                member.users.equipped_item = inventoryMap[member.user_id];
+              }
+            });
+          });
+        }
+      }
+
       // Calculate unread count
       let count = 0;
       const sortedChannels = data.sort((a, b) => {
@@ -103,12 +137,42 @@ export const ChatProvider = ({ children, session }) => {
         .from('messages')
         .select(`
           *,
-          sender: users (id, full_name, avatar_url)
+          sender: users!sender_id (
+            id,
+            full_name,
+            avatar_url
+          )
         `)
         .eq('channel_id', channelId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
+
+      // Fetch equipped items for all senders
+      const senderIds = [...new Set(data.map(msg => msg.sender_id))];
+
+      if (senderIds.length > 0) {
+        const { data: inventoryData } = await supabase
+          .from('user_inventory')
+          .select('user_id, shop_items(image_url)')
+          .in('user_id', senderIds)
+          .eq('is_equipped', true);
+
+        if (inventoryData) {
+          const inventoryMap = {};
+          inventoryData.forEach(item => {
+            const shopItem = Array.isArray(item.shop_items) ? item.shop_items[0] : item.shop_items;
+            inventoryMap[item.user_id] = shopItem;
+          });
+
+          // Inject equipped_item into sender objects
+          data.forEach(msg => {
+            if (msg.sender) {
+              msg.sender.equipped_item = inventoryMap[msg.sender_id];
+            }
+          });
+        }
+      }
 
       setMessages(prev => ({
         ...prev,

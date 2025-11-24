@@ -4,6 +4,10 @@ import { useChat } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faPlus, faUser, faUsers, faChalkboard, faComments } from '@fortawesome/free-solid-svg-icons';
+import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
+import { BORDER_STYLES } from '../../constants/GamificationStyles';
+
+const defaultUserImage = require('../../assets/user.png');
 
 
 const formatTimeAgo = (dateString) => {
@@ -32,15 +36,16 @@ export default function ChatListScreen({ navigation }) {
     useEffect(() => {
         fetchChannels();
     }, []);
-
     const getChannelDisplayInfo = (channel) => {
         if (channel.type === 'direct' && user) {
             const otherMember = channel.channel_members?.find(m => m.user_id !== user.id);
             if (otherMember?.users) {
+                console.log('User B equipped item:', otherMember.users.equipped_item);
                 return {
                     name: otherMember.users.full_name,
                     avatar: otherMember.users.avatar_url,
-                    icon: faUser // Fallback icon if avatar is missing
+                    icon: faUser, // Fallback icon if avatar is missing
+                    equippedItem: otherMember.users.equipped_item
                 };
             }
         }
@@ -53,7 +58,8 @@ export default function ChatListScreen({ navigation }) {
         return {
             name: channel.name,
             avatar: null,
-            icon: icon
+            icon: icon,
+            equippedItem: null
         };
     };
 
@@ -63,7 +69,7 @@ export default function ChatListScreen({ navigation }) {
             ? formatTimeAgo(lastMessage.created_at)
             : formatTimeAgo(item.created_at);
 
-        const { name, avatar, icon } = getChannelDisplayInfo(item);
+        const { name, avatar, icon, equippedItem } = getChannelDisplayInfo(item);
 
         return (
             <TouchableOpacity
@@ -71,13 +77,21 @@ export default function ChatListScreen({ navigation }) {
                     styles.channelCard,
                     { backgroundColor: item.hasUnread ? theme.colors.primary + '15' : theme.colors.surface }
                 ]}
-                onPress={() => navigation.navigate('ChatRoom', { channelId: item.id, name: name })}
+                onPress={() => navigation.navigate('ChatRoom', {
+                    channelId: item.id,
+                    name: name,
+                    avatar: avatar,
+                    equippedItem: equippedItem
+                })}
             >
-                <View style={[styles.iconContainer, { backgroundColor: theme.colors.primary + '20' }]}>
-                    {avatar ? (
-                        <Image
-                            source={{ uri: avatar }}
-                            style={{ width: 50, height: 50, borderRadius: 25 }}
+                <View style={[styles.iconContainer, { backgroundColor: theme.colors.primary + '20', overflow: 'visible' }]}>
+                    {avatar || equippedItem ? (
+                        <AnimatedAvatarBorder
+                            avatarSource={avatar ? { uri: avatar } : defaultUserImage}
+                            size={50}
+                            borderStyle={equippedItem ? BORDER_STYLES[equippedItem.image_url] : {}}
+                            isRainbow={equippedItem && BORDER_STYLES[equippedItem.image_url]?.rainbow}
+                            isAnimated={equippedItem && BORDER_STYLES[equippedItem.image_url]?.animated}
                         />
                     ) : (
                         <FontAwesomeIcon icon={icon} size={24} color={theme.colors.primary} />

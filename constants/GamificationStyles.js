@@ -2,21 +2,21 @@ export const BORDER_STYLES = {
     // Classic borders - unchanged
     'border_blue': {
         borderColor: '#007AFF',
-        borderWidth: 4
+        borderWidth: 3
     },
     'border_green': {
         borderColor: '#34C759',
-        borderWidth: 4
+        borderWidth: 3
     },
     'border_red': {
         borderColor: '#FF3B30',
-        borderWidth: 4
+        borderWidth: 3
     },
 
     // Metallic borders with glows - INCREASED INTENSITY
     'border_gold': {
         borderColor: '#FFD700',
-        borderWidth: 4,
+        borderWidth: 3,
         shadowColor: '#FFD700',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 1,
@@ -25,7 +25,7 @@ export const BORDER_STYLES = {
     },
     'border_silver': {
         borderColor: '#C0C0C0',
-        borderWidth: 4,
+        borderWidth: 3,
         shadowColor: '#C0C0C0',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 1,
@@ -34,7 +34,7 @@ export const BORDER_STYLES = {
     },
     'border_bronze': {
         borderColor: '#CD7F32',
-        borderWidth: 4,
+        borderWidth: 3,
         shadowColor: '#CD7F32',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 1,
@@ -45,7 +45,7 @@ export const BORDER_STYLES = {
     // Animated/Special effect borders - INCREASED INTENSITY
     'border_neon': {
         borderColor: '#FF00FF',
-        borderWidth: 4,
+        borderWidth: 3,
         shadowColor: '#FF00FF',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 1,
@@ -55,7 +55,7 @@ export const BORDER_STYLES = {
     },
     'border_fire': {
         borderColor: '#FF4500',
-        borderWidth: 4,
+        borderWidth: 3,
         shadowColor: '#FF6347',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 1,
@@ -64,7 +64,7 @@ export const BORDER_STYLES = {
     },
     'border_ice': {
         borderColor: '#00FFFF',
-        borderWidth: 4,
+        borderWidth: 3,
         shadowColor: '#00FFFF',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 1,
@@ -73,7 +73,7 @@ export const BORDER_STYLES = {
     },
     'border_rainbow': {
         borderColor: '#FF00FF', // Will be overridden by gradient in animated component
-        borderWidth: 4,
+        borderWidth: 3,
         shadowColor: '#FF00FF',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 1,

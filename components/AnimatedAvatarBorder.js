@@ -68,14 +68,14 @@ const AnimatedAvatarBorder = ({
     if (isRainbow) {
         // Rainbow border with gradient
         return (
-            <View style={[styles.container, { width: size + 12, height: size + 12 }]}>
+            <View style={[styles.container, { width: size + 6, height: size + 6 }]}>
                 <Animated.View
                     style={[
                         styles.rainbowContainer,
                         {
-                            width: size + 12,
-                            height: size + 12,
-                            borderRadius: (size + 12) / 2,
+                            width: size + 6,
+                            height: size + 6,
+                            borderRadius: (size + 6) / 2,
                             shadowOpacity: isAnimated ? animatedShadowOpacity : 0.8,
                             shadowRadius: isAnimated ? animatedShadowRadius : 14,
                             shadowColor: '#FF00FF',
@@ -92,9 +92,9 @@ const AnimatedAvatarBorder = ({
                         style={[
                             styles.rainbowGradient,
                             {
-                                width: size + 12,
-                                height: size + 12,
-                                borderRadius: (size + 12) / 2,
+                                width: size + 6,
+                                height: size + 6,
+                                borderRadius: (size + 6) / 2,
                             },
                         ]}
                     >
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     rainbowGradient: {
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 6,
+        padding: 3,
     },
     innerCircle: {
         backgroundColor: '#fff',
