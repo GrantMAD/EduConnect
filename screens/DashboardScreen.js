@@ -14,7 +14,9 @@ import {
     faChild,
     faPlus,
     faChartLine,
-    faClipboardList
+
+    faClipboardList,
+    faComments
 } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
@@ -486,6 +488,12 @@ export default function DashboardScreen({ navigation }) {
                         title="School Data"
                         onPress={() => navigation.navigate('SchoolData', { fromDashboard: true })}
                         color="#FF9500"
+                    />
+                    <QuickActionButton
+                        icon={faComments}
+                        title="Messages"
+                        onPress={() => navigation.navigate('ChatList')}
+                        color="#007AFF"
                     />
                 </View>
             </View>

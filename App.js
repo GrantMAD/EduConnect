@@ -9,6 +9,7 @@ import { ToastProvider } from './context/ToastContext';
 import { SchoolProvider } from './context/SchoolContext';
 import { GamificationProvider } from './context/GamificationContext';
 import { NotificationPreferencesProvider } from './context/NotificationPreferencesContext';
+import { ChatProvider } from './context/ChatContext';
 import { supabase } from './lib/supabase';
 
 import AuthNavigation from './navigation/AuthNavigation';
@@ -76,7 +77,9 @@ export default function App() {
             <StatusBar style="auto" />
             <SchoolProvider>
               <GamificationProvider session={session}>
-                {session ? <AppStack /> : <AuthStack />}
+                <ChatProvider session={session}>
+                  {session ? <AppStack /> : <AuthStack />}
+                </ChatProvider>
               </GamificationProvider>
             </SchoolProvider>
           </NavigationContainer>

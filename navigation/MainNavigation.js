@@ -35,6 +35,11 @@ import DashboardScreen from '../screens/DashboardScreen';
 import LeaderboardScreen from '../screens/gamification/LeaderboardScreen';
 import ShopScreen from '../screens/gamification/ShopScreen';
 
+// Chat Screens
+import ChatListScreen from '../screens/chat/ChatListScreen';
+import ChatRoomScreen from '../screens/chat/ChatRoomScreen';
+import NewChatScreen from '../screens/chat/NewChatScreen';
+
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
 
@@ -72,6 +77,11 @@ const MainStackNavigator = () => (
     {/* Gamification Screens */}
     <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: 'Leaderboard' }} />
     <Stack.Screen name="Shop" component={ShopScreen} options={{ title: 'Shop' }} />
+
+    {/* Chat Screens */}
+    <Stack.Screen name="ChatList" component={ChatListScreen} options={{ title: 'Messages' }} />
+    <Stack.Screen name="ChatRoom" component={ChatRoomScreen} />
+    <Stack.Screen name="NewChat" component={NewChatScreen} options={{ title: 'New Message' }} />
   </Stack.Navigator>
 );
 
