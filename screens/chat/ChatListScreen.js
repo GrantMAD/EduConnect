@@ -40,7 +40,6 @@ export default function ChatListScreen({ navigation }) {
         if (channel.type === 'direct' && user) {
             const otherMember = channel.channel_members?.find(m => m.user_id !== user.id);
             if (otherMember?.users) {
-                console.log('User B equipped item:', otherMember.users.equipped_item);
                 return {
                     name: otherMember.users.full_name,
                     avatar: otherMember.users.avatar_url,

@@ -18,6 +18,7 @@ export default function ChatRoomScreen({ route, navigation }) {
     const { theme } = useTheme();
     const [inputText, setInputText] = useState('');
     const [sending, setSending] = useState(false);
+    const [recipientLastReadAt, setRecipientLastReadAt] = useState(null);
     const flatListRef = useRef();
 
     const channelMessages = messages[channelId] || [];
@@ -26,11 +27,50 @@ export default function ChatRoomScreen({ route, navigation }) {
         navigation.setOptions({ title: name });
         fetchMessages(channelId);
         subscribeToChannel(channelId);
+        fetchRecipientLastReadAt();
+
+        // Subscribe to channel_members updates for read receipts
+        const channelMembersSubscription = supabase
+            .channel(`channel_members:${channelId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'channel_members',
+                    filter: `channel_id=eq.${channelId}`,
+                },
+                (payload) => {
+                    // Update recipient's last_read_at if it's not the current user
+                    if (payload.new.user_id !== user.id) {
+                        setRecipientLastReadAt(payload.new.last_read_at);
+                    }
+                }
+            )
+            .subscribe();
 
         return () => {
             unsubscribeFromChannel(channelId);
+            supabase.removeChannel(channelMembersSubscription);
         };
     }, [channelId]);
+
+    // Fetch recipient's last_read_at timestamp
+    const fetchRecipientLastReadAt = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('channel_members')
+                .select('last_read_at, user_id')
+                .eq('channel_id', channelId)
+                .neq('user_id', user.id)
+                .single();
+
+            if (error) throw error;
+            setRecipientLastReadAt(data?.last_read_at);
+        } catch (error) {
+            console.error('Error fetching recipient last_read_at:', error);
+        }
+    };
 
     // Mark as read when messages are loaded and there are messages from others
     useEffect(() => {
@@ -86,8 +126,10 @@ export default function ChatRoomScreen({ route, navigation }) {
             <MessageBubble
                 message={item}
                 theme={theme}
+                currentUser={user}
                 recipientAvatar={avatar}
                 recipientEquippedItem={equippedItem}
+                recipientLastReadAt={recipientLastReadAt}
             />
         );
     };
@@ -166,16 +208,12 @@ export default function ChatRoomScreen({ route, navigation }) {
 }
 
 // Helper component for message bubble
-const MessageBubble = ({ message, theme, recipientAvatar, recipientEquippedItem }) => {
-    const [isMyMessage, setIsMyMessage] = useState(false);
+const MessageBubble = ({ message, theme, currentUser, recipientAvatar, recipientEquippedItem, recipientLastReadAt }) => {
+    // Determine if this is the current user's message synchronously
+    const isMyMessage = currentUser?.id === message.sender_id;
 
-    useEffect(() => {
-        supabase.auth.getUser().then(({ data }) => {
-            if (data?.user?.id === message.sender_id) {
-                setIsMyMessage(true);
-            }
-        });
-    }, []);
+    // Check if message has been read by recipient
+    const isRead = recipientLastReadAt && new Date(message.created_at) <= new Date(recipientLastReadAt);
 
     return (
         <View style={[
@@ -213,13 +251,13 @@ const MessageBubble = ({ message, theme, recipientAvatar, recipientEquippedItem 
                 <Text style={[styles.timestamp, { color: theme.colors.textSecondary }]}>
                     {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Text>
-                {isMyMessage && (
+                {isMyMessage && isRead && (
                     <View style={{ marginLeft: 6 }}>
                         <AnimatedAvatarBorder
-                            avatarSource={message.sender?.avatar_url ? { uri: message.sender.avatar_url } : defaultUserImage}
+                            avatarSource={recipientAvatar ? { uri: recipientAvatar } : defaultUserImage}
                             size={16}
-                            borderStyle={message.sender?.equipped_item ? BORDER_STYLES[message.sender.equipped_item.image_url] : {}}
-                            isRainbow={message.sender?.equipped_item && BORDER_STYLES[message.sender.equipped_item.image_url]?.rainbow}
+                            borderStyle={recipientEquippedItem ? BORDER_STYLES[recipientEquippedItem.image_url] : {}}
+                            isRainbow={recipientEquippedItem && BORDER_STYLES[recipientEquippedItem.image_url]?.rainbow}
                             isAnimated={false}
                         />
                     </View>

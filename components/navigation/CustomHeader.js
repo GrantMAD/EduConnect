@@ -71,7 +71,7 @@ const CustomHeader = ({ navigation, showActions = false }) => {
           onPress={() => navigation.navigate('ChatList')}
           style={{ backgroundColor: theme.colors.surface, padding: 8, borderRadius: 10, shadowColor: theme.colors.text, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2, marginRight: 10, position: 'relative' }}
         >
-          <FontAwesomeIcon icon={faComments} size={20} color={theme.colors.primary} />
+          <FontAwesomeIcon icon={faComments} size={20} color={theme.colors.success} />
           {unreadCount > 0 && (
             <Animated.View
               style={{
