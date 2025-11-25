@@ -74,7 +74,11 @@ export default function ChatListScreen({ navigation }) {
             <TouchableOpacity
                 style={[
                     styles.channelCard,
-                    { backgroundColor: item.hasUnread ? theme.colors.primary + '15' : theme.colors.surface }
+                    {
+                        backgroundColor: item.hasUnread ? theme.colors.primary + '15' : theme.colors.surface,
+                        elevation: item.hasUnread ? 0 : 3,
+                        shadowOpacity: item.hasUnread ? 0 : 0.15,
+                    }
                 ]}
                 onPress={() => navigation.navigate('ChatRoom', {
                     channelId: item.id,
@@ -127,7 +131,7 @@ export default function ChatListScreen({ navigation }) {
         );
     }
     return (
-        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <View style={[styles.container, { backgroundColor: theme.dark ? theme.colors.background : '#F5F5F5' }]}>
             <FlatList
                 data={channels}
                 keyExtractor={item => item.id}

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Modal } from 'react-native';
 import { useChat } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useToast } from '../../context/ToastContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faPaperPlane, faPaperclip, faImage, faArrowLeft, faUser, faEllipsisV } from '@fortawesome/free-solid-svg-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -17,6 +18,7 @@ export default function ChatRoomScreen({ route, navigation }) {
     const { channelId, name, avatar, equippedItem } = route.params;
     const { messages, user, fetchMessages, subscribeToChannel, unsubscribeFromChannel, sendMessage, uploadAttachment, markAsRead } = useChat();
     const { theme } = useTheme();
+    const { showToast } = useToast();
     const [inputText, setInputText] = useState('');
     const [sending, setSending] = useState(false);
     const [recipientLastReadAt, setRecipientLastReadAt] = useState(null);
@@ -27,6 +29,7 @@ export default function ChatRoomScreen({ route, navigation }) {
     const [participants, setParticipants] = useState([]);
     const [loadingParticipants, setLoadingParticipants] = useState(false);
     const [channelType, setChannelType] = useState(null);
+    const [processingAction, setProcessingAction] = useState(false);
 
     const flatListRef = useRef();
 
@@ -115,6 +118,7 @@ export default function ChatRoomScreen({ route, navigation }) {
     const handleCloseChat = async () => {
         try {
             setMenuVisible(false);
+            setProcessingAction(true);
 
             // Remove the current user's membership from the channel
             const { error: deleteMemberError } = await supabase
@@ -144,15 +148,19 @@ export default function ChatRoomScreen({ route, navigation }) {
 
             // Return to the chat list screen
             navigation.navigate('ChatList');
+            showToast('Chat closed successfully', 'success');
         } catch (error) {
             console.error('Error closing chat:', error);
             alert('Failed to close chat');
+        } finally {
+            setProcessingAction(false);
         }
     };
 
     const handleLeaveGroup = async () => {
         try {
             setMenuVisible(false);
+            setProcessingAction(true);
 
             // 1️⃣  Get channel creator info
             const { data: channelData, error: channelError } = await supabase
@@ -223,9 +231,12 @@ export default function ChatRoomScreen({ route, navigation }) {
 
             // 7️⃣  Navigate back to chat list
             navigation.navigate('ChatList');
+            showToast('You have left the group', 'success');
         } catch (err) {
             console.error('Error leaving group:', err);
             alert('Failed to leave group');
+        } finally {
+            setProcessingAction(false);
         }
     };
 
@@ -449,6 +460,14 @@ export default function ChatRoomScreen({ route, navigation }) {
                 onClose={() => setParticipantsModalVisible(false)}
                 participants={participants}
             />
+
+            {/* Processing Overlay */}
+            {processingAction && (
+                <View style={styles.loadingOverlay}>
+                    <ActivityIndicator size="large" color="#fff" />
+                    <Text style={{ color: '#fff', marginTop: 10, fontWeight: 'bold' }}>Processing...</Text>
+                </View>
+            )}
         </KeyboardAvoidingView>
     );
 }
@@ -677,5 +696,12 @@ const styles = StyleSheet.create({
     systemMessageText: {
         fontSize: 12,
         fontWeight: '500',
+    },
+    loadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 100,
     },
 });

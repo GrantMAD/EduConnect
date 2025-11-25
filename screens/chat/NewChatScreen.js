@@ -125,6 +125,7 @@ export default function NewChatScreen({ navigation }) {
         try {
             const userIds = Array.from(selectedUsers);
             const channel = await createChannel(groupName.trim(), 'group', userIds);
+            showToast('Group created successfully', 'success');
             navigation.replace('ChatRoom', { channelId: channel.id, name: groupName.trim() });
         } catch (error) {
             console.error(error);
