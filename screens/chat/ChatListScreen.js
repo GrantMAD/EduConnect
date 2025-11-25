@@ -176,10 +176,15 @@ const styles = StyleSheet.create({
     },
     channelCard: {
         flexDirection: 'row',
-        padding: 16,
+        padding: 12,
         borderRadius: 12,
-        marginBottom: 12,
+        marginBottom: 8,
         alignItems: 'center',
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 3,
     },
     iconContainer: {
         width: 50,
