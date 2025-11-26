@@ -4,7 +4,7 @@ import { useChat } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faPaperPlane, faPaperclip, faImage, faArrowLeft, faUser, faEllipsisV, faArrowDown, faSearch, faThumbtack, faTimes, faPen } from '@fortawesome/free-solid-svg-icons';
+import { faPaperPlane, faPaperclip, faImage, faArrowLeft, faUser, faEllipsisV, faArrowDown, faSearch, faThumbtack, faTimes, faPen, faBan, faReply } from '@fortawesome/free-solid-svg-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
@@ -699,18 +699,31 @@ export default function ChatRoomScreen({ route, navigation }) {
                 )}
 
                 {replyingTo && (
-                    <View style={styles.editingContainer}>
-                        <View style={{ flex: 1 }}>
-                            <Text style={[styles.editingText, { color: theme.colors.primary, fontWeight: 'bold' }]}>
-                                Replying to {replyingTo.sender?.full_name || 'Unknown'}
-                            </Text>
-                            <Text style={[styles.editingText, { color: theme.colors.textSecondary }]} numberOfLines={1}>
-                                {replyingTo.content}
-                            </Text>
+                    <View style={styles.replyContainer}>
+                        <View style={[styles.replyCard, { backgroundColor: theme.colors.surface, borderLeftColor: theme.colors.primary }]}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.editingText, { color: theme.colors.primary, fontWeight: 'bold' }]}>
+                                    Replying to {replyingTo.sender?.full_name || 'Unknown'}
+                                </Text>
+                                <Text style={[styles.editingText, { color: theme.colors.textSecondary }]} numberOfLines={1}>
+                                    {replyingTo.content}
+                                </Text>
+                            </View>
+                            <TouchableOpacity
+                                onPress={() => setReplyingTo(null)}
+                                style={{
+                                    marginLeft: 10,
+                                    width: 24,
+                                    height: 24,
+                                    borderRadius: 12,
+                                    backgroundColor: theme.colors.surfaceVariant || '#E0E0E0',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                }}
+                            >
+                                <FontAwesomeIcon icon={faTimes} size={12} color={theme.colors.textSecondary} />
+                            </TouchableOpacity>
                         </View>
-                        <TouchableOpacity onPress={() => setReplyingTo(null)}>
-                            <FontAwesomeIcon icon={faTimes} size={14} color={theme.colors.textSecondary} />
-                        </TouchableOpacity>
                     </View>
                 )}
 
@@ -826,6 +839,40 @@ const getUserColor = (userId, isDark) => {
     return colors[Math.abs(hash) % colors.length];
 };
 
+// Helper function to generate a text color for the username based on user ID
+const getUserNameColor = (userId, isDark) => {
+    const colorsForLightMode = [ // Darker colors for white background
+        '#1565C0', // Blue
+        '#6A1B9A', // Purple
+        '#2E7D32', // Green
+        '#EF6C00', // Orange
+        '#C62828', // Red
+        '#4E342E', // Brown
+        '#00838F', // Cyan
+        '#FF8F00', // Amber
+    ];
+
+    const colorsForDarkMode = [ // Lighter colors for dark background
+        '#90CAF9', // Blue
+        '#CE93D8', // Purple
+        '#A5D6A7', // Green
+        '#FFCC80', // Orange
+        '#EF9A9A', // Red
+        '#BCAAA4', // Brown
+        '#80DEEA', // Cyan
+        '#FFE082', // Amber
+    ];
+
+    const colors = isDark ? colorsForDarkMode : colorsForLightMode;
+
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+        hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+    }
+
+    return colors[Math.abs(hash) % colors.length];
+};
+
 // Helper component for message bubble
 const MessageBubble = ({ message, theme, currentUser, recipientAvatar, recipientEquippedItem, recipientLastReadAt, onReaction }) => {
     // Check if this is a system message
@@ -875,31 +922,46 @@ const MessageBubble = ({ message, theme, currentUser, recipientAvatar, recipient
             isMyMessage ? styles.myMessageContainer : styles.theirMessageContainer
         ]}>
             {!isMyMessage && (
-                <Text style={[styles.senderName, { color: theme.colors.textSecondary }]}>
+                <Text style={[styles.senderName, { color: getUserNameColor(message.sender_id, isDark) }]}>
                     {message.sender?.full_name || 'Unknown'}
                 </Text>
             )}
 
             <View style={[
                 styles.bubble,
-                { backgroundColor: message.is_deleted ? 'transparent' : bubbleColor, borderWidth: 0, borderColor: 'transparent' }
+                {
+                    backgroundColor: message.is_deleted ? 'rgba(0,0,0,0.05)' : bubbleColor,
+                    borderWidth: 0,
+                    borderColor: 'transparent',
+                    padding: message.is_deleted ? 8 : 12
+                }
             ]}>
                 {/* Reply Preview */}
-                {message.reply_to_message && !message.is_deleted && !Array.isArray(message.reply_to_message) && message.reply_to_message.content && (
+                {message.reply_to_message && !message.is_deleted && message.reply_to_message.content && (
                     <View style={{
                         backgroundColor: 'rgba(0,0,0,0.1)',
                         padding: 8,
                         borderRadius: 8,
                         marginBottom: 8,
                         borderLeftWidth: 3,
-                        borderLeftColor: isMyMessage ? '#fff' : theme.colors.primary
+                        borderLeftColor: isMyMessage ? '#fff' : theme.colors.primary,
+                        flexDirection: 'row',
+                        alignItems: 'center',
                     }}>
-                        <Text style={{ fontSize: 10, fontWeight: 'bold', color: textColor, opacity: 0.8 }}>
-                            {message.reply_to_message.sender?.full_name}
-                        </Text>
-                        <Text style={{ fontSize: 12, color: textColor, opacity: 0.8 }} numberOfLines={1}>
-                            {message.reply_to_message.content}
-                        </Text>
+                        <FontAwesomeIcon
+                            icon={faReply}
+                            size={12}
+                            color={textColor}
+                            style={{ marginRight: 6, opacity: 0.7 }}
+                        />
+                        <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 10, fontWeight: 'bold', color: textColor, opacity: 0.8 }}>
+                                {message.reply_to_message.sender?.full_name}
+                            </Text>
+                            <Text style={{ fontSize: 12, color: textColor, opacity: 0.8 }} numberOfLines={1}>
+                                {message.reply_to_message.content}
+                            </Text>
+                        </View>
                     </View>
                 )}
 
@@ -920,9 +982,12 @@ const MessageBubble = ({ message, theme, currentUser, recipientAvatar, recipient
                 )}
 
                 {message.is_deleted ? (
-                    <Text style={[styles.messageText, { color: '#007AFF', fontStyle: 'italic' }]}>
-                        This message was deleted
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <FontAwesomeIcon icon={faBan} size={12} color={theme.colors.primary} style={{ marginRight: 6 }} />
+                        <Text style={[styles.messageText, { color: theme.colors.primary, fontStyle: 'italic', fontSize: 14 }]}>
+                            This message was deleted
+                        </Text>
+                    </View>
                 ) : (
                     <>
                         {message.content ? (
@@ -941,31 +1006,33 @@ const MessageBubble = ({ message, theme, currentUser, recipientAvatar, recipient
             </View>
 
             {/* Reactions */}
-            {!message.is_deleted && Object.keys(groupedReactions).length > 0 && (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4, justifyContent: isMyMessage ? 'flex-end' : 'flex-start' }}>
-                    {Object.entries(groupedReactions).map(([emoji, count]) => (
-                        <TouchableOpacity
-                            key={emoji}
-                            onPress={() => onReaction && onReaction(emoji)}
-                            style={{
-                                backgroundColor: theme.colors.surfaceVariant,
-                                borderRadius: 12,
-                                paddingHorizontal: 6,
-                                paddingVertical: 2,
-                                marginRight: 4,
-                                marginBottom: 4,
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                borderWidth: 1,
-                                borderColor: theme.colors.border
-                            }}
-                        >
-                            <Text style={{ fontSize: 12 }}>{emoji}</Text>
-                            <Text style={{ fontSize: 10, marginLeft: 2, color: theme.colors.textSecondary }}>{count}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            )}
+            {
+                !message.is_deleted && Object.keys(groupedReactions).length > 0 && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4, justifyContent: isMyMessage ? 'flex-end' : 'flex-start' }}>
+                        {Object.entries(groupedReactions).map(([emoji, count]) => (
+                            <TouchableOpacity
+                                key={emoji}
+                                onPress={() => onReaction && onReaction(emoji)}
+                                style={{
+                                    backgroundColor: theme.colors.surfaceVariant,
+                                    borderRadius: 12,
+                                    paddingHorizontal: 6,
+                                    paddingVertical: 2,
+                                    marginRight: 4,
+                                    marginBottom: 4,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    borderWidth: 1,
+                                    borderColor: theme.colors.border
+                                }}
+                            >
+                                <Text style={{ fontSize: 12 }}>{emoji}</Text>
+                                <Text style={{ fontSize: 10, marginLeft: 2, color: theme.colors.textSecondary }}>{count}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                )
+            }
 
             <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: isMyMessage ? 'flex-end' : 'flex-start', marginTop: 4 }}>
                 <Text style={[styles.timestamp, { color: theme.colors.textSecondary }]}>
@@ -992,7 +1059,7 @@ const MessageBubble = ({ message, theme, currentUser, recipientAvatar, recipient
                     </View>
                 )}
             </View>
-        </View>
+        </View >
     );
 };
 
@@ -1052,6 +1119,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
         marginBottom: 4,
         marginLeft: 4,
+        fontWeight: '600',
     },
     bubble: {
         borderRadius: 16,
@@ -1157,6 +1225,27 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 5,
         backgroundColor: 'rgba(0,0,0,0.05)',
+    },
+    replyContainer: {
+        position: 'absolute',
+        top: -70,
+        left: 0,
+        right: 0,
+        paddingHorizontal: 10,
+        paddingVertical: 10,
+    },
+    replyCard: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 12,
+        borderLeftWidth: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
     },
     editingText: {
         fontSize: 12,

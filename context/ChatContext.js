@@ -150,13 +150,6 @@ export const ChatProvider = ({ children, session }) => {
             id,
             emoji,
             user_id
-          ),
-          reply_to_message:messages!reply_to_message_id (
-            id,
-            content,
-            sender:users!sender_id (
-              full_name
-            )
           )
         `)
         .eq('channel_id', channelId)
@@ -164,6 +157,40 @@ export const ChatProvider = ({ children, session }) => {
         .range(start, start + limit - 1);
 
       if (error) throw error;
+
+      // Manually fetch reply_to_message data for messages that have reply_to_message_id
+      const messagesWithReplies = data.filter(msg => msg.reply_to_message_id);
+
+      if (messagesWithReplies.length > 0) {
+        const replyIds = messagesWithReplies.map(msg => msg.reply_to_message_id);
+
+        const { data: replyMessages } = await supabase
+          .from('messages')
+          .select(`
+            id,
+            content,
+            sender:users!sender_id (
+              full_name
+            )
+          `)
+          .in('id', replyIds);
+
+        if (replyMessages) {
+          // Create a map of reply messages
+          const replyMap = {};
+          replyMessages.forEach(reply => {
+            replyMap[reply.id] = reply;
+          });
+
+          // Attach reply_to_message to the correct messages
+          data.forEach(msg => {
+            if (msg.reply_to_message_id && replyMap[msg.reply_to_message_id]) {
+              msg.reply_to_message = replyMap[msg.reply_to_message_id];
+              console.log(`Message ${msg.id} has reply_to_message:`, msg.reply_to_message?.id, 'reply_to_message_id:', msg.reply_to_message_id);
+            }
+          });
+        }
+      }
 
       // Fetch equipped items for all senders
       const senderIds = [...new Set(data.map(msg => msg.sender_id))];
