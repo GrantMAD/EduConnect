@@ -131,8 +131,12 @@ export const ChatProvider = ({ children, session }) => {
     }
   };
 
-  const fetchMessages = async (channelId) => {
+  const fetchMessages = async (channelId, start = 0, limit = 20) => {
     try {
+      if (start === 0) {
+        setLoading(true);
+      }
+
       const { data, error } = await supabase
         .from('messages')
         .select(`
@@ -141,10 +145,23 @@ export const ChatProvider = ({ children, session }) => {
             id,
             full_name,
             avatar_url
+          ),
+          message_reactions (
+            id,
+            emoji,
+            user_id
+          ),
+          reply_to_message:messages!reply_to_message_id (
+            id,
+            content,
+            sender:users!sender_id (
+              full_name
+            )
           )
         `)
         .eq('channel_id', channelId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false }) // Newest first
+        .range(start, start + limit - 1);
 
       if (error) throw error;
 
@@ -174,13 +191,162 @@ export const ChatProvider = ({ children, session }) => {
         }
       }
 
-      setMessages(prev => ({
-        ...prev,
-        [channelId]: data
-      }));
+      setMessages(prev => {
+        const currentMessages = prev[channelId] || [];
+        // If start is 0, replace entirely. Otherwise append.
+        const newMessages = start === 0 ? data : [...currentMessages, ...data];
+        return {
+          ...prev,
+          [channelId]: newMessages
+        };
+      });
+
+      return data.length;
     } catch (error) {
       console.error('Error fetching messages:', error);
       showToast('Failed to load messages', 'error');
+      return 0;
+    } finally {
+      if (start === 0) setLoading(false);
+    }
+  };
+
+  const fetchOlderMessages = async (channelId) => {
+    const currentMessages = messages[channelId] || [];
+    const start = currentMessages.length;
+    return await fetchMessages(channelId, start);
+  };
+
+  const editMessage = async (messageId, newContent) => {
+    try {
+      // Optimistic update - update UI immediately
+      setMessages(prev => {
+        const updatedMessages = {};
+        Object.keys(prev).forEach(channelId => {
+          updatedMessages[channelId] = prev[channelId].map(msg => {
+            if (msg.id === messageId) {
+              return {
+                ...msg,
+                content: newContent,
+                edited_at: new Date().toISOString()
+              };
+            }
+            return msg;
+          });
+        });
+        return updatedMessages;
+      });
+
+      // Perform the actual database update
+      const { error } = await supabase
+        .from('messages')
+        .update({
+          content: newContent,
+          edited_at: new Date().toISOString()
+        })
+        .eq('id', messageId)
+        .eq('sender_id', user.id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error editing message:', error);
+      showToast('Failed to edit message', 'error');
+      throw error;
+    }
+  };
+
+  const deleteMessage = async (messageId) => {
+    try {
+      // Optimistic update - update UI immediately
+      setMessages(prev => {
+        const updatedMessages = {};
+        Object.keys(prev).forEach(channelId => {
+          updatedMessages[channelId] = prev[channelId].map(msg => {
+            if (msg.id === messageId) {
+              return {
+                ...msg,
+                is_deleted: true,
+                content: '🗑️ This message was deleted'
+              };
+            }
+            return msg;
+          });
+        });
+        return updatedMessages;
+      });
+
+      // Perform the actual database update
+      const { error } = await supabase
+        .from('messages')
+        .update({
+          is_deleted: true,
+          content: '🗑️ This message was deleted'
+        })
+        .eq('id', messageId)
+        .eq('sender_id', user.id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      showToast('Failed to delete message', 'error');
+      throw error;
+    }
+  };
+
+  const pinMessage = async (messageId, isPinned) => {
+    try {
+      // Optimistic update - update UI immediately
+      setMessages(prev => {
+        const updatedMessages = {};
+        Object.keys(prev).forEach(channelId => {
+          updatedMessages[channelId] = prev[channelId].map(msg => {
+            if (msg.id === messageId) {
+              return {
+                ...msg,
+                is_pinned: isPinned
+              };
+            }
+            return msg;
+          });
+        });
+        return updatedMessages;
+      });
+
+      // Perform the actual database update
+      const { error } = await supabase
+        .from('messages')
+        .update({ is_pinned: isPinned })
+        .eq('id', messageId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error pinning message:', error);
+      showToast('Failed to pin message', 'error');
+      throw error;
+    }
+  };
+
+  const searchMessages = async (channelId, query) => {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          sender: users!sender_id (
+            id,
+            full_name,
+            avatar_url
+          )
+        `)
+        .eq('channel_id', channelId)
+        .ilike('content', `%${query}%`)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error searching messages:', error);
+      return [];
     }
   };
 
@@ -217,7 +383,54 @@ export const ChatProvider = ({ children, session }) => {
     }
   };
 
-  const subscribeToChannel = (channelId) => {
+  const addReaction = async (messageId, emoji) => {
+    try {
+      const { error } = await supabase
+        .from('message_reactions')
+        .insert({
+          message_id: messageId,
+          user_id: user.id,
+          emoji
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error adding reaction:', error);
+      showToast('Failed to add reaction', 'error');
+    }
+  };
+
+  const removeReaction = async (messageId, emoji) => {
+    try {
+      const { error } = await supabase
+        .from('message_reactions')
+        .delete()
+        .eq('message_id', messageId)
+        .eq('user_id', user.id)
+        .eq('emoji', emoji);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error removing reaction:', error);
+      showToast('Failed to remove reaction', 'error');
+    }
+  };
+
+  const sendTypingEvent = async (channelId) => {
+    try {
+      if (subscriptions.current[channelId]) {
+        await subscriptions.current[channelId].send({
+          type: 'broadcast',
+          event: 'typing',
+          payload: { userId: user.id, fullName: user.user_metadata?.full_name || 'Someone' }
+        });
+      }
+    } catch (error) {
+      console.error('Error sending typing event:', error);
+    }
+  };
+
+  const subscribeToChannel = (channelId, onTyping) => {
     if (subscriptions.current[channelId]) return;
 
     const sub = supabase
@@ -238,17 +451,101 @@ export const ChatProvider = ({ children, session }) => {
             .eq('id', payload.new.sender_id)
             .single();
 
+          // Fetch reply details if exists
+          let replyData = null;
+          if (payload.new.reply_to_message_id) {
+            const { data: rData } = await supabase
+              .from('messages')
+              .select('id, content, sender:users!sender_id(full_name)')
+              .eq('id', payload.new.reply_to_message_id)
+              .single();
+            replyData = rData;
+          }
+
           const newMessage = {
             ...payload.new,
-            sender: senderData || { id: payload.new.sender_id, full_name: 'Unknown' } // Fallback
+            sender: senderData || { id: payload.new.sender_id, full_name: 'Unknown' },
+            message_reactions: [],
+            reply_to_message: replyData
           };
 
-          setMessages(prev => ({
-            ...prev,
-            [channelId]: [...(prev[channelId] || []), newMessage]
-          }));
+          setMessages(prev => {
+            const current = prev[channelId] || [];
+            // Prevent duplicates
+            if (current.some(msg => msg.id === newMessage.id)) {
+              return prev;
+            }
+            return {
+              ...prev,
+              [channelId]: [newMessage, ...current]
+            };
+          });
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `channel_id=eq.${channelId}`,
+        },
+        (payload) => {
+          setMessages(prev => {
+            const channelMessages = prev[channelId] || [];
+            const updatedMessages = channelMessages.map(msg => {
+              if (msg.id === payload.new.id) {
+                // Merge the update but preserve nested objects like sender, message_reactions, etc.
+                return {
+                  ...msg,
+                  ...payload.new,
+                  // Preserve these if they exist in the old message and aren't in the update
+                  sender: payload.new.sender || msg.sender,
+                  message_reactions: payload.new.message_reactions || msg.message_reactions,
+                  reply_to_message: payload.new.reply_to_message || msg.reply_to_message
+                };
+              }
+              return msg;
+            });
+            return {
+              ...prev,
+              [channelId]: updatedMessages
+            };
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'message_reactions',
+        },
+        async (payload) => {
+          const messageId = payload.new?.message_id || payload.old?.message_id;
+
+          if (messageId) {
+            const { data: reactions } = await supabase
+              .from('message_reactions')
+              .select('id, emoji, user_id')
+              .eq('message_id', messageId);
+
+            setMessages(prev => {
+              const channelMessages = prev[channelId] || [];
+              const updatedMessages = channelMessages.map(msg => {
+                if (msg.id === messageId) {
+                  return { ...msg, message_reactions: reactions || [] };
+                }
+                return msg;
+              });
+              return { ...prev, [channelId]: updatedMessages };
+            });
+          }
+        }
+      )
+      .on('broadcast', { event: 'typing' }, (payload) => {
+        if (onTyping) onTyping(payload.payload);
+      })
       .subscribe();
 
     subscriptions.current[channelId] = sub;
@@ -261,24 +558,84 @@ export const ChatProvider = ({ children, session }) => {
     }
   };
 
-  const sendMessage = async (channelId, content, attachments = []) => {
+  const sendMessage = async (channelId, content, attachments = [], replyToMessageId = null) => {
+    // Generate a temporary ID for optimistic update
+    const tempId = `temp-${Date.now()}`;
+
     try {
       if (!user) throw new Error('Not authenticated');
 
-      const { error } = await supabase
+      // 1. Optimistic Update
+      const optimisticMessage = {
+        id: tempId,
+        channel_id: channelId,
+        sender_id: user.id,
+        content,
+        created_at: new Date().toISOString(),
+        attachments,
+        reply_to_message_id: replyToMessageId,
+        sender: {
+          id: user.id,
+          full_name: user.user_metadata?.full_name || 'Me',
+          avatar_url: user.user_metadata?.avatar_url
+        },
+        message_reactions: [],
+        // We'll try to find the reply message from local state if possible
+        reply_to_message: replyToMessageId ? (messages[channelId]?.find(m => m.id === replyToMessageId) || null) : null
+      };
+
+      setMessages(prev => ({
+        ...prev,
+        [channelId]: [optimisticMessage, ...(prev[channelId] || [])]
+      }));
+
+      // 2. Perform Insert
+      const { data, error } = await supabase
         .from('messages')
         .insert({
           channel_id: channelId,
           sender_id: user.id,
           content,
-          attachments
-        });
+          attachments,
+          reply_to_message_id: replyToMessageId
+        })
+        .select()
+        .single();
 
       if (error) throw error;
-      // Realtime subscription will handle updating the UI
+
+      // 3. Update Optimistic Message with Real Data
+      setMessages(prev => {
+        const current = prev[channelId] || [];
+        // Check if the real message was already added by subscription
+        const exists = current.some(m => m.id === data.id);
+
+        if (exists) {
+          // If it exists, just remove the temp one
+          return {
+            ...prev,
+            [channelId]: current.filter(m => m.id !== tempId)
+          };
+        } else {
+          // Otherwise, update the temp one to be the real one
+          // We need to preserve the sender/reply objects we constructed if the response doesn't have them populated yet
+          // But actually, the subscription might fetch them. 
+          // Let's just merge the real data into the optimistic one, keeping the structure.
+          return {
+            ...prev,
+            [channelId]: current.map(m => m.id === tempId ? { ...m, ...data, id: data.id } : m)
+          };
+        }
+      });
+
     } catch (error) {
       console.error('Error sending message:', error);
       showToast('Failed to send message', 'error');
+      // Remove the optimistic message on error
+      setMessages(prev => ({
+        ...prev,
+        [channelId]: (prev[channelId] || []).filter(m => m.id !== tempId)
+      }));
       throw error;
     }
   };
@@ -369,6 +726,14 @@ export const ChatProvider = ({ children, session }) => {
       unreadCount,
       fetchChannels,
       fetchMessages,
+      fetchOlderMessages,
+      editMessage,
+      deleteMessage,
+      pinMessage,
+      searchMessages,
+      addReaction,
+      removeReaction,
+      sendTypingEvent,
       subscribeToChannel,
       unsubscribeFromChannel,
       sendMessage,

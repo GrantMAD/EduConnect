@@ -4,24 +4,28 @@ import { useChat } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faPaperPlane, faPaperclip, faImage, faArrowLeft, faUser, faEllipsisV } from '@fortawesome/free-solid-svg-icons';
+import { faPaperPlane, faPaperclip, faImage, faArrowLeft, faUser, faEllipsisV, faArrowDown, faSearch, faThumbtack, faTimes, faPen } from '@fortawesome/free-solid-svg-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
 import { supabase } from '../../lib/supabase';
 import ParticipantsModal from '../../components/ParticipantsModal';
+import LinkPreview from '../../components/LinkPreview';
+import MessageActionModal from '../../components/MessageActionModal';
+import DateHeader from '../../components/DateHeader';
 
 const defaultUserImage = require('../../assets/user.png');
 
 export default function ChatRoomScreen({ route, navigation }) {
     const { channelId, name, avatar, equippedItem } = route.params;
-    const { messages, user, fetchMessages, subscribeToChannel, unsubscribeFromChannel, sendMessage, uploadAttachment, markAsRead } = useChat();
+    const { messages, user, fetchMessages, fetchOlderMessages, editMessage, deleteMessage, pinMessage, searchMessages, addReaction, removeReaction, sendTypingEvent, subscribeToChannel, unsubscribeFromChannel, sendMessage, uploadAttachment, markAsRead } = useChat();
     const { theme } = useTheme();
     const { showToast } = useToast();
     const [inputText, setInputText] = useState('');
     const [sending, setSending] = useState(false);
     const [recipientLastReadAt, setRecipientLastReadAt] = useState(null);
+    const [inputLinkPreview, setInputLinkPreview] = useState(null);
 
     // Participants Modal State
     const [menuVisible, setMenuVisible] = useState(false);
@@ -31,14 +35,64 @@ export default function ChatRoomScreen({ route, navigation }) {
     const [channelType, setChannelType] = useState(null);
     const [processingAction, setProcessingAction] = useState(false);
 
+    // Pagination & Scroll State
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [showScrollBottom, setShowScrollBottom] = useState(false);
+    const [hasMoreMessages, setHasMoreMessages] = useState(true);
+
+    // Search State
+    const [isSearching, setIsSearching] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+
+    // Message Actions State
+    const [selectedMessage, setSelectedMessage] = useState(null);
+    const [actionModalVisible, setActionModalVisible] = useState(false);
+    const [editingMessage, setEditingMessage] = useState(null);
+    const [replyingTo, setReplyingTo] = useState(null);
+
+    // Typing State
+    const [typingUsers, setTypingUsers] = useState({}); // { userId: { fullName, timeoutId } }
+
     const flatListRef = useRef();
 
-    const channelMessages = messages[channelId] || [];
+    const channelMessages = isSearching ? searchResults : (messages[channelId] || []);
+    const pinnedMessages = (messages[channelId] || []).filter(m => m.is_pinned);
 
     useEffect(() => {
         navigation.setOptions({ title: name });
-        fetchMessages(channelId);
-        subscribeToChannel(channelId);
+        // Initial fetch - start from 0
+        fetchMessages(channelId, 0);
+
+        subscribeToChannel(channelId, (payload) => {
+            // Handle typing event
+            if (payload.userId !== user.id) {
+                setTypingUsers(prev => {
+                    // Clear existing timeout
+                    if (prev[payload.userId]?.timeoutId) {
+                        clearTimeout(prev[payload.userId].timeoutId);
+                    }
+
+                    // Set new timeout
+                    const timeoutId = setTimeout(() => {
+                        setTypingUsers(current => {
+                            const newState = { ...current };
+                            delete newState[payload.userId];
+                            return newState;
+                        });
+                    }, 3000);
+
+                    return {
+                        ...prev,
+                        [payload.userId]: {
+                            fullName: payload.fullName,
+                            timeoutId
+                        }
+                    };
+                });
+            }
+        });
+
         fetchRecipientLastReadAt();
         fetchChannelType();
 
@@ -68,6 +122,49 @@ export default function ChatRoomScreen({ route, navigation }) {
         };
     }, [channelId]);
 
+    // Auto-search with debouncing
+    useEffect(() => {
+        if (!isSearching) return;
+
+        const debounceTimer = setTimeout(async () => {
+            if (searchQuery.trim()) {
+                const results = await searchMessages(channelId, searchQuery);
+                setSearchResults(results);
+            } else {
+                setSearchResults([]);
+            }
+        }, 300); // 300ms debounce
+
+        return () => clearTimeout(debounceTimer);
+    }, [searchQuery, isSearching]);
+
+    // Detect URL in input text for preview
+    useEffect(() => {
+        const extractUrl = (text) => {
+            if (!text) return null;
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            const match = text.match(urlRegex);
+            return match ? match[0] : null;
+        };
+
+        const foundUrl = extractUrl(inputText);
+        if (foundUrl) {
+            // Fetch preview data
+            try {
+                const domain = new URL(foundUrl).hostname;
+                setInputLinkPreview({
+                    url: foundUrl,
+                    title: domain,
+                    description: foundUrl
+                });
+            } catch (error) {
+                setInputLinkPreview(null);
+            }
+        } else {
+            setInputLinkPreview(null);
+        }
+    }, [inputText]);
+
     // Fetch recipient's last_read_at timestamp
     const fetchRecipientLastReadAt = async () => {
         try {
@@ -84,8 +181,6 @@ export default function ChatRoomScreen({ route, navigation }) {
                 setRecipientLastReadAt(data[0].last_read_at);
             } else {
                 // Group Chat - Multiple recipients
-                // For now, we disable read receipts for group chats to avoid confusion
-                // or we could implement logic to show "Read by X"
                 setRecipientLastReadAt(null);
             }
         } catch (error) {
@@ -95,25 +190,21 @@ export default function ChatRoomScreen({ route, navigation }) {
 
     const fetchChannelType = async () => {
         try {
-
             const { data, error } = await supabase
                 .from('channels')
                 .select('type')
                 .eq('id', channelId)
                 .maybeSingle();
 
-
             if (error && error.code !== 'PGRST116') {
                 throw error;
             }
-
 
             setChannelType(data?.type ?? null);
         } catch (err) {
             console.error('Error fetching channel type:', err);
         }
     };
-
 
     const handleCloseChat = async () => {
         try {
@@ -251,16 +342,35 @@ export default function ChatRoomScreen({ route, navigation }) {
         }
     }, [channelMessages.length, channelId, user]);
 
+    const handleTyping = () => {
+        sendTypingEvent(channelId);
+    };
 
     const handleSend = async () => {
         if (!inputText.trim()) return;
 
         const content = inputText.trim();
+
+        if (editingMessage) {
+            // Handle Edit
+            try {
+                await editMessage(editingMessage.id, content);
+                setEditingMessage(null);
+                setInputText('');
+            } catch (error) {
+                // Error handled in context
+            }
+            return;
+        }
+
         setInputText('');
+        setReplyingTo(null); // Clear reply
         setSending(true);
 
         try {
-            await sendMessage(channelId, content);
+            await sendMessage(channelId, content, [], replyingTo?.id);
+            // Scroll to bottom after sending (which is top in inverted list)
+            flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
         } catch (error) {
             // Error handled in context
             setInputText(content); // Restore text on error
@@ -283,6 +393,7 @@ export default function ChatRoomScreen({ route, navigation }) {
                 const upload = await uploadAttachment(asset.uri, asset.fileName || 'image.jpg', asset.mimeType || 'image/jpeg');
                 await sendMessage(channelId, '', [upload]);
                 setSending(false);
+                flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
             }
         } catch (error) {
             console.error(error);
@@ -290,16 +401,47 @@ export default function ChatRoomScreen({ route, navigation }) {
         }
     };
 
-    const renderMessage = ({ item }) => {
+    const handleLongPressMessage = (message) => {
+        setSelectedMessage(message);
+        setActionModalVisible(true);
+    };
+
+    const handleSearch = async () => {
+        if (!searchQuery.trim()) return;
+        const results = await searchMessages(channelId, searchQuery);
+        setSearchResults(results);
+    };
+
+    const renderMessage = ({ item, index }) => {
+        // Date Header Logic
+        const currentMessageDate = new Date(item.created_at).toDateString();
+        const nextMessage = channelMessages[index + 1];
+        const nextMessageDate = nextMessage ? new Date(nextMessage.created_at).toDateString() : null;
+
+        const showDateHeader = currentMessageDate !== nextMessageDate;
+
         return (
-            <MessageBubble
-                message={item}
-                theme={theme}
-                currentUser={user}
-                recipientAvatar={avatar}
-                recipientEquippedItem={equippedItem}
-                recipientLastReadAt={recipientLastReadAt}
-            />
+            <View>
+                {showDateHeader && <DateHeader date={currentMessageDate} />}
+                <TouchableOpacity onLongPress={() => handleLongPressMessage(item)} activeOpacity={0.8}>
+                    <MessageBubble
+                        message={item}
+                        theme={theme}
+                        currentUser={user}
+                        recipientAvatar={avatar}
+                        recipientEquippedItem={equippedItem}
+                        recipientLastReadAt={recipientLastReadAt}
+                        onReaction={(emoji) => {
+                            const hasReacted = item.message_reactions?.some(r => r.user_id === user.id && r.emoji === emoji);
+                            if (hasReacted) {
+                                removeReaction(item.id, emoji);
+                            } else {
+                                addReaction(item.id, emoji);
+                            }
+                        }}
+                    />
+                </TouchableOpacity>
+            </View>
         );
     };
 
@@ -345,6 +487,32 @@ export default function ChatRoomScreen({ route, navigation }) {
         }
     };
 
+    const handleLoadMore = async () => {
+        if (loadingMore || !hasMoreMessages || isSearching) return;
+
+        setLoadingMore(true);
+        try {
+            const count = await fetchOlderMessages(channelId);
+            if (count === 0) {
+                setHasMoreMessages(false);
+            }
+        } catch (error) {
+            console.error("Error loading more messages:", error);
+        } finally {
+            setLoadingMore(false);
+        }
+    };
+
+    const handleScroll = (event) => {
+        const offsetY = event.nativeEvent.contentOffset.y;
+        // Show scroll-to-bottom button if scrolled up more than 300px
+        setShowScrollBottom(offsetY > 300);
+    };
+
+    const scrollToBottom = () => {
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    };
+
     return (
         <KeyboardAvoidingView
             style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -374,16 +542,45 @@ export default function ChatRoomScreen({ route, navigation }) {
                                 </View>
                             )}
                         </View>
-                        <Text style={[styles.chatHeaderTitle, { color: theme.colors.text }]} numberOfLines={1}>{name}</Text>
+                        {isSearching ? (
+                            <TextInput
+                                style={[styles.searchInput, { color: theme.colors.text, backgroundColor: theme.colors.background }]}
+                                placeholder="Search..."
+                                placeholderTextColor={theme.colors.textSecondary}
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                                onSubmitEditing={handleSearch}
+                                autoFocus
+                            />
+                        ) : (
+                            <Text style={[styles.chatHeaderTitle, { color: theme.colors.text }]} numberOfLines={1}>{name}</Text>
+                        )}
                     </View>
 
-                    {/* Menu Button */}
-                    <TouchableOpacity
-                        style={{ padding: 10 }}
-                        onPress={() => setMenuVisible(!menuVisible)}
-                    >
-                        <FontAwesomeIcon icon={faEllipsisV} size={20} color={theme.colors.text} />
-                    </TouchableOpacity>
+                    {/* Header Actions */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <TouchableOpacity
+                            style={{ padding: 10 }}
+                            onPress={() => {
+                                if (isSearching) {
+                                    setIsSearching(false);
+                                    setSearchQuery('');
+                                    setSearchResults([]);
+                                } else {
+                                    setIsSearching(true);
+                                }
+                            }}
+                        >
+                            <FontAwesomeIcon icon={isSearching ? faTimes : faSearch} size={20} color={theme.colors.text} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={{ padding: 10 }}
+                            onPress={() => setMenuVisible(!menuVisible)}
+                        >
+                            <FontAwesomeIcon icon={faEllipsisV} size={20} color={theme.colors.text} />
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* Dropdown Menu */}
@@ -417,28 +614,124 @@ export default function ChatRoomScreen({ route, navigation }) {
                 )}
             </View>
 
-            <FlatList
-                ref={flatListRef}
-                data={channelMessages}
-                keyExtractor={item => item.id}
-                renderItem={renderMessage}
-                contentContainerStyle={styles.listContent}
-                style={{ backgroundColor: '#F5F5F5' }}
-                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-                onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-            />
+            {/* Pinned Messages Header */}
+            {pinnedMessages.length > 0 && !isSearching && (
+                <View style={[styles.pinnedContainer, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+                    <FontAwesomeIcon icon={faThumbtack} size={12} color={theme.colors.primary} style={{ marginRight: 8 }} />
+                    <Text style={[styles.pinnedText, { color: theme.colors.text }]} numberOfLines={1}>
+                        {pinnedMessages[0].content}
+                    </Text>
+                    {pinnedMessages.length > 1 && (
+                        <Text style={[styles.pinnedCount, { color: theme.colors.textSecondary }]}>+{pinnedMessages.length - 1}</Text>
+                    )}
+                </View>
+            )}
+
+            <View style={{ flex: 1 }}>
+                <FlatList
+                    ref={flatListRef}
+                    data={channelMessages}
+                    keyExtractor={item => item.id}
+                    renderItem={renderMessage}
+                    contentContainerStyle={styles.listContent}
+                    style={{ backgroundColor: '#F5F5F5' }}
+                    inverted
+                    onEndReached={handleLoadMore}
+                    onEndReachedThreshold={0.2}
+                    onScroll={handleScroll}
+                    scrollEventThrottle={16}
+                    ListFooterComponent={
+                        loadingMore ? (
+                            <View style={{ paddingVertical: 20 }}>
+                                <ActivityIndicator size="small" color={theme.colors.primary} />
+                            </View>
+                        ) : null
+                    }
+                />
+
+                {/* Scroll to Bottom Button */}
+                {showScrollBottom && (
+                    <TouchableOpacity
+                        style={[styles.scrollToBottomButton, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadow }]}
+                        onPress={scrollToBottom}
+                    >
+                        <FontAwesomeIcon icon={faArrowDown} size={16} color={theme.colors.primary} />
+                    </TouchableOpacity>
+                )}
+            </View>
+
+            {/* Input Link Preview - Above the input container */}
+            {inputLinkPreview && (
+                <View style={{
+                    backgroundColor: theme.colors.surface,
+                    borderTopWidth: 1,
+                    borderTopColor: theme.colors.border,
+                    padding: 10,
+                    flexDirection: 'row',
+                    alignItems: 'center'
+                }}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: theme.colors.text }} numberOfLines={1}>
+                            {inputLinkPreview.title}
+                        </Text>
+                        <Text style={{ fontSize: 10, color: theme.colors.textSecondary }} numberOfLines={1}>
+                            {inputLinkPreview.description}
+                        </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setInputLinkPreview(null)} style={{ padding: 5 }}>
+                        <FontAwesomeIcon icon={faTimes} size={14} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                </View>
+            )}
 
             <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>
+                {editingMessage && (
+                    <View style={styles.editingContainer}>
+                        <Text style={[styles.editingText, { color: theme.colors.textSecondary }]}>Editing message...</Text>
+                        <TouchableOpacity onPress={() => { setEditingMessage(null); setInputText(''); }}>
+                            <FontAwesomeIcon icon={faTimes} size={14} color={theme.colors.textSecondary} />
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {replyingTo && (
+                    <View style={styles.editingContainer}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={[styles.editingText, { color: theme.colors.primary, fontWeight: 'bold' }]}>
+                                Replying to {replyingTo.sender?.full_name || 'Unknown'}
+                            </Text>
+                            <Text style={[styles.editingText, { color: theme.colors.textSecondary }]} numberOfLines={1}>
+                                {replyingTo.content}
+                            </Text>
+                        </View>
+                        <TouchableOpacity onPress={() => setReplyingTo(null)}>
+                            <FontAwesomeIcon icon={faTimes} size={14} color={theme.colors.textSecondary} />
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* Typing Indicator */}
+                {Object.keys(typingUsers).length > 0 && (
+                    <View style={{ position: 'absolute', top: -20, left: 20 }}>
+                        <Text style={{ fontSize: 10, color: theme.colors.textSecondary, fontStyle: 'italic' }}>
+                            {Object.values(typingUsers).map(u => u.fullName).join(', ')} is typing...
+                        </Text>
+                    </View>
+                )}
+
                 <TouchableOpacity onPress={handleAttachment} style={styles.attachButton}>
                     <FontAwesomeIcon icon={faImage} size={20} color={theme.colors.primary} />
                 </TouchableOpacity>
 
                 <TextInput
                     style={[styles.input, { backgroundColor: theme.colors.background, color: theme.colors.text }]}
-                    placeholder="Type a message..."
+                    placeholder={editingMessage ? "Edit your message..." : "Type a message..."}
                     placeholderTextColor={theme.colors.textSecondary}
                     value={inputText}
-                    onChangeText={setInputText}
+                    onChangeText={(text) => {
+                        setInputText(text);
+                        handleTyping();
+                    }}
                     multiline
                 />
 
@@ -450,7 +743,7 @@ export default function ChatRoomScreen({ route, navigation }) {
                     {sending ? (
                         <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                        <FontAwesomeIcon icon={faPaperPlane} size={16} color="#fff" />
+                        <FontAwesomeIcon icon={editingMessage ? faPen : faPaperPlane} size={16} color="#fff" />
                     )}
                 </TouchableOpacity>
             </View>
@@ -459,6 +752,29 @@ export default function ChatRoomScreen({ route, navigation }) {
                 visible={participantsModalVisible}
                 onClose={() => setParticipantsModalVisible(false)}
                 participants={participants}
+            />
+
+            <MessageActionModal
+                visible={actionModalVisible}
+                onClose={() => setActionModalVisible(false)}
+                message={selectedMessage}
+                isMyMessage={selectedMessage?.sender_id === user?.id}
+                onEdit={(msg) => {
+                    setEditingMessage(msg);
+                    setInputText(msg.content);
+                }}
+                onDelete={(msg) => deleteMessage(msg.id)}
+                onPin={(msg) => pinMessage(msg.id, !msg.is_pinned)}
+                onReply={(msg) => setReplyingTo(msg)}
+                onReaction={(emoji) => {
+                    const hasReacted = selectedMessage?.message_reactions?.some(r => r.user_id === user.id && r.emoji === emoji);
+                    if (hasReacted) {
+                        removeReaction(selectedMessage.id, emoji);
+                    } else {
+                        addReaction(selectedMessage.id, emoji);
+                    }
+                }}
+                isAdmin={true} // In real app, check role
             />
 
             {/* Processing Overlay */}
@@ -507,7 +823,7 @@ const getUserColor = (userId, isDark) => {
 };
 
 // Helper component for message bubble
-const MessageBubble = ({ message, theme, currentUser, recipientAvatar, recipientEquippedItem, recipientLastReadAt }) => {
+const MessageBubble = ({ message, theme, currentUser, recipientAvatar, recipientEquippedItem, recipientLastReadAt, onReaction }) => {
     // Check if this is a system message
     if (message.is_system_message) {
         return (
@@ -527,6 +843,9 @@ const MessageBubble = ({ message, theme, currentUser, recipientAvatar, recipient
     // Check if message has been read by recipient
     const isRead = recipientLastReadAt && new Date(message.created_at) <= new Date(recipientLastReadAt);
 
+    // Check if message is pending (optimistic)
+    const isPending = message.id.toString().startsWith('temp-');
+
     // Determine background color
     const isDark = theme.dark || (theme.colors.surface && theme.colors.surface.toLowerCase() < '#888888');
 
@@ -538,6 +857,13 @@ const MessageBubble = ({ message, theme, currentUser, recipientAvatar, recipient
     const textColor = isMyMessage
         ? '#fff'
         : (isDark ? '#fff' : '#000');
+
+    // Group reactions
+    const reactions = message.message_reactions || [];
+    const groupedReactions = reactions.reduce((acc, r) => {
+        acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+        return acc;
+    }, {});
 
     return (
         <View style={[
@@ -552,38 +878,113 @@ const MessageBubble = ({ message, theme, currentUser, recipientAvatar, recipient
 
             <View style={[
                 styles.bubble,
-                { backgroundColor: bubbleColor }
+                { backgroundColor: message.is_deleted ? 'transparent' : bubbleColor, borderWidth: 0, borderColor: 'transparent' }
             ]}>
-                {message.attachments && message.attachments.length > 0 && (
+                {/* Reply Preview */}
+                {message.reply_to_message && !message.is_deleted && !Array.isArray(message.reply_to_message) && message.reply_to_message.content && (
+                    <View style={{
+                        backgroundColor: 'rgba(0,0,0,0.1)',
+                        padding: 8,
+                        borderRadius: 8,
+                        marginBottom: 8,
+                        borderLeftWidth: 3,
+                        borderLeftColor: isMyMessage ? '#fff' : theme.colors.primary
+                    }}>
+                        <Text style={{ fontSize: 10, fontWeight: 'bold', color: textColor, opacity: 0.8 }}>
+                            {message.reply_to_message.sender?.full_name}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: textColor, opacity: 0.8 }} numberOfLines={1}>
+                            {message.reply_to_message.content}
+                        </Text>
+                    </View>
+                )}
+
+                {/* Pinned Indicator */}
+                {message.is_pinned && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                        <FontAwesomeIcon icon={faThumbtack} size={10} color={isMyMessage ? '#fff' : theme.colors.textSecondary} />
+                        <Text style={{ fontSize: 10, color: isMyMessage ? '#fff' : theme.colors.textSecondary, marginLeft: 4 }}>Pinned</Text>
+                    </View>
+                )}
+
+                {message.attachments && message.attachments.length > 0 && !message.is_deleted && (
                     <Image
                         source={{ uri: message.attachments[0].url }}
                         style={styles.attachmentImage}
                         resizeMode="cover"
                     />
                 )}
-                {message.content ? (
-                    <Text style={[
-                        styles.messageText,
-                        { color: textColor }
-                    ]}>
-                        {message.content}
+
+                {message.is_deleted ? (
+                    <Text style={[styles.messageText, { color: '#007AFF', fontStyle: 'italic' }]}>
+                        This message was deleted
                     </Text>
-                ) : null}
+                ) : (
+                    <>
+                        {message.content ? (
+                            <Text style={[
+                                styles.messageText,
+                                { color: textColor }
+                            ]}>
+                                {message.content}
+                            </Text>
+                        ) : null}
+
+                        {/* Link Preview */}
+                        {message.content && <LinkPreview key={message.id} text={message.content} />}
+                    </>
+                )}
             </View>
+
+            {/* Reactions */}
+            {!message.is_deleted && Object.keys(groupedReactions).length > 0 && (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4, justifyContent: isMyMessage ? 'flex-end' : 'flex-start' }}>
+                    {Object.entries(groupedReactions).map(([emoji, count]) => (
+                        <TouchableOpacity
+                            key={emoji}
+                            onPress={() => onReaction && onReaction(emoji)}
+                            style={{
+                                backgroundColor: theme.colors.surfaceVariant,
+                                borderRadius: 12,
+                                paddingHorizontal: 6,
+                                paddingVertical: 2,
+                                marginRight: 4,
+                                marginBottom: 4,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                borderWidth: 1,
+                                borderColor: theme.colors.border
+                            }}
+                        >
+                            <Text style={{ fontSize: 12 }}>{emoji}</Text>
+                            <Text style={{ fontSize: 10, marginLeft: 2, color: theme.colors.textSecondary }}>{count}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            )}
 
             <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: isMyMessage ? 'flex-end' : 'flex-start', marginTop: 4 }}>
                 <Text style={[styles.timestamp, { color: theme.colors.textSecondary }]}>
                     {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Text>
-                {isMyMessage && (
+                {message.edited_at && !message.is_deleted && (
+                    <Text style={[styles.timestamp, { color: theme.colors.textSecondary, marginLeft: 5 }]}>
+                        (Edited)
+                    </Text>
+                )}
+                {isMyMessage && !message.is_deleted && (
                     <View style={{ marginLeft: 6 }}>
-                        <Text style={{
-                            fontSize: 10,
-                            color: isRead ? '#007AFF' : theme.colors.textSecondary,
-                            fontWeight: isRead ? 'bold' : 'normal'
-                        }}>
-                            {isRead ? 'Read' : 'Unread'}
-                        </Text>
+                        {isPending ? (
+                            <FontAwesomeIcon icon={faPaperPlane} size={10} color={theme.colors.textSecondary} />
+                        ) : (
+                            <Text style={{
+                                fontSize: 10,
+                                color: isRead ? '#007AFF' : theme.colors.textSecondary,
+                                fontWeight: isRead ? 'bold' : 'normal'
+                            }}>
+                                {isRead ? 'Read' : 'Unread'}
+                            </Text>
+                        )}
                     </View>
                 )}
             </View>
@@ -703,5 +1104,69 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 100,
+    },
+    scrollToBottomButton: {
+        position: 'absolute',
+        bottom: 20,
+        right: 20,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 5,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    },
+    searchInput: {
+        flex: 1,
+        height: 40,
+        borderRadius: 20,
+        paddingHorizontal: 15,
+        marginRight: 10,
+    },
+    pinnedContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+    },
+    pinnedText: {
+        fontSize: 12,
+        fontWeight: '500',
+        flex: 1,
+    },
+    pinnedCount: {
+        fontSize: 10,
+        marginLeft: 5,
+    },
+    editingContainer: {
+        position: 'absolute',
+        top: -30,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 5,
+        backgroundColor: 'rgba(0,0,0,0.05)',
+    },
+    editingText: {
+        fontSize: 12,
+        fontStyle: 'italic',
+    },
+    reactionContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        padding: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(0,0,0,0.1)',
+        marginBottom: 5,
+    },
+    reactionButton: {
+        padding: 5,
     },
 });
