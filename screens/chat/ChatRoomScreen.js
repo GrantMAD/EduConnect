@@ -663,24 +663,28 @@ export default function ChatRoomScreen({ route, navigation }) {
             {/* Input Link Preview - Above the input container */}
             {inputLinkPreview && (
                 <View style={{
-                    backgroundColor: theme.colors.surface,
-                    borderTopWidth: 1,
-                    borderTopColor: theme.colors.border,
+                    backgroundColor: theme.colors.background,
                     padding: 10,
-                    flexDirection: 'row',
-                    alignItems: 'center'
                 }}>
-                    <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: theme.colors.text }} numberOfLines={1}>
-                            {inputLinkPreview.title}
-                        </Text>
-                        <Text style={{ fontSize: 10, color: theme.colors.textSecondary }} numberOfLines={1}>
-                            {inputLinkPreview.description}
-                        </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={{ flex: 1 }}>
+                            <LinkPreview previewData={inputLinkPreview} />
+                        </View>
+                        <TouchableOpacity
+                            onPress={() => setInputLinkPreview(null)}
+                            style={{
+                                marginLeft: 10,
+                                width: 24,
+                                height: 24,
+                                borderRadius: 12,
+                                backgroundColor: theme.colors.surfaceVariant || '#E0E0E0', // Fallback if surfaceVariant undefined
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                            }}
+                        >
+                            <FontAwesomeIcon icon={faTimes} size={12} color={theme.colors.textSecondary} />
+                        </TouchableOpacity>
                     </View>
-                    <TouchableOpacity onPress={() => setInputLinkPreview(null)} style={{ padding: 5 }}>
-                        <FontAwesomeIcon icon={faTimes} size={14} color={theme.colors.textSecondary} />
-                    </TouchableOpacity>
                 </View>
             )}
 
