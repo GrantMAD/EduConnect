@@ -916,6 +916,8 @@ const MessageBubble = ({ message, theme, currentUser, recipientAvatar, recipient
         return acc;
     }, {});
 
+    const hasReactions = !message.is_deleted && Object.keys(groupedReactions).length > 0;
+
     return (
         <View style={[
             styles.bubbleContainer,
@@ -927,112 +929,130 @@ const MessageBubble = ({ message, theme, currentUser, recipientAvatar, recipient
                 </Text>
             )}
 
-            <View style={[
-                styles.bubble,
-                {
-                    backgroundColor: message.is_deleted ? 'rgba(0,0,0,0.05)' : bubbleColor,
-                    borderWidth: 0,
-                    borderColor: 'transparent',
-                    padding: message.is_deleted ? 8 : 12
-                }
-            ]}>
-                {/* Reply Preview */}
-                {message.reply_to_message && !message.is_deleted && message.reply_to_message.content && (
-                    <View style={{
-                        backgroundColor: 'rgba(0,0,0,0.1)',
-                        padding: 8,
-                        borderRadius: 8,
-                        marginBottom: 8,
-                        borderLeftWidth: 3,
-                        borderLeftColor: isMyMessage ? '#fff' : theme.colors.primary,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                    }}>
-                        <FontAwesomeIcon
-                            icon={faReply}
-                            size={12}
-                            color={textColor}
-                            style={{ marginRight: 6, opacity: 0.7 }}
+            <View style={{ position: 'relative', marginBottom: hasReactions ? 15 : 0 }}>
+                <View style={[
+                    styles.bubble,
+                    {
+                        backgroundColor: message.is_deleted ? 'rgba(0,0,0,0.05)' : bubbleColor,
+                        borderWidth: 0,
+                        borderColor: 'transparent',
+                        padding: message.is_deleted ? 8 : 12
+                    }
+                ]}>
+                    {/* Reply Preview */}
+                    {message.reply_to_message && !message.is_deleted && message.reply_to_message.content && (
+                        <View style={{
+                            backgroundColor: 'rgba(0,0,0,0.1)',
+                            padding: 8,
+                            borderRadius: 8,
+                            marginBottom: 8,
+                            borderLeftWidth: 3,
+                            borderLeftColor: isMyMessage ? '#fff' : theme.colors.primary,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                        }}>
+                            <FontAwesomeIcon
+                                icon={faReply}
+                                size={12}
+                                color={textColor}
+                                style={{ marginRight: 6, opacity: 0.7 }}
+                            />
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 10, fontWeight: 'bold', color: textColor, opacity: 0.8 }}>
+                                    {message.reply_to_message.sender?.full_name}
+                                </Text>
+                                <Text style={{ fontSize: 12, color: textColor, opacity: 0.8 }} numberOfLines={1}>
+                                    {message.reply_to_message.content}
+                                </Text>
+                            </View>
+                        </View>
+                    )}
+
+                    {/* Pinned Indicator */}
+                    {message.is_pinned && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                            <FontAwesomeIcon icon={faThumbtack} size={10} color={isMyMessage ? '#fff' : theme.colors.textSecondary} />
+                            <Text style={{ fontSize: 10, color: isMyMessage ? '#fff' : theme.colors.textSecondary, marginLeft: 4 }}>Pinned</Text>
+                        </View>
+                    )}
+
+                    {message.attachments && message.attachments.length > 0 && !message.is_deleted && (
+                        <Image
+                            source={{ uri: message.attachments[0].url }}
+                            style={styles.attachmentImage}
+                            resizeMode="cover"
                         />
-                        <View style={{ flex: 1 }}>
-                            <Text style={{ fontSize: 10, fontWeight: 'bold', color: textColor, opacity: 0.8 }}>
-                                {message.reply_to_message.sender?.full_name}
-                            </Text>
-                            <Text style={{ fontSize: 12, color: textColor, opacity: 0.8 }} numberOfLines={1}>
-                                {message.reply_to_message.content}
+                    )}
+
+                    {message.is_deleted ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <FontAwesomeIcon icon={faBan} size={12} color={theme.colors.primary} style={{ marginRight: 6 }} />
+                            <Text style={[styles.messageText, { color: theme.colors.primary, fontStyle: 'italic', fontSize: 14 }]}>
+                                This message was deleted
                             </Text>
                         </View>
-                    </View>
-                )}
+                    ) : (
+                        <>
+                            {message.content ? (
+                                <Text style={[
+                                    styles.messageText,
+                                    { color: textColor }
+                                ]}>
+                                    {message.content}
+                                </Text>
+                            ) : null}
 
-                {/* Pinned Indicator */}
-                {message.is_pinned && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                        <FontAwesomeIcon icon={faThumbtack} size={10} color={isMyMessage ? '#fff' : theme.colors.textSecondary} />
-                        <Text style={{ fontSize: 10, color: isMyMessage ? '#fff' : theme.colors.textSecondary, marginLeft: 4 }}>Pinned</Text>
-                    </View>
-                )}
+                            {/* Link Preview */}
+                            {message.content && <LinkPreview key={message.id} text={message.content} />}
+                        </>
+                    )}
+                </View>
 
-                {message.attachments && message.attachments.length > 0 && !message.is_deleted && (
-                    <Image
-                        source={{ uri: message.attachments[0].url }}
-                        style={styles.attachmentImage}
-                        resizeMode="cover"
-                    />
-                )}
-
-                {message.is_deleted ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <FontAwesomeIcon icon={faBan} size={12} color={theme.colors.primary} style={{ marginRight: 6 }} />
-                        <Text style={[styles.messageText, { color: theme.colors.primary, fontStyle: 'italic', fontSize: 14 }]}>
-                            This message was deleted
-                        </Text>
-                    </View>
-                ) : (
-                    <>
-                        {message.content ? (
-                            <Text style={[
-                                styles.messageText,
-                                { color: textColor }
-                            ]}>
-                                {message.content}
-                            </Text>
-                        ) : null}
-
-                        {/* Link Preview */}
-                        {message.content && <LinkPreview key={message.id} text={message.content} />}
-                    </>
-                )}
+                {/* Reactions */}
+                {
+                    hasReactions && (
+                        <View style={{
+                            position: 'absolute',
+                            bottom: -12,
+                            right: isMyMessage ? -8 : -8,
+                            flexDirection: 'row',
+                            flexWrap: 'wrap',
+                            justifyContent: 'flex-end',
+                            zIndex: 10,
+                            backgroundColor: theme.colors.surface,
+                            borderRadius: 20,
+                            padding: 2,
+                            shadowColor: "#000",
+                            shadowOffset: {
+                                width: 0,
+                                height: 1,
+                            },
+                            shadowOpacity: 0.20,
+                            shadowRadius: 1.41,
+                            elevation: 2,
+                        }}>
+                            {Object.entries(groupedReactions).map(([emoji, count]) => (
+                                <TouchableOpacity
+                                    key={emoji}
+                                    onPress={() => onReaction && onReaction(emoji)}
+                                    style={{
+                                        backgroundColor: theme.colors.surfaceVariant,
+                                        borderRadius: 12,
+                                        paddingHorizontal: 6,
+                                        paddingVertical: 2,
+                                        marginHorizontal: 2,
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                    }}
+                                >
+                                    <Text style={{ fontSize: 12 }}>{emoji}</Text>
+                                    <Text style={{ fontSize: 10, marginLeft: 2, color: theme.colors.textSecondary }}>{count}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    )
+                }
             </View>
-
-            {/* Reactions */}
-            {
-                !message.is_deleted && Object.keys(groupedReactions).length > 0 && (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4, justifyContent: isMyMessage ? 'flex-end' : 'flex-start' }}>
-                        {Object.entries(groupedReactions).map(([emoji, count]) => (
-                            <TouchableOpacity
-                                key={emoji}
-                                onPress={() => onReaction && onReaction(emoji)}
-                                style={{
-                                    backgroundColor: theme.colors.surfaceVariant,
-                                    borderRadius: 12,
-                                    paddingHorizontal: 6,
-                                    paddingVertical: 2,
-                                    marginRight: 4,
-                                    marginBottom: 4,
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    borderWidth: 1,
-                                    borderColor: theme.colors.border
-                                }}
-                            >
-                                <Text style={{ fontSize: 12 }}>{emoji}</Text>
-                                <Text style={{ fontSize: 10, marginLeft: 2, color: theme.colors.textSecondary }}>{count}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                )
-            }
 
             <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: isMyMessage ? 'flex-end' : 'flex-start', marginTop: 4 }}>
                 <Text style={[styles.timestamp, { color: theme.colors.textSecondary }]}>
@@ -1106,7 +1126,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     bubbleContainer: {
-        marginBottom: 12,
+        marginBottom: 18,
         maxWidth: '80%',
     },
     myMessageContainer: {

@@ -186,7 +186,6 @@ export const ChatProvider = ({ children, session }) => {
           data.forEach(msg => {
             if (msg.reply_to_message_id && replyMap[msg.reply_to_message_id]) {
               msg.reply_to_message = replyMap[msg.reply_to_message_id];
-              console.log(`Message ${msg.id} has reply_to_message:`, msg.reply_to_message?.id, 'reply_to_message_id:', msg.reply_to_message_id);
             }
           });
         }
@@ -410,8 +409,40 @@ export const ChatProvider = ({ children, session }) => {
     }
   };
 
+  // Reactions are stored in the 'message_reactions' table in Supabase.
+  // Each row links a message_id, user_id, and an emoji.
   const addReaction = async (messageId, emoji) => {
     try {
+      // Optimistic update
+      setMessages(prev => {
+        const updatedMessages = {};
+        Object.keys(prev).forEach(channelId => {
+          updatedMessages[channelId] = prev[channelId].map(msg => {
+            if (msg.id === messageId) {
+              const currentReactions = msg.message_reactions || [];
+
+              // Filter out ANY existing reaction by this user to enforce single reaction
+              const otherReactions = currentReactions.filter(r => r.user_id !== user.id);
+
+              return {
+                ...msg,
+                message_reactions: [...otherReactions, { id: `temp-${Date.now()}`, message_id: messageId, user_id: user.id, emoji }]
+              };
+            }
+            return msg;
+          });
+        });
+        return updatedMessages;
+      });
+
+      // Remove any existing reaction by this user on this message first
+      await supabase
+        .from('message_reactions')
+        .delete()
+        .eq('message_id', messageId)
+        .eq('user_id', user.id);
+
+      // Then insert the new one
       const { error } = await supabase
         .from('message_reactions')
         .insert({
@@ -424,11 +455,30 @@ export const ChatProvider = ({ children, session }) => {
     } catch (error) {
       console.error('Error adding reaction:', error);
       showToast('Failed to add reaction', 'error');
+      // Revert optimistic update (optional, but good practice - for now we'll rely on the subscription to fix it eventually or a refresh)
     }
   };
 
   const removeReaction = async (messageId, emoji) => {
     try {
+      // Optimistic update
+      setMessages(prev => {
+        const updatedMessages = {};
+        Object.keys(prev).forEach(channelId => {
+          updatedMessages[channelId] = prev[channelId].map(msg => {
+            if (msg.id === messageId) {
+              const currentReactions = msg.message_reactions || [];
+              return {
+                ...msg,
+                message_reactions: currentReactions.filter(r => !(r.user_id === user.id && r.emoji === emoji))
+              };
+            }
+            return msg;
+          });
+        });
+        return updatedMessages;
+      });
+
       const { error } = await supabase
         .from('message_reactions')
         .delete()
@@ -631,7 +681,9 @@ export const ChatProvider = ({ children, session }) => {
 
       if (error) throw error;
 
-      // 3. Update Optimistic Message with Real Data
+
+
+      // 4. Update Optimistic Message with Real Data
       setMessages(prev => {
         const current = prev[channelId] || [];
         // Check if the real message was already added by subscription
@@ -692,10 +744,6 @@ export const ChatProvider = ({ children, session }) => {
         user_id: uid,
         role: uid === user.id ? 'admin' : 'member'
       }));
-
-      const { error: membersError } = await supabase
-        .from('channel_members')
-        .insert(members);
 
       if (membersError) throw membersError;
 

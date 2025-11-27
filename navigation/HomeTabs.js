@@ -11,8 +11,12 @@ import MarketScreen from '../screens/market/MarketScreen';
 
 const Tab = createMaterialTopTabNavigator();
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 const HomeTabs = () => {
     const { theme } = useTheme();
+    const insets = useSafeAreaInsets();
+
     return (
         <Tab.Navigator
             tabBarPosition="bottom"
@@ -22,10 +26,10 @@ const HomeTabs = () => {
                 tabBarStyle: {
                     backgroundColor: theme.colors.surface,
                     borderTopColor: theme.colors.cardBorder,
-                    height: 70,
-                    paddingBottom: 10,
+                    height: 70 + insets.bottom,
+                    paddingBottom: 10 + insets.bottom,
                     paddingTop: 6,
-                    marginBottom: 5,
+                    marginBottom: 0, // Removed margin to sit flush with bottom
                 },
                 tabBarLabelStyle: {
                     fontSize: 12,
@@ -35,6 +39,7 @@ const HomeTabs = () => {
                 tabBarIndicatorStyle: {
                     backgroundColor: theme.colors.primary,
                     height: 3,
+                    top: 0, // Move indicator to top
                 },
             }}
         >

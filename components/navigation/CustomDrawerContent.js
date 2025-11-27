@@ -19,6 +19,8 @@ import AnimatedAvatarBorder from '../AnimatedAvatarBorder';
 
 const defaultUserImage = require('../../assets/user.png');
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 const CustomDrawerContent = (props) => {
     const [userAvatar, setUserAvatar] = useState(null);
     const [userName, setUserName] = useState(null);
@@ -28,6 +30,8 @@ const CustomDrawerContent = (props) => {
     const [profileCompletion, setProfileCompletion] = useState(0);
     const { theme } = useTheme();
     const { equippedItem } = useGamification();
+
+    const insets = useSafeAreaInsets();
 
     const calculateProfileCompletion = (profile) => {
         let completed = 0;
@@ -239,9 +243,11 @@ const CustomDrawerContent = (props) => {
                 />
             </ScrollView>
 
-            <View style={{ padding: 20, borderTopWidth: 1, borderTopColor: theme.colors.cardBorder }}>
+            <View style={{ padding: 20, paddingBottom: 20 + insets.bottom, borderTopWidth: 1, borderTopColor: theme.colors.cardBorder }}>
                 <TouchableOpacity
                     onPress={async () => {
+                        const { data: { user } } = await supabase.auth.getUser();
+
                         await supabase.auth.signOut();
                     }}
                     style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12 }}
