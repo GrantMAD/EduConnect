@@ -22,7 +22,9 @@ import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
 import { useSchool } from '../context/SchoolContext';
 import { useToast } from '../context/ToastContext';
+import { useChat } from '../context/ChatContext';
 import UserListModal from '../components/UserListModal';
+import UserProfileModal from '../components/UserProfileModal';
 import ClassListModal from '../components/ClassListModal';
 import ContentListModal from '../components/ContentListModal';
 import DashboardScreenSkeleton from '../components/skeletons/DashboardScreenSkeleton';
@@ -31,6 +33,7 @@ export default function DashboardScreen({ navigation }) {
     const { theme } = useTheme();
     const { schoolId } = useSchool();
     const { showToast } = useToast();
+    const { createChannel, channels, user: currentUser } = useChat();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [userRole, setUserRole] = useState(null);
@@ -55,6 +58,8 @@ export default function DashboardScreen({ navigation }) {
     const [showUserModal, setShowUserModal] = useState(false);
     const [selectedUserCategory, setSelectedUserCategory] = useState(null);
     const [userListData, setUserListData] = useState([]);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [showProfileModal, setShowProfileModal] = useState(false);
 
     // Content Modals State
     const [showClassModal, setShowClassModal] = useState(false);
@@ -300,6 +305,37 @@ export default function DashboardScreen({ navigation }) {
         }
     };
 
+    const handleMessageUser = async (userToMessage) => {
+        if (!currentUser) {
+            showToast('You must be logged in to message users', 'error');
+            return;
+        }
+
+        if (userToMessage.id === currentUser.id) {
+            showToast('You cannot message yourself', 'error');
+            return;
+        }
+
+        try {
+            // Check if a direct chat already exists
+            const existingChannel = channels.find(channel =>
+                channel.type === 'direct' &&
+                channel.channel_members.some(member => member.user_id === userToMessage.id)
+            );
+
+            if (existingChannel) {
+                navigation.navigate('ChatRoom', { channelId: existingChannel.id, name: userToMessage.full_name });
+            } else {
+                // Create new channel
+                const newChannel = await createChannel(userToMessage.full_name, 'direct', [userToMessage.id]);
+                navigation.navigate('ChatRoom', { channelId: newChannel.id, name: userToMessage.full_name });
+            }
+        } catch (error) {
+            console.error('Error starting chat:', error);
+            showToast('Failed to start chat', 'error');
+        }
+    };
+
     const StatCard = ({ icon, title, value, color, onPress }) => (
         <TouchableOpacity
             style={[styles.statCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
@@ -502,6 +538,17 @@ export default function DashboardScreen({ navigation }) {
                 users={userListData}
                 category={selectedUserCategory}
                 onClose={() => setShowUserModal(false)}
+                onUserPress={(user) => {
+                    setSelectedUser(user);
+                    setShowProfileModal(true);
+                }}
+            />
+
+            <UserProfileModal
+                visible={showProfileModal}
+                user={selectedUser}
+                onClose={() => setShowProfileModal(false)}
+                onMessageUser={handleMessageUser}
             />
 
             {/* Class List Modal */}

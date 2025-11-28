@@ -745,6 +745,10 @@ export const ChatProvider = ({ children, session }) => {
         role: uid === user.id ? 'admin' : 'member'
       }));
 
+      const { error: membersError } = await supabase
+        .from('channel_members')
+        .insert(members);
+
       if (membersError) throw membersError;
 
       // Refresh channels list

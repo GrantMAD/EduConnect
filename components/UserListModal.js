@@ -7,7 +7,7 @@ import { useTheme } from '../context/ThemeContext';
 
 const defaultUserImage = require('../assets/user.png');
 
-export default function UserListModal({ visible, users, category, onClose }) {
+export default function UserListModal({ visible, users, category, onClose, onUserPress }) {
     const { theme } = useTheme();
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -42,7 +42,11 @@ export default function UserListModal({ visible, users, category, onClose }) {
     });
 
     const renderUserCard = ({ item }) => (
-        <View style={[styles.userCard, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
+        <TouchableOpacity
+            style={[styles.userCard, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}
+            onPress={() => onUserPress && onUserPress(item)}
+            activeOpacity={0.7}
+        >
             <Image
                 source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage}
                 style={[styles.avatar, { borderColor: categoryInfo.color }]}
@@ -65,7 +69,7 @@ export default function UserListModal({ visible, users, category, onClose }) {
                     <Text style={[styles.roleText, { color: categoryInfo.color }]}>{item.role}</Text>
                 </View>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 
     return (

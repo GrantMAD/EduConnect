@@ -1,12 +1,13 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, ActivityIndicator } from 'react-native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTimes, faTag, faUserCircle, faMoneyBillWave, faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faTag, faUserCircle, faMoneyBillWave, faEdit, faTrash, faComment } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
-export default function MarketplaceItemDetailModal({ visible, item, onClose, onViewSeller, onEdit, onDelete }) {
+export default function MarketplaceItemDetailModal({ visible, item, onClose, onViewSeller, onMessageSeller, onEdit, onDelete }) {
     const { theme } = useTheme();
+    const [loading, setLoading] = useState(false);
 
     if (!item) return null;
 
@@ -73,24 +74,54 @@ export default function MarketplaceItemDetailModal({ visible, item, onClose, onV
                                 )}
                             </View>
                         ) : (
-                            <TouchableOpacity
-                                style={[styles.sellerButton, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}
-                                onPress={() => {
-                                    onClose();
-                                    setTimeout(() => onViewSeller(item.seller), 500); // Small delay to allow modal to close smoothly
-                                }}
-                            >
-                                <View style={styles.sellerInfo}>
-                                    <Text style={[styles.sellerLabel, { color: theme.colors.placeholder }]}>Sold by</Text>
-                                    <Text style={[styles.sellerName, { color: theme.colors.text }]}>{item.seller?.full_name || 'Unknown Seller'}</Text>
-                                </View>
-                                <FontAwesomeIcon icon={faUserCircle} size={24} color={theme.colors.primary} />
-                            </TouchableOpacity>
+
+                            <View>
+                                <TouchableOpacity
+                                    style={[styles.sellerButton, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}
+                                    onPress={
+                                        () => {
+                                            onClose();
+                                            setTimeout(() => onViewSeller(item.seller), 500);
+                                        }}
+                                >
+                                    <View style={styles.sellerInfo}>
+                                        <Text style={[styles.sellerLabel, { color: theme.colors.placeholder }]}>Sold by</Text>
+                                        <Text style={[styles.sellerName, { color: theme.colors.text }]}>{item.seller?.full_name || 'Unknown Seller'}</Text>
+                                    </View>
+                                    <FontAwesomeIcon icon={faUserCircle} size={24} color={theme.colors.primary} />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={[styles.messageButton, { backgroundColor: theme.colors.primary }]}
+                                    onPress={async () => {
+                                        if (loading) return;
+                                        setLoading(true);
+                                        try {
+                                            await onMessageSeller(item.seller);
+                                            onClose();
+                                        } catch (error) {
+                                            console.error("Error messaging seller:", error);
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                    }}
+                                    disabled={loading}
+                                >
+                                    {loading ? (
+                                        <ActivityIndicator size="small" color="#fff" />
+                                    ) : (
+                                        <>
+                                            <FontAwesomeIcon icon={faComment} size={16} color="#fff" style={{ marginRight: 8 }} />
+                                            <Text style={styles.messageButtonText}>Message Seller</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
                         )}
                     </View>
-                </ScrollView>
-            </View>
-        </Modal>
+                </ScrollView >
+            </View >
+        </Modal >
     );
 }
 
@@ -210,6 +241,19 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: 'bold',
         marginLeft: 8,
+        fontSize: 16,
+    },
+    messageButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 15,
+        borderRadius: 12,
+        marginTop: 10,
+    },
+    messageButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
         fontSize: 16,
     },
 });

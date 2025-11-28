@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, TouchableOpacity, Text, Animated, Alert, ScrollView } from 'react-native';
+import { View, TouchableOpacity, Text, Animated, Alert, ScrollView, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faBars, faBell, faComments } from '@fortawesome/free-solid-svg-icons';
@@ -146,6 +146,20 @@ const CustomHeader = ({ navigation, showActions = false }) => {
       >
         <FontAwesomeIcon icon={faBars} size={20} color={theme.colors.primary} />
       </TouchableOpacity>
+
+      {/* Logo - Centered */}
+      <Image
+        source={require('../../assets/Logo.png')}
+        style={{
+          width: 65,
+          height: 65,
+          resizeMode: 'contain',
+          position: 'absolute',
+          left: '55%',
+          marginLeft: -32.5,
+          top: insets.top,
+        }}
+      />
 
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         {/* Chat Button */}

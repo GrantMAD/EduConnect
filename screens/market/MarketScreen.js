@@ -36,6 +36,8 @@ import MarketplaceItemCard from '../../components/MarketplaceItemCard';
 import SellerProfileModal from '../../components/SellerProfileModal';
 import MarketplaceItemDetailModal from '../../components/MarketplaceItemDetailModal';
 import { useTheme } from '../../context/ThemeContext';
+import { useChat } from '../../context/ChatContext';
+import { useToast } from '../../context/ToastContext';
 
 export default function MarketScreen({ navigation }) {
   const [allItems, setAllItems] = useState([]);
@@ -54,6 +56,8 @@ export default function MarketScreen({ navigation }) {
   const [sortBy, setSortBy] = useState('newest');
 
   const { theme } = useTheme();
+  const { createChannel, channels, user } = useChat();
+  const { showToast } = useToast();
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -152,6 +156,44 @@ export default function MarketScreen({ navigation }) {
     Furniture: 'Desks, chairs and more.',
     Clothing: 'Uniforms & apparel.',
     Other: 'Misc. items.',
+    Other: 'Misc. items.',
+  };
+
+  const handleMessageSeller = async (seller) => {
+    if (!user) {
+      showToast('You must be logged in to message sellers', 'error');
+      return;
+    }
+
+    if (seller.id === user.id) {
+      showToast('You cannot message yourself', 'error');
+      return;
+    }
+
+    try {
+      // Check if a direct chat already exists with this seller
+      // A direct chat has type 'direct' and contains the seller in its members
+      // Since we don't have the full member list in the channel object easily accessible in a way that guarantees we find the *other* user without iterating,
+      // we rely on the fact that 'direct' channels usually have a specific naming convention or we check membership.
+      // However, the best way in this app's context (based on ChatContext) is to check if we have a channel where the other member is the seller.
+
+      // Actually, ChatContext's channels array has channel_members.
+      const existingChannel = channels.find(channel =>
+        channel.type === 'direct' &&
+        channel.channel_members.some(member => member.user_id === seller.id)
+      );
+
+      if (existingChannel) {
+        navigation.navigate('ChatRoom', { channelId: existingChannel.id, name: seller.full_name });
+      } else {
+        // Create new channel
+        const newChannel = await createChannel(seller.full_name, 'direct', [seller.id]);
+        navigation.navigate('ChatRoom', { channelId: newChannel.id, name: seller.full_name });
+      }
+    } catch (error) {
+      console.error('Error starting chat:', error);
+      showToast('Failed to start chat', 'error');
+    }
   };
 
   if (loading) return <MarketScreenSkeleton />;
@@ -317,6 +359,7 @@ export default function MarketScreen({ navigation }) {
           setSelectedSeller(seller);
           setModalVisible(true);
         }}
+        onMessageSeller={handleMessageSeller}
         onClose={() => setItemDetailModalVisible(false)}
       />
 
