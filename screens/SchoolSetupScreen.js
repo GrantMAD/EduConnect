@@ -8,10 +8,14 @@ import {
   ActivityIndicator,
   StyleSheet,
   ScrollView,
+  Image,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faSchool, faPlusCircle, faChevronDown, faBuilding, faMapMarkerAlt, faEnvelope, faPhone, faGraduationCap, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { Modal } from 'react-native';
 
 import SchoolSetupScreenSkeleton from '../components/skeletons/SchoolSetupScreenSkeleton';
 import { useToast } from '../context/ToastContext';
@@ -28,6 +32,7 @@ export default function SchoolSetupScreen({ navigation }) {
   const [joiningSchool, setJoiningSchool] = useState(null);
   const [requestStatus, setRequestStatus] = useState(null); // 'pending' | 'declined'
   const [declinedMessage, setDeclinedMessage] = useState(null);
+  const [cancellingRequest, setCancellingRequest] = useState(false);
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
 
@@ -36,7 +41,11 @@ export default function SchoolSetupScreen({ navigation }) {
   const [newSchoolAddress, setNewSchoolAddress] = useState('');
   const [newSchoolContactEmail, setNewSchoolContactEmail] = useState('');
   const [newSchoolContactPhone, setNewSchoolContactPhone] = useState('');
+
   const [newSchoolLogoUrl, setNewSchoolLogoUrl] = useState('');
+  const [schoolType, setSchoolType] = useState('Primary School');
+  const [showTypePicker, setShowTypePicker] = useState(false);
+  const schoolTypes = ['Primary School', 'High School', 'University', 'College', 'Other'];
   const [creating, setCreating] = useState(false);
 
   // Refresh user data whenever screen is focused
@@ -100,7 +109,7 @@ export default function SchoolSetupScreen({ navigation }) {
     }
     const { data, error } = await supabase
       .from('schools')
-      .select('id, name, created_by')
+      .select('id, name, created_by, logo_url')
       .ilike('name', `%${searchTerm}%`)
       .limit(10);
 
@@ -150,12 +159,100 @@ export default function SchoolSetupScreen({ navigation }) {
         }]);
       if (notifError) throw notifError;
 
+      // Update local user state
+      setUser({ ...user, school_request_status: 'pending', requested_school_id: schoolId });
       showToast('Your request is pending approval.', 'success');
     } catch (err) {
       console.error(err);
       showToast('Failed to send join request: ' + err.message, 'error');
     } finally {
       setJoiningSchool(null);
+    }
+  };
+
+  const handleCancelRequest = async () => {
+    if (!user) return;
+    setCancellingRequest(true);
+
+    try {
+      const requestedSchoolId = user.requested_school_id;
+
+      // Check if we have a valid school ID
+      if (!requestedSchoolId || requestedSchoolId === 'null') {
+        // Just clear the status if no valid school ID
+        const { error: updateUserError } = await supabase
+          .from('users')
+          .update({
+            school_request_status: null,
+            requested_school_id: null,
+          })
+          .eq('id', user.id);
+        if (updateError) throw updateUserError;
+
+        setRequestStatus(null);
+        setUser({ ...user, school_request_status: null, requested_school_id: null });
+        showToast('Request cancelled successfully.', 'success');
+        setCancellingRequest(false);
+        return;
+      }
+      // Get school creator info before clearing the request
+      const { data: schoolData, error: schoolError } = await supabase
+        .from('schools')
+        .select('created_by, name')
+        .eq('id', requestedSchoolId)
+        .single();
+
+      if (schoolError) throw schoolError;
+
+      // Clear user's request status
+      const { error: updateUserError } = await supabase
+        .from('users')
+        .update({
+          school_request_status: null,
+          requested_school_id: null,
+        })
+        .eq('id', user.id);
+      if (updateUserError) throw updateUserError;
+
+      // First, check if the notification exists
+      const { data: existingNotif, error: fetchError } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('created_by', user.id)
+        .eq('user_id', schoolData.created_by)
+        .eq('type', 'school_join_request');
+
+      if (fetchError) {
+        console.error('Error fetching notification:', fetchError);
+      }
+
+      // Update the original join request notification to a cancellation notification
+      const { data: updateResult, error: updateNotifError } = await supabase
+        .from('notifications')
+        .update({
+          type: 'school_join_request_cancelled',
+          title: 'Join Request Cancelled',
+          message: `${user.full_name || user.email} has cancelled their request to join "${schoolData.name}"`,
+          is_read: false, // Mark as unread so admin sees the update
+        })
+        .eq('created_by', user.id)
+        .eq('user_id', schoolData.created_by)
+        .eq('type', 'school_join_request')
+        .select();
+
+      if (updateNotifError) {
+        console.error('Error updating notification:', updateNotifError);
+        // Don't throw - the important part (clearing user status) already succeeded
+      }
+
+      setRequestStatus(null);
+      setUser({ ...user, school_request_status: null, requested_school_id: null });
+      showToast('Request cancelled successfully.', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to cancel request: ' + err.message, 'error');
+    } finally {
+      setCancellingRequest(false);
     }
   };
 
@@ -174,9 +271,11 @@ export default function SchoolSetupScreen({ navigation }) {
           address: newSchoolAddress,
           contact_email: newSchoolContactEmail,
           contact_phone: newSchoolContactPhone,
-          logo_url: newSchoolLogoUrl,
+
+          created_by: user.id,
           created_by: user.id,
           users: [user.id],
+          school_type: schoolType,
         }])
         .select()
         .single();
@@ -206,17 +305,36 @@ export default function SchoolSetupScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 60 + insets.bottom }}>
+      <TouchableOpacity onPress={() => navigation.navigate('RoleSelection')} style={styles.backButton}>
+        <FontAwesomeIcon icon={faArrowLeft} size={20} color="#007AFF" />
+        <Text style={styles.backButtonText}>Back to Role Selection</Text>
+      </TouchableOpacity>
       <Text style={styles.title}>Welcome to ClassConnect</Text>
-      <Text style={styles.subtitle}>Join your school or create a new one</Text>
+
 
       {(role === 'student' || role === 'parent' || role === 'teacher') && (
         <>
           {/* --- JOIN EXISTING --- */}
-          <Text style={styles.sectionTitle}>Join Existing School</Text>
-          <Text style={styles.sectionDescription}>Search for your school and send a request to join.</Text>
+          {/* --- JOIN EXISTING --- */}
+          <View style={styles.sectionHeaderContainer}>
+            <FontAwesomeIcon icon={faSchool} size={20} color="#007AFF" style={{ marginRight: 10 }} />
+            <Text style={styles.sectionTitle}>Join Existing School</Text>
+          </View>
+          <Text style={styles.sectionDescription}>Search for your school and send a request to join. Acceptance is determined by the school admins.</Text>
 
           {requestStatus === 'pending' ? (
-            <Text style={styles.pendingText}>Request is currently pending...</Text>
+            <View>
+              <Text style={styles.pendingText}>Request is currently pending...</Text>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCancelRequest}
+                disabled={cancellingRequest}
+              >
+                <Text style={styles.cancelButtonText}>
+                  {cancellingRequest ? 'Cancelling...' : 'Cancel Request'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <>
               <View style={styles.searchRow}>
@@ -247,6 +365,10 @@ export default function SchoolSetupScreen({ navigation }) {
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => (
                       <View style={styles.schoolCard}>
+                        <Image
+                          source={item.logo_url ? { uri: item.logo_url } : require('../assets/DefaultSchool.png')}
+                          style={styles.schoolLogo}
+                        />
                         <Text style={styles.schoolName}>{item.name}</Text>
                         <TouchableOpacity
                           style={styles.joinButton}
@@ -271,9 +393,16 @@ export default function SchoolSetupScreen({ navigation }) {
       {role === 'admin' && (
         <>
           {/* --- CREATE NEW --- */}
-          <Text style={styles.sectionTitle}>Create New School</Text>
+          {/* --- CREATE NEW --- */}
+          <View style={styles.sectionHeaderContainer}>
+            <FontAwesomeIcon icon={faPlusCircle} size={20} color="#333" style={{ marginRight: 10 }} />
+            <Text style={styles.sectionTitle}>Create New School</Text>
+          </View>
           <Text style={styles.sectionDescription}>Register a new school and become its administrator.</Text>
-          <Text style={styles.inputHeading}>School Name</Text>
+          <View style={styles.inputHeaderContainer}>
+            <FontAwesomeIcon icon={faBuilding} size={16} color="#333" style={{ marginRight: 8 }} />
+            <Text style={styles.inputHeading}>School Name</Text>
+          </View>
           <Text style={styles.inputDescription}>Enter the official name of your school.</Text>
           <TextInput
             style={styles.input}
@@ -281,7 +410,10 @@ export default function SchoolSetupScreen({ navigation }) {
             value={newSchoolName}
             onChangeText={setNewSchoolName}
           />
-          <Text style={styles.inputHeading}>Address</Text>
+          <View style={styles.inputHeaderContainer}>
+            <FontAwesomeIcon icon={faMapMarkerAlt} size={16} color="#333" style={{ marginRight: 8 }} />
+            <Text style={styles.inputHeading}>Address</Text>
+          </View>
           <Text style={styles.inputDescription}>Provide the physical address of your school.</Text>
           <TextInput
             style={styles.input}
@@ -289,7 +421,10 @@ export default function SchoolSetupScreen({ navigation }) {
             value={newSchoolAddress}
             onChangeText={setNewSchoolAddress}
           />
-          <Text style={styles.inputHeading}>Contact Email</Text>
+          <View style={styles.inputHeaderContainer}>
+            <FontAwesomeIcon icon={faEnvelope} size={16} color="#333" style={{ marginRight: 8 }} />
+            <Text style={styles.inputHeading}>Contact Email</Text>
+          </View>
           <Text style={styles.inputDescription}>Enter the primary contact email for your school.</Text>
           <TextInput
             style={styles.input}
@@ -299,24 +434,69 @@ export default function SchoolSetupScreen({ navigation }) {
             keyboardType="email-address"
             autoCapitalize="none"
           />
-          <Text style={styles.inputHeading}>Contact Phone</Text>
+          <View style={styles.inputHeaderContainer}>
+            <FontAwesomeIcon icon={faPhone} size={16} color="#333" style={{ marginRight: 8 }} />
+            <Text style={styles.inputHeading}>Contact Number</Text>
+          </View>
           <Text style={styles.inputDescription}>Enter the primary contact phone number for your school.</Text>
           <TextInput
             style={styles.input}
-            placeholder="Contact Phone"
+            placeholder="Contact Number"
             value={newSchoolContactPhone}
-            onChangeText={setNewSchoolContactPhone}
+            onChangeText={(text) => setNewSchoolContactPhone(text.replace(/[^0-9]/g, ''))}
             keyboardType="phone-pad"
           />
-          <Text style={styles.inputHeading}>Logo URL (optional)</Text>
-          <Text style={styles.inputDescription}>Provide a URL for your school's logo (e.g., from your website).</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Logo URL (optional)"
-            value={newSchoolLogoUrl}
-            onChangeText={setNewSchoolLogoUrl}
-            autoCapitalize="none"
-          />
+
+          <View style={styles.inputHeaderContainer}>
+            <FontAwesomeIcon icon={faGraduationCap} size={16} color="#333" style={{ marginRight: 8 }} />
+            <Text style={styles.inputHeading}>School Type</Text>
+          </View>
+          <Text style={styles.inputDescription}>Select the type of educational institution.</Text>
+          <TouchableOpacity
+            style={styles.dropdownButton}
+            onPress={() => setShowTypePicker(true)}
+          >
+            <Text style={styles.dropdownButtonText}>{schoolType}</Text>
+            <FontAwesomeIcon icon={faChevronDown} size={16} color="#666" />
+          </TouchableOpacity>
+
+          <Modal
+            visible={showTypePicker}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setShowTypePicker(false)}
+          >
+            <TouchableOpacity
+              style={styles.modalOverlay}
+              activeOpacity={1}
+              onPress={() => setShowTypePicker(false)}
+            >
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Select School Type</Text>
+                {schoolTypes.map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={styles.modalItem}
+                    onPress={() => {
+                      setSchoolType(type);
+                      setShowTypePicker(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.modalItemText,
+                      schoolType === type && styles.modalItemTextSelected
+                    ]}>
+                      {type}
+                    </Text>
+                    {schoolType === type && (
+                      <FontAwesomeIcon icon={faSchool} size={16} color="#007AFF" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableOpacity>
+          </Modal>
+
           <TouchableOpacity
             style={styles.createButton}
             onPress={handleCreateSchool}
@@ -340,7 +520,20 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   title: { fontSize: 26, fontWeight: '700', textAlign: 'center', marginBottom: 4, color: '#333' },
   subtitle: { fontSize: 16, textAlign: 'center', marginBottom: 24, color: '#666' },
-  sectionTitle: { fontSize: 20, fontWeight: '600', marginTop: 16, marginBottom: 8, color: '#333' },
+  sectionTitle: { fontSize: 20, fontWeight: '600', color: '#333' },
+  sectionHeaderContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 8 },
+  backButton: {
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '500',
+  },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -365,7 +558,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  schoolName: { fontSize: 16, color: '#333', fontWeight: '500' },
+  schoolLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  schoolName: { fontSize: 16, color: '#333', fontWeight: '500', flex: 1 },
   joinButton: {
     backgroundColor: '#007AFF',
     paddingVertical: 8,
@@ -374,7 +575,7 @@ const styles = StyleSheet.create({
   },
   joinButtonText: { color: '#fff', fontWeight: '600' },
   createButton: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#007AFF',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
@@ -389,7 +590,69 @@ const styles = StyleSheet.create({
   signOutText: { color: '#FF3B30', fontWeight: '600', fontSize: 16 },
   declinedText: { color: '#d9534f', fontSize: 14, fontWeight: '500', marginBottom: 8 },
   pendingText: { fontStyle: 'italic', color: '#007AFF', marginBottom: 10 },
-  inputHeading: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 4, marginTop: 10 },
+  cancelButton: {
+    backgroundColor: '#FF3B30',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  inputHeaderContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 4 },
+  inputHeading: { fontSize: 16, fontWeight: '600', color: '#333' },
   inputDescription: { fontSize: 12, color: '#666', marginBottom: 8 },
   sectionDescription: { fontSize: 14, color: '#777', marginBottom: 15 },
+  dropdownButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  dropdownButtonText: { fontSize: 16, color: '#333' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '80%',
+    maxHeight: '60%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+    color: '#333',
+  },
+  modalItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  modalItemTextSelected: {
+    color: '#007AFF',
+    fontWeight: '600',
+  },
 });

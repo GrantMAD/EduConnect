@@ -32,10 +32,92 @@ const CustomHeader = ({ navigation, showActions = false }) => {
       pulseAnim.setValue(1);
     }
   }, [hasUnread, unreadCount]);
+  useEffect(() => {
+    let subscription;
+    const fetchNotifications = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-  // ... (existing fetchNotifications)
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
-  // ... (existing handleJoinResponse)
+      if (data) {
+        setNotifications(data);
+        setHasUnread(data.some(n => !n.is_read));
+      }
+
+      subscription = supabase
+        .channel('notifications-channel')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+          async () => {
+            const { data: newData } = await supabase
+              .from('notifications')
+              .select('*')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false });
+            if (newData) {
+              setNotifications(newData);
+              setHasUnread(newData.some(n => !n.is_read));
+            }
+          }
+        )
+        .subscribe();
+    };
+    // ... (existing fetchNotifications)
+
+    fetchNotifications();
+
+    return () => {
+      if (subscription) supabase.removeChannel(subscription);
+    };
+  }, []);
+
+  // Handle Accept/Decline for school join requests (only used if showActions=true)
+  const handleJoinResponse = async (notification, accept) => {
+    try {
+      const regex = /([a-f0-9\-]{36})/; // UUID regex
+      const match = notification.message.match(regex);
+      if (!match) return Alert.alert('Error', 'Could not parse request user ID.');
+      const requesterId = match[1];
+
+      if (accept) {
+        await supabase.from('users').update({ school_id: notification.related_school_id }).eq('id', requesterId);
+        const { data: school } = await supabase
+          .from('schools')
+          .select('users')
+          .eq('id', notification.related_school_id)
+          .single();
+        const newUsers = [...(school.users || []), requesterId];
+        await supabase.from('schools').update({ users: newUsers }).eq('id', notification.related_school_id);
+        await supabase.from('notifications').insert([{
+          user_id: requesterId,
+          type: 'school_join_accepted',
+          title: 'Join Request Accepted',
+          message: 'Your request to join the school has been accepted!',
+          is_read: false,
+        }]);
+      } else {
+        await supabase.from('notifications').insert([{
+          user_id: requesterId,
+          type: 'school_join_declined',
+          title: 'Join Request Declined',
+          message: 'Your request to join the school has been declined.',
+          is_read: false,
+        }]);
+      }
+
+      await supabase.from('notifications').update({ is_read: true }).eq('id', notification.id);
+      setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n));
+    } catch (error) {
+      console.error('Error handling join response:', error);
+      Alert.alert('Error', 'Could not process the request.');
+    }
+  };
 
   return (
     <View
