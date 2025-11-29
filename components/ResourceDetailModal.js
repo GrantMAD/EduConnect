@@ -55,11 +55,46 @@ export default function ResourceDetailModal({ visible, onClose, resource, onVote
       setUserVote(userVoteData?.vote || null);
     };
 
-    if (visible) fetchData();
+    const handleResourceView = async () => {
+      if (!visible || !resource || !awardXP) return;
 
-    // Award XP for viewing resource
-    if (visible && resource && awardXP) {
-      awardXP('resource_view', 5);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Check if user has already viewed this resource
+        const { data: existingView } = await supabase
+          .from('resource_views')
+          .select('xp_awarded')
+          .eq('user_id', user.id)
+          .eq('resource_id', resource.id)
+          .maybeSingle();
+
+        // Only award XP if this is the first time viewing
+        if (!existingView) {
+          // Record the view and mark XP as awarded
+          const { error: insertError } = await supabase
+            .from('resource_views')
+            .insert({
+              user_id: user.id,
+              resource_id: resource.id,
+              xp_awarded: true
+            });
+
+          if (!insertError) {
+            // Award XP only on first view
+            awardXP('resource_view', 5);
+          }
+        }
+      } catch (error) {
+        console.error('Error tracking resource view:', error);
+        // Silently fail - don't block the modal from opening
+      }
+    };
+
+    if (visible) {
+      fetchData();
+      handleResourceView();
     }
 
     return () => { isMounted = false; };

@@ -260,9 +260,47 @@ export default function MyChildrenScreen() {
   }, []);
 
   useEffect(() => {
-    fetchAssociatedChildren();
-    // Award Daily Check-in XP
-    awardXP('daily_check_in', 5);
+    const initializeScreen = async () => {
+      await fetchAssociatedChildren();
+
+      // Handle daily check-in XP (only once per day)
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+
+        // Check if user has already checked in today
+        const { data: existingCheckIn } = await supabase
+          .from('daily_check_ins')
+          .select('xp_awarded')
+          .eq('user_id', user.id)
+          .eq('check_in_date', today)
+          .maybeSingle();
+
+        // Only award XP if this is the first check-in today
+        if (!existingCheckIn) {
+          // Record the check-in
+          const { error: insertError } = await supabase
+            .from('daily_check_ins')
+            .insert({
+              user_id: user.id,
+              check_in_date: today,
+              xp_awarded: true
+            });
+
+          if (!insertError) {
+            // Award daily check-in XP
+            awardXP('daily_check_in', 5);
+          }
+        }
+      } catch (error) {
+        console.error('Error handling daily check-in:', error);
+        // Silently fail - don't block the screen from loading
+      }
+    };
+
+    initializeScreen();
   }, [fetchAssociatedChildren]);
 
   if (loading) {

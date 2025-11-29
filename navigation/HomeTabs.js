@@ -1,4 +1,5 @@
 import React from 'react';
+import { View } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faBullhorn, faCalendar, faBookOpen, faStore } from '@fortawesome/free-solid-svg-icons';
@@ -17,6 +18,19 @@ const HomeTabs = () => {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
 
+    const TabButton = ({ focused, children }) => (
+        <View style={{
+            backgroundColor: focused ? theme.colors.primary + '15' : 'transparent',
+            borderRadius: 12,
+            marginHorizontal: 4,
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+        }}>
+            {children}
+        </View>
+    );
+
     return (
         <Tab.Navigator
             tabBarPosition="bottom"
@@ -29,7 +43,7 @@ const HomeTabs = () => {
                     height: 70 + insets.bottom,
                     paddingBottom: 10 + insets.bottom,
                     paddingTop: 6,
-                    marginBottom: 0, // Removed margin to sit flush with bottom
+                    marginBottom: 0,
                 },
                 tabBarLabelStyle: {
                     fontSize: 12,
@@ -39,8 +53,9 @@ const HomeTabs = () => {
                 tabBarIndicatorStyle: {
                     backgroundColor: theme.colors.primary,
                     height: 3,
-                    top: 0, // Move indicator to top
+                    top: 0,
                 },
+                tabBarButton: (props) => <TabButton {...props} />,
             }}
         >
             <Tab.Screen
