@@ -7,6 +7,7 @@ import { useToast } from '../context/ToastContext';
 import { useGamification } from '../context/GamificationContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import CreateHomeworkScreenSkeleton from '../components/skeletons/CreateHomeworkScreenSkeleton';
 
 const CreateHomeworkScreen = ({ navigation, route }) => {
   const { fromDashboard } = route.params || {};
@@ -168,17 +169,15 @@ const CreateHomeworkScreen = ({ navigation, route }) => {
   };
 
   if (loading) {
-    return <ActivityIndicator style={{ flex: 1, justifyContent: 'center' }} size="large" />;
+    return <CreateHomeworkScreenSkeleton />;
   }
 
   return (
     <ScrollView style={styles.container}>
-      {fromDashboard && (
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#333" />
-          <Text style={styles.backButtonText}>Return to Dashboard</Text>
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <FontAwesomeIcon icon={faArrowLeft} size={20} color="#007AFF" />
+        <Text style={[styles.backButtonText, { color: '#007AFF' }]}>Back</Text>
+      </TouchableOpacity>
       <Text style={styles.title}>Create Homework</Text>
       <Text style={styles.screenDescription}>
         Start by selecting a class and a scheduled day for the homework.
@@ -383,7 +382,6 @@ const styles = StyleSheet.create({
   backButtonText: {
     marginLeft: 8,
     fontSize: 16,
-    color: '#333',
     fontWeight: '500',
   },
 });

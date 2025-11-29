@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Button, Platform, ScrollView, Modal, Image } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Button, Platform, ScrollView, Image } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useSchool } from '../../context/SchoolContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -7,6 +7,7 @@ import { faPlusCircle, faMinusCircle, faUser, faClock, faArrowLeft } from '@fort
 import { Calendar } from 'react-native-calendars';
 import { useToast } from '../../context/ToastContext';
 const defaultUserImage = require('../../assets/user.png');
+import ClassScheduleModal from '../../components/ClassScheduleModal';
 
 export default function CreateClassScreen({ navigation, route }) {
   const { fromDashboard } = route.params || {};
@@ -22,9 +23,6 @@ export default function CreateClassScreen({ navigation, route }) {
   const [schedules, setSchedules] = useState([]);
   const [isModalVisible, setModalVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [tempStartTime, setTempStartTime] = useState('');
-  const [tempEndTime, setTempEndTime] = useState('');
-  const [classInfo, setClassInfo] = useState('');
 
   const { schoolId } = useSchool();
   const { showToast } = useToast();
@@ -83,29 +81,12 @@ export default function CreateClassScreen({ navigation, route }) {
 
   const handleDayPress = (day) => {
     setSelectedDate(day.dateString);
-    setTempStartTime('');
-    setTempEndTime('');
-    setClassInfo('');
     setModalVisible(true);
   };
 
-  const handleTimeChange = (text, isStart) => {
-    const cleaned = text.replace(/[^0-9]/g, '');
-    let newText = cleaned;
-    if (cleaned.length > 2) {
-      newText = cleaned.slice(0, 2) + ':' + cleaned.slice(2, 4);
-    }
-
-    if (isStart) {
-      setTempStartTime(newText);
-    } else {
-      setTempEndTime(newText);
-    }
-  };
-
-  const handleSaveSchedule = () => {
-    const [startHours, startMinutes] = tempStartTime.split(':').map(Number);
-    const [endHours, endMinutes] = tempEndTime.split(':').map(Number);
+  const handleSaveSchedule = (startTimeStr, endTimeStr, infoStr) => {
+    const [startHours, startMinutes] = startTimeStr.split(':').map(Number);
+    const [endHours, endMinutes] = endTimeStr.split(':').map(Number);
 
     if (isNaN(startHours) || isNaN(startMinutes) || isNaN(endHours) || isNaN(endMinutes) || startHours > 23 || startMinutes > 59 || endHours > 23 || endMinutes > 59) {
       showToast('Please enter a valid time in HH:MM format.', 'error');
@@ -123,7 +104,7 @@ export default function CreateClassScreen({ navigation, route }) {
       return;
     }
 
-    const newSchedule = { date: selectedDate, startTime, endTime, info: classInfo };
+    const newSchedule = { date: selectedDate, startTime, endTime, info: infoStr };
     setSchedules([...schedules, newSchedule]);
     setModalVisible(false);
   };
@@ -324,56 +305,12 @@ export default function CreateClassScreen({ navigation, route }) {
         ))}
       </View>
 
-      <Modal visible={isModalVisible} transparent={true} animationType="fade">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalHeader}>Time Select</Text>
-            <Text style={styles.modalDescription}>Input the start and end times for your class.</Text>
-            <Text style={styles.modalDate}>{selectedDate}</Text>
-            <View style={styles.timeInputRow}>
-              <FontAwesomeIcon icon={faClock} size={24} color="#888" style={{ marginRight: 15, marginTop: 20 }} />
-              <View style={styles.timeInputGroup}>
-                <Text style={styles.timeInputLabel}>Start Time</Text>
-                <TextInput
-                  style={styles.timeInput}
-                  placeholder="10:00"
-                  keyboardType="numeric"
-                  maxLength={5}
-                  value={tempStartTime}
-                  onChangeText={(text) => handleTimeChange(text, true)}
-                />
-              </View>
-              <Text style={styles.timeSeparator}>-</Text>
-              <View style={styles.timeInputGroup}>
-                <Text style={styles.timeInputLabel}>End Time</Text>
-                <TextInput
-                  style={styles.timeInput}
-                  placeholder="11:00"
-                  keyboardType="numeric"
-                  maxLength={5}
-                  value={tempEndTime}
-                  onChangeText={(text) => handleTimeChange(text, false)}
-                />
-              </View>
-            </View>
-            <TextInput
-              style={styles.infoInput}
-              placeholder="Enter class information for this day..."
-              value={classInfo}
-              onChangeText={setClassInfo}
-              multiline
-            />
-            <View style={styles.modalButtonContainer}>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setModalVisible(false)}>
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={handleSaveSchedule}>
-                <Text style={styles.saveButtonText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <ClassScheduleModal
+        visible={isModalVisible}
+        onClose={() => setModalVisible(false)}
+        selectedDate={selectedDate}
+        onSave={handleSaveSchedule}
+      />
 
       <TouchableOpacity style={styles.createClassButton} onPress={handleCreateClass} disabled={loading}>
         <Text style={styles.createClassButtonText}>{loading ? 'Creating...' : 'Create Class'}</Text>
@@ -400,24 +337,7 @@ const styles = StyleSheet.create({
   scheduleInfoText: { fontSize: 12, color: '#666', fontStyle: 'italic', marginTop: 5 },
   subHeader: { fontSize: 18, fontWeight: 'bold', marginTop: 20, marginBottom: 5 },
   subHeaderDescription: { fontSize: 14, color: '#666', marginBottom: 10 },
-  // Modal Styles
-  modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-  modalContent: { backgroundColor: '#fff', padding: 25, borderRadius: 15, width: '90%', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
-  modalHeader: { fontSize: 20, fontWeight: 'bold', marginBottom: 5, textAlign: 'center' },
-  modalDescription: { fontSize: 14, color: '#666', marginBottom: 10, textAlign: 'center' },
-  modalDate: { fontSize: 16, fontWeight: 'bold', marginBottom: 25, textAlign: 'center' },
-  timeInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 30 },
-  timeInputGroup: { alignItems: 'center' },
-  timeInputLabel: { fontSize: 12, color: '#666', marginBottom: 5 },
-  timeInput: { fontSize: 18, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 15, paddingVertical: 10, width: 100, textAlign: 'center' },
-  timeSeparator: { fontSize: 18, fontWeight: 'bold', marginHorizontal: 10, marginTop: 20 },
-  infoInput: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, marginBottom: 20, fontSize: 16, minHeight: 100, textAlignVertical: 'top' },
-  modalButtonContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
-  modalButton: { borderRadius: 8, paddingVertical: 12, paddingHorizontal: 20, flex: 1, marginHorizontal: 5 },
-  saveButton: { backgroundColor: '#007AFF' },
-  saveButtonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
-  cancelButton: { backgroundColor: '#f1f1f1' },
-  cancelButtonText: { color: '#333', fontWeight: 'bold', textAlign: 'center' },
+
   backButton: {
     marginBottom: 10,
     alignSelf: 'flex-start',

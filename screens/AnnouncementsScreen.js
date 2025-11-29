@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faBullhorn, faCalendar, faUser, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faBullhorn, faCalendar, faUsers, faTimes } from '@fortawesome/free-solid-svg-icons';
 import AnnouncementDetailModal from '../components/AnnouncementDetailModal';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
 

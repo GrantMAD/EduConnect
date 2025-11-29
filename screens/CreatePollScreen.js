@@ -128,12 +128,10 @@ export default function CreatePollScreen({ navigation, route }) {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={{ paddingBottom: 40 }}
     >
-      {fromDashboard && (
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <FontAwesomeIcon icon={faArrowLeft} size={20} color={theme.colors.text} />
-          <Text style={[styles.backButtonText, { color: theme.colors.text }]}>Return to Dashboard</Text>
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <FontAwesomeIcon icon={faArrowLeft} size={20} color="#007AFF" />
+        <Text style={[styles.backButtonText, { color: '#007AFF' }]}>Back</Text>
+      </TouchableOpacity>
       <Text style={[styles.header, { color: theme.colors.text }]}>Create a New Poll</Text>
       <Text style={[styles.description, { color: theme.colors.text }]}>
         Create a poll to gather opinions from the school community.
