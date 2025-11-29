@@ -774,22 +774,23 @@ export default function ManageUsersInClassScreen() {
 
         {/* Students Section */}
         <View style={{ marginBottom: 25 }}>
-          <View style={styles.sectionHeader}>
+          <View style={[styles.sectionHeader, { marginBottom: 10 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <FontAwesomeIcon icon={faUserGraduate} size={18} color="#007AFF" />
               <Text style={styles.sectionTitle}>Students in this Class</Text>
             </View>
-            <View style={{ flexDirection: 'row' }}>
-              <TouchableOpacity style={[styles.addButtonHeader, { marginRight: 10, backgroundColor: '#28a745' }]} onPress={markAllPresent}>
-                <FontAwesomeIcon icon={faCheckCircle} size={14} color="#fff" style={{ marginRight: 5 }} />
-                <Text style={[styles.addButtonTextHeader, { color: '#fff' }]}>Mark All Present</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.addButtonHeader} onPress={() => setMarksModalVisible(true)}>
-                <Text style={styles.addButtonTextHeader}>Enter Marks</Text>
-              </TouchableOpacity>
-            </View>
           </View>
           <Text style={styles.sectionDescription}>Mark student attendance for the selected date. Tap on a student's card to view their marks and access the "Manage Marks" button to edit or delete them.</Text>
+          <View style={styles.actionBar}>
+            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#28a745' }]} onPress={markAllPresent}>
+              <FontAwesomeIcon icon={faCheckCircle} size={14} color="#fff" style={{ marginRight: 5 }} />
+              <Text style={[styles.actionButtonText, { color: '#fff' }]}>Mark All Present</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#007AFF' }]} onPress={() => setMarksModalVisible(true)}>
+              <FontAwesomeIcon icon={faGraduationCap} size={14} color="#fff" style={{ marginRight: 5 }} />
+              <Text style={styles.actionButtonText}>Enter Marks</Text>
+            </TouchableOpacity>
+          </View>
           <FlatList
             scrollEnabled={false}
             data={classMembers}
@@ -800,7 +801,7 @@ export default function ManageUsersInClassScreen() {
 
           {/* Add Students Subsection */}
           <View style={{ marginTop: 20 }}>
-            <View style={styles.sectionHeader}>
+            <View style={[styles.sectionHeader, { marginBottom: 10 }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <FontAwesomeIcon icon={faUserPlus} size={18} color="#007AFF" />
                 <Text style={styles.sectionTitle}>Add Students</Text>
@@ -1107,5 +1108,32 @@ const styles = StyleSheet.create({
   manageMarksButtonText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  actionBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    flex: 0.48,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

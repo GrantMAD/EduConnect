@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Image, ScrollView } from 'react-native';
+import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faPlusCircle, faMinusCircle, faTag, faGraduationCap, faPencilAlt } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
+import { useTheme } from '../context/ThemeContext';
+import { useGamification } from '../context/GamificationContext';
 
 const defaultUserImage = require("../assets/user.png");
 
-import { useGamification } from '../context/GamificationContext';
-
 const MarksModal = ({ visible, onClose, classId, classMembers }) => {
+  const { theme } = useTheme();
   const { showToast } = useToast();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
@@ -94,56 +96,58 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
   };
 
   const renderStudentItem = ({ item: student }) => (
-    <View style={styles.studentContainer}>
+    <View style={[styles.studentContainer, { backgroundColor: theme.colors.background }]}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Image source={student.users.avatar_url ? { uri: student.users.avatar_url } : defaultUserImage} style={styles.avatar} />
+          <Image source={student.users.avatar_url ? { uri: student.users.avatar_url } : defaultUserImage} style={[styles.avatar, { borderColor: theme.colors.primary }]} />
           <View>
-            <Text style={styles.studentName}>{student.users.full_name}</Text>
-            <Text style={styles.studentEmail}>{student.users.email}</Text>
+            <Text style={[styles.studentName, { color: theme.colors.text }]}>{student.users.full_name}</Text>
+            <Text style={[styles.studentEmail, { color: theme.colors.placeholder }]}>{student.users.email}</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.addMarkButton} onPress={() => handleAddMark(student.users.id)}>
-          <FontAwesomeIcon icon={faPlusCircle} size={20} color="#007AFF" />
-          <Text style={styles.addMarkButtonText}>Add Mark</Text>
+        <TouchableOpacity style={[styles.addMarkButton, { backgroundColor: theme.colors.inputBackground }]} onPress={() => handleAddMark(student.users.id)}>
+          <FontAwesomeIcon icon={faPlusCircle} size={20} color={theme.colors.primary} />
+          <Text style={[styles.addMarkButtonText, { color: theme.colors.primary }]}>Add Mark</Text>
         </TouchableOpacity>
       </View>
       {marks[student.users.id] && marks[student.users.id].map((mark, index) => (
-        <View key={index} style={styles.markEntryContainer}>
+        <View key={index} style={[styles.markEntryContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
           <View style={[styles.assessmentTypeContainer, { justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 10 }]}>
             <View style={{ flexDirection: 'row' }}>
               <TouchableOpacity
-                style={[styles.assessmentTypeButton, mark.assessmentType === 'test' && styles.assessmentTypeButtonSelected]}
+                style={[styles.assessmentTypeButton, { borderColor: theme.colors.primary }, mark.assessmentType === 'test' && { backgroundColor: theme.colors.primary }]}
                 onPress={() => handleMarkChange(student.users.id, index, 'assessmentType', 'test')}
               >
-                <Text style={[styles.assessmentTypeButtonText, mark.assessmentType === 'test' && styles.assessmentTypeButtonTextSelected]}>Test</Text>
+                <Text style={[styles.assessmentTypeButtonText, { color: theme.colors.primary }, mark.assessmentType === 'test' && { color: '#fff' }]}>Test</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.assessmentTypeButton, mark.assessmentType === 'assignment' && styles.assessmentTypeButtonSelected]}
+                style={[styles.assessmentTypeButton, { borderColor: theme.colors.primary }, mark.assessmentType === 'assignment' && { backgroundColor: theme.colors.primary }]}
                 onPress={() => handleMarkChange(student.users.id, index, 'assessmentType', 'assignment')}
               >
-                <Text style={[styles.assessmentTypeButtonText, mark.assessmentType === 'assignment' && styles.assessmentTypeButtonTextSelected]}>Assignment</Text>
+                <Text style={[styles.assessmentTypeButtonText, { color: theme.colors.primary }, mark.assessmentType === 'assignment' && { color: '#fff' }]}>Assignment</Text>
               </TouchableOpacity>
             </View>
             <TouchableOpacity onPress={() => handleRemoveMark(student.users.id, index)} style={{ alignSelf: 'center' }}>
-              <FontAwesomeIcon icon={faMinusCircle} size={20} color="#dc3545" />
+              <FontAwesomeIcon icon={faMinusCircle} size={20} color={theme.colors.error} />
             </TouchableOpacity>
           </View>
           <View style={[styles.markInputRow, { paddingHorizontal: 10 }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, marginRight: 10 }}>
-              <FontAwesomeIcon icon={faTag} size={16} color="#888" style={{ marginRight: 5 }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, marginRight: 10, flex: 1 }}>
+              <FontAwesomeIcon icon={faTag} size={16} color={theme.colors.placeholder} style={{ marginRight: 5 }} />
               <TextInput
-                style={[styles.markInput, { flex: 1 }]}
+                style={[styles.markInput, { flex: 1, color: theme.colors.text, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.inputBackground }]}
                 placeholder="Assessment Name"
+                placeholderTextColor={theme.colors.placeholder}
                 value={mark.assessmentName}
                 onChangeText={(text) => handleMarkChange(student.users.id, index, 'assessmentName', text)}
               />
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <FontAwesomeIcon icon={faGraduationCap} size={16} color="#888" style={{ marginRight: 5 }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+              <FontAwesomeIcon icon={faGraduationCap} size={16} color={theme.colors.placeholder} style={{ marginRight: 5 }} />
               <TextInput
-                style={[styles.markInput, { width: 80 }]}
+                style={[styles.markInput, { width: 80, color: theme.colors.text, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.inputBackground }]}
                 placeholder="Mark"
+                placeholderTextColor={theme.colors.placeholder}
                 value={mark.mark}
                 onChangeText={(text) => handleMarkChange(student.users.id, index, 'mark', text)}
               />
@@ -155,35 +159,42 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
   );
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => onClose(false)}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <FontAwesomeIcon icon={faPencilAlt} size={20} color="#007AFF" style={{ marginRight: 10 }} />
-              <Text style={styles.modalTitle}>Enter Marks</Text>
-            </View>
-            <TouchableOpacity onPress={() => onClose(false)}>
-              <FontAwesomeIcon icon={faTimes} size={20} color="#333" />
-            </TouchableOpacity>
+    <Modal
+      isVisible={visible}
+      onBackdropPress={() => onClose(false)}
+      animationIn="slideInUp"
+      animationOut="slideOutDown"
+      backdropOpacity={0.5}
+      style={{ justifyContent: 'flex-end', margin: 0 }}
+    >
+      <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+        <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <FontAwesomeIcon icon={faPencilAlt} size={20} color={theme.colors.primary} style={{ marginRight: 10 }} />
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Enter Marks</Text>
           </View>
-          <Text style={styles.modalDescription}>Enter assessment details and marks for each student. You can add multiple marks per student.</Text>
+          <TouchableOpacity onPress={() => onClose(false)} style={styles.modalCloseButton}>
+            <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
+          </TouchableOpacity>
+        </View>
 
-          <FlatList
-            data={classMembers}
-            renderItem={renderStudentItem}
-            keyExtractor={(item) => item.id.toString()}
-            style={styles.studentList}
-          />
+        <Text style={[styles.modalDescription, { color: theme.colors.placeholder }]}>Enter assessment details and marks for each student. You can add multiple marks per student.</Text>
 
-          <View style={styles.modalFooter}>
-            <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => onClose(false)}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={saveMarks} disabled={saving}>
-              <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save Marks'}</Text>
-            </TouchableOpacity>
-          </View>
+        <FlatList
+          data={classMembers}
+          renderItem={renderStudentItem}
+          keyExtractor={(item) => item.id.toString()}
+          style={styles.studentList}
+          showsVerticalScrollIndicator={false}
+        />
+
+        <View style={styles.modalFooter}>
+          <TouchableOpacity style={[styles.modalButton, styles.cancelButton, { backgroundColor: theme.colors.cardBackground }]} onPress={() => onClose(false)}>
+            <Text style={[styles.cancelText, { color: theme.colors.text }]}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.modalButton, styles.saveButton, { backgroundColor: theme.colors.primary }]} onPress={saveMarks} disabled={saving}>
+            <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save Marks'}</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -191,50 +202,48 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  modalContent: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 30,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+    minHeight: '50%',
   },
-  modalContainer: {
-    width: '90%',
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    padding: 20,
-  },
-  modalHeader: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    marginBottom: 10,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
   },
+  modalCloseButton: {
+    padding: 5,
+  },
   modalDescription: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 20,
   },
   studentList: {
     maxHeight: 400,
   },
   studentContainer: {
-    marginBottom: 20,
-    padding: 10,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 10,
+    marginBottom: 15,
+    padding: 15,
+    borderRadius: 12,
   },
   studentName: {
     fontSize: 16,
     fontWeight: '600',
-    // marginBottom: 10, // Removed as email will follow
   },
   studentEmail: {
     fontSize: 13,
-    color: '#555',
     marginTop: 2,
   },
   avatar: {
@@ -243,61 +252,51 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginRight: 10,
     borderWidth: 2,
-    borderColor: "#007AFF",
   },
   markInputRow: {
-    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
   },
   markInput: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
+    borderRadius: 8,
     padding: 10,
   },
   markEntryContainer: {
-    backgroundColor: '#fff',
     borderRadius: 8,
     marginTop: 10,
-    marginBottom: 10,
+    marginBottom: 5,
     borderWidth: 1,
-    borderColor: '#eee',
+    paddingVertical: 5,
   },
   addMarkButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 10,
-    backgroundColor: '#e0f2fe',
+    padding: 8,
     borderRadius: 8,
   },
   addMarkButtonText: {
-    marginLeft: 10,
-    color: '#007AFF',
+    marginLeft: 5,
     fontWeight: '600',
+    fontSize: 12,
   },
   assessmentTypeContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
-    marginTop: 10,
+    marginTop: 5,
   },
   assessmentTypeButton: {
-    paddingVertical: 5,
-    paddingHorizontal: 15,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: '#007AFF',
     marginHorizontal: 5,
   },
-  assessmentTypeButtonSelected: {
-    backgroundColor: '#007AFF',
-  },
   assessmentTypeButtonText: {
-    color: '#007AFF',
     fontWeight: '600',
     fontSize: 12,
-  },
-  assessmentTypeButtonTextSelected: {
-    color: '#fff',
   },
   modalFooter: {
     flexDirection: 'row',
@@ -311,18 +310,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: 5,
   },
-  saveButton: {
-    backgroundColor: '#007AFF',
-  },
-  cancelButton: {
-    backgroundColor: '#f1f1f1',
-  },
   saveText: {
     color: '#fff',
     fontWeight: '700',
   },
   cancelText: {
-    color: '#333',
     fontWeight: '600',
   },
 });

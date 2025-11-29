@@ -6,8 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import ManagementCardSkeleton from '../components/skeletons/ManagementCardSkeleton';
 import { faEdit, faTrash, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
-import Modal from 'react-native-modal';
-import { TextInput } from 'react-native';
+import EditAnnouncementModal from '../components/EditAnnouncementModal';
 import { useToast } from '../context/ToastContext';
 
 export default function ManageAnnouncementsScreen({ navigation }) {
@@ -104,16 +103,16 @@ export default function ManageAnnouncementsScreen({ navigation }) {
     setShowEditModal(true);
   };
 
-  const handleSaveEdit = async () => {
-    if (!editingAnnouncement.title || !editingAnnouncement.message) {
+  const handleSaveEdit = async (id, title, message) => {
+    if (!title || !message) {
       showToast('Title and Message cannot be empty.', 'error');
       return;
     }
     try {
       const { error } = await supabase
         .from('announcements')
-        .update({ title: editingAnnouncement.title, message: editingAnnouncement.message })
-        .eq('id', editingAnnouncement.id);
+        .update({ title, message })
+        .eq('id', id);
 
       if (error) throw error;
       showToast('Announcement updated successfully!', 'success');
@@ -178,38 +177,12 @@ export default function ManageAnnouncementsScreen({ navigation }) {
         )}
       />
 
-      <Modal
-        isVisible={showEditModal}
-        onBackdropPress={handleCancelEdit}
-        animationIn="fadeInUp"
-        animationOut="fadeOutDown"
-        backdropOpacity={0.4}
-      >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Edit Announcement</Text>
-          <TextInput
-            style={styles.input}
-            value={editingAnnouncement?.title}
-            onChangeText={(text) => setEditingAnnouncement(prev => ({ ...prev, title: text }))}
-            placeholder="Title"
-          />
-          <TextInput
-            style={[styles.input, styles.messageInput]}
-            value={editingAnnouncement?.message}
-            onChangeText={(text) => setEditingAnnouncement(prev => ({ ...prev, message: text }))}
-            placeholder="Message"
-            multiline
-          />
-          <View style={styles.modalButtons}>
-            <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={handleCancelEdit}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={handleSaveEdit}>
-              <Text style={styles.saveButtonText}>Save</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <EditAnnouncementModal
+        visible={showEditModal}
+        announcement={editingAnnouncement}
+        onClose={handleCancelEdit}
+        onSave={handleSaveEdit}
+      />
     </View>
   );
 }
@@ -278,58 +251,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
     color: '#666',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 22,
-    borderRadius: 10,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 15,
-    fontSize: 16,
-  },
-  messageInput: {
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 10,
-  },
-  modalButton: {
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    width: '45%',
-  },
-  saveButton: {
-    backgroundColor: '#007AFF',
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  cancelButton: {
-    backgroundColor: '#6c757d',
-  },
-  cancelButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
   },
   backButton: {
     marginBottom: 10,

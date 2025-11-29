@@ -381,14 +381,21 @@ export default function NotificationsScreen({ route, navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Text style={[styles.header, { color: theme.colors.text }]}>Notifications</Text>
+      <Text style={[styles.description, { color: theme.colors.placeholder }]}>
+        Stay updated with your latest school activities
+      </Text>
       <View style={styles.subHeaderContainer}>
-        <Text style={[styles.notificationCount, { color: theme.colors.placeholder }]}>You have {notifications.length} notifications</Text>
+        <View style={styles.countContainer}>
+          <FontAwesome5 name="bell" solid size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
+          <Text style={[styles.notificationCount, { color: theme.colors.placeholder }]}>You have {notifications.length} notifications</Text>
+        </View>
         {notifications.length > 0 && (
           <TouchableOpacity onPress={handleClearAll}>
             <Text style={[styles.clearAllButtonText, { color: theme.colors.error }]}>Clear All</Text>
           </TouchableOpacity>
         )}
       </View>
+      <View style={[styles.hr, { borderBottomColor: theme.colors.cardBorder, marginBottom: 15 }]} />
       {notifications.length === 0 ? (
         <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No notifications</Text>
       ) : (
@@ -467,12 +474,17 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { fontSize: 28, fontWeight: 'bold', marginBottom: 5, textAlign: 'center' },
+  description: { fontSize: 14, textAlign: 'center', marginBottom: 20 },
   subHeaderContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
     paddingHorizontal: 8, // Added for some spacing
+  },
+  countContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   notificationCount: {
     fontSize: 14,

@@ -1,13 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Linking, ScrollView, ActivityIndicator } from 'react-native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTimes, faEnvelope, faPhone, faUserCircle, faIdBadge, faComment } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faEnvelope, faPhone, faUserCircle, faIdBadge, faComment, faStar, faCoins } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
+import { supabase } from '../lib/supabase';
 
 export default function UserProfileModal({ visible, user, onClose, onMessageUser }) {
     const { theme } = useTheme();
     const [loading, setLoading] = useState(false);
+    const [gamificationStats, setGamificationStats] = useState({ xp: 0, coins: 0 });
+    const [statsLoading, setStatsLoading] = useState(false);
+
+    useEffect(() => {
+        if (visible && user) {
+            fetchGamificationStats();
+        }
+    }, [visible, user]);
+
+    const fetchGamificationStats = async () => {
+        if (!user?.id) return;
+        setStatsLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('user_gamification')
+                .select('current_xp, coins')
+                .eq('user_id', user.id)
+                .maybeSingle();
+
+            if (error) throw error;
+
+            if (data) {
+                setGamificationStats({
+                    xp: data.current_xp || 0,
+                    coins: data.coins || 0
+                });
+            } else {
+                setGamificationStats({ xp: 0, coins: 0 });
+            }
+        } catch (error) {
+            console.error('Error fetching gamification stats:', error);
+        } finally {
+            setStatsLoading(false);
+        }
+    };
 
     if (!user) return null;
 
@@ -64,6 +100,29 @@ export default function UserProfileModal({ visible, user, onClose, onMessageUser
                         <Text style={[styles.userName, { color: theme.colors.text }]}>{user.full_name}</Text>
                         <View style={[styles.roleBadge, { backgroundColor: roleColor + '20' }]}>
                             <Text style={[styles.roleText, { color: roleColor }]}>{user.role || 'User'}</Text>
+                        </View>
+                    </View>
+
+                    {/* Gamification Stats */}
+                    <View style={[styles.statsRow, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
+                        <View style={styles.statItem}>
+                            <FontAwesomeIcon icon={faStar} size={20} color="#FFD700" />
+                            <View style={styles.statTextContainer}>
+                                <Text style={[styles.statValue, { color: theme.colors.text }]}>
+                                    {statsLoading ? '...' : gamificationStats.xp}
+                                </Text>
+                                <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>XP</Text>
+                            </View>
+                        </View>
+                        <View style={[styles.statDivider, { backgroundColor: theme.colors.cardBorder }]} />
+                        <View style={styles.statItem}>
+                            <FontAwesomeIcon icon={faCoins} size={20} color="#FFA500" />
+                            <View style={styles.statTextContainer}>
+                                <Text style={[styles.statValue, { color: theme.colors.text }]}>
+                                    {statsLoading ? '...' : gamificationStats.coins}
+                                </Text>
+                                <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>Coins</Text>
+                            </View>
                         </View>
                     </View>
 
@@ -161,6 +220,33 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '600',
         textTransform: 'capitalize',
+    },
+    statsRow: {
+        flexDirection: 'row',
+        borderRadius: 12,
+        padding: 15,
+        borderWidth: 1,
+        marginBottom: 10,
+        alignItems: 'center',
+        justifyContent: 'space-around',
+    },
+    statItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    statTextContainer: {
+        marginLeft: 10,
+    },
+    statValue: {
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    statLabel: {
+        fontSize: 12,
+    },
+    statDivider: {
+        width: 1,
+        height: '80%',
     },
     detailsCard: {
         borderRadius: 12,

@@ -10,6 +10,118 @@ import { useGamification } from '../context/GamificationContext';
 
 const defaultUserImage = require('../assets/user.png');
 
+const ClassItem = ({ classInfo, theme }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <View style={[styles.classContainer, { backgroundColor: theme.colors.background }]}>
+      <TouchableOpacity onPress={() => setExpanded(!expanded)} style={styles.classHeader}>
+        <FontAwesomeIcon icon={faChalkboard} size={16} color={theme.colors.primary} />
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap' }}>
+          <Text style={[styles.className, { color: theme.colors.text }]}>{classInfo.classes?.name || 'Unknown Class'}</Text>
+          {classInfo.classes?.teacher?.full_name && (
+            <Text style={[styles.teacherName, { color: theme.colors.placeholder }]}> (Teacher: {classInfo.classes.teacher.full_name})</Text>
+          )}
+        </View>
+        <FontAwesomeIcon icon={expanded ? faChevronUp : faChevronDown} size={16} color={theme.colors.placeholder} />
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={styles.classDetails}>
+          {classInfo.fullAttendance.length > 0 ? (
+            <>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <FontAwesomeIcon icon={faCalendarCheck} size={16} color={theme.colors.primary} style={{ marginRight: 5 }} />
+                <Text style={[styles.attendanceSectionTitle, { color: theme.colors.text }]}>Attendance</Text>
+              </View>
+              <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Here is the attendance for this class.</Text>
+              <View style={styles.attendanceGrid}>
+                {classInfo.fullAttendance.map((entry) => {
+                  const isPresent = entry.status === 'present';
+                  const isAbsent = entry.status === 'absent';
+                  const isUnmarked = entry.status === 'unmarked';
+
+                  const itemBackgroundColor = isPresent ? theme.colors.success + '20' :
+                    isAbsent ? theme.colors.error + '20' :
+                      theme.colors.placeholder + '20'; // Light gray for unmarked
+                  const itemTextColor = isPresent ? theme.colors.success :
+                    isAbsent ? theme.colors.error :
+                      theme.colors.placeholder; // Gray for unmarked
+                  const itemIcon = isPresent ? faCheckCircle :
+                    isAbsent ? faTimesCircle :
+                      faUser; // A generic user icon for unmarked
+
+                  return (
+                    <View key={entry.date} style={[styles.attendanceItem, { backgroundColor: itemBackgroundColor }]}>
+                      <FontAwesomeIcon icon={itemIcon} size={12} color={itemTextColor} style={{ marginRight: 4 }} />
+                      <Text style={[styles.attendanceDate, { color: itemTextColor }]}>
+                        {new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+              <Text style={[styles.attendanceLegend, { color: theme.colors.placeholder, marginTop: 10 }]}>
+                <FontAwesomeIcon icon={faCheckCircle} size={12} color={theme.colors.success} /> = Present{' '}
+                <FontAwesomeIcon icon={faTimesCircle} size={12} color={theme.colors.error} /> = Absent{' '}
+                <FontAwesomeIcon icon={faUser} size={12} color={theme.colors.placeholder} /> = Unmarked
+              </Text>
+            </>
+          ) : (
+            <Text style={{ color: theme.colors.placeholder, textAlign: 'center', marginVertical: 10 }}>No scheduled sessions for this class.</Text>
+          )}
+
+          {classInfo.marks.length > 0 && (
+            <>
+              <View style={styles.horizontalRule} />
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <FontAwesomeIcon icon={faGraduationCap} size={16} color={theme.colors.primary} style={{ marginRight: 5 }} />
+                <Text style={[styles.marksSectionTitle, { color: theme.colors.text }]}>Marks</Text>
+              </View>
+              <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Here are the marks for this class.</Text>
+              <Text style={[styles.marksHeader, { color: theme.colors.text }]}>Tests</Text>
+              {classInfo.marks.filter(m => m.assessment_name.toLowerCase().startsWith('test:')).length > 0 ? (
+                classInfo.marks.filter(m => m.assessment_name.toLowerCase().startsWith('test:')).map((mark, index) => (
+                  <View key={index} style={styles.markItem}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <FontAwesomeIcon icon={faTag} size={14} color={theme.colors.placeholder} style={{ marginRight: 5 }} />
+                      <Text style={[styles.markAssessmentName, { color: theme.colors.text }]}>{mark.assessment_name.replace(/test: /i, '')}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <FontAwesomeIcon icon={faGraduationCap} size={14} color={theme.colors.placeholder} style={{ marginRight: 5 }} />
+                      <Text style={[styles.markValue, { color: theme.colors.primary }]}>{mark.mark}</Text>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No tests recorded.</Text>
+              )}
+
+              <Text style={[styles.marksHeader, { color: theme.colors.text, marginTop: 10 }]}>Assignments</Text>
+              {classInfo.marks.filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).length > 0 ? (
+                classInfo.marks.filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).map((mark, index) => (
+                  <View key={index} style={styles.markItem}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <FontAwesomeIcon icon={faTag} size={14} color={theme.colors.placeholder} style={{ marginRight: 5 }} />
+                      <Text style={[styles.markAssessmentName, { color: theme.colors.text }]}>{mark.assessment_name.replace(/assignment: /i, '')}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <FontAwesomeIcon icon={faGraduationCap} size={14} color={theme.colors.placeholder} style={{ marginRight: 5 }} />
+                      <Text style={[styles.markValue, { color: theme.colors.primary }]}>{mark.mark}</Text>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No assignments recorded.</Text>
+              )}
+            </>
+          )}
+        </View>
+      )}
+    </View>
+  );
+};
+
 const ChildItem = ({ child, theme }) => {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -91,110 +203,17 @@ const ChildItem = ({ child, theme }) => {
           {loading ? (
             <ActivityIndicator color={theme.colors.primary} />
           ) : (
-            classes.map((classInfo, index) => {
-              return (
-                <View key={index} style={[styles.classContainer, { backgroundColor: theme.colors.background }]}>
-                  <View style={styles.classHeader}>
-                    <FontAwesomeIcon icon={faChalkboard} size={16} color={theme.colors.primary} />
-                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap' }}>
-                      <Text style={[styles.className, { color: theme.colors.text }]}>{classInfo.classes?.name || 'Unknown Class'}</Text>
-                      {classInfo.classes?.teacher?.full_name && (
-                        <Text style={[styles.teacherName, { color: theme.colors.placeholder }]}> (Teacher: {classInfo.classes.teacher.full_name})</Text>
-                      )}
-                    </View>
-                  </View>
-
-                  {classInfo.fullAttendance.length > 0 ? (
-                    <>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <FontAwesomeIcon icon={faCalendarCheck} size={16} color={theme.colors.primary} style={{ marginRight: 5 }} />
-                        <Text style={[styles.attendanceSectionTitle, { color: theme.colors.text }]}>Attendance</Text>
-                      </View>
-                      <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Here is the attendance for this class.</Text>
-                      <View style={styles.attendanceGrid}>
-                        {classInfo.fullAttendance.map((entry) => {
-                          const isPresent = entry.status === 'present';
-                          const isAbsent = entry.status === 'absent';
-                          const isUnmarked = entry.status === 'unmarked';
-
-                          const itemBackgroundColor = isPresent ? theme.colors.success + '20' :
-                            isAbsent ? theme.colors.error + '20' :
-                              theme.colors.placeholder + '20'; // Light gray for unmarked
-                          const itemTextColor = isPresent ? theme.colors.success :
-                            isAbsent ? theme.colors.error :
-                              theme.colors.placeholder; // Gray for unmarked
-                          const itemIcon = isPresent ? faCheckCircle :
-                            isAbsent ? faTimesCircle :
-                              faUser; // A generic user icon for unmarked
-
-                          return (
-                            <View key={entry.date} style={[styles.attendanceItem, { backgroundColor: itemBackgroundColor }]}>
-                              <FontAwesomeIcon icon={itemIcon} size={12} color={itemTextColor} style={{ marginRight: 4 }} />
-                              <Text style={[styles.attendanceDate, { color: itemTextColor }]}>
-                                {new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                              </Text>
-                            </View>
-                          );
-                        })}
-                      </View>
-                      <Text style={[styles.attendanceLegend, { color: theme.colors.placeholder, marginTop: 10 }]}>
-                        <FontAwesomeIcon icon={faCheckCircle} size={12} color={theme.colors.success} /> = Present{' '}
-                        <FontAwesomeIcon icon={faTimesCircle} size={12} color={theme.colors.error} /> = Absent{' '}
-                        <FontAwesomeIcon icon={faUser} size={12} color={theme.colors.placeholder} /> = Unmarked
-                      </Text>
-                    </>
-                  ) : (
-                    <Text style={{ color: theme.colors.placeholder, textAlign: 'center', marginVertical: 10 }}>No scheduled sessions for this class.</Text>
-                  )}
-
-                  {classInfo.marks.length > 0 && (
-                    <>
-                      <View style={styles.horizontalRule} />
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <FontAwesomeIcon icon={faGraduationCap} size={16} color={theme.colors.primary} style={{ marginRight: 5 }} />
-                        <Text style={[styles.marksSectionTitle, { color: theme.colors.text }]}>Marks</Text>
-                      </View>
-                      <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Here are the marks for this class.</Text>
-                      <Text style={[styles.marksHeader, { color: theme.colors.text }]}>Tests</Text>
-                      {classInfo.marks.filter(m => m.assessment_name.toLowerCase().startsWith('test:')).length > 0 ? (
-                        classInfo.marks.filter(m => m.assessment_name.toLowerCase().startsWith('test:')).map((mark, index) => (
-                          <View key={index} style={styles.markItem}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                              <FontAwesomeIcon icon={faTag} size={14} color={theme.colors.placeholder} style={{ marginRight: 5 }} />
-                              <Text style={[styles.markAssessmentName, { color: theme.colors.text }]}>{mark.assessment_name.replace(/test: /i, '')}</Text>
-                            </View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                              <FontAwesomeIcon icon={faGraduationCap} size={14} color={theme.colors.placeholder} style={{ marginRight: 5 }} />
-                              <Text style={[styles.markValue, { color: theme.colors.primary }]}>{mark.mark}</Text>
-                            </View>
-                          </View>
-                        ))
-                      ) : (
-                        <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No tests recorded.</Text>
-                      )}
-
-                      <Text style={[styles.marksHeader, { color: theme.colors.text, marginTop: 10 }]}>Assignments</Text>
-                      {classInfo.marks.filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).length > 0 ? (
-                        classInfo.marks.filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).map((mark, index) => (
-                          <View key={index} style={styles.markItem}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                              <FontAwesomeIcon icon={faTag} size={14} color={theme.colors.placeholder} style={{ marginRight: 5 }} />
-                              <Text style={[styles.markAssessmentName, { color: theme.colors.text }]}>{mark.assessment_name.replace(/assignment: /i, '')}</Text>
-                            </View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                              <FontAwesomeIcon icon={faGraduationCap} size={14} color={theme.colors.placeholder} style={{ marginRight: 5 }} />
-                              <Text style={[styles.markValue, { color: theme.colors.primary }]}>{mark.mark}</Text>
-                            </View>
-                          </View>
-                        ))
-                      ) : (
-                        <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No assignments recorded.</Text>
-                      )}
-                    </>
-                  )}
-                </View>
-              );
-            })
+            <>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                <FontAwesomeIcon icon={faChalkboard} size={14} color={theme.colors.primary} style={{ marginRight: 8 }} />
+                <Text style={[styles.sectionDescription, { color: theme.colors.placeholder, marginBottom: 0 }]}>
+                  Here are the classes {child.full_name} is enrolled in:
+                </Text>
+              </View>
+              {classes.map((classInfo, index) => (
+                <ClassItem key={index} classInfo={classInfo} theme={theme} />
+              ))}
+            </>
           )}
         </View>
       )}
@@ -327,6 +346,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
+  },
+  classDetails: {
+    marginTop: 10,
   },
   classHeader: {
     flexDirection: 'row',
