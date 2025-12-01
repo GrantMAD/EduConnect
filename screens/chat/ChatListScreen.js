@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faPlus, faUser, faUsers, faChalkboard, faComments } from '@fortawesome/free-solid-svg-icons';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const defaultUserImage = require('../../assets/user.png');
 
@@ -32,6 +33,7 @@ const formatTimeAgo = (dateString) => {
 export default function ChatListScreen({ navigation }) {
     const { channels, loading, fetchChannels, user } = useChat();
     const { theme } = useTheme();
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         fetchChannels();
@@ -136,7 +138,7 @@ export default function ChatListScreen({ navigation }) {
                 data={channels}
                 keyExtractor={item => item.id}
                 renderItem={renderItem}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={[styles.listContent, { paddingBottom: 80 + insets.bottom }]}
                 ListHeaderComponent={
                     <View style={{ marginBottom: 20 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
@@ -158,7 +160,7 @@ export default function ChatListScreen({ navigation }) {
             />
 
             <TouchableOpacity
-                style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+                style={[styles.fab, { backgroundColor: theme.colors.primary, bottom: 20 + insets.bottom }]}
                 onPress={() => navigation.navigate('NewChat')}
             >
                 <FontAwesomeIcon icon={faPlus} size={24} color="#fff" />

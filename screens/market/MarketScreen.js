@@ -347,7 +347,7 @@ export default function MarketScreen({ navigation }) {
       {/* FAB */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-        onPress={() => navigation.navigate('CreateMarketplaceItem')}
+        onPress={() => navigation.navigate('CreateMarketplaceItem', { fromMarketScreen: true })}
       >
         <FontAwesomeIcon icon={faPlus} size={22} color={theme.colors.buttonPrimaryText} />
       </TouchableOpacity>

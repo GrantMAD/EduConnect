@@ -11,6 +11,7 @@ import { Switch } from 'react-native-paper';
 import { useTheme } from '../context/ThemeContext';
 import { useNotificationPreferences } from '../context/NotificationPreferencesContext';
 import SettingsScreenSkeleton from '../components/skeletons/SettingsScreenSkeleton';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppInfoModal from '../components/AppInfoModal';
 import HelpSupportModal from '../components/HelpSupportModal';
 import TermsOfServiceModal from '../components/TermsOfServiceModal';
@@ -31,6 +32,7 @@ export default function SettingsScreen({ navigation }) {
 
   const { isDarkTheme, toggleTheme, theme } = useTheme();
   const { preferences, updatePreference } = useNotificationPreferences();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -87,7 +89,7 @@ export default function SettingsScreen({ navigation }) {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
-      contentContainerStyle={styles.scrollContent}
+      contentContainerStyle={[styles.scrollContent, { paddingBottom: 40 + insets.bottom }]}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
         <FontAwesomeIcon icon={faCog} size={28} color="#007AFF" style={{ marginRight: 12 }} />

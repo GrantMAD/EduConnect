@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Button, Platform, ScrollView, Image } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useSchool } from '../../context/SchoolContext';
+import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faPlusCircle, faMinusCircle, faUser, faClock, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { Calendar } from 'react-native-calendars';
@@ -10,7 +12,7 @@ const defaultUserImage = require('../../assets/user.png');
 import ClassScheduleModal from '../../components/ClassScheduleModal';
 
 export default function CreateClassScreen({ navigation, route }) {
-  const { fromDashboard } = route.params || {};
+  const { fromDashboard, fromManageClassesScreen } = route.params || {};
   const [className, setClassName] = useState('');
   const [subject, setSubject] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,7 +27,9 @@ export default function CreateClassScreen({ navigation, route }) {
   const [selectedDate, setSelectedDate] = useState(null);
 
   const { schoolId } = useSchool();
+  const { theme } = useTheme();
   const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (schoolId) {
@@ -214,11 +218,17 @@ export default function CreateClassScreen({ navigation, route }) {
   }, {});
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: 40 + insets.bottom }]}>
       {fromDashboard && (
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#333" />
-          <Text style={styles.backButtonText}>Return to Dashboard</Text>
+          <FontAwesomeIcon icon={faArrowLeft} size={20} color={theme.colors.primary} />
+          <Text style={[styles.backButtonText, { color: theme.colors.primary }]}>Return to Dashboard</Text>
+        </TouchableOpacity>
+      )}
+      {fromManageClassesScreen && (
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <FontAwesomeIcon icon={faArrowLeft} size={20} color={theme.colors.primary} />
+          <Text style={[styles.backButtonText, { color: theme.colors.primary }]}>Return to Manage Classes</Text>
         </TouchableOpacity>
       )}
       <Text style={styles.header}>Create New Class</Text>

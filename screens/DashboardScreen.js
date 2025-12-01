@@ -18,6 +18,7 @@ import {
     faClipboardList,
     faComments
 } from '@fortawesome/free-solid-svg-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
 import { useSchool } from '../context/SchoolContext';
@@ -37,6 +38,7 @@ export default function DashboardScreen({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [userRole, setUserRole] = useState(null);
+    const insets = useSafeAreaInsets();
 
     const [stats, setStats] = useState({
         totalUsers: 0,
@@ -367,6 +369,7 @@ export default function DashboardScreen({ navigation }) {
     return (
         <ScrollView
             style={[styles.container, { backgroundColor: theme.colors.background }]}
+            contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
             refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
             }

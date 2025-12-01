@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesome5 } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const RoleCard = ({ role, description, icon, onPress, loading }) => (
   <TouchableOpacity style={styles.card} onPress={onPress} disabled={loading}>
@@ -16,6 +17,7 @@ const RoleCard = ({ role, description, icon, onPress, loading }) => (
 
 export default function RoleSelectionScreen({ navigation }) {
   const [loadingRole, setLoadingRole] = useState(null);
+  const insets = useSafeAreaInsets();
 
   const updateUserRole = async (role) => {
     setLoadingRole(role);
@@ -36,7 +38,7 @@ export default function RoleSelectionScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 20) }]}>
       <Text style={styles.title}>Welcome to ClassConnect!</Text>
       <Text style={styles.subtitle}>Please select your role in the school to continue.</Text>
 

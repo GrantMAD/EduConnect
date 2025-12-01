@@ -10,11 +10,14 @@ import { useSchool } from '../context/SchoolContext';
 import RNFetchBlob from 'rn-fetch-blob';
 import FileViewer from 'react-native-file-viewer';
 import { useGamification } from '../context/GamificationContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ResourcesScreenSkeleton from '../components/skeletons/ResourcesScreenSkeleton';
 
 export default function ResourcesScreen() {
   const { schoolId } = useSchool();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
+  const insets = useSafeAreaInsets();
 
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -182,7 +185,7 @@ export default function ResourcesScreen() {
 
   const filteredResources = processResources();
 
-  if (loading) return <ActivityIndicator size="large" style={{ marginTop: 40 }} />;
+  if (loading) return <ResourcesScreenSkeleton />;
 
   return (
     <View style={styles.container}>
@@ -237,7 +240,7 @@ export default function ResourcesScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
         {Object.keys(filteredResources).length === 0 ? (
           <Text style={styles.noResourcesText}>No resources available yet.</Text>
         ) : (

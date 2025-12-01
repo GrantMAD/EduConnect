@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import { useGamification } from '../context/GamificationContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const defaultUserImage = require("../assets/user.png");
 
@@ -15,6 +16,7 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
   const { showToast } = useToast();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
+  const insets = useSafeAreaInsets();
 
   const [marks, setMarks] = useState({});
   const [saving, setSaving] = useState(false);
@@ -167,7 +169,7 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
       backdropOpacity={0.5}
       style={{ justifyContent: 'flex-end', margin: 0 }}
     >
-      <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+      <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 30) }]}>
         <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <FontAwesomeIcon icon={faPencilAlt} size={20} color={theme.colors.primary} style={{ marginRight: 10 }} />

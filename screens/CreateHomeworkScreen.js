@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import { Calendar } from 'react-native-calendars';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { useToast } from '../context/ToastContext';
-import { useGamification } from '../context/GamificationContext';
+import { useNavigation } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faSave, faCalendarAlt, faBook, faClipboardList, faChevronLeft } from '@fortawesome/free-solid-svg-icons';
+import { Calendar } from 'react-native-calendars';
+import { useSchool } from '../context/SchoolContext';
 import CreateHomeworkScreenSkeleton from '../components/skeletons/CreateHomeworkScreenSkeleton';
+import { useToast } from '../context/ToastContext';
+import { useTheme } from '../context/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Picker } from '@react-native-picker/picker';
+import { useGamification } from '../context/GamificationContext';
 
-const CreateHomeworkScreen = ({ navigation, route }) => {
+export default function CreateHomeworkScreen({ route }) {
   const { fromDashboard } = route.params || {};
   const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState(null);
@@ -19,9 +23,13 @@ const CreateHomeworkScreen = ({ navigation, route }) => {
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
+
+  const navigation = useNavigation();
+  const { schoolId } = useSchool();
   const { showToast } = useToast();
+  const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
 
@@ -29,7 +37,6 @@ const CreateHomeworkScreen = ({ navigation, route }) => {
     const fetchData = async () => {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
 
       if (user) {
         const { data, error } = await supabase
@@ -74,98 +81,78 @@ const CreateHomeworkScreen = ({ navigation, route }) => {
     }
 
     setIsCreating(true);
-
-    const { data: newHomework, error } = await supabase.from('homework').insert([
-      {
-        class_id: selectedClass,
-        subject,
-        description,
-        due_date: dueDate,
-        created_by: user.id,
-      },
-    ]).select().single();
-
-    if (error) {
-      showToast(error.message, 'error');
-      setIsCreating(false);
-      return;
-    }
-
-    // --- Notification Logic ---
     try {
-      // Fetch class name
-      const { data: classInfo, error: classInfoError } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user logged in');
+
+      const { data: newHomework, error } = await supabase.from('homework').insert([
+        {
+          school_id: schoolId,
+          class_id: selectedClass,
+          subject,
+          description,
+          due_date: dueDate,
+          created_by: user.id,
+        },
+      ]).select().single();
+
+      if (error) throw error;
+
+      // Notification Logic
+      const { data: classInfo } = await supabase
         .from('classes')
         .select('name')
         .eq('id', selectedClass)
         .single();
-      if (classInfoError) throw classInfoError;
 
-      // Fetch students from the class
-      const { data: members, error: membersError } = await supabase
+      const { data: members } = await supabase
         .from('class_members')
         .select('user_id')
         .eq('class_id', selectedClass)
         .eq('role', 'student');
-      if (membersError) throw membersError;
 
       if (members && members.length > 0) {
         const studentIds = members.map(m => m.user_id);
-
-        const { data: parents, error: parentsError } = await supabase
+        const { data: parents } = await supabase
           .rpc('get_parents_of_students', { p_student_ids: studentIds });
-
-        if (parentsError) {
-          console.error('Error fetching parents via RPC for homework notification:', parentsError);
-        }
 
         const parentIds = parents ? parents.map(p => p.parent_id) : [];
         const recipientIds = [...new Set([...studentIds, ...parentIds])];
 
-        if (recipientIds.length > 0) {
-          // Fetch preferences for all potential recipients
-          const { data: recipientsData, error: recipientsError } = await supabase
-            .from('users')
-            .select('id, notification_preferences')
-            .in('id', recipientIds);
+        const { data: recipientsData } = await supabase
+          .from('users')
+          .select('id, notification_preferences')
+          .in('id', recipientIds);
 
-          if (recipientsError) throw recipientsError;
-
-          // Filter based on preferences
+        if (recipientsData) {
           const finalRecipients = recipientsData.filter(u => {
             const prefs = u.notification_preferences;
             return !prefs || prefs.homework !== false;
           });
 
-          const notifications = finalRecipients.map(userId => ({
-            user_id: userId.id,
+          const notifications = finalRecipients.map(u => ({
+            user_id: u.id,
             type: 'new_homework',
-            title: `New Homework for ${classInfo.name}`,
+            title: `New Homework for ${classInfo?.name || 'Class'}`,
             message: `A new piece of homework has been set: "${newHomework.subject}"`,
             data: { homework_id: newHomework.id }
           }));
 
           if (notifications.length > 0) {
-            const { error: notificationError } = await supabase.from('notifications').insert(notifications);
-            if (notificationError) {
-              console.error('Failed to create homework notifications:', notificationError);
-              showToast('Homework created, but failed to send notifications.', 'warning');
-            }
+            await supabase.from('notifications').insert(notifications);
           }
         }
       }
-    } catch (notificationError) {
-      console.error('An error occurred while sending homework notifications:', notificationError);
-      showToast('Homework created, but an error occurred sending notifications.', 'warning');
+
+      awardXP('content_creation', 20);
+      showToast('Homework created successfully! +20 XP', 'success');
+      navigation.goBack();
+    } catch (error) {
+      console.error('Error creating homework:', error.message);
+      showToast('Failed to create homework.', 'error');
+    } finally {
+      setIsCreating(false);
     }
-    // --- End Notification Logic ---
-
-    // Award XP for Content Creation
-    awardXP('content_creation', 20);
-
-    showToast('Homework created successfully. +20 XP', 'success');
-    navigation.goBack();
-    setIsCreating(false);
   };
 
   if (loading) {
@@ -173,36 +160,36 @@ const CreateHomeworkScreen = ({ navigation, route }) => {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-        <FontAwesomeIcon icon={faArrowLeft} size={20} color="#007AFF" />
-        <Text style={[styles.backButtonText, { color: '#007AFF' }]}>Back</Text>
-      </TouchableOpacity>
-      <Text style={styles.title}>Create Homework</Text>
-      <Text style={styles.screenDescription}>
-        Start by selecting a class and a scheduled day for the homework.
-      </Text>
+    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} contentContainerStyle={{ paddingBottom: 40 + insets.bottom }}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <FontAwesomeIcon icon={faChevronLeft} size={20} color={theme.colors.primary} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>New Homework</Text>
+        <View style={{ width: 20 }} />
+      </View>
 
-      <Text style={styles.inputHeading}>Select a Class</Text>
-      <Text style={styles.inputDescription}>Choose the class that this homework is for.</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={selectedClass}
-          onValueChange={(itemValue) => setSelectedClass(itemValue)}
-          style={styles.picker}
-        >
-          <Picker.Item label="-- Select a class --" value={null} />
-          {classes.map((c) => (
-            <Picker.Item key={c.id} label={c.name} value={c.id} />
-          ))}
-        </Picker>
+      <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+        <Text style={[styles.label, { color: theme.colors.text }]}>Select Class</Text>
+        <View style={[styles.pickerWrapper, { borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}>
+          <Picker
+            selectedValue={selectedClass}
+            onValueChange={(itemValue) => setSelectedClass(itemValue)}
+            style={{ color: theme.colors.text }}
+            dropdownIconColor={theme.colors.text}
+          >
+            <Picker.Item label="-- Select a class --" value={null} />
+            {classes.map((c) => (
+              <Picker.Item key={c.id} label={c.name} value={c.id} />
+            ))}
+          </Picker>
+        </View>
       </View>
 
       {selectedClass && (
-        <>
-          <Text style={styles.inputHeading}>Select a Class Day</Text>
-          <Text style={styles.inputDescription}>Associate this homework with a specific day from the class schedule.</Text>
-          <View style={styles.pickerContainer}>
+        <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+          <Text style={[styles.label, { color: theme.colors.text }]}>Select Class Day (Optional)</Text>
+          <View style={[styles.pickerWrapper, { borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}>
             <Picker
               selectedValue={selectedSchedule}
               onValueChange={(itemValue) => {
@@ -214,7 +201,8 @@ const CreateHomeworkScreen = ({ navigation, route }) => {
                   }
                 }
               }}
-              style={styles.picker}
+              style={{ color: theme.colors.text }}
+              dropdownIconColor={theme.colors.text}
             >
               <Picker.Item label="-- Select a day --" value={null} />
               {schedules.map((s) => (
@@ -226,164 +214,151 @@ const CreateHomeworkScreen = ({ navigation, route }) => {
               ))}
             </Picker>
           </View>
-        </>
+        </View>
       )}
 
-      {selectedSchedule && (
-        <>
-          <Text style={styles.inputHeading}>Subject</Text>
-          <Text style={styles.inputDescription}>A concise title for the homework.</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter subject"
-            value={subject}
-            onChangeText={setSubject}
-          />
+      <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+          <FontAwesomeIcon icon={faBook} size={18} color={theme.colors.primary} style={{ marginRight: 10 }} />
+          <Text style={[styles.label, { color: theme.colors.text }]}>Subject</Text>
+        </View>
+        <TextInput
+          style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}
+          placeholder="e.g., Mathematics, History"
+          placeholderTextColor={theme.colors.placeholder}
+          value={subject}
+          onChangeText={setSubject}
+        />
+      </View>
 
-          <Text style={styles.inputHeading}>Description</Text>
-          <Text style={styles.inputDescription}>Provide detailed instructions for the homework.</Text>
-          <TextInput
-            style={[styles.input, styles.descriptionInput]}
-            placeholder="Enter description"
-            value={description}
-            onChangeText={setDescription}
-            multiline
-          />
+      <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+          <FontAwesomeIcon icon={faClipboardList} size={18} color={theme.colors.primary} style={{ marginRight: 10 }} />
+          <Text style={[styles.label, { color: theme.colors.text }]}>Description</Text>
+        </View>
+        <TextInput
+          style={[styles.textArea, { color: theme.colors.text, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}
+          placeholder="Enter homework details..."
+          placeholderTextColor={theme.colors.placeholder}
+          value={description}
+          onChangeText={setDescription}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+        />
+      </View>
 
-          <Text style={styles.inputHeading}>Due Date</Text>
-          <Text style={styles.inputDescription}>Select a due date from the calendar.</Text>
-          <Calendar
-            minDate={new Date().toISOString().split('T')[0]}
-            onDayPress={(day) => {
-              setDueDate(day.dateString);
-            }}
-            markedDates={{
-              [dueDate]: { selected: true, marked: true, selectedColor: '#007AFF' },
-            }}
-            style={styles.calendar}
-          />
-          {dueDate ? (
-            <View style={styles.selectedDateCard}>
-              <Text style={styles.selectedDateText}>Selected Date: {dueDate}</Text>
-            </View>
-          ) : null}
+      <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+          <FontAwesomeIcon icon={faCalendarAlt} size={18} color={theme.colors.primary} style={{ marginRight: 10 }} />
+          <Text style={[styles.label, { color: theme.colors.text }]}>Due Date</Text>
+        </View>
+        <Calendar
+          onDayPress={(day) => setDueDate(day.dateString)}
+          markedDates={{
+            [dueDate]: { selected: true, marked: true, selectedColor: theme.colors.primary },
+          }}
+          theme={{
+            backgroundColor: theme.colors.surface,
+            calendarBackground: theme.colors.surface,
+            textSectionTitleColor: theme.colors.text,
+            selectedDayBackgroundColor: theme.colors.primary,
+            selectedDayTextColor: theme.colors.buttonPrimaryText,
+            todayTextColor: theme.colors.primary,
+            dayTextColor: theme.colors.text,
+            textDisabledColor: theme.colors.placeholder,
+            dotColor: theme.colors.primary,
+            selectedDotColor: theme.colors.buttonPrimaryText,
+            arrowColor: theme.colors.primary,
+            monthTextColor: theme.colors.text,
+            indicatorColor: theme.colors.primary,
+          }}
+          style={styles.calendar}
+        />
+      </View>
 
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={[styles.button, isCreating && styles.buttonDisabled]}
-              onPress={handleCreate}
-              disabled={isCreating}
-            >
-              {isCreating ? (
-                <>
-                  <ActivityIndicator size="small" color="#fff" />
-                  <Text style={styles.buttonText}>Creating homework...</Text>
-                </>
-              ) : (
-                <Text style={styles.buttonText}>Create Homework</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
+          onPress={handleCreate}
+          disabled={isCreating}
+        >
+          {isCreating ? (
+            <Text style={[styles.createButtonText, { color: theme.colors.buttonPrimaryText }]}>Creating...</Text>
+          ) : (
+            <>
+              <FontAwesomeIcon icon={faSave} size={18} color={theme.colors.buttonPrimaryText} style={{ marginRight: 10 }} />
+              <Text style={[styles.createButtonText, { color: theme.colors.buttonPrimaryText }]}>Assign Homework</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     padding: 16,
     backgroundColor: '#fff',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  screenDescription: {
-    fontSize: 14,
-    color: '#666',
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 20,
   },
-  inputHeading: {
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  backButton: {
+    padding: 5,
+  },
+  inputGroup: {
+    marginBottom: 20,
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  label: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4,
-    marginTop: 10,
+    marginBottom: 10,
   },
-  inputDescription: {
-    fontSize: 12,
-    color: '#888',
-    marginBottom: 8,
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    marginBottom: 16,
-    backgroundColor: '#f8f8f8',
-  },
-  picker: {},
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
     borderRadius: 8,
     padding: 12,
-    marginBottom: 16,
     fontSize: 16,
   },
-  descriptionInput: {
+  textArea: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
     minHeight: 100,
-    textAlignVertical: 'top',
+  },
+  pickerWrapper: {
+    borderWidth: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   calendar: {
     marginBottom: 10,
   },
-  selectedDateCard: {
-    backgroundColor: '#f8f8f8',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  selectedDateText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
   buttonContainer: {
-    marginTop: 10,
-    marginBottom: 40,
+    marginBottom: 20,
   },
-  button: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 8,
+  createButton: {
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
   },
-  buttonDisabled: {
-    backgroundColor: '#a9a9a9',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
+  createButtonText: {
+    fontSize: 18,
     fontWeight: 'bold',
-    marginLeft: 10,
-  },
-  backButton: {
-    marginBottom: 10,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: '500',
   },
 });
-
-export default CreateHomeworkScreen;

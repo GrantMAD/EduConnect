@@ -14,11 +14,15 @@ import { Picker } from '@react-native-picker/picker';
 import { useSchool } from '../context/SchoolContext';
 import { supabase } from '../lib/supabase';
 import { useGamification } from '../context/GamificationContext';
+import StandardBottomModal from './StandardBottomModal';
+import { faCloudUploadAlt } from '@fortawesome/free-solid-svg-icons';
+import { useTheme } from '../context/ThemeContext';
 
 export default function CreateResourceModal({ visible, onClose }) {
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
   const { schoolId } = useSchool();
+  const { theme } = useTheme();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [file, setFile] = useState(null);
@@ -115,134 +119,117 @@ export default function CreateResourceModal({ visible, onClose }) {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.overlay}>
-        <View style={styles.modal}>
-          <Text style={styles.header}>Upload Resource</Text>
+    <StandardBottomModal
+      visible={visible}
+      onClose={onClose}
+      title="Upload Resource"
+      icon={faCloudUploadAlt}
+    >
+      <View style={styles.content}>
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
+          placeholder="Title"
+          placeholderTextColor={theme.colors.placeholder}
+          value={title}
+          onChangeText={setTitle}
+        />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Title"
-            value={title}
-            onChangeText={setTitle}
-          />
+        <TextInput
+          style={[styles.input, styles.descInput, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
+          placeholder="Description"
+          placeholderTextColor={theme.colors.placeholder}
+          multiline
+          value={description}
+          onChangeText={setDescription}
+        />
 
-          <TextInput
-            style={[styles.input, styles.descInput]}
-            placeholder="Description"
-            multiline
-            value={description}
-            onChangeText={setDescription}
-          />
-
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={category}
-              onValueChange={(itemValue) => setCategory(itemValue)}
-              style={styles.picker}
-            >
-              <Picker.Item label="General" value="General" />
-              <Picker.Item label="Homework" value="Homework" />
-              <Picker.Item label="Study Guide" value="Study Guide" />
-              <Picker.Item label="Notes" value="Notes" />
-              <Picker.Item label="Create New Category" value="custom" />
-            </Picker>
-          </View>
-
-          {category === 'custom' && (
-            <TextInput
-              style={styles.input}
-              placeholder="Enter Custom Category"
-              value={customCategory}
-              onChangeText={setCustomCategory}
-            />
-          )}
-
-          <TouchableOpacity style={styles.button} onPress={pickDocument}>
-            <Text style={styles.buttonText}>
-              {file ? file.name : 'Pick File'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button, styles.uploadButton]}
-            onPress={handleUpload}
-            disabled={isUploading}
+        <View style={[styles.pickerContainer, { borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}>
+          <Picker
+            selectedValue={category}
+            onValueChange={(itemValue) => setCategory(itemValue)}
+            style={[styles.picker, { color: theme.colors.text }]}
+            dropdownIconColor={theme.colors.text}
           >
-            {isUploading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Upload</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <Text style={styles.closeText}>Cancel</Text>
-          </TouchableOpacity>
+            <Picker.Item label="General" value="General" />
+            <Picker.Item label="Homework" value="Homework" />
+            <Picker.Item label="Study Guide" value="Study Guide" />
+            <Picker.Item label="Notes" value="Notes" />
+            <Picker.Item label="Create New Category" value="custom" />
+          </Picker>
         </View>
+
+        {category === 'custom' && (
+          <TextInput
+            style={[styles.input, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
+            placeholder="Enter Custom Category"
+            placeholderTextColor={theme.colors.placeholder}
+            value={customCategory}
+            onChangeText={setCustomCategory}
+          />
+        )}
+
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+          onPress={pickDocument}
+        >
+          <Text style={[styles.buttonText, { color: theme.colors.text }]}>
+            {file ? file.name : 'Pick File'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.button, styles.uploadButton, { backgroundColor: theme.colors.primary }]}
+          onPress={handleUpload}
+          disabled={isUploading}
+        >
+          {isUploading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={[styles.buttonText, { color: '#fff' }]}>Upload</Text>
+          )}
+        </TouchableOpacity>
       </View>
-    </Modal>
+    </StandardBottomModal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modal: {
-    width: '88%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-  },
-  header: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 12,
+  content: {
+    paddingTop: 10,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#DDD',
     borderRadius: 8,
-    padding: 10,
-    marginBottom: 10,
+    padding: 12,
+    marginBottom: 16,
+    fontSize: 16,
   },
   descInput: {
-    minHeight: 80,
+    minHeight: 100,
     textAlignVertical: 'top',
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#DDD',
     borderRadius: 8,
-    marginBottom: 10,
+    marginBottom: 16,
+    overflow: 'hidden',
   },
   picker: {
     height: 50,
     width: '100%',
   },
   button: {
-    backgroundColor: '#007AFF',
-    padding: 12,
+    padding: 14,
     borderRadius: 8,
-    marginVertical: 6,
+    marginVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   uploadButton: {
-    backgroundColor: '#28A745',
+    marginTop: 16,
   },
   buttonText: {
-    color: '#fff',
     fontWeight: '600',
-    textAlign: 'center',
-  },
-  closeBtn: {
-    marginTop: 8,
-    alignItems: 'center',
-  },
-  closeText: {
-    color: '#666',
+    fontSize: 16,
   },
 });

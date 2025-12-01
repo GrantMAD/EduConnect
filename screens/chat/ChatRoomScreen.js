@@ -14,6 +14,7 @@ import ParticipantsModal from '../../components/ParticipantsModal';
 import LinkPreview from '../../components/LinkPreview';
 import MessageActionModal from '../../components/MessageActionModal';
 import DateHeader from '../../components/DateHeader';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const defaultUserImage = require('../../assets/user.png');
 
@@ -22,6 +23,7 @@ export default function ChatRoomScreen({ route, navigation }) {
     const { messages, user, fetchMessages, fetchOlderMessages, editMessage, deleteMessage, pinMessage, searchMessages, addReaction, removeReaction, sendTypingEvent, subscribeToChannel, unsubscribeFromChannel, sendMessage, uploadAttachment, markAsRead } = useChat();
     const { theme } = useTheme();
     const { showToast } = useToast();
+    const insets = useSafeAreaInsets();
     const [inputText, setInputText] = useState('');
     const [sending, setSending] = useState(false);
     const [recipientLastReadAt, setRecipientLastReadAt] = useState(null);
@@ -688,7 +690,7 @@ export default function ChatRoomScreen({ route, navigation }) {
                 </View>
             )}
 
-            <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>
+            <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border, paddingBottom: Math.max(insets.bottom, 10) }]}>
                 {editingMessage && (
                     <View style={styles.editingContainer}>
                         <Text style={[styles.editingText, { color: theme.colors.textSecondary }]}>Editing message...</Text>

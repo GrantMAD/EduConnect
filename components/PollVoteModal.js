@@ -4,9 +4,11 @@ import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faPoll, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function PollVoteModal({ visible, onClose, poll, onVote, description, loading }) {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   if (!poll) return null;
 
@@ -19,7 +21,7 @@ export default function PollVoteModal({ visible, onClose, poll, onVote, descript
       backdropOpacity={0.5}
       style={{ justifyContent: 'flex-end', margin: 0 }}
     >
-      <View style={[styles.voteModalContent, { backgroundColor: theme.colors.surface }]}>
+      <View style={[styles.voteModalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 20) }]}>
         <View style={styles.modalHeader}>
           <View style={styles.headerBar} />
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>

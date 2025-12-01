@@ -1,99 +1,89 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Switch, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { useSchool } from '../context/SchoolContext';
-import { Picker } from '@react-native-picker/picker';
-import { useToast } from '../context/ToastContext';
+import { useNavigation } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faBullhorn, faArrowLeft, faPaperPlane, faUsers } from '@fortawesome/free-solid-svg-icons';
+import { useSchool } from '../context/SchoolContext';
+import { useToast } from '../context/ToastContext';
+import { useTheme } from '../context/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Picker } from '@react-native-picker/picker';
 
-export default function CreateAnnouncementScreen({ navigation, route }) {
+export default function CreateAnnouncementScreen({ route }) {
   const { fromDashboard } = route.params || {};
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
   const [isClassSpecific, setIsClassSpecific] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
   const [classes, setClasses] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const { showToast } = useToast();
 
+  const navigation = useNavigation();
   const { schoolId } = useSchool();
+  const { showToast } = useToast();
+  const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     const fetchClasses = async () => {
       if (!schoolId) return;
       const { data, error } = await supabase.from('classes').select('id, name').eq('school_id', schoolId);
       if (error) {
+        console.error('Error fetching classes:', error);
       } else {
         setClasses(data);
         if (data.length > 0) {
-          setSelectedClass(data[0].id); // Set default selected class
+          setSelectedClass(data[0].id);
         }
       }
     };
     fetchClasses();
   }, [schoolId]);
 
-  const handleSaveAnnouncement = async () => {
-    if (!title || !message) {
+  const handleCreate = async () => {
+    if (!title.trim() || !message.trim()) {
       showToast('Title and Message cannot be empty.', 'error');
       return;
     }
 
     if (isClassSpecific && !selectedClass) {
-      showToast('Please select a class for a class-specific announcement.', 'error');
+      showToast('Please select a class.', 'error');
       return;
     }
 
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        showToast('User not authenticated.', 'error');
-        setLoading(false);
-        return;
-      }
-
-      if (!schoolId) {
-        showToast('School ID not available. Cannot create announcement.', 'error');
-        setLoading(false);
-        return;
-      }
+      if (!user) throw new Error('No user logged in');
 
       const announcementType = isClassSpecific ? 'class' : 'general';
 
-      const newAnnouncement = {
-        title,
-        message,
-        school_id: schoolId, // Correctly assign schoolId from context
-        posted_by: user.id,
-        class_id: isClassSpecific ? selectedClass : null,
-        type: announcementType, // Include the new type column
-      };
-
-      const { data: newAnnouncements, error } = await supabase
-        .from('announcements')
-        .insert(newAnnouncement)
-        .select();
+      const { data: newAnnouncements, error } = await supabase.from('announcements').insert([
+        {
+          school_id: schoolId,
+          title,
+          message,
+          type: announcementType,
+          class_id: isClassSpecific ? selectedClass : null,
+          posted_by: user.id,
+        },
+      ]).select();
 
       if (error) throw error;
 
-      // If it's a general announcement, notify all users in the school
+      // Notification Logic
       if (!isClassSpecific) {
-        try {
-          const { data: users, error: usersError } = await supabase
-            .from('users')
-            .select('id, notification_preferences')
-            .eq('school_id', schoolId);
+        // General Announcement Notifications
+        const { data: users, error: usersError } = await supabase
+          .from('users')
+          .select('id, notification_preferences')
+          .eq('school_id', schoolId);
 
-          if (usersError) throw usersError;
-
+        if (!usersError) {
           const newAnnouncementData = newAnnouncements[0];
-
-          // Filter users who have announcements enabled
           const recipients = users.filter(u => {
             const prefs = u.notification_preferences;
-            // Default to true if prefs or the specific key is missing
             return !prefs || prefs.announcements !== false;
           });
 
@@ -106,60 +96,37 @@ export default function CreateAnnouncementScreen({ navigation, route }) {
           }));
 
           if (notifications.length > 0) {
-            const { error: notificationError } = await supabase.from('notifications').insert(notifications);
-            if (notificationError) {
-              // Log the error but don't block the user, as the announcement was created.
-              console.error('Failed to create notifications:', notificationError);
-              showToast('Announcement created, but failed to send notifications.', 'warning');
-            }
+            await supabase.from('notifications').insert(notifications);
           }
-        } catch (notificationError) {
-          console.error('An error occurred while sending notifications:', notificationError);
-          showToast('Announcement created, but an error occurred while sending notifications.', 'warning');
         }
-      } else { // It's a class-specific announcement
-        try {
-          // Fetch class name
-          const { data: classInfo, error: classInfoError } = await supabase
-            .from('classes')
-            .select('name')
-            .eq('id', selectedClass)
-            .single();
-          if (classInfoError) throw classInfoError;
+      } else {
+        // Class Specific Notifications
+        const { data: classInfo } = await supabase
+          .from('classes')
+          .select('name')
+          .eq('id', selectedClass)
+          .single();
 
-          // Fetch students from the class
-          const { data: members, error: membersError } = await supabase
-            .from('class_members')
-            .select('user_id')
-            .eq('class_id', selectedClass)
-            .eq('role', 'student');
-          if (membersError) throw membersError;
+        const { data: members } = await supabase
+          .from('class_members')
+          .select('user_id')
+          .eq('class_id', selectedClass)
+          .eq('role', 'student');
 
-          if (members && members.length > 0) {
-            const studentIds = members.map(m => m.user_id);
+        if (members && members.length > 0) {
+          const studentIds = members.map(m => m.user_id);
+          const { data: parents } = await supabase
+            .rpc('get_parents_of_students', { p_student_ids: studentIds });
 
-            // Fetch parents of the students in the class using the RPC function
-            const { data: parents, error: parentsError } = await supabase
-              .rpc('get_parents_of_students', { p_student_ids: studentIds });
+          const parentIds = parents ? parents.map(p => p.parent_id) : [];
+          const recipientIds = [...new Set([...studentIds, ...parentIds])];
 
-            if (parentsError) {
-              console.error('Error fetching parents via RPC:', parentsError);
-            }
+          const { data: recipientsData } = await supabase
+            .from('users')
+            .select('id, notification_preferences')
+            .in('id', recipientIds);
 
-            const parentIds = parents ? parents.map(p => p.parent_id) : [];
-
-            // Combine students and parents, ensuring no duplicates
-            const recipientIds = [...new Set([...studentIds, ...parentIds])];
-
-            // Fetch preferences for all potential recipients
-            const { data: recipientsData, error: recipientsError } = await supabase
-              .from('users')
-              .select('id, notification_preferences')
-              .in('id', recipientIds);
-
-            if (recipientsError) throw recipientsError;
-
-            // Filter based on preferences
+          if (recipientsData) {
             const finalRecipients = recipientsData.filter(u => {
               const prefs = u.notification_preferences;
               return !prefs || prefs.announcements !== false;
@@ -169,28 +136,22 @@ export default function CreateAnnouncementScreen({ navigation, route }) {
             const notifications = finalRecipients.map(u => ({
               user_id: u.id,
               type: 'new_class_announcement',
-              title: `New Announcement in ${classInfo.name}`,
+              title: `New Announcement in ${classInfo?.name || 'Class'}`,
               message: `A new announcement has been posted: "${newAnnouncementData.title}"`,
               data: { announcement_id: newAnnouncementData.id },
             }));
 
             if (notifications.length > 0) {
-              const { error: notificationError } = await supabase.from('notifications').insert(notifications);
-              if (notificationError) {
-                console.error('Failed to create class notifications:', notificationError);
-                showToast('Announcement created, but failed to send class notifications.', 'warning');
-              }
+              await supabase.from('notifications').insert(notifications);
             }
           }
-        } catch (notificationError) {
-          console.error('An error occurred while sending class notifications:', notificationError);
-          showToast('Announcement created, but an error occurred while sending class notifications.', 'warning');
         }
       }
 
       showToast('Announcement created successfully!', 'success');
       navigation.goBack();
     } catch (error) {
+      console.error('Error creating announcement:', error.message);
       showToast('Failed to create announcement.', 'error');
     } finally {
       setLoading(false);
@@ -198,63 +159,82 @@ export default function CreateAnnouncementScreen({ navigation, route }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {fromDashboard && (
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#333" />
-          <Text style={styles.backButtonText}>Return to Dashboard</Text>
-        </TouchableOpacity>
-      )}
-      <Text style={styles.header}>Create New Announcement</Text>
-      <Text style={styles.description}>Fill in the details below to create a new announcement for your school.</Text>
+    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: 40 + insets.bottom }]}>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <FontAwesomeIcon icon={faArrowLeft} size={20} color={theme.colors.primary} />
+        <Text style={[styles.backButtonText, { color: theme.colors.primary }]}>Back to Announcements</Text>
+      </TouchableOpacity>
 
-      <Text style={styles.label}>Title</Text>
-      <TextInput
-        style={styles.input}
-        value={title}
-        onChangeText={setTitle}
-        placeholder="Enter announcement title"
-      />
+      <Text style={[styles.headerTitle, { color: theme.colors.text }]}>New Announcement</Text>
 
-      <Text style={styles.label}>Message</Text>
-      <TextInput
-        style={[styles.input, styles.messageInput]}
-        value={message}
-        onChangeText={setMessage}
-        placeholder="Enter announcement message"
-        multiline
-      />
-
-      <View style={styles.switchContainer}>
-        <Text style={styles.label}>Class Specific Announcement</Text>
-        <Switch
-          value={isClassSpecific}
-          onValueChange={setIsClassSpecific}
+      <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+        <Text style={[styles.label, { color: theme.colors.text }]}>Title</Text>
+        <TextInput
+          style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}
+          placeholder="Enter title"
+          placeholderTextColor={theme.colors.placeholder}
+          value={title}
+          onChangeText={setTitle}
         />
       </View>
-      <Text style={[styles.description, { textAlign: 'left', marginBottom: 20 }]}>Toggle this switch if the announcement is meant for a specific class only.</Text>
 
-      {isClassSpecific && (
-        <View style={styles.pickerContainer}>
-          <Text style={styles.label}>Target Class</Text>
-          <Picker
-            selectedValue={selectedClass}
-            onValueChange={(itemValue) => setSelectedClass(itemValue)}
-            style={styles.picker}
-          >
-            {classes.map((cls) => (
-              <Picker.Item key={cls.id} label={cls.name} value={cls.id} />
-            ))}
-          </Picker>
+      <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+        <Text style={[styles.label, { color: theme.colors.text }]}>Message</Text>
+        <TextInput
+          style={[styles.textArea, { color: theme.colors.text, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}
+          placeholder="Write your announcement here..."
+          placeholderTextColor={theme.colors.placeholder}
+          value={message}
+          onChangeText={setMessage}
+          multiline
+          numberOfLines={6}
+          textAlignVertical="top"
+        />
+      </View>
+
+      <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+        <View style={styles.switchContainer}>
+          <Text style={[styles.label, { color: theme.colors.text, marginBottom: 0 }]}>Class Specific</Text>
+          <Switch
+            value={isClassSpecific}
+            onValueChange={setIsClassSpecific}
+            trackColor={{ false: "#767577", true: theme.colors.primary }}
+            thumbColor={isClassSpecific ? "#fff" : "#f4f3f4"}
+          />
         </View>
-      )}
+
+        {isClassSpecific && (
+          <View style={styles.pickerContainer}>
+            <Text style={[styles.subLabel, { color: theme.colors.text }]}>Select Class</Text>
+            <View style={[styles.pickerWrapper, { borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}>
+              <Picker
+                selectedValue={selectedClass}
+                onValueChange={(itemValue) => setSelectedClass(itemValue)}
+                style={{ color: theme.colors.text }}
+                dropdownIconColor={theme.colors.text}
+              >
+                {classes.map((cls) => (
+                  <Picker.Item key={cls.id} label={cls.name} value={cls.id} />
+                ))}
+              </Picker>
+            </View>
+          </View>
+        )}
+      </View>
 
       <TouchableOpacity
-        style={styles.saveButton}
-        onPress={handleSaveAnnouncement}
-        disabled={loading || !schoolId}
+        style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
+        onPress={handleCreate}
+        disabled={loading}
       >
-        <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save Announcement'}</Text>
+        {loading ? (
+          <Text style={[styles.createButtonText, { color: theme.colors.buttonPrimaryText }]}>Posting...</Text>
+        ) : (
+          <>
+            <FontAwesomeIcon icon={faPaperPlane} size={18} color={theme.colors.buttonPrimaryText} style={{ marginRight: 10 }} />
+            <Text style={[styles.createButtonText, { color: theme.colors.buttonPrimaryText }]}>Post Announcement</Text>
+          </>
+        )}
       </TouchableOpacity>
     </ScrollView>
   );
@@ -267,77 +247,76 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   header: {
+    marginBottom: 20,
+  },
+  headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
+    marginBottom: 20,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  backButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '500',
     color: '#333',
   },
-  description: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
+  inputGroup: {
     marginBottom: 20,
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
   },
   label: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 10,
+  },
+  subLabel: {
+    fontSize: 14,
     marginBottom: 8,
-    color: '#555',
+    marginTop: 10,
   },
   input: {
-    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
-    marginBottom: 15,
     fontSize: 16,
   },
-  messageInput: {
-    minHeight: 100,
-    textAlignVertical: 'top',
+  textArea: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    minHeight: 120,
   },
   switchContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 5,
-    paddingVertical: 5,
   },
   pickerContainer: {
+    marginTop: 10,
+  },
+  pickerWrapper: {
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 8,
-    marginBottom: 15,
-    backgroundColor: '#fff',
+    overflow: 'hidden',
   },
-  picker: {
-    height: 50,
-    width: '100%',
-  },
-  saveButton: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 10,
+  createButton: {
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 20,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 10,
   },
-  saveButtonText: {
-    color: '#fff',
+  createButtonText: {
     fontSize: 18,
     fontWeight: 'bold',
-  },
-  backButton: {
-    marginBottom: 10,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
   },
 });

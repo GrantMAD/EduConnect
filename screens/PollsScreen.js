@@ -11,6 +11,7 @@ import CardListSkeleton from '../components/skeletons/CardListSkeleton';
 import PollVoteModal from '../components/PollVoteModal';
 import StandardBottomModal from '../components/StandardBottomModal';
 import { useGamification } from '../context/GamificationContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function PollsScreen({ navigation, route }) {
   const [polls, setPolls] = useState([]);
@@ -39,6 +40,7 @@ export default function PollsScreen({ navigation, route }) {
   const { showToast } = useToast();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
+  const insets = useSafeAreaInsets();
 
   const initializeScreen = async () => {
     setLoading(true);
@@ -215,7 +217,7 @@ export default function PollsScreen({ navigation, route }) {
       <FlatList
         data={getFilteredPolls()}
         keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={{ paddingBottom: 80, paddingTop: 10 }}
+        contentContainerStyle={{ paddingBottom: 80 + insets.bottom, paddingTop: 10 }}
         renderItem={({ item }) => renderPollCard(item)}
         ListEmptyComponent={
           <View style={styles.emptyState}>

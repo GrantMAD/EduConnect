@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faUser, faCalendar, faBullhorn } from '@fortawesome/free-solid-svg-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const timeSince = (date) => {
   if (!date) return '';
@@ -21,6 +22,7 @@ const timeSince = (date) => {
 };
 
 export default function AnnouncementDetailModal({ visible, onClose, announcement }) {
+  const insets = useSafeAreaInsets();
   if (!announcement) return null;
 
   return (
@@ -32,7 +34,7 @@ export default function AnnouncementDetailModal({ visible, onClose, announcement
       backdropOpacity={0.5}
       style={{ justifyContent: 'flex-end', margin: 0 }}
     >
-      <View style={styles.modalContent}>
+      <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 20) }]}>
         <View style={styles.header}>
           <FontAwesomeIcon icon={faBullhorn} size={26} color="#007AFF" />
           <Text style={styles.modalTitle}>{announcement.title}</Text>
@@ -66,62 +68,62 @@ export default function AnnouncementDetailModal({ visible, onClose, announcement
 }
 
 const styles = StyleSheet.create({
-    modalContent: {
-      backgroundColor: '#F7F9FC',
-      paddingHorizontal: 20,
-      paddingTop: 20,
-      paddingBottom: 30,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-      maxHeight: '90%',
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingBottom: 15,
-      borderBottomWidth: 1,
-      borderBottomColor: '#E8E8E8',
-    },
-    modalTitle: {
-      fontSize: 22,
-      fontWeight: '700',
-      color: '#333',
-      marginLeft: 15,
-      flex: 1,
-    },
-    modalCloseButton: {
-      padding: 5,
-    },
-    descriptionContainer: {
-      paddingVertical: 20,
-    },
-    descriptionText: {
-      fontSize: 16,
-      lineHeight: 24,
-      color: '#555',
-    },
-    detailsCard: {
-      backgroundColor: '#fff',
-      borderRadius: 12,
-      padding: 15,
-      borderWidth: 1,
-      borderColor: '#E8E8E8',
-      marginBottom: 20,
-    },
-    modalDetailRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    modalIcon: {
-      marginRight: 12,
-    },
-    modalDetailText: {
-      fontSize: 14,
-      color: '#444',
-    },
-    separator: {
-      height: 1,
-      backgroundColor: '#E8E8E8',
-      marginVertical: 12,
-    },
-  });
+  modalContent: {
+    backgroundColor: '#F7F9FC',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 30,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E8E8',
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#333',
+    marginLeft: 15,
+    flex: 1,
+  },
+  modalCloseButton: {
+    padding: 5,
+  },
+  descriptionContainer: {
+    paddingVertical: 20,
+  },
+  descriptionText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#555',
+  },
+  detailsCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    marginBottom: 20,
+  },
+  modalDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modalIcon: {
+    marginRight: 12,
+  },
+  modalDetailText: {
+    fontSize: 14,
+    color: '#444',
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#E8E8E8',
+    marginVertical: 12,
+  },
+});

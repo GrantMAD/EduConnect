@@ -27,7 +27,7 @@ import { Buffer } from 'buffer';
 import { useToast } from '../../context/ToastContext';
 
 export default function CreateMarketplaceItemScreen({ route, navigation }) {
-  const { item: existingItem, fromDashboard } = route.params || {};
+  const { item: existingItem, fromDashboard, fromMarketScreen } = route.params || {};
 
   const [title, setTitle] = useState(existingItem?.title || '');
   const [description, setDescription] = useState(existingItem?.description || '');
@@ -137,6 +137,12 @@ export default function CreateMarketplaceItemScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <FontAwesomeIcon icon={faArrowLeft} size={20} color="#333" />
           <Text style={styles.backButtonText}>Return to Dashboard</Text>
+        </TouchableOpacity>
+      )}
+      {fromMarketScreen && (
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#333" />
+          <Text style={styles.backButtonText}>Return to Marketplace</Text>
         </TouchableOpacity>
       )}
       <Text style={styles.header}>{existingItem ? 'Edit Marketplace Item' : 'Create Marketplace Item'}</Text>

@@ -8,6 +8,7 @@ import { faSearch, faUserPlus, faUsers, faCheck, faChevronRight } from '@fortawe
 import { useToast } from '../../context/ToastContext';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const defaultUserImage = require('../../assets/user.png');
 
@@ -15,6 +16,7 @@ export default function NewChatScreen({ navigation }) {
     const { createChannel } = useChat();
     const { theme } = useTheme();
     const { showToast } = useToast();
+    const insets = useSafeAreaInsets();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -267,13 +269,13 @@ export default function NewChatScreen({ navigation }) {
                     data={users}
                     keyExtractor={item => item.id}
                     renderItem={renderItem}
-                    contentContainerStyle={styles.listContent}
+                    contentContainerStyle={[styles.listContent, { paddingBottom: isGroupMode ? 100 : 20 + insets.bottom }]}
                 />
             )}
 
             {/* Create Group Button */}
             {isGroupMode && (
-                <View style={[styles.footer, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>
+                <View style={[styles.footer, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border, paddingBottom: insets.bottom + 16 }]}>
                     <TouchableOpacity
                         style={[
                             styles.createButton,

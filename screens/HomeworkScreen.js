@@ -14,6 +14,7 @@ import HomeworkCard from '../components/HomeworkCard';
 import AssignmentCard from '../components/AssignmentCard';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -27,6 +28,7 @@ const HomeworkList = () => {
   const isFocused = useIsFocused();
   const { showToast } = useToast();
   const { theme } = useTheme(); // Use the theme hook
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (isFocused) {
@@ -138,7 +140,7 @@ const HomeworkList = () => {
         backdropOpacity={0.5}
         style={{ justifyContent: 'flex-end', margin: 0 }}
       >
-        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 30) }]}>
           {selectedHomework && (
             <>
               <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
@@ -262,6 +264,7 @@ const AssignmentsList = () => {
   const isFocused = useIsFocused();
   const { showToast } = useToast();
   const { theme } = useTheme(); // Use the theme hook
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (isFocused) {
@@ -373,7 +376,7 @@ const AssignmentsList = () => {
         backdropOpacity={0.5}
         style={{ justifyContent: 'flex-end', margin: 0 }}
       >
-        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 30) }]}>
           {selectedAssignment && (
             <>
               <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>

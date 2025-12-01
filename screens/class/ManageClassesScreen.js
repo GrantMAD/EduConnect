@@ -78,7 +78,7 @@ export default function ManageClassesScreen({ navigation }) {
         <Text style={styles.header}>Manage Classes</Text>
         <TouchableOpacity
           style={styles.createButton}
-          onPress={() => navigation.navigate('CreateClass')}
+          onPress={() => navigation.navigate('CreateClass', { fromManageClassesScreen: true })}
         >
           <Text style={styles.createButtonText}>+ Create Class</Text>
         </TouchableOpacity>

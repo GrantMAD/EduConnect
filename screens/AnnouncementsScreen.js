@@ -234,48 +234,52 @@ export default function AnnouncementsScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Welcome Area */}
-      <View style={styles.welcomeContainer}>
-        <Text style={[styles.welcomeText, { color: theme.colors.text }]}>Welcome to Announcements!</Text>
-        <Text style={[styles.welcomeDescription, { color: theme.colors.text }]}>Stay updated with the latest news and updates from your school.</Text>
-      </View>
-
-      {/* Placeholder Image Area */}
-      <TouchableOpacity
-        style={styles.imageContainer}
-        onPress={() => userRole === 'admin' && navigation.navigate('SchoolData')}
-        disabled={userRole !== 'admin'}
-      >
-        {schoolData?.logo_url ? (
-          <Image source={{ uri: schoolData.logo_url }} style={styles.placeholderImage} />
-        ) : (
-          <View style={[styles.placeholderImageContainer, { backgroundColor: theme.colors.inputBackground }]}>
-            <Text style={[styles.placeholderText, { color: theme.colors.placeholder }]}>Currently no school image</Text>
-            {userRole === 'admin' && (
-              <Text style={[styles.placeholderSubText, { color: theme.colors.placeholder }]}>Press here to change your school's image in the settings</Text>
-            )}
-          </View>
-        )}
-      </TouchableOpacity>
-
-      {/* List of Announcements Area */}
-      <View style={styles.sectionHeaderContainer}>
-        <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Latest Announcements</Text>
-        {(userRole === 'admin' || userRole === 'teacher') && (
-          <TouchableOpacity
-            style={styles.addTextButton}
-            onPress={() => navigation.navigate('CreateAnnouncement')}
-          >
-            <Text style={[styles.addTextButtonText, { color: theme.colors.primary }]}>+ Add Announcement</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-      <Text style={[styles.announcementCount, { color: theme.colors.placeholder }]}>{announcements.length} announcements</Text>
       <FlatList
         data={announcements}
         keyExtractor={(item) => item.id.toString()}
         onRefresh={onRefresh}
         refreshing={refreshing}
+        ListHeaderComponent={() => (
+          <>
+            {/* Welcome Area */}
+            <View style={styles.welcomeContainer}>
+              <Text style={[styles.welcomeText, { color: theme.colors.text }]}>Welcome to Announcements!</Text>
+              <Text style={[styles.welcomeDescription, { color: theme.colors.text }]}>Stay updated with the latest news and updates from your school.</Text>
+            </View>
+
+            {/* Placeholder Image Area */}
+            <TouchableOpacity
+              style={styles.imageContainer}
+              onPress={() => userRole === 'admin' && navigation.navigate('SchoolData')}
+              disabled={userRole !== 'admin'}
+            >
+              {schoolData?.logo_url ? (
+                <Image source={{ uri: schoolData.logo_url }} style={styles.placeholderImage} />
+              ) : (
+                <View style={[styles.placeholderImageContainer, { backgroundColor: theme.colors.inputBackground }]}>
+                  <Text style={[styles.placeholderText, { color: theme.colors.placeholder }]}>Currently no school image</Text>
+                  {userRole === 'admin' && (
+                    <Text style={[styles.placeholderSubText, { color: theme.colors.placeholder }]}>Press here to change your school's image in the settings</Text>
+                  )}
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* List of Announcements Area */}
+            <View style={styles.sectionHeaderContainer}>
+              <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Latest Announcements</Text>
+              {(userRole === 'admin' || userRole === 'teacher') && (
+                <TouchableOpacity
+                  style={styles.addTextButton}
+                  onPress={() => navigation.navigate('CreateAnnouncement')}
+                >
+                  <Text style={[styles.addTextButtonText, { color: theme.colors.primary }]}>+ Add Announcement</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <Text style={[styles.announcementCount, { color: theme.colors.placeholder }]}>{announcements.length} announcements</Text>
+          </>
+        )}
         renderItem={({ item }) => (
           <TouchableOpacity onPress={() => handleCardPress(item)} style={[styles.cardContainer, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }]}>
             <View style={[styles.typeIndicator, item.type === 'general' ? { backgroundColor: theme.colors.primary } : { backgroundColor: theme.colors.success }]} />
@@ -303,27 +307,30 @@ export default function AnnouncementsScreen({ navigation }) {
               <Text style={[styles.messagePreview, { color: theme.colors.text }]} numberOfLines={3}>
                 {item.message.length > 100 ? item.message.substring(0, 100) + '...' : item.message}
               </Text>
-              {item.class?.name && (
-                <View>
-                  <View style={[styles.separator, { backgroundColor: theme.colors.cardBorder }]} />
-                  <View style={styles.classLabelContainer}>
-                    <FontAwesomeIcon icon={faUsers} size={12} color={theme.colors.placeholder} />
-                    <Text style={[styles.classLabel, { color: theme.colors.placeholder }]}>For class: {item.class.name}</Text>
+              {
+                item.class?.name && (
+                  <View>
+                    <View style={[styles.separator, { backgroundColor: theme.colors.cardBorder }]} />
+                    <View style={styles.classLabelContainer}>
+                      <FontAwesomeIcon icon={faUsers} size={12} color={theme.colors.placeholder} />
+                      <Text style={[styles.classLabel, { color: theme.colors.placeholder }]}>For class: {item.class.name}</Text>
+                    </View>
                   </View>
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={<Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No announcements yet.</Text>}
+                )
+              }
+            </View >
+          </TouchableOpacity >
+        )
+        }
+        ListEmptyComponent={< Text style={[styles.emptyText, { color: theme.colors.placeholder }]} > No announcements yet.</Text >}
       />
 
-      <AnnouncementDetailModal
+      < AnnouncementDetailModal
         visible={showModal}
         onClose={() => setShowModal(false)}
         announcement={selectedAnnouncement}
       />
-    </View>
+    </View >
   );
 }
 
