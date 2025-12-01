@@ -135,13 +135,13 @@ export default function CreateMarketplaceItemScreen({ route, navigation }) {
     <ScrollView contentContainerStyle={styles.container}>
       {fromDashboard && (
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#333" />
+          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#007AFF" />
           <Text style={styles.backButtonText}>Return to Dashboard</Text>
         </TouchableOpacity>
       )}
       {fromMarketScreen && (
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#333" />
+          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#007AFF" />
           <Text style={styles.backButtonText}>Return to Marketplace</Text>
         </TouchableOpacity>
       )}
@@ -171,13 +171,14 @@ export default function CreateMarketplaceItemScreen({ route, navigation }) {
       <View style={styles.card}>
         <Text style={styles.label}><FontAwesomeIcon icon={faHeading} color="#007AFF" /> Title</Text>
         <Text style={styles.inputDescription}>Give your item a short, descriptive title that will attract buyers.</Text>
-        <TextInput style={styles.input} placeholder="e.g., Textbook Set" value={title} onChangeText={setTitle} />
+        <TextInput style={styles.input} placeholder="e.g., Textbook Set" placeholderTextColor="#999" value={title} onChangeText={setTitle} />
 
         <Text style={styles.label}><FontAwesomeIcon icon={faAlignLeft} color="#007AFF" /> Description</Text>
         <Text style={styles.inputDescription}>Provide a detailed description of your item, including its condition and any relevant features.</Text>
         <TextInput
           style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
           placeholder="e.g., Used but in good condition"
+          placeholderTextColor="#999"
           value={description}
           onChangeText={setDescription}
           multiline
@@ -188,6 +189,7 @@ export default function CreateMarketplaceItemScreen({ route, navigation }) {
         <TextInput
           style={styles.input}
           placeholder="e.g., 150.00"
+          placeholderTextColor="#999"
           value={price}
           onChangeText={setPrice}
           keyboardType="numeric"
@@ -245,6 +247,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginBottom: 12,
     backgroundColor: '#fafafa',
+    color: '#333',
   },
   inputDescription: { fontSize: 12, color: '#666', marginBottom: 8 },
   imagePicker: {
@@ -290,7 +293,7 @@ const styles = StyleSheet.create({
   backButtonText: {
     marginLeft: 8,
     fontSize: 16,
-    color: '#333',
+    color: '#007AFF',
     fontWeight: '500',
   },
 });

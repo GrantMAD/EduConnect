@@ -7,6 +7,7 @@ import RNFetchBlob from 'rn-fetch-blob';
 import FileViewer from 'react-native-file-viewer';
 import { supabase } from '../lib/supabase';
 import { useGamification } from '../context/GamificationContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const timeSince = (date) => {
   if (!date) return '';
@@ -27,6 +28,7 @@ const timeSince = (date) => {
 export default function ResourceDetailModal({ visible, onClose, resource, onVotesChanged }) {
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
+  const insets = useSafeAreaInsets();
   const [userId, setUserId] = useState(null);
   const [userVote, setUserVote] = useState(null); // 1 or -1
   const [upvotes, setUpvotes] = useState(0);
@@ -157,7 +159,7 @@ export default function ResourceDetailModal({ visible, onClose, resource, onVote
       backdropOpacity={0.5}
       style={{ justifyContent: 'flex-end', margin: 0 }}
     >
-      <View style={styles.modalContent}>
+      <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 30) }]}>
         <View style={styles.header}>
           <FontAwesomeIcon icon={faFileAlt} size={26} color="#007AFF" />
           <Text style={styles.modalTitle}>{resource.title}</Text>

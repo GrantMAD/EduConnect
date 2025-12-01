@@ -690,7 +690,7 @@ export default function ChatRoomScreen({ route, navigation }) {
                 </View>
             )}
 
-            <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border, paddingBottom: Math.max(insets.bottom, 10) }]}>
+            <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border, paddingBottom: Math.max(insets.bottom, 20) }]}>
                 {editingMessage && (
                     <View style={styles.editingContainer}>
                         <Text style={[styles.editingText, { color: theme.colors.textSecondary }]}>Editing message...</Text>

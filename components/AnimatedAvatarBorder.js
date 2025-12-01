@@ -7,7 +7,8 @@ const AnimatedAvatarBorder = ({
     size = 80,
     borderStyle = {},
     isRainbow = false,
-    isAnimated = false
+    isAnimated = false,
+    containerStyle = {}
 }) => {
     const pulseAnim = useRef(new Animated.Value(1)).current;
     const rainbowRotation = useRef(new Animated.Value(0)).current;
@@ -68,7 +69,7 @@ const AnimatedAvatarBorder = ({
     if (isRainbow) {
         // Rainbow border with gradient
         return (
-            <View style={[styles.container, { width: size + 6, height: size + 6 }]}>
+            <View style={[styles.container, { width: size + 6, height: size + 6 }, containerStyle]}>
                 <Animated.View
                     style={[
                         styles.rainbowContainer,
@@ -129,7 +130,7 @@ const AnimatedAvatarBorder = ({
 
     // Regular border (with optional animation for neon)
     return (
-        <View style={[styles.container, { width: size, height: size }]}>
+        <View style={[styles.container, { width: size, height: size }, containerStyle]}>
             <Animated.Image
                 source={avatarSource}
                 style={[

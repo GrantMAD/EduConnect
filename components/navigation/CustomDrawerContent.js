@@ -28,6 +28,7 @@ const CustomDrawerContent = (props) => {
     const [userRole, setUserRole] = useState(null);
     const [loading, setLoading] = useState(true);
     const [profileCompletion, setProfileCompletion] = useState(0);
+    const [signingOut, setSigningOut] = useState(false);
     const { theme } = useTheme();
     const { equippedItem } = useGamification();
 
@@ -246,16 +247,26 @@ const CustomDrawerContent = (props) => {
             <View style={{ padding: 20, paddingBottom: 20 + insets.bottom, borderTopWidth: 1, borderTopColor: theme.colors.cardBorder }}>
                 <TouchableOpacity
                     onPress={async () => {
-                        const { data: { user } } = await supabase.auth.getUser();
-
-                        await supabase.auth.signOut();
+                        setSigningOut(true);
+                        try {
+                            const { data: { user } } = await supabase.auth.getUser();
+                            await supabase.auth.signOut();
+                        } catch (error) {
+                            console.error('Sign out error:', error);
+                            setSigningOut(false);
+                        }
                     }}
                     style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12 }}
+                    disabled={signingOut}
                 >
                     <View style={{ width: 24, alignItems: 'center', marginRight: 12 }}>
                         <FontAwesomeIcon icon={faRightFromBracket} size={18} color={theme.colors.error} />
                     </View>
-                    <Text style={{ fontSize: 16, color: theme.colors.error, fontWeight: '600' }}>Sign Out</Text>
+                    {signingOut ? (
+                        <ActivityIndicator size="small" color={theme.colors.error} />
+                    ) : (
+                        <Text style={{ fontSize: 16, color: theme.colors.error, fontWeight: '600' }}>Sign Out</Text>
+                    )}
                 </TouchableOpacity>
                 <Text style={{ textAlign: 'center', fontSize: 10, color: theme.colors.placeholder, marginTop: 10 }}>v1.0.0</Text>
             </View>

@@ -124,6 +124,7 @@ export default function CreateResourceModal({ visible, onClose }) {
       onClose={onClose}
       title="Upload Resource"
       icon={faCloudUploadAlt}
+      description="Share study materials, notes, and resources with your school community"
     >
       <View style={styles.content}>
         <TextInput

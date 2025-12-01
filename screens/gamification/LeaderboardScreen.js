@@ -6,12 +6,16 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTrophy, faMedal, faCrown, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
+import UserProfileModal from '../../components/UserProfileModal';
 
 export default function LeaderboardScreen({ navigation }) {
     const { theme } = useTheme();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [period, setPeriod] = useState('all_time'); // 'all_time', 'weekly' (weekly requires more complex SQL, sticking to all_time for MVP)
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [selectedEquippedItem, setSelectedEquippedItem] = useState(null);
+    const [isModalVisible, setIsModalVisible] = useState(false);
 
     useEffect(() => {
         fetchLeaderboard();
@@ -38,15 +42,25 @@ export default function LeaderboardScreen({ navigation }) {
             const userIds = scores.map(s => s.user_id);
             const { data: userDetails, error: usersError } = await supabase
                 .from('users')
-                .select('id, full_name, avatar_url, user_inventory(shop_items(*), is_equipped)')
+                .select('id, full_name, avatar_url, role, email, number')
                 .in('id', userIds);
 
             if (usersError) throw usersError;
 
-            // 3. Merge data
+            // 3. Get equipped items separately
+            const { data: inventoryData, error: inventoryError } = await supabase
+                .from('user_inventory')
+                .select('user_id, shop_items(*)')
+                .in('user_id', userIds)
+                .eq('is_equipped', true);
+
+            if (inventoryError) throw inventoryError;
+
+            // 4. Merge data
             const leaderboardData = scores.map(score => {
                 const user = userDetails.find(u => u.id === score.user_id);
-                const equippedItem = user?.user_inventory?.find(i => i.is_equipped)?.shop_items;
+                const equippedInventoryItem = inventoryData?.find(i => i.user_id === score.user_id);
+                const equippedItem = equippedInventoryItem?.shop_items;
 
                 return {
                     ...score,
@@ -81,7 +95,14 @@ export default function LeaderboardScreen({ navigation }) {
         }
 
         return (
-            <View style={[styles.itemContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+            <TouchableOpacity
+                style={[styles.itemContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
+                onPress={() => {
+                    setSelectedUser(user);
+                    setSelectedEquippedItem(item.equippedItem);
+                    setIsModalVisible(true);
+                }}
+            >
                 <View style={styles.rankContainer}>
                     {rankIcon ? (
                         <FontAwesomeIcon icon={rankIcon} size={24} color={rankColor} />
@@ -96,6 +117,7 @@ export default function LeaderboardScreen({ navigation }) {
                     borderStyle={item.equippedItem ? BORDER_STYLES[item.equippedItem.image_url] : {}}
                     isRainbow={item.equippedItem && BORDER_STYLES[item.equippedItem.image_url]?.rainbow}
                     isAnimated={item.equippedItem && BORDER_STYLES[item.equippedItem.image_url]?.animated}
+                    containerStyle={{ marginHorizontal: 16 }}
                 />
 
                 <View style={styles.userInfo}>
@@ -106,7 +128,7 @@ export default function LeaderboardScreen({ navigation }) {
                 <View style={styles.xpContainer}>
                     <Text style={[styles.xpText, { color: theme.colors.primary }]}>{item.current_xp} XP</Text>
                 </View>
-            </View>
+            </TouchableOpacity>
         );
     };
 
@@ -141,6 +163,17 @@ export default function LeaderboardScreen({ navigation }) {
                 keyExtractor={(item, index) => index.toString()}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
+            />
+
+            <UserProfileModal
+                visible={isModalVisible}
+                user={selectedUser}
+                equippedItem={selectedEquippedItem}
+                onClose={() => setIsModalVisible(false)}
+                onMessageUser={(user) => {
+                    console.log('Message user:', user);
+                    setIsModalVisible(false);
+                }}
             />
         </View>
     );
@@ -192,15 +225,16 @@ const styles = StyleSheet.create({
     itemContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 16,
-        marginBottom: 12,
+        padding: 12,
+        marginBottom: 8,
         borderRadius: 12,
         borderWidth: 1,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.02,
-        shadowRadius: 2,
-        elevation: 1,
+        // Removed shadow to reduce "gray area"
+        shadowColor: "transparent",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0,
+        shadowRadius: 0,
+        elevation: 0,
     },
     rankContainer: {
         width: 40,

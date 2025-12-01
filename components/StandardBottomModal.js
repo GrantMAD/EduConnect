@@ -6,7 +6,7 @@ import { faTimes } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export default function StandardBottomModal({ visible, onClose, title, icon, children }) {
+export default function StandardBottomModal({ visible, onClose, title, icon, description, children }) {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
 
@@ -27,6 +27,9 @@ export default function StandardBottomModal({ visible, onClose, title, icon, chi
                         <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
                     </TouchableOpacity>
                 </View>
+                {description && (
+                    <Text style={[styles.description, { color: theme.colors.placeholder }]}>{description}</Text>
+                )}
                 <View style={styles.contentContainer}>
                     {children}
                 </View>
@@ -59,6 +62,12 @@ const styles = StyleSheet.create({
     },
     modalCloseButton: {
         padding: 5,
+    },
+    description: {
+        fontSize: 14,
+        marginTop: 10,
+        marginBottom: 10,
+        lineHeight: 20,
     },
     contentContainer: {
         paddingBottom: 20,

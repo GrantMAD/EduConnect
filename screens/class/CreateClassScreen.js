@@ -235,15 +235,15 @@ export default function CreateClassScreen({ navigation, route }) {
 
       <Text style={styles.label}>Class Name</Text>
       <Text style={styles.descriptionText}>Give your class a unique and descriptive name.</Text>
-      <TextInput style={styles.input} value={className} onChangeText={setClassName} placeholder="Enter class name (e.g., Math 101)" />
+      <TextInput style={styles.input} value={className} onChangeText={setClassName} placeholder="Enter class name (e.g., Math 101)" placeholderTextColor="#999" />
 
       <Text style={styles.label}>Subject</Text>
       <Text style={styles.descriptionText}>Specify the subject this class belongs to.</Text>
-      <TextInput style={styles.input} value={subject} onChangeText={setSubject} placeholder="Enter subject (e.g., Mathematics)" />
+      <TextInput style={styles.input} value={subject} onChangeText={setSubject} placeholder="Enter subject (e.g., Mathematics)" placeholderTextColor="#999" />
 
       <Text style={styles.label}>Add Students</Text>
       <Text style={styles.descriptionText}>Search for and add students to this class.</Text>
-      <TextInput style={styles.input} value={searchQuery} onChangeText={setSearchQuery} placeholder="Search students by name..." />
+      <TextInput style={styles.input} value={searchQuery} onChangeText={setSearchQuery} placeholder="Search students by name..." placeholderTextColor="#999" />
 
       {fetchingStudents ? (
         <ActivityIndicator size="small" style={{ marginBottom: 10 }} />
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   header: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#333' },
   label: { fontSize: 16, fontWeight: '600', marginBottom: 8, color: '#555', marginTop: 10 },
   descriptionText: { fontSize: 12, color: '#777', marginBottom: 10, marginLeft: 5 },
-  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, marginBottom: 10, fontSize: 16 },
+  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, marginBottom: 10, fontSize: 16, color: '#333' },
   studentList: { maxHeight: 150, marginBottom: 10, borderWidth: 1, borderColor: '#eee', borderRadius: 8 },
   studentItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10, borderBottomWidth: 1, borderBottomColor: '#eee' },
   studentAvatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10, borderWidth: 1, borderColor: '#ddd' },

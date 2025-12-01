@@ -5,18 +5,28 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faEnvelope, faPhone, faUserCircle, faIdBadge, faComment, faStar, faCoins } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
+import AnimatedAvatarBorder from './AnimatedAvatarBorder';
+import { BORDER_STYLES } from '../constants/GamificationStyles';
 
-export default function UserProfileModal({ visible, user, onClose, onMessageUser }) {
+export default function UserProfileModal({ visible, user, onClose, onMessageUser, equippedItem: propEquippedItem }) {
     const { theme } = useTheme();
     const [loading, setLoading] = useState(false);
     const [gamificationStats, setGamificationStats] = useState({ xp: 0, coins: 0 });
     const [statsLoading, setStatsLoading] = useState(false);
+    const [fetchedEquippedItem, setFetchedEquippedItem] = useState(null);
+
+    const equippedItem = propEquippedItem || fetchedEquippedItem;
 
     useEffect(() => {
         if (visible && user) {
             fetchGamificationStats();
+            if (!propEquippedItem) {
+                fetchEquippedItem();
+            }
+        } else {
+            setFetchedEquippedItem(null);
         }
-    }, [visible, user]);
+    }, [visible, user, propEquippedItem]);
 
     const fetchGamificationStats = async () => {
         if (!user?.id) return;
@@ -42,6 +52,26 @@ export default function UserProfileModal({ visible, user, onClose, onMessageUser
             console.error('Error fetching gamification stats:', error);
         } finally {
             setStatsLoading(false);
+        }
+    };
+
+    const fetchEquippedItem = async () => {
+        if (!user?.id) return;
+        try {
+            const { data, error } = await supabase
+                .from('user_inventory')
+                .select('shop_items(*)')
+                .eq('user_id', user.id)
+                .eq('is_equipped', true)
+                .maybeSingle();
+
+            if (error) throw error;
+
+            if (data?.shop_items) {
+                setFetchedEquippedItem(data.shop_items);
+            }
+        } catch (error) {
+            console.error('Error fetching equipped item:', error);
         }
     };
 
@@ -93,9 +123,13 @@ export default function UserProfileModal({ visible, user, onClose, onMessageUser
 
                 <ScrollView showsVerticalScrollIndicator={false}>
                     <View style={styles.profileContainer}>
-                        <Image
-                            source={user.avatar_url ? { uri: user.avatar_url } : defaultAvatar}
-                            style={[styles.avatar, { borderColor: roleColor }]}
+                        <AnimatedAvatarBorder
+                            avatarSource={user.avatar_url ? { uri: user.avatar_url } : defaultAvatar}
+                            size={80}
+                            borderStyle={equippedItem ? BORDER_STYLES[equippedItem.image_url] : {}}
+                            isRainbow={equippedItem && BORDER_STYLES[equippedItem.image_url]?.rainbow}
+                            isAnimated={equippedItem && BORDER_STYLES[equippedItem.image_url]?.animated}
+                            containerStyle={{ marginBottom: 10 }}
                         />
                         <Text style={[styles.userName, { color: theme.colors.text }]}>{user.full_name}</Text>
                         <View style={[styles.roleBadge, { backgroundColor: roleColor + '20' }]}>
@@ -199,13 +233,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 20,
     },
-    avatar: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        borderWidth: 3,
-        marginBottom: 10,
-    },
+    // avatar style removed as it's handled by AnimatedAvatarBorder
     userName: {
         fontSize: 20,
         fontWeight: '600',
