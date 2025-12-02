@@ -11,6 +11,7 @@ export const ChatProvider = ({ children, session }) => {
   const [channels, setChannels] = useState([]);
   const [messages, setMessages] = useState({});
   const [loading, setLoading] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState({}); // Track loading per channel
   const { showToast } = useToast();
   const subscriptions = useRef({});
 
@@ -121,8 +122,13 @@ export const ChatProvider = ({ children, session }) => {
         }
       });
 
+      // Deduplicate channels to prevent key errors
+      const uniqueChannelsMap = new Map();
+      sortedChannels.forEach(c => uniqueChannelsMap.set(c.id, c));
+      const uniqueChannels = Array.from(uniqueChannelsMap.values());
+
       setUnreadCount(count);
-      setChannels(sortedChannels);
+      setChannels(uniqueChannels);
     } catch (error) {
       console.error('Error fetching channels:', error);
       showToast('Failed to load chats', 'error');
@@ -134,7 +140,7 @@ export const ChatProvider = ({ children, session }) => {
   const fetchMessages = async (channelId, start = 0, limit = 20) => {
     try {
       if (start === 0) {
-        setLoading(true);
+        setLoadingMessages(prev => ({ ...prev, [channelId]: true }));
       }
 
       const { data, error } = await supabase
@@ -233,7 +239,9 @@ export const ChatProvider = ({ children, session }) => {
       showToast('Failed to load messages', 'error');
       return 0;
     } finally {
-      if (start === 0) setLoading(false);
+      if (start === 0) {
+        setLoadingMessages(prev => ({ ...prev, [channelId]: false }));
+      }
     }
   };
 
@@ -512,6 +520,7 @@ export const ChatProvider = ({ children, session }) => {
 
     const sub = supabase
       .channel(`chat:${channelId}`)
+      // Listen for new messages
       .on(
         'postgres_changes',
         {
@@ -521,109 +530,71 @@ export const ChatProvider = ({ children, session }) => {
           filter: `channel_id=eq.${channelId}`,
         },
         async (payload) => {
-          // Fetch sender details for the new message
-          const { data: senderData, error } = await supabase
+          console.log('📨 Realtime message received for channel', channelId, payload.new);
+
+          const newMsg = payload.new;
+
+          // Fetch sender info
+          const { data: senderData } = await supabase
             .from('users')
             .select('id, full_name, avatar_url')
-            .eq('id', payload.new.sender_id)
+            .eq('id', newMsg.sender_id)
             .single();
 
-          // Fetch reply details if exists
+          // Fetch reply message if applicable
           let replyData = null;
-          if (payload.new.reply_to_message_id) {
+          if (newMsg.reply_to_message_id) {
             const { data: rData } = await supabase
               .from('messages')
               .select('id, content, sender:users!sender_id(full_name)')
-              .eq('id', payload.new.reply_to_message_id)
+              .eq('id', newMsg.reply_to_message_id)
               .single();
             replyData = rData;
           }
 
-          const newMessage = {
-            ...payload.new,
-            sender: senderData || { id: payload.new.sender_id, full_name: 'Unknown' },
+          const message = {
+            ...newMsg,
+            sender: senderData || { id: newMsg.sender_id, full_name: 'Unknown' },
             message_reactions: [],
             reply_to_message: replyData
           };
 
+          // Prepend to messages state
           setMessages(prev => {
             const current = prev[channelId] || [];
-            // Prevent duplicates
-            if (current.some(msg => msg.id === newMessage.id)) {
-              return prev;
-            }
-            return {
-              ...prev,
-              [channelId]: [newMessage, ...current]
+            if (current.some(m => m.id === message.id)) return prev; // prevent duplicates
+            return { ...prev, [channelId]: [message, ...current] };
+          });
+
+          // Optionally update channel's last_message
+          setChannels(prev => {
+            const idx = prev.findIndex(c => c.id === channelId);
+            if (idx === -1) return prev;
+
+            const updatedChannel = {
+              ...prev[idx],
+              last_message: [{
+                content: message.content || (message.attachments?.length ? 'Sent an attachment' : ''),
+                created_at: message.created_at,
+                sender_id: message.sender_id
+              }]
             };
+
+            const newChannels = [...prev];
+            newChannels.splice(idx, 1);
+            newChannels.unshift(updatedChannel);
+            return newChannels;
           });
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'messages',
-          filter: `channel_id=eq.${channelId}`,
-        },
-        (payload) => {
-          setMessages(prev => {
-            const channelMessages = prev[channelId] || [];
-            const updatedMessages = channelMessages.map(msg => {
-              if (msg.id === payload.new.id) {
-                // Merge the update but preserve nested objects like sender, message_reactions, etc.
-                return {
-                  ...msg,
-                  ...payload.new,
-                  // Preserve these if they exist in the old message and aren't in the update
-                  sender: payload.new.sender || msg.sender,
-                  message_reactions: payload.new.message_reactions || msg.message_reactions,
-                  reply_to_message: payload.new.reply_to_message || msg.reply_to_message
-                };
-              }
-              return msg;
-            });
-            return {
-              ...prev,
-              [channelId]: updatedMessages
-            };
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'message_reactions',
-        },
-        async (payload) => {
-          const messageId = payload.new?.message_id || payload.old?.message_id;
-
-          if (messageId) {
-            const { data: reactions } = await supabase
-              .from('message_reactions')
-              .select('id, emoji, user_id')
-              .eq('message_id', messageId);
-
-            setMessages(prev => {
-              const channelMessages = prev[channelId] || [];
-              const updatedMessages = channelMessages.map(msg => {
-                if (msg.id === messageId) {
-                  return { ...msg, message_reactions: reactions || [] };
-                }
-                return msg;
-              });
-              return { ...prev, [channelId]: updatedMessages };
-            });
-          }
-        }
-      )
+      // Listen for typing events
       .on('broadcast', { event: 'typing' }, (payload) => {
         if (onTyping) onTyping(payload.payload);
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log(`🔌 Subscription status for channel ${channelId}:`, status);
+        if (err) console.error('❌ Subscription error:', err);
+      });
 
     subscriptions.current[channelId] = sub;
   };
@@ -665,6 +636,25 @@ export const ChatProvider = ({ children, session }) => {
         ...prev,
         [channelId]: [optimisticMessage, ...(prev[channelId] || [])]
       }));
+
+      setChannels(prev => {
+        const channelIndex = prev.findIndex(c => c.id === channelId);
+        if (channelIndex === -1) return prev;
+
+        const updatedChannel = {
+          ...prev[channelIndex],
+          last_message: [{
+            content: content || (attachments.length > 0 ? 'Sent an attachment' : ''),
+            created_at: new Date().toISOString(),
+            sender_id: user.id
+          }]
+        };
+
+        const newChannels = [...prev];
+        newChannels.splice(channelIndex, 1);
+        newChannels.unshift(updatedChannel);
+        return newChannels;
+      });
 
       // 2. Perform Insert
       const { data, error } = await supabase
@@ -801,6 +791,7 @@ export const ChatProvider = ({ children, session }) => {
       channels,
       messages,
       loading,
+      loadingMessages,
       user,
       unreadCount,
       fetchChannels,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Modal } from 'react-native';
 import { useChat } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -15,12 +15,13 @@ import LinkPreview from '../../components/LinkPreview';
 import MessageActionModal from '../../components/MessageActionModal';
 import DateHeader from '../../components/DateHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ChatMessagesSkeleton from '../../components/skeletons/ChatMessagesSkeleton';
 
 const defaultUserImage = require('../../assets/user.png');
 
 export default function ChatRoomScreen({ route, navigation }) {
     const { channelId, name, avatar, equippedItem } = route.params;
-    const { messages, user, fetchMessages, fetchOlderMessages, editMessage, deleteMessage, pinMessage, searchMessages, addReaction, removeReaction, sendTypingEvent, subscribeToChannel, unsubscribeFromChannel, sendMessage, uploadAttachment, markAsRead } = useChat();
+    const { messages, user, loadingMessages, fetchMessages, fetchOlderMessages, editMessage, deleteMessage, pinMessage, searchMessages, addReaction, removeReaction, sendTypingEvent, subscribeToChannel, unsubscribeFromChannel, sendMessage, uploadAttachment, markAsRead } = useChat();
     const { theme } = useTheme();
     const { showToast } = useToast();
     const insets = useSafeAreaInsets();
@@ -59,7 +60,14 @@ export default function ChatRoomScreen({ route, navigation }) {
     const flatListRef = useRef();
 
     const channelMessages = isSearching ? searchResults : (messages[channelId] || []);
-    const pinnedMessages = (messages[channelId] || []).filter(m => m.is_pinned);
+
+    const uniqueMessages = useMemo(() => {
+        const map = new Map();
+        channelMessages.forEach(m => map.set(m.id, m));
+        return Array.from(map.values());
+    }, [channelMessages]);
+
+    const pinnedMessages = uniqueMessages.filter(m => m.is_pinned);
 
     useEffect(() => {
         navigation.setOptions({ title: name });
@@ -630,35 +638,41 @@ export default function ChatRoomScreen({ route, navigation }) {
             )}
 
             <View style={{ flex: 1 }}>
-                <FlatList
-                    ref={flatListRef}
-                    data={channelMessages}
-                    keyExtractor={item => item.id}
-                    renderItem={renderMessage}
-                    contentContainerStyle={styles.listContent}
-                    style={{ backgroundColor: '#F5F5F5' }}
-                    inverted
-                    onEndReached={handleLoadMore}
-                    onEndReachedThreshold={0.2}
-                    onScroll={handleScroll}
-                    scrollEventThrottle={16}
-                    ListFooterComponent={
-                        loadingMore ? (
-                            <View style={{ paddingVertical: 20 }}>
-                                <ActivityIndicator size="small" color={theme.colors.primary} />
-                            </View>
-                        ) : null
-                    }
-                />
+                {loadingMessages[channelId] && !uniqueMessages.length ? (
+                    <ChatMessagesSkeleton />
+                ) : (
+                    <>
+                        <FlatList
+                            ref={flatListRef}
+                            data={uniqueMessages}
+                            keyExtractor={item => item.id}
+                            renderItem={renderMessage}
+                            contentContainerStyle={styles.listContent}
+                            style={{ backgroundColor: '#F5F5F5' }}
+                            inverted
+                            onEndReached={handleLoadMore}
+                            onEndReachedThreshold={0.2}
+                            onScroll={handleScroll}
+                            scrollEventThrottle={16}
+                            ListFooterComponent={
+                                loadingMore ? (
+                                    <View style={{ paddingVertical: 20 }}>
+                                        <ActivityIndicator size="small" color={theme.colors.primary} />
+                                    </View>
+                                ) : null
+                            }
+                        />
 
-                {/* Scroll to Bottom Button */}
-                {showScrollBottom && (
-                    <TouchableOpacity
-                        style={[styles.scrollToBottomButton, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadow }]}
-                        onPress={scrollToBottom}
-                    >
-                        <FontAwesomeIcon icon={faArrowDown} size={16} color={theme.colors.primary} />
-                    </TouchableOpacity>
+                        {/* Scroll to Bottom Button */}
+                        {showScrollBottom && (
+                            <TouchableOpacity
+                                style={[styles.scrollToBottomButton, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadow }]}
+                                onPress={scrollToBottom}
+                            >
+                                <FontAwesomeIcon icon={faArrowDown} size={16} color={theme.colors.primary} />
+                            </TouchableOpacity>
+                        )}
+                    </>
                 )}
             </View>
 

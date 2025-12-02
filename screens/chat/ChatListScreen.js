@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useChat } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -7,6 +8,7 @@ import { faPlus, faUser, faUsers, faChalkboard, faComments } from '@fortawesome/
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ChatListScreenSkeleton from '../../components/skeletons/ChatListScreenSkeleton';
 
 const defaultUserImage = require('../../assets/user.png');
 
@@ -35,9 +37,12 @@ export default function ChatListScreen({ navigation }) {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
 
-    useEffect(() => {
-        fetchChannels();
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            fetchChannels();
+        }, [])
+    );
+
     const getChannelDisplayInfo = (channel) => {
         if (channel.type === 'direct' && user) {
             const otherMember = channel.channel_members?.find(m => m.user_id !== user.id);
@@ -124,18 +129,20 @@ export default function ChatListScreen({ navigation }) {
             </TouchableOpacity>
         );
     };
+    const uniqueChannels = useMemo(() => {
+        const map = new Map();
+        channels.forEach(c => map.set(c.id, c));
+        return Array.from(map.values());
+    }, [channels]);
 
-    if (loading && channels.length === 0) {
-        return (
-            <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.background }]}>
-                <ActivityIndicator size="large" color={theme.colors.primary} />
-            </View>
-        );
+    if (loading) {
+        return <ChatListScreenSkeleton />;
     }
+
     return (
         <View style={[styles.container, { backgroundColor: theme.dark ? theme.colors.background : '#F5F5F5' }]}>
             <FlatList
-                data={channels}
+                data={uniqueChannels}
                 keyExtractor={item => item.id}
                 renderItem={renderItem}
                 contentContainerStyle={[styles.listContent, { paddingBottom: 80 + insets.bottom }]}
