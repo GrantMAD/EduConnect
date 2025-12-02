@@ -19,7 +19,7 @@ export default function SignInScreen({ navigation }) {
   const handleSignIn = async () => {
     setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim(),
       password,
     });
     setLoading(false);

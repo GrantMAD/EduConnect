@@ -20,11 +20,11 @@ export default function SignUpScreen({ navigation }) {
   const handleSignUp = async () => {
     setLoading(true);
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: email.trim(),
       password,
       options: {
         data: {
-          full_name: fullName,
+          full_name: fullName.trim(),
         }
       }
     });
