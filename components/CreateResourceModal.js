@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import ReactNativeBlobUtil from 'react-native-blob-util';
 import { Picker } from '@react-native-picker/picker';
 import { useSchool } from '../context/SchoolContext';
 import { supabase } from '../lib/supabase';
@@ -68,14 +67,14 @@ export default function CreateResourceModal({ visible, onClose }) {
         const filePath = `${user.id}/${finalFileName}`;
 
         // Wrap the file URI for uploading
-        const blob = ReactNativeBlobUtil.wrap(file.uri);
+        const response = await fetch(file.uri); // keep original for Expo (safe)
+        const arrayBuffer = await response.arrayBuffer();
 
         // STEP 4: Upload to Supabase Storage
         const { error: uploadError } = await supabase.storage
           .from('resources')
-          .upload(filePath, blob, {
+          .upload(filePath, arrayBuffer, {
             contentType: file.mimeType,
-            upsert: false,
           });
 
         if (uploadError) throw uploadError;
