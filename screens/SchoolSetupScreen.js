@@ -339,8 +339,9 @@ export default function SchoolSetupScreen({ navigation }) {
             <>
               <View style={styles.searchRow}>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: '#333' }]}
                   placeholder="Search for a school"
+                  placeholderTextColor="#666"
                   value={search}
                   onChangeText={(text) => {
                     setSearch(text);
@@ -405,8 +406,9 @@ export default function SchoolSetupScreen({ navigation }) {
           </View>
           <Text style={styles.inputDescription}>Enter the official name of your school.</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: '#333' }]}
             placeholder="Enter new school name"
+            placeholderTextColor="#666"
             value={newSchoolName}
             onChangeText={setNewSchoolName}
           />
@@ -416,8 +418,9 @@ export default function SchoolSetupScreen({ navigation }) {
           </View>
           <Text style={styles.inputDescription}>Provide the physical address of your school.</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: '#333' }]}
             placeholder="Address"
+            placeholderTextColor="#666"
             value={newSchoolAddress}
             onChangeText={setNewSchoolAddress}
           />
@@ -427,8 +430,9 @@ export default function SchoolSetupScreen({ navigation }) {
           </View>
           <Text style={styles.inputDescription}>Enter the primary contact email for your school.</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: '#333' }]}
             placeholder="Contact Email"
+            placeholderTextColor="#666"
             value={newSchoolContactEmail}
             onChangeText={setNewSchoolContactEmail}
             keyboardType="email-address"
@@ -440,8 +444,9 @@ export default function SchoolSetupScreen({ navigation }) {
           </View>
           <Text style={styles.inputDescription}>Enter the primary contact phone number for your school.</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: '#333' }]}
             placeholder="Contact Number"
+            placeholderTextColor="#666"
             value={newSchoolContactPhone}
             onChangeText={(text) => setNewSchoolContactPhone(text.replace(/[^0-9]/g, ''))}
             keyboardType="phone-pad"

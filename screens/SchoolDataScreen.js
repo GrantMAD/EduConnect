@@ -195,10 +195,11 @@ export default function SchoolDataScreen({ navigation, route }) {
             <Text style={styles.inputLabel}>School Name</Text>
           </View>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: '#333' }]}
             value={name}
             onChangeText={setName}
             placeholder="School Name"
+            placeholderTextColor="#666"
           />
         </View>
 
@@ -209,10 +210,11 @@ export default function SchoolDataScreen({ navigation, route }) {
             <Text style={styles.inputLabel}>Address</Text>
           </View>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: '#333' }]}
             value={address}
             onChangeText={setAddress}
             placeholder="Address"
+            placeholderTextColor="#666"
           />
         </View>
 
@@ -223,10 +225,11 @@ export default function SchoolDataScreen({ navigation, route }) {
             <Text style={styles.inputLabel}>Contact Email</Text>
           </View>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: '#333' }]}
             value={contactEmail}
             onChangeText={setContactEmail}
             placeholder="Contact Email"
+            placeholderTextColor="#666"
             keyboardType="email-address"
             autoCapitalize="none"
           />
@@ -239,10 +242,11 @@ export default function SchoolDataScreen({ navigation, route }) {
             <Text style={styles.inputLabel}>Contact Number</Text>
           </View>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: '#333' }]}
             value={contactPhone}
             onChangeText={(text) => setContactPhone(text.replace(/[^0-9]/g, ''))}
             placeholder="Contact Number"
+            placeholderTextColor="#666"
             keyboardType="phone-pad"
           />
         </View>

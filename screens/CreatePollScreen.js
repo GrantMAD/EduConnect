@@ -84,12 +84,11 @@ export default function CreatePollScreen({ navigation, route }) {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={{ paddingBottom: 40 + insets.bottom }}
     >
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <FontAwesomeIcon icon={faArrowLeft} size={20} color="#007AFF" />
+        <Text style={styles.backButtonText}>Back to Polls</Text>
+      </TouchableOpacity>
       <View style={styles.headerRow}>
-        {fromDashboard && (
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <FontAwesomeIcon icon={faArrowLeft} size={20} color={theme.colors.text} />
-          </TouchableOpacity>
-        )}
         <Text style={[styles.header, { color: theme.colors.text }]}>Create New Poll</Text>
       </View>
 
@@ -322,6 +321,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   backButton: {
-    padding: 5,
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '500',
   },
 });

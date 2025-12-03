@@ -533,7 +533,7 @@ export default function HomeworkScreen() {
             open={fabOpen}
             icon={fabOpen ? 'close' : 'plus'}
             color={theme.colors.buttonPrimaryText}
-            fabStyle={{ backgroundColor: theme.colors.primary }}
+            fabStyle={{ backgroundColor: theme.colors.primary, borderRadius: 50 }}
             actions={[
               {
                 icon: 'notebook-plus',

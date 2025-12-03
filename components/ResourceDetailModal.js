@@ -159,7 +159,7 @@ export default function ResourceDetailModal({ visible, onClose, resource, onVote
       backdropOpacity={0.5}
       style={{ justifyContent: 'flex-end', margin: 0 }}
     >
-      <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 30) }]}>
+      <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 60) }]}>
         <View style={styles.header}>
           <FontAwesomeIcon icon={faFileAlt} size={26} color="#007AFF" />
           <Text style={styles.modalTitle}>{resource.title}</Text>

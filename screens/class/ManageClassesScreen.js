@@ -75,7 +75,10 @@ export default function ManageClassesScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.headerContainer}>
-        <Text style={styles.header}>Manage Classes</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <FontAwesomeIcon icon={faChalkboardTeacher} size={24} color="#007AFF" style={{ marginRight: 10 }} />
+          <Text style={styles.header}>Manage Classes</Text>
+        </View>
         <TouchableOpacity
           style={styles.createButton}
           onPress={() => navigation.navigate('CreateClass', { fromManageClassesScreen: true })}
@@ -134,7 +137,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   createButton: {
-    backgroundColor: '#28a745',
+    backgroundColor: '#007AFF',
     paddingVertical: 8,
     paddingHorizontal: 15,
     borderRadius: 8,

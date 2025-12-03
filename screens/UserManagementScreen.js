@@ -102,8 +102,9 @@ export default function UserManagementScreen({ navigation, route }) {
       <Text style={styles.header}>User Management</Text>
       <Text style={styles.description}>Manage all users within your school. Press on a user to view their details.</Text>
       <TextInput
-        style={[styles.searchInput, isSearchFocused && styles.searchInputFocused]}
+        style={[styles.searchInput, isSearchFocused && styles.searchInputFocused, { color: '#333' }]}
         placeholder="Search by name..."
+        placeholderTextColor="#666"
         value={searchQuery}
         onChangeText={setSearchQuery}
         onFocus={() => setIsSearchFocused(true)}
@@ -153,12 +154,14 @@ export default function UserManagementScreen({ navigation, route }) {
                 <Picker
                   selectedValue={selectedUser.role}
                   style={styles.picker}
+                  itemStyle={{ color: '#333' }}
+                  dropdownIconColor="#333"
                   onValueChange={(itemValue) => handleRoleChange(itemValue)}
                 >
-                  <Picker.Item label="Admin" value="admin" />
-                  <Picker.Item label="Parent" value="parent" />
-                  <Picker.Item label="Student" value="student" />
-                  <Picker.Item label="Teacher" value="teacher" />
+                  <Picker.Item label="Admin" value="admin" color="#333" />
+                  <Picker.Item label="Parent" value="parent" color="#333" />
+                  <Picker.Item label="Student" value="student" color="#333" />
+                  <Picker.Item label="Teacher" value="teacher" color="#333" />
                 </Picker>
               </View>
               <Text style={styles.roleDescription}>Select a role to update the user's permissions.</Text>

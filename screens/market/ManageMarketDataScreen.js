@@ -16,6 +16,7 @@ import { supabase } from '../../lib/supabase';
 import ManageMarketItemListItem from '../../components/ManageMarketItemListItem';
 import MarketplaceItemDetailModal from '../../components/MarketplaceItemDetailModal';
 import { useToast } from '../../context/ToastContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ManageMarketDataScreen({ navigation }) {
   const [items, setItems] = useState([]);
@@ -23,7 +24,9 @@ export default function ManageMarketDataScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedItemForModal, setSelectedItemForModal] = useState(null);
+
   const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -117,9 +120,10 @@ export default function ManageMarketDataScreen({ navigation }) {
           </View>
         )}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={{ paddingBottom: 100 }}
+
+        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
       />
-      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreateMarketplaceItem')}>
+      <TouchableOpacity style={[styles.fab, { bottom: 20 + insets.bottom }]} onPress={() => navigation.navigate('CreateMarketplaceItem')}>
         <FontAwesomeIcon icon={faPlus} size={24} color="#fff" />
       </TouchableOpacity>
 

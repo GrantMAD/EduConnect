@@ -197,7 +197,7 @@ export default function ResourcesScreen() {
         {(userRole === 'teacher' || userRole === 'admin') && (
           <TouchableOpacity style={styles.addButton} onPress={() => setShowCreateModal(true)}>
             <FontAwesomeIcon icon={faPlus} size={16} color="#fff" />
-            <Text style={styles.addButtonText}>Add</Text>
+            <Text style={styles.addButtonText}>Add Resource</Text>
           </TouchableOpacity>
         )}
       </View>
