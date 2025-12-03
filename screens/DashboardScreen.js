@@ -28,7 +28,7 @@ import UserListModal from '../components/UserListModal';
 import UserProfileModal from '../components/UserProfileModal';
 import ClassListModal from '../components/ClassListModal';
 import ContentListModal from '../components/ContentListModal';
-import DashboardScreenSkeleton from '../components/skeletons/DashboardScreenSkeleton';
+import { StatCardSkeleton, ActionButtonSkeleton } from '../components/skeletons/DashboardScreenSkeleton';
 
 export default function DashboardScreen({ navigation }) {
     const { theme } = useTheme();
@@ -362,9 +362,7 @@ export default function DashboardScreen({ navigation }) {
         </TouchableOpacity>
     );
 
-    if (loading) {
-        return <DashboardScreenSkeleton />;
-    }
+
 
     return (
         <ScrollView
@@ -387,41 +385,47 @@ export default function DashboardScreen({ navigation }) {
                 <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>User Statistics</Text>
                 <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Overview of all users in your school</Text>
                 <View style={styles.statsGrid}>
-                    <StatCard
-                        icon={faUsers}
-                        title="Total Users"
-                        value={stats.totalUsers}
-                        color="#007AFF"
-                        onPress={() => fetchUsersByCategory('total')}
-                    />
-                    <StatCard
-                        icon={faUserTie}
-                        title="Admins"
-                        value={stats.adminCount}
-                        color="#FF3B30"
-                        onPress={() => fetchUsersByCategory('admin')}
-                    />
-                    <StatCard
-                        icon={faChalkboardTeacher}
-                        title="Teachers"
-                        value={stats.teacherCount}
-                        color="#34C759"
-                        onPress={() => fetchUsersByCategory('teacher')}
-                    />
-                    <StatCard
-                        icon={faUserGraduate}
-                        title="Students"
-                        value={stats.studentCount}
-                        color="#5856D6"
-                        onPress={() => fetchUsersByCategory('student')}
-                    />
-                    <StatCard
-                        icon={faChild}
-                        title="Parents"
-                        value={stats.parentCount}
-                        color="#FF9500"
-                        onPress={() => fetchUsersByCategory('parent')}
-                    />
+                    {loading ? (
+                        [1, 2, 3, 4, 5].map((item) => <StatCardSkeleton key={item} />)
+                    ) : (
+                        <>
+                            <StatCard
+                                icon={faUsers}
+                                title="Total Users"
+                                value={stats.totalUsers}
+                                color="#007AFF"
+                                onPress={() => fetchUsersByCategory('total')}
+                            />
+                            <StatCard
+                                icon={faUserTie}
+                                title="Admins"
+                                value={stats.adminCount}
+                                color="#FF3B30"
+                                onPress={() => fetchUsersByCategory('admin')}
+                            />
+                            <StatCard
+                                icon={faChalkboardTeacher}
+                                title="Teachers"
+                                value={stats.teacherCount}
+                                color="#34C759"
+                                onPress={() => fetchUsersByCategory('teacher')}
+                            />
+                            <StatCard
+                                icon={faUserGraduate}
+                                title="Students"
+                                value={stats.studentCount}
+                                color="#5856D6"
+                                onPress={() => fetchUsersByCategory('student')}
+                            />
+                            <StatCard
+                                icon={faChild}
+                                title="Parents"
+                                value={stats.parentCount}
+                                color="#FF9500"
+                                onPress={() => fetchUsersByCategory('parent')}
+                            />
+                        </>
+                    )}
                 </View>
             </View>
 
@@ -430,48 +434,54 @@ export default function DashboardScreen({ navigation }) {
                 <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Content & Activity</Text>
                 <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Track classes, announcements, and school activities</Text>
                 <View style={styles.statsGrid}>
-                    <StatCard
-                        icon={faBookOpen}
-                        title="Classes"
-                        value={stats.totalClasses}
-                        color="#007AFF"
-                        onPress={() => fetchClasses()}
-                    />
-                    <StatCard
-                        icon={faBullhorn}
-                        title="Announcements"
-                        value={stats.totalAnnouncements}
-                        color="#FF3B30"
-                        onPress={() => fetchContentByType('announcements')}
-                    />
-                    <StatCard
-                        icon={faClipboardList}
-                        title="Homework"
-                        value={stats.totalHomework}
-                        color="#34C759"
-                        onPress={() => fetchContentByType('homework')}
-                    />
-                    <StatCard
-                        icon={faClipboardList}
-                        title="Assignments"
-                        value={stats.totalAssignments}
-                        color="#5856D6"
-                        onPress={() => fetchContentByType('assignments')}
-                    />
-                    <StatCard
-                        icon={faPoll}
-                        title="Active Polls"
-                        value={stats.activePolls}
-                        color="#FF9500"
-                        onPress={() => fetchContentByType('polls')}
-                    />
-                    <StatCard
-                        icon={faShoppingCart}
-                        title="Marketplace"
-                        value={stats.totalMarketItems}
-                        color="#FF2D55"
-                        onPress={() => fetchContentByType('market')}
-                    />
+                    {loading ? (
+                        [1, 2, 3, 4, 5, 6].map((item) => <StatCardSkeleton key={item} />)
+                    ) : (
+                        <>
+                            <StatCard
+                                icon={faBookOpen}
+                                title="Classes"
+                                value={stats.totalClasses}
+                                color="#007AFF"
+                                onPress={() => fetchClasses()}
+                            />
+                            <StatCard
+                                icon={faBullhorn}
+                                title="Announcements"
+                                value={stats.totalAnnouncements}
+                                color="#FF3B30"
+                                onPress={() => fetchContentByType('announcements')}
+                            />
+                            <StatCard
+                                icon={faClipboardList}
+                                title="Homework"
+                                value={stats.totalHomework}
+                                color="#34C759"
+                                onPress={() => fetchContentByType('homework')}
+                            />
+                            <StatCard
+                                icon={faClipboardList}
+                                title="Assignments"
+                                value={stats.totalAssignments}
+                                color="#5856D6"
+                                onPress={() => fetchContentByType('assignments')}
+                            />
+                            <StatCard
+                                icon={faPoll}
+                                title="Active Polls"
+                                value={stats.activePolls}
+                                color="#FF9500"
+                                onPress={() => fetchContentByType('polls')}
+                            />
+                            <StatCard
+                                icon={faShoppingCart}
+                                title="Marketplace"
+                                value={stats.totalMarketItems}
+                                color="#FF2D55"
+                                onPress={() => fetchContentByType('market')}
+                            />
+                        </>
+                    )}
                 </View>
             </View>
 
@@ -480,60 +490,66 @@ export default function DashboardScreen({ navigation }) {
                 <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Quick Actions</Text>
                 <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Quickly create and manage school content</Text>
                 <View style={styles.actionsContainer}>
-                    <QuickActionButton
-                        icon={faBullhorn}
-                        title="New Announcement"
-                        onPress={() => navigation.navigate('CreateAnnouncement', { fromDashboard: true })}
-                        color="#FF3B30"
-                    />
-                    <QuickActionButton
-                        icon={faBookOpen}
-                        title="New Homework"
-                        onPress={() => navigation.navigate('CreateHomework', { fromDashboard: true })}
-                        color="#34C759"
-                    />
-                    <QuickActionButton
-                        icon={faClipboardList}
-                        title="New Assignment"
-                        onPress={() => navigation.navigate('CreateAssignment', { fromDashboard: true })}
-                        color="#5856D6"
-                    />
-                    <QuickActionButton
-                        icon={faPoll}
-                        title="New Poll"
-                        onPress={() => navigation.navigate('CreatePoll', { fromDashboard: true })}
-                        color="#FF9500"
-                    />
-                    <QuickActionButton
-                        icon={faShoppingCart}
-                        title="List Item"
-                        onPress={() => navigation.navigate('CreateMarketplaceItem', { fromDashboard: true })}
-                        color="#FF2D55"
-                    />
-                    <QuickActionButton
-                        icon={faChalkboardTeacher}
-                        title="New Class"
-                        onPress={() => navigation.navigate('CreateClass', { fromDashboard: true })}
-                        color="#007AFF"
-                    />
-                    <QuickActionButton
-                        icon={faUsers}
-                        title="Manage Users"
-                        onPress={() => navigation.navigate('UserManagement', { fromDashboard: true })}
-                        color="#5856D6"
-                    />
-                    <QuickActionButton
-                        icon={faChartLine}
-                        title="School Data"
-                        onPress={() => navigation.navigate('SchoolData', { fromDashboard: true })}
-                        color="#FF9500"
-                    />
-                    <QuickActionButton
-                        icon={faComments}
-                        title="Messages"
-                        onPress={() => navigation.navigate('ChatList')}
-                        color="#007AFF"
-                    />
+                    {loading ? (
+                        [1, 2, 3, 4, 5, 6, 7, 8, 9].map((item) => <ActionButtonSkeleton key={item} />)
+                    ) : (
+                        <>
+                            <QuickActionButton
+                                icon={faBullhorn}
+                                title="New Announcement"
+                                onPress={() => navigation.navigate('CreateAnnouncement', { fromDashboard: true })}
+                                color="#FF3B30"
+                            />
+                            <QuickActionButton
+                                icon={faBookOpen}
+                                title="New Homework"
+                                onPress={() => navigation.navigate('CreateHomework', { fromDashboard: true })}
+                                color="#34C759"
+                            />
+                            <QuickActionButton
+                                icon={faClipboardList}
+                                title="New Assignment"
+                                onPress={() => navigation.navigate('CreateAssignment', { fromDashboard: true })}
+                                color="#5856D6"
+                            />
+                            <QuickActionButton
+                                icon={faPoll}
+                                title="New Poll"
+                                onPress={() => navigation.navigate('CreatePoll', { fromDashboard: true })}
+                                color="#FF9500"
+                            />
+                            <QuickActionButton
+                                icon={faShoppingCart}
+                                title="List Item"
+                                onPress={() => navigation.navigate('CreateMarketplaceItem', { fromDashboard: true })}
+                                color="#FF2D55"
+                            />
+                            <QuickActionButton
+                                icon={faChalkboardTeacher}
+                                title="New Class"
+                                onPress={() => navigation.navigate('CreateClass', { fromDashboard: true })}
+                                color="#007AFF"
+                            />
+                            <QuickActionButton
+                                icon={faUsers}
+                                title="Manage Users"
+                                onPress={() => navigation.navigate('UserManagement', { fromDashboard: true })}
+                                color="#5856D6"
+                            />
+                            <QuickActionButton
+                                icon={faChartLine}
+                                title="School Data"
+                                onPress={() => navigation.navigate('SchoolData', { fromDashboard: true })}
+                                color="#FF9500"
+                            />
+                            <QuickActionButton
+                                icon={faComments}
+                                title="Messages"
+                                onPress={() => navigation.navigate('ChatList')}
+                                color="#007AFF"
+                            />
+                        </>
+                    )}
                 </View>
             </View>
             <UserListModal

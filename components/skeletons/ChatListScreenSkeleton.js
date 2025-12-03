@@ -21,7 +21,7 @@ const SkeletonPiece = ({ style }) => {
     return <Animated.View style={[styles.skeleton, { backgroundColor: theme.colors.textSecondary }, animatedStyle, style]} />;
 };
 
-const ChatListItemSkeleton = () => {
+export const ChatListItemSkeleton = () => {
     const { theme } = useTheme();
     return (
         <View style={[styles.itemContainer, { backgroundColor: theme.colors.surface }]}>

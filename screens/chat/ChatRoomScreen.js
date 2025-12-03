@@ -745,8 +745,25 @@ export default function ChatRoomScreen({ route, navigation }) {
 
                 {/* Typing Indicator */}
                 {Object.keys(typingUsers).length > 0 && (
-                    <View style={{ position: 'absolute', top: -20, left: 20 }}>
-                        <Text style={{ fontSize: 10, color: theme.colors.textSecondary, fontStyle: 'italic' }}>
+                    <View style={{
+                        position: 'absolute',
+                        top: -45,
+                        left: 20,
+                        backgroundColor: theme.colors.surface,
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        borderRadius: 20,
+                        borderBottomLeftRadius: 4,
+                        borderWidth: 1,
+                        borderColor: theme.colors.border,
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 2,
+                        elevation: 2,
+                        zIndex: 10
+                    }}>
+                        <Text style={{ fontSize: 12, color: theme.colors.textSecondary, fontStyle: 'italic' }}>
                             {Object.values(typingUsers).map(u => u.fullName).join(', ')} is typing...
                         </Text>
                     </View>

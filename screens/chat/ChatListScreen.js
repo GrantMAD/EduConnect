@@ -8,7 +8,7 @@ import { faPlus, faUser, faUsers, faChalkboard, faComments } from '@fortawesome/
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ChatListScreenSkeleton from '../../components/skeletons/ChatListScreenSkeleton';
+import { ChatListItemSkeleton } from '../../components/skeletons/ChatListScreenSkeleton';
 
 const defaultUserImage = require('../../assets/user.png');
 
@@ -135,16 +135,14 @@ export default function ChatListScreen({ navigation }) {
         return Array.from(map.values());
     }, [channels]);
 
-    if (loading) {
-        return <ChatListScreenSkeleton />;
-    }
+
 
     return (
         <View style={[styles.container, { backgroundColor: theme.dark ? theme.colors.background : '#F5F5F5' }]}>
             <FlatList
-                data={uniqueChannels}
-                keyExtractor={item => item.id}
-                renderItem={renderItem}
+                data={loading ? [1, 2, 3, 4, 5, 6, 7, 8] : uniqueChannels}
+                keyExtractor={item => typeof item === 'number' ? item.toString() : item.id}
+                renderItem={loading ? () => <ChatListItemSkeleton /> : renderItem}
                 contentContainerStyle={[styles.listContent, { paddingBottom: 80 + insets.bottom }]}
                 ListHeaderComponent={
                     <View style={{ marginBottom: 20 }}>
@@ -160,9 +158,11 @@ export default function ChatListScreen({ navigation }) {
                     </View>
                 }
                 ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No chats yet. Start a conversation!</Text>
-                    </View>
+                    !loading && (
+                        <View style={styles.emptyContainer}>
+                            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No chats yet. Start a conversation!</Text>
+                        </View>
+                    )
                 }
             />
 

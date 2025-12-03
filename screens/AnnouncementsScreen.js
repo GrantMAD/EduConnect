@@ -156,8 +156,6 @@ export default function AnnouncementsScreen({ navigation }) {
     }
   };
 
-
-
   const fetchAnnouncements = async () => {
     if (!schoolId) {
       setLoading(false);
@@ -196,8 +194,6 @@ export default function AnnouncementsScreen({ navigation }) {
       setRefreshing(false);
     }
   };
-
-
 
   const onRefresh = React.useCallback(async () => {
 
@@ -311,9 +307,11 @@ export default function AnnouncementsScreen({ navigation }) {
                 item.class?.name && (
                   <View>
                     <View style={[styles.separator, { backgroundColor: theme.colors.cardBorder }]} />
-                    <View style={styles.classLabelContainer}>
-                      <FontAwesomeIcon icon={faUsers} size={12} color={theme.colors.placeholder} />
-                      <Text style={[styles.classLabel, { color: theme.colors.placeholder }]}>For class: {item.class.name}</Text>
+                    <View style={[styles.classBadge, { backgroundColor: theme.colors.inputBackground }]}>
+                      <FontAwesomeIcon icon={faUsers} size={12} color={theme.colors.primary} />
+                      <Text style={[styles.classBadgeText, { color: theme.colors.primary }]}>
+                        {item.class.name}
+                      </Text>
                     </View>
                   </View>
                 )
@@ -488,5 +486,24 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: 'center',
     marginTop: 20,
+  },
+  classBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+
+    borderRadius: 20,
+    marginTop: 5,
+
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  classBadgeText: {
+    fontSize: 12,
+    marginLeft: 6,
+    fontWeight: '600',
   },
 });

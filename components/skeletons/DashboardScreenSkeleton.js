@@ -21,6 +21,37 @@ const SkeletonPiece = ({ style }) => {
     return <Animated.View style={[styles.skeleton, { backgroundColor: theme.colors.cardBorder }, animatedStyle, style]} />;
 };
 
+export const StatCardSkeleton = () => {
+    const { theme } = useTheme();
+    return (
+        <View
+            style={[
+                styles.statCard,
+                { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }
+            ]}
+        >
+            <SkeletonPiece style={{ width: 48, height: 48, borderRadius: 24, marginBottom: 12 }} />
+            <SkeletonPiece style={{ width: 60, height: 28, borderRadius: 4, marginBottom: 4 }} />
+            <SkeletonPiece style={{ width: 80, height: 14, borderRadius: 4 }} />
+        </View>
+    );
+};
+
+export const ActionButtonSkeleton = () => {
+    const { theme } = useTheme();
+    return (
+        <View
+            style={[
+                styles.actionButton,
+                { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }
+            ]}
+        >
+            <SkeletonPiece style={{ width: 20, height: 20, borderRadius: 4, marginRight: 8 }} />
+            <SkeletonPiece style={{ width: 100, height: 14, borderRadius: 4 }} />
+        </View>
+    );
+};
+
 const DashboardScreenSkeleton = () => {
     const { theme } = useTheme();
 
