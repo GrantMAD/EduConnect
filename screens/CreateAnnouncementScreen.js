@@ -83,6 +83,9 @@ export default function CreateAnnouncementScreen({ route }) {
         if (!usersError) {
           const newAnnouncementData = newAnnouncements[0];
           const recipients = users.filter(u => {
+            // Exclude the creator
+            if (u.id === user.id) return false;
+            // Check notification preferences
             const prefs = u.notification_preferences;
             return !prefs || prefs.announcements !== false;
           });
@@ -128,6 +131,9 @@ export default function CreateAnnouncementScreen({ route }) {
 
           if (recipientsData) {
             const finalRecipients = recipientsData.filter(u => {
+              // Exclude the creator
+              if (u.id === user.id) return false;
+              // Check notification preferences
               const prefs = u.notification_preferences;
               return !prefs || prefs.announcements !== false;
             });

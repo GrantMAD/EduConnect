@@ -14,6 +14,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
 import { useGamification } from '../../context/GamificationContext';
+import { usePushNotification } from '../../context/PushNotificationContext';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
 import AnimatedAvatarBorder from '../AnimatedAvatarBorder';
 
@@ -31,6 +32,7 @@ const CustomDrawerContent = (props) => {
     const [signingOut, setSigningOut] = useState(false);
     const { theme } = useTheme();
     const { equippedItem } = useGamification();
+    const { clearPushToken } = usePushNotification();
 
     const insets = useSafeAreaInsets();
 
@@ -249,7 +251,10 @@ const CustomDrawerContent = (props) => {
                     onPress={async () => {
                         setSigningOut(true);
                         try {
-                            const { data: { user } } = await supabase.auth.getUser();
+                            // Clear push token BEFORE signing out to prevent cross-user notifications
+                            await clearPushToken();
+
+                            // Then sign out
                             await supabase.auth.signOut();
                         } catch (error) {
                             console.error('Sign out error:', error);

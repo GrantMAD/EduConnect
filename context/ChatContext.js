@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useToast } from './ToastContext';
 
@@ -12,15 +13,81 @@ export const ChatProvider = ({ children, session }) => {
   const [messages, setMessages] = useState({});
   const [loading, setLoading] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState({}); // Track loading per channel
+  const [userProfile, setUserProfile] = useState(null); // Store user profile
   const { showToast } = useToast();
   const subscriptions = useRef({});
 
   const user = session?.user;
+  const channelsRef = useRef([]);
 
-  // Fetch channels on mount
+  // Keep ref in sync with channels state
+  useEffect(() => {
+    channelsRef.current = channels;
+  }, [channels]);
+
+  // Fetch user profile on mount
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (user) {
+        try {
+          const { data, error } = await supabase
+            .from('users')
+            .select('full_name')
+            .eq('id', user.id)
+            .single();
+
+          if (data) {
+            setUserProfile(data);
+          }
+        } catch (e) {
+          console.error('Error fetching user profile:', e);
+        }
+      }
+    };
+    fetchUserProfile();
+  }, [user]);
+
+  // Fetch channels on mount and when app becomes active
   useEffect(() => {
     if (user) {
       fetchChannels();
+
+      // Listen for app state changes
+      const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+        if (nextAppState === 'active') {
+          // Refresh channels when app becomes active
+          fetchChannels();
+        }
+      });
+
+      // Global real-time subscription for new messages in any channel
+      const globalMessageSubscription = supabase
+        .channel('global-messages')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+          },
+          async (payload) => {
+            const newMessage = payload.new;
+
+            // Use ref to access current channels without causing re-renders
+            const userChannel = channelsRef.current.find(c => c.id === newMessage.channel_id);
+
+            if (userChannel && newMessage.sender_id !== user.id) {
+              // Refresh channels to update unread count
+              fetchChannels();
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        appStateSubscription.remove();
+        supabase.removeChannel(globalMessageSubscription);
+      };
     } else {
       setChannels([]);
       setMessages({});
@@ -507,7 +574,10 @@ export const ChatProvider = ({ children, session }) => {
         await subscriptions.current[channelId].send({
           type: 'broadcast',
           event: 'typing',
-          payload: { userId: user.id, fullName: user.user_metadata?.full_name || 'Someone' }
+          payload: {
+            userId: user.id,
+            fullName: userProfile?.full_name || user.user_metadata?.full_name || 'Someone'
+          }
         });
       }
     } catch (error) {

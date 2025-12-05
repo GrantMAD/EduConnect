@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, TouchableOpacity, Text, Animated, Alert, ScrollView, Image } from 'react-native';
+import { View, TouchableOpacity, Text, Animated, Alert, ScrollView, Image, AppState } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faBars, faBell, faComments } from '@fortawesome/free-solid-svg-icons';
@@ -68,12 +68,20 @@ const CustomHeader = ({ navigation, showActions = false }) => {
         )
         .subscribe();
     };
-    // ... (existing fetchNotifications)
 
     fetchNotifications();
 
+    // Listen for app state changes (when app comes to foreground)
+    const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        // Refresh notifications when app becomes active (e.g., from push notification tap)
+        fetchNotifications();
+      }
+    });
+
     return () => {
       if (subscription) supabase.removeChannel(subscription);
+      appStateSubscription.remove();
     };
   }, []);
 

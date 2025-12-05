@@ -68,7 +68,7 @@ const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children, session }) => { // Accept session prop
   const colorScheme = useColorScheme(); // 'light' or 'dark'
-  const [isDarkTheme, setIsDarkTheme] = useState(colorScheme === 'dark');
+  const [isDarkTheme, setIsDarkTheme] = useState(false); // Default to light theme
   const [isThemeLoaded, setIsThemeLoaded] = useState(false); // New state to track if theme is loaded
 
   useEffect(() => {
@@ -105,11 +105,11 @@ export const ThemeProvider = ({ children, session }) => { // Accept session prop
         }
       }
 
-      // 3. Apply the determined theme, or fallback to system preference
+      // 3. Apply the determined theme, or fallback to light theme
       if (preferredTheme !== null) {
         setIsDarkTheme(preferredTheme === 'dark');
       } else {
-        setIsDarkTheme(colorScheme === 'dark');
+        setIsDarkTheme(false); // Default to light theme
       }
       setIsThemeLoaded(true);
     };
@@ -145,7 +145,7 @@ export const ThemeProvider = ({ children, session }) => { // Accept session prop
 
   // Only render children once theme is loaded to prevent flickering
   if (!isThemeLoaded) {
-    return null; 
+    return null;
   }
 
   return (

@@ -81,6 +81,16 @@ export default function NotificationsScreen({ route, navigation }) {
 
     if (!itemId) return;
 
+    // Mark notification as read when opening the modal
+    await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', notification.id);
+
+    setNotifications(prev =>
+      prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
+    );
+
     setModalLoading(true);
     setDetailModalVisible(true);
     setSelectedItemDetail(null);

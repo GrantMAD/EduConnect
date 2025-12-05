@@ -8,6 +8,7 @@ import {
   faCalendar, faStore, faTrophy, faUser, faLock
 } from '@fortawesome/free-solid-svg-icons';
 import { Switch } from 'react-native-paper';
+import * as Notifications from 'expo-notifications';
 import { useTheme } from '../context/ThemeContext';
 import { useNotificationPreferences } from '../context/NotificationPreferencesContext';
 import SettingsScreenSkeleton from '../components/skeletons/SettingsScreenSkeleton';
@@ -29,6 +30,7 @@ export default function SettingsScreen({ navigation }) {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [notificationPermissions, setNotificationPermissions] = useState(null);
 
   const { isDarkTheme, toggleTheme, theme } = useTheme();
   const { preferences, updatePreference } = useNotificationPreferences();
@@ -60,6 +62,13 @@ export default function SettingsScreen({ navigation }) {
     };
 
     fetchUser();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Notifications.getPermissionsAsync();
+      setNotificationPermissions(status);
+    })();
   }, []);
 
   const SettingRow = ({ icon, label, value, onValueChange, color }) => (
@@ -143,6 +152,14 @@ export default function SettingsScreen({ navigation }) {
         <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
           Control which notifications you receive
         </Text>
+
+        {notificationPermissions !== 'granted' && (
+          <View style={[styles.warningContainer, { backgroundColor: '#FFF3CD', borderColor: '#FFC107' }]}>
+            <Text style={[styles.warningText, { color: '#856404' }]}>
+              ⚠️ Push notifications are not enabled. Please enable them in your device settings to receive notifications.
+            </Text>
+          </View>
+        )}
 
         <SettingRow
           icon={faBell}
@@ -384,5 +401,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     marginTop: 16,
+  },
+  warningContainer: {
+    padding: 15,
+    marginBottom: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  warningText: {
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

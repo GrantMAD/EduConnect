@@ -10,6 +10,7 @@ import { SchoolProvider } from './context/SchoolContext';
 import { GamificationProvider } from './context/GamificationContext';
 import { NotificationPreferencesProvider } from './context/NotificationPreferencesContext';
 import { ChatProvider } from './context/ChatContext';
+import { PushNotificationProvider } from './context/PushNotificationContext';
 import { supabase } from './lib/supabase';
 
 import AuthNavigation from './navigation/AuthNavigation';
@@ -71,20 +72,22 @@ export default function App() {
 
   return (
     <ThemeProvider session={session}>
-      <ToastProvider>
-        <NotificationPreferencesProvider>
-          <NavigationContainer>
-            <StatusBar style="auto" />
-            <SchoolProvider>
-              <GamificationProvider session={session}>
-                <ChatProvider session={session}>
-                  {session ? <AppStack /> : <AuthStack />}
-                </ChatProvider>
-              </GamificationProvider>
-            </SchoolProvider>
-          </NavigationContainer>
-        </NotificationPreferencesProvider>
-      </ToastProvider>
+      <PushNotificationProvider>
+        <ToastProvider>
+          <NotificationPreferencesProvider>
+            <NavigationContainer>
+              <StatusBar style="auto" />
+              <SchoolProvider>
+                <GamificationProvider session={session}>
+                  <ChatProvider session={session}>
+                    {session ? <AppStack /> : <AuthStack />}
+                  </ChatProvider>
+                </GamificationProvider>
+              </SchoolProvider>
+            </NavigationContainer>
+          </NotificationPreferencesProvider>
+        </ToastProvider>
+      </PushNotificationProvider>
     </ThemeProvider>
   );
 }

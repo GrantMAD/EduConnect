@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useNavigation } from '@react-navigation/native';
+import { usePushNotification } from '../../context/PushNotificationContext';
 
 const AuthGate = () => {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
+  const { registerForPushNotificationsAsync } = usePushNotification();
 
   useEffect(() => {
     const checkSchoolId = async () => {
@@ -33,6 +35,8 @@ const AuthGate = () => {
 
         if (userProfile) {
           if (userProfile.school_id) {
+            // Register for push notifications before navigating to main app
+            await registerForPushNotificationsAsync();
             navigation.replace('MainNavigation');
           } else if (userProfile.role !== 'user') {
             navigation.replace('SchoolSetup');
