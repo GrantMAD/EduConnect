@@ -16,7 +16,7 @@ import ReactNativeBlobUtil from 'react-native-blob-util';
 import { useToast } from '../context/ToastContext';
 import { useGamification } from '../context/GamificationContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faArrowLeft, faCloudUploadAlt, faFileAlt, faSave, faCalendarAlt, faBook, faAlignLeft } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faChevronLeft, faCloudUploadAlt, faFileAlt, faSave, faCalendarAlt, faBook, faAlignLeft } from '@fortawesome/free-solid-svg-icons';
 import CreateAssignmentScreenSkeleton from '../components/skeletons/CreateAssignmentScreenSkeleton';
 import { useTheme } from '../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -221,12 +221,13 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} contentContainerStyle={{ paddingBottom: 50 + insets.bottom }}>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.topBackButton}>
+        <FontAwesomeIcon icon={faChevronLeft} size={16} color={theme.colors.primary} />
+        <Text style={[styles.backText, { color: theme.colors.primary }]}>Back</Text>
+      </TouchableOpacity>
+
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <FontAwesomeIcon icon={faArrowLeft} size={20} color={theme.colors.primary} />
-        </TouchableOpacity>
         <Text style={[styles.title, { color: theme.colors.text }]}>New Assignment</Text>
-        <View style={{ width: 20 }} />
       </View>
 
       <Text style={[styles.screenDescription, { color: theme.colors.placeholder }]}>
@@ -343,10 +344,21 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   header: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  topBackButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: 10,
+    alignSelf: 'flex-start',
+    padding: 5,
+  },
+  backText: {
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '500',
   },
   title: {
     fontSize: 24,
@@ -432,9 +444,7 @@ const styles = StyleSheet.create({
   calendar: {
     marginBottom: 10,
   },
-  backButton: {
-    padding: 5,
-  },
+
 });
 
 export default CreateAssignmentScreen;

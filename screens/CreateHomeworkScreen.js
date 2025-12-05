@@ -161,13 +161,15 @@ export default function CreateHomeworkScreen({ route }) {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} contentContainerStyle={{ paddingBottom: 40 + insets.bottom }}>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.topBackButton}>
+        <FontAwesomeIcon icon={faChevronLeft} size={16} color={theme.colors.primary} />
+        <Text style={[styles.backText, { color: theme.colors.primary }]}>Back</Text>
+      </TouchableOpacity>
+
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <FontAwesomeIcon icon={faChevronLeft} size={20} color={theme.colors.primary} />
-        </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>New Homework</Text>
-        <View style={{ width: 20 }} />
       </View>
+      <Text style={[styles.screenDescription, { color: theme.colors.text }]}>Fill in the details below to assign new homework to your class.</Text>
 
       <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
         <Text style={[styles.label, { color: theme.colors.text }]}>Select Class</Text>
@@ -303,17 +305,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   header: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     marginBottom: 20,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  backButton: {
+  topBackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    alignSelf: 'flex-start',
     padding: 5,
+  },
+  backText: {
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '500',
   },
   inputGroup: {
     marginBottom: 20,
