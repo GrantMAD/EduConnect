@@ -183,7 +183,7 @@ export const GamificationProvider = ({ children, session }) => {
                 .subscribe();
 
             return () => {
-                subscription.unsubscribe();
+                supabase.removeChannel(subscription);
             };
         }
     }, [session, fetchGamificationState, showToast]);

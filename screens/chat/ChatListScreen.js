@@ -140,7 +140,7 @@ export default function ChatListScreen({ navigation }) {
     return (
         <View style={[styles.container, { backgroundColor: theme.dark ? theme.colors.background : '#F5F5F5' }]}>
             <FlatList
-                data={loading ? [1, 2, 3, 4, 5, 6, 7, 8] : uniqueChannels}
+                data={loading ? [1, 2, 3, 4, 5] : uniqueChannels}
                 keyExtractor={item => typeof item === 'number' ? item.toString() : item.id}
                 renderItem={loading ? () => <ChatListItemSkeleton /> : renderItem}
                 contentContainerStyle={[styles.listContent, { paddingBottom: 80 + insets.bottom }]}

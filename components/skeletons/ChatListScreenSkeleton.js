@@ -24,7 +24,17 @@ const SkeletonPiece = ({ style }) => {
 export const ChatListItemSkeleton = () => {
     const { theme } = useTheme();
     return (
-        <View style={[styles.itemContainer, { backgroundColor: theme.colors.surface }]}>
+        <View style={[
+            styles.itemContainer,
+            {
+                backgroundColor: theme.colors.surface,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.15,
+                shadowRadius: 3,
+                elevation: 3
+            }
+        ]}>
             <SkeletonPiece style={styles.avatar} />
             <View style={styles.contentContainer}>
                 <View style={styles.headerRow}>

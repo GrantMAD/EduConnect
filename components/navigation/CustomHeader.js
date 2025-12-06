@@ -33,53 +33,66 @@ const CustomHeader = ({ navigation, showActions = false }) => {
     }
   }, [hasUnread, unreadCount]);
   useEffect(() => {
-    let subscription;
+    let isMounted = true;
+    let subscription = null;
+
     const fetchNotifications = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || !isMounted) return;
 
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        const { data } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
 
-      if (data) {
-        setNotifications(data);
-        setHasUnread(data.some(n => !n.is_read));
+        if (isMounted && data) {
+          setNotifications(data);
+          setHasUnread(data.some(n => !n.is_read));
+        }
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
       }
-
-      subscription = supabase
-        .channel('notifications-channel')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
-          async () => {
-            const { data: newData } = await supabase
-              .from('notifications')
-              .select('*')
-              .eq('user_id', user.id)
-              .order('created_at', { ascending: false });
-            if (newData) {
-              setNotifications(newData);
-              setHasUnread(newData.some(n => !n.is_read));
-            }
-          }
-        )
-        .subscribe();
     };
 
+    const setupSubscription = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || !isMounted) return;
+
+        const uniqueChannelId = `notifications-header-${user.id}-${Math.random().toString(36).substr(2, 9)}`;
+        subscription = supabase
+          .channel(uniqueChannelId)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+            () => {
+              // Re-fetch when ANY notification change happens
+              fetchNotifications();
+            }
+          )
+          .subscribe();
+      } catch (error) {
+        console.error('Error setting up subscription:', error);
+      }
+    };
+
+    // Initial load
     fetchNotifications();
+    setupSubscription();
 
     // Listen for app state changes (when app comes to foreground)
     const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
         // Refresh notifications when app becomes active (e.g., from push notification tap)
+        // ONLY fetch data, do NOT re-subscribe
         fetchNotifications();
       }
     });
 
     return () => {
+      isMounted = false;
       if (subscription) supabase.removeChannel(subscription);
       appStateSubscription.remove();
     };
