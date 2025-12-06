@@ -1,9 +1,11 @@
-import React from 'react';
-import { View } from 'react-native';
+import React, { useRef, useCallback } from 'react';
+import { View, BackHandler, Platform } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faBullhorn, faCalendar, faBookOpen, faStore } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
+import { useFocusEffect } from '@react-navigation/native';
+import { useToast } from '../context/ToastContext';
 
 import AnnouncementsScreen from '../screens/AnnouncementsScreen';
 import CalendarScreen from '../screens/CalendarScreen';
@@ -17,6 +19,30 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const HomeTabs = () => {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
+    const { showToast } = useToast();
+    const lastBackPress = useRef(0);
+
+    useFocusEffect(
+        useCallback(() => {
+            const onBackPress = () => {
+                if (Platform.OS !== 'android') return false;
+
+                const now = Date.now();
+                if (now - lastBackPress.current < 2000) {
+                    BackHandler.exitApp();
+                    return true;
+                }
+
+                lastBackPress.current = now;
+                showToast('Press back again to exit', 'default', 2000);
+                return true;
+            };
+
+            const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+            return () => subscription.remove();
+        }, [showToast])
+    );
 
     const TabButton = ({ focused, children }) => (
         <View style={{

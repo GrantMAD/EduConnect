@@ -172,6 +172,9 @@ export default function CreateAnnouncementScreen({ route }) {
       </TouchableOpacity>
 
       <Text style={[styles.headerTitle, { color: theme.colors.text }]}>New Announcement</Text>
+      <Text style={{ fontSize: 14, color: theme.colors.textSecondary || theme.colors.placeholder, marginBottom: 20, marginTop: -15 }}>
+        Create a new announcement for the school or a specific class.
+      </Text>
 
       <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
         <Text style={[styles.label, { color: theme.colors.text }]}>Title</Text>
