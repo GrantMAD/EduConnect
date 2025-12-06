@@ -62,11 +62,44 @@ export default function CreatePollScreen({ navigation, route }) {
         is_active: true,
       };
 
-      const { error } = await supabase
+      const { data: newPoll, error } = await supabase
         .from('polls')
-        .insert([pollData]);
+        .insert([pollData])
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Notification Logic
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('id, notification_preferences')
+        .eq('school_id', schoolId);
+
+      if (!usersError) {
+        const recipients = users.filter(u => {
+          // Exclude the creator
+          if (u.id === user.id) return false;
+          // Check notification preferences
+          const prefs = u.notification_preferences;
+          // Assuming there's a specific preference for 'polls', or falling back to a general one?
+          return !prefs || prefs.polls !== false;
+        });
+
+        const notifications = recipients.map(u => ({
+          user_id: u.id,
+          type: 'new_poll',
+          title: 'New Poll Available',
+          message: `A new poll has been created: "${question}"`,
+          data: { poll_id: newPoll.id }
+        }));
+
+        if (notifications.length > 0) {
+          await supabase.from('notifications').insert(notifications);
+        }
+      }
+
+
 
       awardXP('content_creation', 15);
       Alert.alert('Success', 'Poll created successfully! +15 XP');
