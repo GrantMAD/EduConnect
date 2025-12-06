@@ -1,6 +1,13 @@
 import React from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
+import Animated,
+{
+    useSharedValue,
+    useAnimatedStyle,
+    withRepeat,
+    withTiming,
+    interpolate,
+} from 'react-native-reanimated';
 import { useTheme } from '../../context/ThemeContext';
 
 const SkeletonPiece = ({ style }) => {
@@ -8,53 +15,117 @@ const SkeletonPiece = ({ style }) => {
     const { theme } = useTheme();
 
     React.useEffect(() => {
-        progress.value = withRepeat(withTiming(1, { duration: 1000 }), -1, true);
+        progress.value = withRepeat(
+            withTiming(1, { duration: 1000 + Math.random() * 300 }),
+            -1,
+            true
+        );
     }, []);
 
     const animatedStyle = useAnimatedStyle(() => {
         const opacity = interpolate(progress.value, [0, 1], [0.3, 0.7]);
-        return {
-            opacity,
-        };
+        return { opacity };
     });
 
-    return <Animated.View style={[styles.skeleton, { backgroundColor: theme.colors.textSecondary }, animatedStyle, style]} />;
+    return (
+        <Animated.View
+            style={[
+                {
+                    backgroundColor: theme.dark
+                        ? 'rgba(255,255,255,0.12)'
+                        : 'rgba(0,0,0,0.08)',
+                },
+                styles.skeleton,
+                animatedStyle,
+                style,
+            ]}
+        />
+    );
 };
 
 export const ChatListItemSkeleton = () => {
     const { theme } = useTheme();
-    return (
-        <View style={[
-            styles.itemContainer,
+
+    /** Fade-in animation */
+    const fade = useSharedValue(0);
+
+    React.useEffect(() => {
+        fade.value = withTiming(1, { duration: 350 });
+    }, []);
+
+    const fadeStyle = useAnimatedStyle(() => ({
+        opacity: fade.value,
+        transform: [
             {
-                backgroundColor: theme.colors.surface,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.15,
-                shadowRadius: 3,
-                elevation: 3
-            }
-        ]}>
-            <SkeletonPiece style={styles.avatar} />
+                translateY: interpolate(fade.value, [0, 1], [8, 0]),
+            },
+        ],
+    }));
+
+    return (
+        <Animated.View
+            style={[
+                styles.itemContainer,
+                fadeStyle,
+                {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.dark
+                        ? 'rgba(255,255,255,0.05)'
+                        : 'rgba(0,0,0,0.05)',
+                },
+            ]}
+        >
+            {/* Avatar Container */}
+            <View
+                style={[
+                    styles.iconContainer,
+                    { backgroundColor: theme.colors.primary + '20' },
+                ]}
+            >
+                <SkeletonPiece style={styles.avatar} />
+            </View>
+
+            {/* Content */}
             <View style={styles.contentContainer}>
+
+                {/* Header */}
                 <View style={styles.headerRow}>
                     <SkeletonPiece style={styles.name} />
-                    <SkeletonPiece style={styles.time} />
+
+                    <View style={styles.rightHeader}>
+                        <SkeletonPiece style={styles.newBadge} />
+                        <SkeletonPiece style={styles.time} />
+                    </View>
                 </View>
+
+                {/* Message lines */}
                 <SkeletonPiece style={styles.message} />
+                <SkeletonPiece style={styles.messageLine2} />
             </View>
-        </View>
+        </Animated.View>
     );
 };
 
 const ChatListScreenSkeleton = () => {
     const { theme } = useTheme();
+
     return (
-        <View style={[styles.container, { backgroundColor: theme.dark ? theme.colors.background : '#F5F5F5' }]}>
-            <View style={styles.header}>
+        <View
+            style={[
+                styles.container,
+                {
+                    backgroundColor: theme.dark
+                        ? theme.colors.background
+                        : '#F5F5F5',
+                },
+            ]}
+        >
+            {/* Header */}
+            <View style={styles.screenHeader}>
                 <SkeletonPiece style={styles.headerIcon} />
                 <SkeletonPiece style={styles.headerTitle} />
             </View>
+
             <SkeletonPiece style={styles.headerSubtitle} />
 
             <FlatList
@@ -73,20 +144,22 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 16,
     },
-    header: {
+
+    /* Screen Header */
+    screenHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 10,
         marginTop: 10,
     },
     headerIcon: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
+        width: 26,
+        height: 26,
+        borderRadius: 13,
         marginRight: 10,
     },
     headerTitle: {
-        width: 150,
+        width: 180,
         height: 28,
         borderRadius: 4,
     },
@@ -96,48 +169,92 @@ const styles = StyleSheet.create({
         borderRadius: 4,
         marginBottom: 20,
     },
+
     listContent: {
         paddingBottom: 20,
     },
+
+    /* Skeleton Card */
     itemContainer: {
         flexDirection: 'row',
         padding: 12,
         borderRadius: 12,
-        marginBottom: 8,
+        marginBottom: 10,
         alignItems: 'center',
-        elevation: 2, // Slightly lower elevation for skeleton
+        borderWidth: 1,
+
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 2,
     },
-    avatar: {
+
+    /* Avatar */
+    iconContainer: {
         width: 50,
         height: 50,
         borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
         marginRight: 16,
     },
+    avatar: {
+        width: 46,
+        height: 46,
+        borderRadius: 23,
+    },
+
     contentContainer: {
         flex: 1,
     },
+
     headerRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: 8,
     },
+
     name: {
         width: '50%',
         height: 16,
         borderRadius: 4,
     },
+
+    rightHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+
+    newBadge: {
+        width: 35,
+        height: 14,
+        borderRadius: 4,
+        marginRight: 6,
+    },
+
     time: {
         width: 40,
         height: 12,
         borderRadius: 4,
     },
+
     message: {
         width: '80%',
         height: 14,
         borderRadius: 4,
+        marginBottom: 6,
     },
+    messageLine2: {
+        width: '60%',
+        height: 14,
+        borderRadius: 4,
+    },
+
     skeleton: {
-        // backgroundColor handled by theme and inline style
+        overflow: 'hidden',
     },
 });
 
