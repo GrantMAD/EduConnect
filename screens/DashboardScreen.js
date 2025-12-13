@@ -103,86 +103,70 @@ export default function DashboardScreen({ navigation }) {
 
     const fetchDashboardData = async () => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            if (!schoolId) {
+                showToast('School ID not found. Cannot load data.', 'error');
+                setLoading(false);
+                setRefreshing(false);
+                return;
+            }
 
-            // Execute all queries in parallel for 5-10x performance improvement
-            const [
-                totalUsersResult,
-                adminCountResult,
-                teacherCountResult,
-                studentCountResult,
-                parentCountResult,
-                classCountResult,
-                announcementCountResult,
-                homeworkCountResult,
-                assignmentCountResult,
-                pollsDataResult,
-                marketCountResult,
-                notificationCountResult
-            ] = await Promise.all([
-                // User statistics - use database aggregation instead of JavaScript filtering
-                supabase.from('users').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
-                supabase.from('users').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).eq('role', 'admin'),
-                supabase.from('users').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).eq('role', 'teacher'),
-                supabase.from('users').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).eq('role', 'student'),
-                supabase.from('users').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).eq('role', 'parent'),
+            // Use the corrected RPC function for all stats
+            const { data, error } = await supabase.rpc('get_dashboard_stats', { target_school_id: schoolId });
 
-                // Other counts
-                supabase.from('classes').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
-                supabase.from('announcements').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
-                supabase.from('homework').select('*', { count: 'exact', head: true }),
-                supabase.from('assignments').select('*', { count: 'exact', head: true }),
+            if (error) {
+                console.error('Error fetching dashboard stats via RPC:', error);
+                throw error;
+            }
 
-                // Polls - only fetch id and end_date for active poll calculation
-                supabase.from('polls').select('id, end_date').eq('school_id', schoolId),
+            if (data) {
+                // The RPC returns an object within an array, so we take the first element
+                const statsData = data || {};
+                 const { data: { user } } = await supabase.auth.getUser();
 
-                // Marketplace and notifications
-                supabase.from('marketplace_items').select('*', { count: 'exact', head: true }).eq('school_id', schoolId),
-                supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_read', false)
-            ]);
+                 const { count: unreadNotifications } = await supabase
+                    .from('notifications')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', user.id)
+                    .eq('is_read', false);
 
-            // Log any errors but don't fail the entire dashboard
-            if (totalUsersResult.error) console.error('Users query error:', totalUsersResult.error);
-            if (adminCountResult.error) console.error('Admin count error:', adminCountResult.error);
-            if (teacherCountResult.error) console.error('Teacher count error:', teacherCountResult.error);
-            if (studentCountResult.error) console.error('Student count error:', studentCountResult.error);
-            if (parentCountResult.error) console.error('Parent count error:', parentCountResult.error);
-            if (classCountResult.error) console.error('Classes query error:', classCountResult.error);
-            if (announcementCountResult.error) console.error('Announcements query error:', announcementCountResult.error);
-            if (homeworkCountResult.error) console.error('Homework query error (table may not exist):', homeworkCountResult.error);
-            if (assignmentCountResult.error) console.error('Assignments query error (table may not exist):', assignmentCountResult.error);
-            if (pollsDataResult.error) console.error('Polls query error:', pollsDataResult.error);
-            if (marketCountResult.error) console.error('Marketplace query error (table may not exist):', marketCountResult.error);
-            if (notificationCountResult.error) console.error('Notifications query error:', notificationCountResult.error);
+                const { count: totalAnnouncements } = await supabase
+                    .from('announcements')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('school_id', schoolId);
 
-            // Calculate active polls
-            const polls = pollsDataResult.data || [];
-            const now = new Date();
-            const activePolls = polls.filter(poll => poll.end_date && new Date(poll.end_date) > now).length;
+                const { count: totalHomework } = await supabase
+                    .from('homework')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('school_id', schoolId);
+                
+                const { count: totalMarketItems } = await supabase
+                    .from('marketplace_items')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('school_id', schoolId);
 
-            // Set all stats at once
-            setStats({
-                totalUsers: totalUsersResult.count || 0,
-                adminCount: adminCountResult.count || 0,
-                teacherCount: teacherCountResult.count || 0,
-                studentCount: studentCountResult.count || 0,
-                parentCount: parentCountResult.count || 0,
-                totalClasses: classCountResult.count || 0,
-                totalAnnouncements: announcementCountResult.count || 0,
-                totalHomework: homeworkCountResult.count || 0,
-                totalAssignments: assignmentCountResult.count || 0,
-                totalPolls: polls.length,
-                activePolls: activePolls,
-                totalMarketItems: marketCountResult.count || 0,
-                unreadNotifications: notificationCountResult.count || 0,
-            });
+                // Set all stats at once from the RPC data
+                setStats({
+                    totalUsers: statsData.totalUsers || 0,
+                    adminCount: statsData.adminCount || 0,
+                    teacherCount: statsData.teacherCount || 0,
+                    studentCount: statsData.studentCount || 0,
+                    parentCount: statsData.parentCount || 0,
+                    totalClasses: statsData.classCount || 0,
+                    totalAssignments: statsData.assignmentCount || 0,
+                    activePolls: statsData.pollCount || 0, // RPC returns all polls, might need adjustment if only active are desired
+                    // The following stats are not in the RPC, default to 0 or fetch separately if needed
+                    totalAnnouncements: totalAnnouncements || 0,
+                    totalHomework: totalHomework || 0,
+                    totalPolls: statsData.pollCount || 0,
+                    totalMarketItems: totalMarketItems || 0,
+                    unreadNotifications: unreadNotifications || 0,
+                });
+            }
 
-            setLoading(false);
-            setRefreshing(false);
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
             showToast(`Failed to load dashboard data: ${error.message || 'Unknown error'}`, 'error');
+        } finally {
             setLoading(false);
             setRefreshing(false);
         }
