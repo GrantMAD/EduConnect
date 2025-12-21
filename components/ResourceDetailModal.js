@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTimes, faUser, faCalendar, faFileAlt, faThumbsUp, faThumbsDown, faDownload } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faUser, faCalendar, faFileAlt, faThumbsUp, faThumbsDown, faDownload, faTrash, faEdit } from '@fortawesome/free-solid-svg-icons';
 import RNFetchBlob from 'rn-fetch-blob';
 import FileViewer from 'react-native-file-viewer';
 import { supabase } from '../lib/supabase';
 import { useGamification } from '../context/GamificationContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useToast } from '../context/ToastContext';
 
 const timeSince = (date) => {
   if (!date) return '';
@@ -25,7 +26,8 @@ const timeSince = (date) => {
   return Math.floor(seconds) + " seconds ago";
 };
 
-export default function ResourceDetailModal({ visible, onClose, resource, onVotesChanged }) {
+export default function ResourceDetailModal({ visible, onClose, resource, onVotesChanged, onResourceDeleted, onResourceUpdated, onEditPress }) {
+  const { showToast } = useToast();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
   const insets = useSafeAreaInsets();
@@ -34,6 +36,7 @@ export default function ResourceDetailModal({ visible, onClose, resource, onVote
   const [upvotes, setUpvotes] = useState(0);
   const [downvotes, setDownvotes] = useState(0);
   const [isVoting, setIsVoting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!resource) return;
@@ -101,6 +104,40 @@ export default function ResourceDetailModal({ visible, onClose, resource, onVote
 
     return () => { isMounted = false; };
   }, [visible, resource]);
+
+  const handleDelete = async () => {
+    Alert.alert(
+      "Delete Resource",
+      "Are you sure you want to delete this resource? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              const { error } = await supabase
+                .from('resources')
+                .delete()
+                .eq('id', resource.id);
+
+              if (error) throw error;
+
+              showToast('Resource deleted successfully', 'success');
+              if (onResourceDeleted) onResourceDeleted(resource.id);
+              onClose();
+            } catch (err) {
+              console.error('Delete failed:', err);
+              showToast('Failed to delete resource', 'error');
+            } finally {
+              setIsDeleting(false);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const castVote = async (voteValue) => {
     if (!userId || !resource || userVote !== null || isVoting) return; // Prevent re-voting
@@ -215,6 +252,27 @@ export default function ResourceDetailModal({ visible, onClose, resource, onVote
             <TouchableOpacity style={styles.openFileButton} onPress={() => handleOpenFile(resource.file_url)}>
               <FontAwesomeIcon icon={faDownload} size={18} color="#fff" style={{ marginRight: 10 }} />
               <Text style={styles.openFileButtonText}>View Attached File</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {userId === resource.uploaded_by && (
+          <View style={styles.ownerFooter}>
+            <TouchableOpacity 
+              style={styles.editButton} 
+              onPress={() => onEditPress(resource)}
+            >
+              <FontAwesomeIcon icon={faEdit} size={18} color="#007AFF" style={{ marginRight: 8 }} />
+              <Text style={styles.editButtonText}>Edit</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.deleteButtonSmall, isDeleting && { opacity: 0.7 }]} 
+              onPress={handleDelete}
+              disabled={isDeleting}
+            >
+              <FontAwesomeIcon icon={faTrash} size={18} color="#FF3B30" style={{ marginRight: 8 }} />
+              <Text style={styles.deleteButtonTextSmall}>Delete</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -343,6 +401,43 @@ const styles = StyleSheet.create({
   },
   openFileButtonText: {
     color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  ownerFooter: {
+    flexDirection: 'row',
+    paddingTop: 15,
+    gap: 12,
+  },
+  editButton: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  editButtonText: {
+    color: '#007AFF',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  deleteButtonSmall: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FF3B30',
+  },
+  deleteButtonTextSmall: {
+    color: '#FF3B30',
     fontWeight: '700',
     fontSize: 16,
   },

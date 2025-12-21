@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, Platform } from 'react-native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTimes, faUser, faCamera } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faUser, faCamera, faGlobe } from '@fortawesome/free-solid-svg-icons';
+import { Picker } from '@react-native-picker/picker';
+import { COUNTRIES } from '../constants/Countries';
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
@@ -15,6 +17,7 @@ export default function EditProfileModal({ visible, onClose, currentUser }) {
     const { showToast } = useToast();
     const [fullName, setFullName] = useState('');
     const [number, setNumber] = useState('');
+    const [country, setCountry] = useState('');
     const [avatarUri, setAvatarUri] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -23,6 +26,7 @@ export default function EditProfileModal({ visible, onClose, currentUser }) {
         if (currentUser) {
             setFullName(currentUser.full_name || '');
             setNumber(currentUser.number || '');
+            setCountry(currentUser.country || '');
             setAvatarUri(currentUser.avatar_url || null);
         }
     }, [currentUser]);
@@ -99,6 +103,7 @@ export default function EditProfileModal({ visible, onClose, currentUser }) {
                 .update({
                     full_name: fullName.trim(),
                     number: number.trim(),
+                    country: country.trim(),
                     avatar_url: avatarUrl,
                 })
                 .eq('id', currentUser.id);
@@ -189,6 +194,28 @@ export default function EditProfileModal({ visible, onClose, currentUser }) {
                                 keyboardType="phone-pad"
                                 editable={!saving && !uploading}
                             />
+                        </View>
+
+                        {/* Country Picker */}
+                        <View style={styles.inputSection}>
+                            <Text style={[styles.label, { color: theme.colors.text }]}>Country</Text>
+                            <View style={[styles.pickerWrapper, { 
+                                borderColor: theme.colors.inputBorder, 
+                                backgroundColor: theme.colors.inputBackground 
+                            }]}>
+                                <Picker
+                                    selectedValue={country}
+                                    onValueChange={(itemValue) => setCountry(itemValue)}
+                                    enabled={!saving && !uploading}
+                                    dropdownIconColor={theme.colors.primary}
+                                    style={{ color: theme.colors.text }}
+                                >
+                                    <Picker.Item label="Select your country" value="" color={theme.colors.placeholder} />
+                                    {COUNTRIES.map((c) => (
+                                        <Picker.Item key={c} label={c} value={c} color={theme.colors.text} />
+                                    ))}
+                                </Picker>
+                            </View>
                         </View>
 
                         {/* Save Button */}
@@ -294,7 +321,12 @@ const styles = StyleSheet.create({
         padding: 14,
         fontSize: 15,
     },
-
+    pickerWrapper: {
+        borderWidth: 1,
+        borderRadius: 12,
+        overflow: 'hidden',
+        justifyContent: 'center',
+    },
     saveButton: {
         padding: 16,
         borderRadius: 12,

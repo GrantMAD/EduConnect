@@ -113,7 +113,8 @@ export const ChatProvider = ({ children, session }) => {
           last_message: messages (
             content,
             created_at,
-            sender_id
+            sender_id,
+            attachments
           )
         `)
         .order('created_at', { ascending: false, foreignTable: 'messages' })
@@ -644,9 +645,10 @@ export const ChatProvider = ({ children, session }) => {
             const updatedChannel = {
               ...prev[idx],
               last_message: [{
-                content: message.content || (message.attachments?.length ? 'Sent an attachment' : ''),
+                content: message.content,
                 created_at: message.created_at,
-                sender_id: message.sender_id
+                sender_id: message.sender_id,
+                attachments: message.attachments
               }]
             };
 
@@ -714,9 +716,10 @@ export const ChatProvider = ({ children, session }) => {
         const updatedChannel = {
           ...prev[channelIndex],
           last_message: [{
-            content: content || (attachments.length > 0 ? 'Sent an attachment' : ''),
+            content: content,
             created_at: new Date().toISOString(),
-            sender_id: user.id
+            sender_id: user.id,
+            attachments: attachments
           }]
         };
 

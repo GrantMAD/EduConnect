@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { Picker } from '@react-native-picker/picker';
@@ -16,8 +17,10 @@ import { useGamification } from '../context/GamificationContext';
 import StandardBottomModal from './StandardBottomModal';
 import { faCloudUploadAlt } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 
-export default function CreateResourceModal({ visible, onClose }) {
+export default function CreateResourceModal({ visible, onClose, initialData }) {
+  const { showToast } = useToast();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
   const { schoolId } = useSchool();
@@ -28,6 +31,21 @@ export default function CreateResourceModal({ visible, onClose }) {
   const [category, setCategory] = useState('General');
   const [customCategory, setCustomCategory] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [isPersonal, setIsPersonal] = useState(false);
+
+  useEffect(() => {
+    if (initialData) {
+      setTitle(initialData.title || '');
+      setDescription(initialData.description || '');
+      setCategory(initialData.category || 'General');
+      setIsPersonal(initialData.is_personal || false);
+    } else {
+      setTitle('');
+      setDescription('');
+      setCategory('General');
+      setIsPersonal(false);
+    }
+  }, [initialData, visible]);
 
   // Pick a document
   const pickDocument = async () => {
@@ -47,7 +65,7 @@ export default function CreateResourceModal({ visible, onClose }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      let file_url = null;
+      let file_url = initialData?.file_url || null;
 
       if (file) {
         let extractedName = file.name;
@@ -89,29 +107,44 @@ export default function CreateResourceModal({ visible, onClose }) {
 
       const finalCategory = category === 'custom' ? customCategory : category;
 
-      // Save to table
-      await supabase.from('resources').insert([
-        {
-          title,
-          description,
-          file_url,
-          uploaded_by: user.id,
-          category: finalCategory,
-          school_id: schoolId,
-        },
-      ]);
-      awardXP('resource_creation', 20);
+      const resourcePayload = {
+        title,
+        description,
+        file_url,
+        uploaded_by: user.id,
+        category: finalCategory,
+        school_id: schoolId,
+        is_personal: isPersonal,
+      };
+
+      if (initialData) {
+        // Update existing
+        const { error } = await supabase
+          .from('resources')
+          .update(resourcePayload)
+          .eq('id', initialData.id);
+        if (error) throw error;
+        showToast('Resource updated successfully', 'success');
+      } else {
+        // Save new to table
+        await supabase.from('resources').insert([resourcePayload]);
+        awardXP('resource_creation', 20);
+        showToast('Resource added successfully', 'success');
+      }
 
       // Reset UI
       onClose();
-      setTitle('');
-      setDescription('');
-      setFile(null);
-      setCategory('General');
-      setCustomCategory('');
+      if (!initialData) {
+        setTitle('');
+        setDescription('');
+        setFile(null);
+        setCategory('General');
+        setCustomCategory('');
+        setIsPersonal(false);
+      }
     } catch (err) {
-      console.error('Error uploading resource:', err);
-      alert('Failed to upload resource. Please try again.');
+      console.error('Error saving resource:', err);
+      showToast('Failed to save resource. Please try again.', 'error');
     } finally {
       setIsUploading(false);
     }
@@ -121,9 +154,9 @@ export default function CreateResourceModal({ visible, onClose }) {
     <StandardBottomModal
       visible={visible}
       onClose={onClose}
-      title="Upload Resource"
+      title={initialData ? "Edit Resource" : "Upload Resource"}
       icon={faCloudUploadAlt}
-      description="Share study materials, notes, and resources with your school community"
+      description={initialData ? "Update your resource details" : "Share study materials, notes, and resources with your school community"}
     >
       <View style={styles.content}>
         <TextInput
@@ -168,6 +201,21 @@ export default function CreateResourceModal({ visible, onClose }) {
           />
         )}
 
+        <View style={styles.toggleContainer}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.toggleLabel, { color: theme.colors.text }]}>Personal Resource</Text>
+            <Text style={[styles.toggleSubLabel, { color: theme.colors.placeholder }]}>
+              Only you will be able to see this resource
+            </Text>
+          </View>
+          <Switch
+            value={isPersonal}
+            onValueChange={setIsPersonal}
+            trackColor={{ false: '#767577', true: theme.colors.primary }}
+            thumbColor={isPersonal ? '#fff' : '#f4f3f4'}
+          />
+        </View>
+
         <TouchableOpacity
           style={[styles.button, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
           onPress={pickDocument}
@@ -185,7 +233,9 @@ export default function CreateResourceModal({ visible, onClose }) {
           {isUploading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={[styles.buttonText, { color: '#fff' }]}>Upload</Text>
+            <Text style={[styles.buttonText, { color: '#fff' }]}>
+              {initialData ? 'Save Changes' : 'Upload'}
+            </Text>
           )}
         </TouchableOpacity>
       </View>
@@ -217,6 +267,19 @@ const styles = StyleSheet.create({
   picker: {
     height: 50,
     width: '100%',
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 4,
+  },
+  toggleLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  toggleSubLabel: {
+    fontSize: 12,
   },
   button: {
     padding: 14,

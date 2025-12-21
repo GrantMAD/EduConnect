@@ -3,7 +3,7 @@ import { View, Text, TextInput, StyleSheet, ActivityIndicator, Alert, ScrollView
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import ProfileScreenSkeleton from '../components/skeletons/ProfileScreenSkeleton';
-import { faUserFriends, faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone, faMinus, faTrophy, faMedal, faFire, faStore, faChartBar, faCoins, faInfoCircle, faArrowRight } from '@fortawesome/free-solid-svg-icons';
+import { faUserFriends, faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone, faMinus, faTrophy, faMedal, faFire, faStore, faChartBar, faCoins, faInfoCircle, faArrowRight, faGlobe } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -43,6 +43,7 @@ export default function ProfileScreen({ navigation }) {
     avatar_url: '',
     school_id: null,
     number: '',
+    country: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -131,6 +132,7 @@ export default function ProfileScreen({ navigation }) {
           avatar_url: data.avatar_url || '',
           school_id: data.school_id || null,
           number: data.number || '',
+          country: data.country || '',
         });
       } else {
         throw new Error("Could not fetch or create user profile.");
@@ -313,6 +315,14 @@ export default function ProfileScreen({ navigation }) {
           <Text style={[styles.label, { color: theme.colors.text }]}>Role</Text>
         </View>
         <Text style={[styles.value, { color: theme.colors.text }]}>{userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}</Text>
+      </View>
+
+      <View style={styles.infoContainer}>
+        <View style={styles.infoRow}>
+          <FontAwesomeIcon icon={faGlobe} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
+          <Text style={[styles.label, { color: theme.colors.text }]}>Country</Text>
+        </View>
+        <Text style={[styles.value, { color: theme.colors.text }]}>{userData.country || 'Not provided'}</Text>
       </View>
 
       <View style={styles.sectionHeaderContainer}>

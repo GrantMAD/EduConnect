@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useChat } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faPlus, faUser, faUsers, faChalkboard, faComments } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faUser, faUsers, faChalkboard, faComments, faImage, faFile } from '@fortawesome/free-solid-svg-icons';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -77,6 +77,40 @@ export default function ChatListScreen({ navigation }) {
 
         const { name, avatar, icon, equippedItem } = getChannelDisplayInfo(item);
 
+        const renderLastMessageContent = () => {
+            if (!lastMessage) return <Text style={[styles.lastMessage, { color: theme.colors.textSecondary }]}>No messages yet</Text>;
+
+            if (lastMessage.attachments && lastMessage.attachments.length > 0) {
+                const attachment = lastMessage.attachments[0];
+                const isImage = attachment.type === 'image';
+                return (
+                    <View style={styles.attachmentPreview}>
+                        <FontAwesomeIcon 
+                            icon={isImage ? faImage : faFile} 
+                            size={14} 
+                            color={theme.colors.primary} 
+                            style={{ marginRight: 4 }}
+                        />
+                        <Text
+                            style={[styles.lastMessage, { color: theme.colors.textSecondary, flex: 1 }]}
+                            numberOfLines={1}
+                        >
+                            {lastMessage.content || attachment.name}
+                        </Text>
+                    </View>
+                );
+            }
+
+            return (
+                <Text
+                    style={[styles.lastMessage, { color: theme.colors.textSecondary }]}
+                    numberOfLines={1}
+                >
+                    {lastMessage.content}
+                </Text>
+            );
+        };
+
         return (
             <TouchableOpacity
                 style={[
@@ -119,12 +153,7 @@ export default function ChatListScreen({ navigation }) {
                             <Text style={[styles.timeText, { color: theme.colors.textSecondary }]}>{timeString}</Text>
                         </View>
                     </View>
-                    <Text
-                        style={[styles.lastMessage, { color: theme.colors.textSecondary }]}
-                        numberOfLines={1}
-                    >
-                        {lastMessage ? lastMessage.content : 'No messages yet'}
-                    </Text>
+                    {renderLastMessageContent()}
                 </View>
             </TouchableOpacity>
         );
@@ -225,6 +254,10 @@ const styles = StyleSheet.create({
     },
     lastMessage: {
         fontSize: 14,
+    },
+    attachmentPreview: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     fab: {
         position: 'absolute',

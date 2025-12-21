@@ -30,12 +30,14 @@ export default function ResourcesScreen() {
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
   const [infoModalVisible, setInfoModalVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState('public'); // 'public' or 'personal'
+  const [editingResource, setEditingResource] = useState(null);
 
   useEffect(() => {
     fetchUserRole();
     fetchResources();
     fetchBookmarks();
-  }, [schoolId]);
+  }, [schoolId, activeTab]);
 
   const fetchBookmarks = async () => {
     try {
@@ -92,6 +94,12 @@ export default function ResourcesScreen() {
     }
   };
 
+  const handleEditPress = (resource) => {
+    setDetailModalVisible(false);
+    setEditingResource(resource);
+    setShowCreateModal(true);
+  };
+
   const fetchUserRole = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -115,14 +123,23 @@ export default function ResourcesScreen() {
 
     if (!silent) setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      let query = supabase
         .from('resources')
         .select(`
           *,
           users (full_name, email)
-        `)
-        .eq('school_id', schoolId)
-        .order('created_at', { ascending: false });
+        `);
+
+      if (activeTab === 'personal') {
+        query = query.eq('is_personal', true).eq('uploaded_by', user.id);
+      } else {
+        query = query.eq('school_id', schoolId).eq('is_personal', false);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
 
@@ -202,8 +219,29 @@ export default function ResourcesScreen() {
         )}
       </View>
 
+      {(userRole === 'teacher' || userRole === 'admin') && (
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'public' && styles.activeTab]}
+            onPress={() => setActiveTab('public')}
+          >
+            <Text style={[styles.tabText, activeTab === 'public' && styles.activeTabText]}>Public Resources</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'personal' && styles.activeTab]}
+            onPress={() => setActiveTab('personal')}
+          >
+            <Text style={[styles.tabText, activeTab === 'personal' && styles.activeTabText]}>Personal Resources</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.descriptionContainer}>
-        <Text style={styles.descriptionText}>Access and manage all your educational resources here.</Text>
+        <Text style={styles.descriptionText}>
+          {activeTab === 'public' 
+            ? "Access and manage all your educational resources here."
+            : "Keep your private study materials and notes here. Only you can see these."}
+        </Text>
         <TouchableOpacity onPress={() => setInfoModalVisible(true)} style={styles.infoButton}>
           <FontAwesomeIcon icon={faInfoCircle} size={18} color="#007AFF" />
         </TouchableOpacity>
@@ -294,8 +332,10 @@ export default function ResourcesScreen() {
 
       <CreateResourceModal
         visible={showCreateModal}
+        initialData={editingResource}
         onClose={() => {
           setShowCreateModal(false);
+          setEditingResource(null);
           fetchResources();
         }}
       />
@@ -305,6 +345,8 @@ export default function ResourcesScreen() {
         onClose={() => setDetailModalVisible(false)}
         resource={selectedResource}
         onVotesChanged={() => fetchResources(true)}
+        onResourceDeleted={() => fetchResources()}
+        onEditPress={handleEditPress}
       />
 
       <StandardBottomModal
@@ -339,6 +381,35 @@ const styles = StyleSheet.create({
   infoButton: { padding: 5, marginLeft: 5 },
   container: { padding: 16, flex: 1, backgroundColor: '#fff' },
   header: { fontSize: 22, fontWeight: '700' },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F0F0F0',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  activeTab: {
+    backgroundColor: '#fff',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  activeTabText: {
+    color: '#007AFF',
+  },
   addButton: { flexDirection: 'row', backgroundColor: '#007AFF', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   addButtonText: { color: '#fff', fontWeight: '600', marginLeft: 8 },
   card: { flexDirection: 'row', backgroundColor: '#f8f8f8', padding: 12, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: '#eee' },
