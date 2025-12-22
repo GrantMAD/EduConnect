@@ -33,6 +33,8 @@ import UserProfileModal from '../components/UserProfileModal';
 import ClassListModal from '../components/ClassListModal';
 import ContentListModal from '../components/ContentListModal';
 import DashboardScreenSkeleton, { StatCardSkeleton, ActionButtonSkeleton, SkeletonPiece } from '../components/skeletons/DashboardScreenSkeleton';
+import RecentActivity from '../components/RecentActivity';
+import ChildProgressSnapshot from '../components/ChildProgressSnapshot';
 
 export default function DashboardScreen({ navigation }) {
     const { theme } = useTheme();
@@ -121,7 +123,7 @@ export default function DashboardScreen({ navigation }) {
 
             if (data) {
                 // The RPC returns an object within an array, so we take the first element
-                const statsData = data || {};
+                const statsData = Array.isArray(data) ? data[0] : data || {};
                  const { data: { user } } = await supabase.auth.getUser();
 
                  const { count: unreadNotifications } = await supabase
@@ -485,26 +487,20 @@ export default function DashboardScreen({ navigation }) {
                 </View>
             </View>
 
-            {/* School Image Area */}
-            <View style={[styles.schoolImageContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
-                {loadingSchool ? (
-                    <SkeletonPiece style={styles.schoolImage} />
-                ) : schoolData?.logo_url ? (
-                    <Image 
-                        source={{ uri: schoolData.logo_url }} 
-                        style={styles.schoolImage}
-                        resizeMode="cover"
-                    />
-                ) : (
-                    <View style={styles.schoolPlaceholder}>
-                        <FontAwesomeIcon icon={faChalkboardTeacher} size={40} color={theme.colors.placeholder + '40'} />
-                        <Text style={[styles.schoolPlaceholderText, { color: theme.colors.placeholder }]}>Connecting you to school life</Text>
-                    </View>
-                )}
+            {/* Welcome Banner - Visible to all */}
+            <View style={[styles.welcomeBanner, { backgroundColor: theme.colors.primary }]}>
+                <View style={styles.welcomeContent}>
+                    <Text style={styles.welcomeTitle}>Welcome to EduLink</Text>
+                    <Text style={styles.welcomeText}>We're glad to have you here. Explore your school's portal and track your progress.</Text>
+                </View>
+                {/* Decorative circles or background shapes can be added here with absolute positioning if needed */}
             </View>
 
             {/* Gamification Hub */}
             <View style={[styles.gamificationCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Your Progress</Text>
+                <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Track your experience, level up, and earn rewards.</Text>
+                
                 <View style={styles.gamificationTop}>
                     <View>
                         {loading ? (
@@ -563,6 +559,16 @@ export default function DashboardScreen({ navigation }) {
                 </View>
             </View>
 
+            {/* Recent Activity & Role Specific Widgets */}
+            <View style={styles.section}>
+                <RecentActivity />
+                
+                {/* Parent: Child Progress Snapshot */}
+                {userRole === 'parent' && (
+                    <ChildProgressSnapshot />
+                )}
+            </View>
+
             <View style={styles.rowWidgets}>
                 {/* Today's Schedule */}
                 <View style={styles.halfSection}>
@@ -572,6 +578,7 @@ export default function DashboardScreen({ navigation }) {
                             <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.primary} />
                         </TouchableOpacity>
                     </View>
+                    <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>View your classes.</Text>
                     {renderTodaySchedule()}
                 </View>
 
@@ -583,6 +590,7 @@ export default function DashboardScreen({ navigation }) {
                             <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.primary} />
                         </TouchableOpacity>
                     </View>
+                    <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>Upcoming tasks.</Text>
                     {renderUpcomingTasks()}
                 </View>
             </View>
@@ -693,7 +701,7 @@ export default function DashboardScreen({ navigation }) {
                     {/* Quick Actions */}
                     <View style={styles.section}>
                         <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Quick Actions</Text>
-                        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Quickly create and manage school content</Text>
+                        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Access common tasks and shortcuts.</Text>
                         <View style={styles.actionsContainer}>
                             <QuickActionButton
                                 icon={faBullhorn}
@@ -1059,5 +1067,28 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '600',
         marginLeft: 8,
+    },
+    welcomeBanner: {
+        borderRadius: 16,
+        padding: 24,
+        marginBottom: 24,
+        overflow: 'hidden',
+        position: 'relative',
+    },
+    welcomeTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: 'white',
+        marginBottom: 8,
+    },
+    welcomeText: {
+        color: 'rgba(255, 255, 255, 0.9)',
+        fontSize: 14,
+        lineHeight: 20,
+    },
+    miniDescription: {
+        fontSize: 11,
+        marginBottom: 12,
+        marginTop: -8,
     },
 });
