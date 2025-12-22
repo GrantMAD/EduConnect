@@ -9,7 +9,8 @@ import {
     faPoll,
     faGear,
     faRightFromBracket,
-    faChartLine
+    faChartLine,
+    faStore
 } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
@@ -204,20 +205,20 @@ const CustomDrawerContent = (props) => {
                                     active={activeMainStackRouteName === 'ManageClasses'}
                                     onPress={() => props.navigation.navigate('MainStack', { screen: 'ManageClasses' })}
                                 />
-                                <DrawerItem
-                                    icon={faChartLine}
-                                    label="Dashboard"
-                                    description="Monitor school activity"
-                                    routeName="Dashboard"
-                                    active={activeMainStackRouteName === 'Dashboard'}
-                                    onPress={() => props.navigation.navigate('MainStack', { screen: 'Dashboard' })}
-                                />
                             </>
                         )}
                     </>
                 )}
 
                 <SectionHeader title="Community" />
+                <DrawerItem
+                    icon={faStore}
+                    label="Marketplace"
+                    description="Buy and sell school items"
+                    routeName="Market"
+                    active={activeMainStackRouteName === 'Market'}
+                    onPress={() => props.navigation.navigate('MainStack', { screen: 'Market' })}
+                />
                 <DrawerItem
                     icon={faBookOpen}
                     label="Resources"

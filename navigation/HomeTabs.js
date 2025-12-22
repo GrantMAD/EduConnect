@@ -2,7 +2,7 @@ import React, { useRef, useCallback } from 'react';
 import { View, BackHandler, Platform } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faBullhorn, faCalendar, faBookOpen, faStore } from '@fortawesome/free-solid-svg-icons';
+import { faBullhorn, faCalendar, faBookOpen, faChartLine } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { useToast } from '../context/ToastContext';
@@ -10,7 +10,7 @@ import { useToast } from '../context/ToastContext';
 import AnnouncementsScreen from '../screens/AnnouncementsScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import HomeworkScreen from '../screens/HomeworkScreen';
-import MarketScreen from '../screens/market/MarketScreen';
+import DashboardScreen from '../screens/DashboardScreen';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -85,6 +85,13 @@ const HomeTabs = () => {
             }}
         >
             <Tab.Screen
+                name="Dashboard"
+                component={DashboardScreen}
+                options={{
+                    tabBarIcon: ({ color }) => <FontAwesomeIcon icon={faChartLine} color={color} size={20} />,
+                }}
+            />
+            <Tab.Screen
                 name="Announcements"
                 component={AnnouncementsScreen}
                 options={{
@@ -103,13 +110,6 @@ const HomeTabs = () => {
                 component={HomeworkScreen}
                 options={{
                     tabBarIcon: ({ color }) => <FontAwesomeIcon icon={faBookOpen} color={color} size={20} />,
-                }}
-            />
-            <Tab.Screen
-                name="Market"
-                component={MarketScreen}
-                options={{
-                    tabBarIcon: ({ color }) => <FontAwesomeIcon icon={faStore} color={color} size={20} />,
                 }}
             />
         </Tab.Navigator>

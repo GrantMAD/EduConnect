@@ -215,7 +215,6 @@ export default function AnnouncementsScreen({ navigation }) {
           <View style={[styles.skeleton, { width: '70%', height: 24, borderRadius: 4, marginBottom: 5 }]} />
           <View style={[styles.skeleton, { width: '90%', height: 16, borderRadius: 4 }]} />
         </View>
-        <View style={[styles.imageContainer, styles.skeleton]} />
         <View style={styles.sectionHeaderContainer}>
           <View style={[styles.skeleton, { width: '40%', height: 20, borderRadius: 4 }]} />
         </View>
@@ -239,27 +238,12 @@ export default function AnnouncementsScreen({ navigation }) {
           <>
             {/* Welcome Area */}
             <View style={styles.welcomeContainer}>
-              <Text style={[styles.welcomeText, { color: theme.colors.text }]}>Welcome to Announcements!</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
+                <FontAwesomeIcon icon={faBullhorn} size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
+                <Text style={[styles.welcomeText, { color: theme.colors.text }]}>Announcements</Text>
+              </View>
               <Text style={[styles.welcomeDescription, { color: theme.colors.text }]}>Stay updated with the latest news and updates from your school.</Text>
             </View>
-
-            {/* Placeholder Image Area */}
-            <TouchableOpacity
-              style={styles.imageContainer}
-              onPress={() => userRole === 'admin' && navigation.navigate('SchoolData')}
-              disabled={userRole !== 'admin'}
-            >
-              {schoolData?.logo_url ? (
-                <Image source={{ uri: schoolData.logo_url }} style={styles.placeholderImage} />
-              ) : (
-                <View style={[styles.placeholderImageContainer, { backgroundColor: theme.colors.inputBackground }]}>
-                  <Text style={[styles.placeholderText, { color: theme.colors.placeholder }]}>Currently no school image</Text>
-                  {userRole === 'admin' && (
-                    <Text style={[styles.placeholderSubText, { color: theme.colors.placeholder }]}>Press here to change your school's image in the settings</Text>
-                  )}
-                </View>
-              )}
-            </TouchableOpacity>
 
             {/* List of Announcements Area */}
             <View style={styles.sectionHeaderContainer}>
@@ -339,7 +323,7 @@ const styles = StyleSheet.create({
   },
   welcomeContainer: {
     marginBottom: 20,
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   welcomeText: {
     fontSize: 24,
@@ -348,7 +332,6 @@ const styles = StyleSheet.create({
   },
   welcomeDescription: {
     fontSize: 16,
-    textAlign: 'center',
   },
   imageContainer: {
     marginBottom: 20,

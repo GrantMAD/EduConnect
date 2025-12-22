@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
     faUsers,
@@ -14,7 +14,10 @@ import {
     faChild,
     faPlus,
     faChartLine,
-
+    faFire,
+    faCoins,
+    faChevronRight,
+    faInfoCircle,
     faClipboardList,
     faComments
 } from '@fortawesome/free-solid-svg-icons';
@@ -24,20 +27,23 @@ import { useTheme } from '../context/ThemeContext';
 import { useSchool } from '../context/SchoolContext';
 import { useToast } from '../context/ToastContext';
 import { useChat } from '../context/ChatContext';
+import { useGamification } from '../context/GamificationContext';
 import UserListModal from '../components/UserListModal';
 import UserProfileModal from '../components/UserProfileModal';
 import ClassListModal from '../components/ClassListModal';
 import ContentListModal from '../components/ContentListModal';
-import { StatCardSkeleton, ActionButtonSkeleton } from '../components/skeletons/DashboardScreenSkeleton';
+import DashboardScreenSkeleton, { StatCardSkeleton, ActionButtonSkeleton } from '../components/skeletons/DashboardScreenSkeleton';
 
 export default function DashboardScreen({ navigation }) {
     const { theme } = useTheme();
-    const { schoolId } = useSchool();
+    const { schoolId, schoolData } = useSchool();
     const { showToast } = useToast();
     const { createChannel, channels, user: currentUser } = useChat();
+    const gamification = useGamification();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [userRole, setUserRole] = useState(null);
+    const [userProfile, setUserProfile] = useState(null);
     const insets = useSafeAreaInsets();
 
     const [stats, setStats] = useState({
@@ -55,6 +61,9 @@ export default function DashboardScreen({ navigation }) {
         totalMarketItems: 0,
         unreadNotifications: 0,
     });
+
+    const [todaySessions, setTodaySessions] = useState([]);
+    const [upcomingTasks, setUpcomingTasks] = useState([]);
 
     // User List Modal State
     const [showUserModal, setShowUserModal] = useState(false);
@@ -80,20 +89,15 @@ export default function DashboardScreen({ navigation }) {
 
             const { data: userData, error } = await supabase
                 .from('users')
-                .select('role')
+                .select('*')
                 .eq('id', user.id)
                 .single();
 
             if (error) throw error;
 
-            if (userData.role !== 'admin' && userData.role !== 'teacher') {
-                showToast('Access denied. Dashboard is only available for admins and teachers.', 'error');
-                navigation.goBack();
-                return;
-            }
-
             setUserRole(userData.role);
-            fetchDashboardData();
+            setUserProfile(userData);
+            fetchDashboardData(userData);
         } catch (error) {
             console.error('Error checking access:', error);
             showToast('Failed to verify access.', 'error');
@@ -101,7 +105,7 @@ export default function DashboardScreen({ navigation }) {
         }
     };
 
-    const fetchDashboardData = async () => {
+    const fetchDashboardData = async (profile) => {
         try {
             if (!schoolId) {
                 showToast('School ID not found. Cannot load data.', 'error');
@@ -346,7 +350,95 @@ export default function DashboardScreen({ navigation }) {
         </TouchableOpacity>
     );
 
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Good Morning';
+        if (hour < 17) return 'Good Afternoon';
+        return 'Good Evening';
+    };
 
+    const renderTodaySchedule = () => {
+        if (todaySessions.length === 0) return (
+            <View style={[styles.emptyWidget, { backgroundColor: theme.colors.card }]}>
+                <FontAwesomeIcon icon={faInfoCircle} size={24} color={theme.colors.placeholder} />
+                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No classes scheduled for today.</Text>
+            </View>
+        );
+
+        return todaySessions.map((session) => {
+            const start = new Date(session.start_time);
+            const end = new Date(session.end_time);
+            const isNow = new Date() >= start && new Date() <= end;
+
+            return (
+                <View 
+                    key={session.id} 
+                    style={[
+                        styles.sessionItem, 
+                        { backgroundColor: theme.colors.card, borderColor: isNow ? theme.colors.primary : theme.colors.cardBorder }
+                    ]}
+                >
+                    <View style={styles.sessionHeader}>
+                        <View>
+                            <Text style={[styles.sessionClassName, { color: theme.colors.text }]}>{session.class?.name}</Text>
+                            <Text style={[styles.sessionType, { color: theme.colors.placeholder }]}>{session.type || 'Lecture'}</Text>
+                        </View>
+                        <View style={styles.sessionTimeContainer}>
+                            <Text style={[styles.sessionStartTime, { color: theme.colors.primary }]}>{start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                        </View>
+                    </View>
+                    {isNow && (
+                        <View style={[styles.liveBadge, { backgroundColor: '#FF3B30' }]}>
+                            <Text style={styles.liveBadgeText}>LIVE</Text>
+                        </View>
+                    )}
+                </View>
+            );
+        });
+    };
+
+    const renderUpcomingTasks = () => {
+        if (upcomingTasks.length === 0) return (
+            <View style={[styles.emptyWidget, { backgroundColor: theme.colors.card }]}>
+                <FontAwesomeIcon icon={faClipboardList} size={24} color={theme.colors.placeholder} />
+                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>All caught up! No tasks due soon.</Text>
+            </View>
+        );
+
+        return upcomingTasks.map((task) => {
+            const dueDate = new Date(task.due_date);
+            const isToday = new Date().toDateString() === dueDate.toDateString();
+
+            return (
+                <TouchableOpacity 
+                    key={`${task.type}-${task.id}`}
+                    style={[styles.taskItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
+                    onPress={() => navigation.navigate(task.type === 'homework' ? 'Homework' : 'Assignments')}
+                >
+                    <View style={styles.taskIconContainer}>
+                         <View style={[styles.taskTypeIcon, { backgroundColor: task.type === 'homework' ? '#007AFF20' : '#5856D620' }]}>
+                            <FontAwesomeIcon icon={faClipboardList} size={16} color={task.type === 'homework' ? '#007AFF' : '#5856D6'} />
+                         </View>
+                    </View>
+                    <View style={styles.taskInfo}>
+                        <Text style={[styles.taskTitle, { color: theme.colors.text }]} numberOfLines={1}>{task.title || task.subject}</Text>
+                        <Text style={[styles.taskSubject, { color: theme.colors.placeholder }]}>{task.subject || task.type}</Text>
+                    </View>
+                    <View style={styles.taskDueContainer}>
+                        <Text style={[styles.taskDueDate, { color: isToday ? '#FF9500' : theme.colors.placeholder }]}>
+                            {isToday ? 'Today' : dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </Text>
+                    </View>
+                </TouchableOpacity>
+            );
+        });
+    };
+
+
+
+    if (loading) {
+        return <DashboardScreenSkeleton />;
+    }
 
     return (
         <ScrollView
@@ -357,22 +449,106 @@ export default function DashboardScreen({ navigation }) {
             }
         >
             <View style={styles.header}>
-                <FontAwesomeIcon icon={faChartLine} size={32} color={theme.colors.primary} />
-                <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Dashboard</Text>
+                <View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <FontAwesomeIcon icon={faChartLine} size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
+                        <Text style={[styles.greetingText, { color: theme.colors.text }]}>
+                            {getGreeting()}, <Text style={{ color: theme.colors.primary }}>{userProfile?.full_name?.split(' ')[0] || 'there'}</Text>
+                        </Text>
+                    </View>
+                    <Text style={[styles.headerDate, { color: theme.colors.placeholder }]}>
+                        {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                    </Text>
+                </View>
             </View>
-            <Text style={[styles.headerSubtitle, { color: theme.colors.placeholder }]}>
-                Monitor all aspects of your school
-            </Text>
 
-            {/* User Statistics */}
-            <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>User Statistics</Text>
-                <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Overview of all users in your school</Text>
-                <View style={styles.statsGrid}>
-                    {loading ? (
-                        [1, 2, 3, 4, 5].map((item) => <StatCardSkeleton key={item} />)
-                    ) : (
-                        <>
+            {/* School Image Area */}
+            <View style={[styles.schoolImageContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+                {schoolData?.logo_url ? (
+                    <Image 
+                        source={{ uri: schoolData.logo_url }} 
+                        style={styles.schoolImage}
+                        resizeMode="cover"
+                    />
+                ) : (
+                    <View style={styles.schoolPlaceholder}>
+                        <FontAwesomeIcon icon={faChalkboardTeacher} size={40} color={theme.colors.placeholder + '40'} />
+                        <Text style={[styles.schoolPlaceholderText, { color: theme.colors.placeholder }]}>Connecting you to school life</Text>
+                    </View>
+                )}
+            </View>
+
+            {/* Gamification Hub */}
+            <View style={[styles.gamificationCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+                <View style={styles.gamificationTop}>
+                    <View>
+                        <Text style={[styles.levelText, { color: theme.colors.primary }]}>Level {gamification?.current_level}</Text>
+                        <Text style={[styles.xpText, { color: theme.colors.placeholder }]}>
+                            {gamification?.current_xp % 1000} / 1000 XP
+                        </Text>
+                    </View>
+                    <View style={styles.streakBadge}>
+                        <FontAwesomeIcon icon={faFire} color="#FF9500" size={16} />
+                        <Text style={styles.streakText}>{gamification?.streak?.current_streak || 0}</Text>
+                    </View>
+                </View>
+                <View style={[styles.progressBarBg, { backgroundColor: theme.colors.background }]}>
+                    <View 
+                        style={[
+                            styles.progressBarFill, 
+                            { 
+                                backgroundColor: theme.colors.primary, 
+                                width: `${(gamification?.current_xp % 1000) / 10}%` 
+                            }
+                        ]} 
+                    />
+                </View>
+                <View style={styles.gamificationBottom}>
+                    <View style={styles.coinContainer}>
+                        <FontAwesomeIcon icon={faCoins} color="#FFD700" size={16} />
+                        <Text style={[styles.coinText, { color: theme.colors.text }]}>{gamification?.coins}</Text>
+                    </View>
+                    {gamification?.nextBadge && (
+                        <View style={styles.nextBadgeContainer}>
+                            <Text style={[styles.nextBadgeLabel, { color: theme.colors.placeholder }]}>Next: </Text>
+                            <Text style={[styles.nextBadgeName, { color: theme.colors.text }]}>{gamification.nextBadge.name}</Text>
+                        </View>
+                    )}
+                </View>
+            </View>
+
+            <View style={styles.rowWidgets}>
+                {/* Today's Schedule */}
+                <View style={styles.halfSection}>
+                    <View style={styles.sectionHeaderRow}>
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Schedule</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('Calendar')}>
+                            <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.primary} />
+                        </TouchableOpacity>
+                    </View>
+                    {renderTodaySchedule()}
+                </View>
+
+                {/* Due Soon */}
+                <View style={styles.halfSection}>
+                    <View style={styles.sectionHeaderRow}>
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Due Soon</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('Homework')}>
+                            <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.primary} />
+                        </TouchableOpacity>
+                    </View>
+                    {renderUpcomingTasks()}
+                </View>
+            </View>
+
+            {/* Admin/Teacher Stats (Only show if role matches) */}
+            {['admin', 'teacher'].includes(userRole) && (
+                <>
+                    {/* User Statistics */}
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>User Statistics</Text>
+                        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Overview of all users in your school</Text>
+                        <View style={styles.statsGrid}>
                             <StatCard
                                 icon={faUsers}
                                 title="Total Users"
@@ -408,20 +584,14 @@ export default function DashboardScreen({ navigation }) {
                                 color="#FF9500"
                                 onPress={() => fetchUsersByCategory('parent')}
                             />
-                        </>
-                    )}
-                </View>
-            </View>
+                        </View>
+                    </View>
 
-            {/* Content & Activity */}
-            <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Content & Activity</Text>
-                <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Track classes, announcements, and school activities</Text>
-                <View style={styles.statsGrid}>
-                    {loading ? (
-                        [1, 2, 3, 4, 5, 6].map((item) => <StatCardSkeleton key={item} />)
-                    ) : (
-                        <>
+                    {/* Content & Activity */}
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Content & Activity</Text>
+                        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Track classes, announcements, and school activities</Text>
+                        <View style={styles.statsGrid}>
                             <StatCard
                                 icon={faBookOpen}
                                 title="Classes"
@@ -464,20 +634,14 @@ export default function DashboardScreen({ navigation }) {
                                 color="#FF2D55"
                                 onPress={() => fetchContentByType('market')}
                             />
-                        </>
-                    )}
-                </View>
-            </View>
+                        </View>
+                    </View>
 
-            {/* Quick Actions */}
-            <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Quick Actions</Text>
-                <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Quickly create and manage school content</Text>
-                <View style={styles.actionsContainer}>
-                    {loading ? (
-                        [1, 2, 3, 4, 5, 6, 7, 8, 9].map((item) => <ActionButtonSkeleton key={item} />)
-                    ) : (
-                        <>
+                    {/* Quick Actions */}
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Quick Actions</Text>
+                        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Quickly create and manage school content</Text>
+                        <View style={styles.actionsContainer}>
                             <QuickActionButton
                                 icon={faBullhorn}
                                 title="New Announcement"
@@ -532,10 +696,10 @@ export default function DashboardScreen({ navigation }) {
                                 onPress={() => navigation.navigate('ChatList')}
                                 color="#007AFF"
                             />
-                        </>
-                    )}
-                </View>
-            </View>
+                        </View>
+                    </View>
+                </>
+            )}
             <UserListModal
                 visible={showUserModal}
                 users={userListData}
@@ -575,30 +739,209 @@ export default function DashboardScreen({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 20,
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    loadingText: {
-        marginTop: 12,
-        fontSize: 16,
+        padding: 16,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 20,
+    },
+    greetingText: {
+        fontSize: 24,
+        fontWeight: '800',
+    },
+    headerDate: {
+        fontSize: 14,
+        fontWeight: '600',
+        marginTop: 2,
+    },
+    schoolImageContainer: {
+        width: '100%',
+        height: 150,
+        borderRadius: 16,
+        overflow: 'hidden',
+        borderWidth: 1,
+        marginBottom: 24,
+    },
+    schoolImage: {
+        width: '100%',
+        height: '100%',
+    },
+    schoolPlaceholder: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    schoolPlaceholderText: {
+        marginTop: 10,
+        fontSize: 14,
+        fontWeight: 'bold',
+        opacity: 0.6,
+    },
+    gamificationCard: {
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        marginBottom: 24,
+    },
+    gamificationTop: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    levelText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    xpText: {
+        fontSize: 12,
+    },
+    streakBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FF950020',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    streakText: {
+        marginLeft: 4,
+        fontWeight: 'bold',
+        color: '#FF9500',
+    },
+    progressBarBg: {
+        height: 8,
+        borderRadius: 4,
+        width: '100%',
+        marginBottom: 12,
+        overflow: 'hidden',
+    },
+    progressBarFill: {
+        height: '100%',
+        borderRadius: 4,
+    },
+    gamificationBottom: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    coinContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    coinText: {
+        marginLeft: 6,
+        fontWeight: 'bold',
+    },
+    nextBadgeContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    nextBadgeLabel: {
+        fontSize: 11,
+    },
+    nextBadgeName: {
+        fontSize: 11,
+        fontWeight: 'bold',
+    },
+    rowWidgets: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 24,
+    },
+    halfSection: {
+        width: '48%',
+    },
+    sectionHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    sessionItem: {
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        marginBottom: 8,
+        position: 'relative',
+    },
+    sessionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    sessionClassName: {
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    sessionType: {
+        fontSize: 10,
+    },
+    sessionStartTime: {
+        fontSize: 11,
+        fontWeight: 'bold',
+    },
+    liveBadge: {
+        position: 'absolute',
+        top: -6,
+        right: -6,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+    },
+    liveBadgeText: {
+        color: 'white',
+        fontSize: 8,
+        fontWeight: 'bold',
+    },
+    taskItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 10,
+        borderRadius: 12,
+        borderWidth: 1,
         marginBottom: 8,
     },
-    headerTitle: {
-        fontSize: 32,
-        fontWeight: 'bold',
-        marginLeft: 12,
+    taskTypeIcon: {
+        width: 28,
+        height: 28,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    headerSubtitle: {
-        fontSize: 16,
-        marginBottom: 24,
+    taskInfo: {
+        flex: 1,
+        marginLeft: 8,
+    },
+    taskTitle: {
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    taskSubject: {
+        fontSize: 10,
+    },
+    taskDueContainer: {
+        alignItems: 'flex-end',
+    },
+    taskDueDate: {
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
+    emptyWidget: {
+        padding: 20,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderStyle: 'dashed',
+        borderWidth: 1,
+        borderColor: '#ccc',
+    },
+    emptyText: {
+        fontSize: 10,
+        marginTop: 8,
+        textAlign: 'center',
     },
     section: {
         marginBottom: 32,

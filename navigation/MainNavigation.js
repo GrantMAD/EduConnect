@@ -30,6 +30,9 @@ import ResourcesScreen from '../screens/ResourcesScreen';
 import PollsScreen from '../screens/PollsScreen';
 import CreatePollScreen from '../screens/CreatePollScreen';
 import DashboardScreen from '../screens/DashboardScreen';
+import CalendarScreen from '../screens/CalendarScreen';
+import HomeworkScreen from '../screens/HomeworkScreen';
+import MarketScreen from '../screens/market/MarketScreen';
 
 // Gamification Screens
 import LeaderboardScreen from '../screens/gamification/LeaderboardScreen';
@@ -73,6 +76,9 @@ const MainStackNavigator = () => (
     <Stack.Screen name="Polls" component={PollsScreen} />
     <Stack.Screen name="CreatePoll" component={CreatePollScreen} />
     <Stack.Screen name="Dashboard" component={DashboardScreen} />
+    <Stack.Screen name="Calendar" component={CalendarScreen} options={{ title: 'Calendar' }} />
+    <Stack.Screen name="Homework" component={HomeworkScreen} options={{ title: 'Homework' }} />
+    <Stack.Screen name="Market" component={MarketScreen} options={{ title: 'Marketplace' }} />
 
     {/* Gamification Screens */}
     <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: 'Leaderboard' }} />

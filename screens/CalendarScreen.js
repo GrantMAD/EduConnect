@@ -228,7 +228,10 @@ export default function CalendarScreen() {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} contentContainerStyle={styles.scrollContent}>
-      <Text style={[styles.header, { color: theme.colors.text }]}>Class Calendar</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
+        <FontAwesomeIcon icon={faCalendarAlt} size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
+        <Text style={[styles.header, { color: theme.colors.text }]}>Class Calendar</Text>
+      </View>
       <Text style={[styles.descriptionText, { color: theme.colors.text }]}>View all your scheduled classes and tap on class days for more details.</Text>
 
       <Calendar
