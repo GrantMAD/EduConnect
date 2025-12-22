@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, TextInput, FlatList, Touchab
 import { supabase } from '../lib/supabase';
 import { Picker } from '@react-native-picker/picker';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import UserManagementScreenSkeleton from '../components/skeletons/UserManagementScreenSkeleton';
+import UserManagementScreenSkeleton, { UserItemSkeleton } from '../components/skeletons/UserManagementScreenSkeleton';
 import { faTimes, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../context/ToastContext';
 
@@ -89,10 +89,6 @@ export default function UserManagementScreen({ navigation, route }) {
     user.full_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  if (loading) {
-    return <UserManagementScreenSkeleton />;
-  }
-
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -111,9 +107,11 @@ export default function UserManagementScreen({ navigation, route }) {
         onBlur={() => setIsSearchFocused(false)}
       />
       <FlatList
-        data={filteredUsers}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
+        data={loading ? [1, 2, 3, 4, 5] : filteredUsers}
+        keyExtractor={(item, index) => loading ? index.toString() : item.id}
+        renderItem={({ item }) => loading ? (
+          <UserItemSkeleton />
+        ) : (
           <TouchableOpacity onPress={() => openModal(item)}>
             <View style={styles.userItem}>
               <Image

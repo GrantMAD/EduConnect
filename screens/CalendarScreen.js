@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useFocusEffect } from '@react-navigation/native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import CalendarScreenSkeleton from '../components/skeletons/CalendarScreenSkeleton';
+import CalendarScreenSkeleton, { SkeletonPiece } from '../components/skeletons/CalendarScreenSkeleton';
 import { faTimes, faCalendarAlt, faClock, faChevronDown, faChevronUp, faBook } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
@@ -210,10 +210,6 @@ export default function CalendarScreen() {
     );
   };
 
-  if (loading) {
-    return <CalendarScreenSkeleton />;
-  }
-
   const groupSchedulesByTitle = (arr) => {
     const grouped = {};
     arr.forEach(s => {
@@ -234,43 +230,55 @@ export default function CalendarScreen() {
       </View>
       <Text style={[styles.descriptionText, { color: theme.colors.text }]}>View all your scheduled classes and tap on class days for more details.</Text>
 
-      <Calendar
-        onDayPress={onDayPress}
-        markedDates={markedDates}
-        markingType="multi-period"
-        theme={{
-          backgroundColor: theme.colors.background,
-          calendarBackground: theme.colors.background,
-          dayTextColor: theme.colors.text,
-          textDisabledColor: theme.colors.placeholder,
-          monthTextColor: theme.colors.text,
-          textSectionTitleColor: theme.colors.text,
-          selectedDayBackgroundColor: theme.colors.primary,
-          selectedDayTextColor: theme.colors.buttonPrimaryText,
-          todayTextColor: theme.colors.primary,
-          arrowColor: theme.colors.primary,
-          dotColor: theme.colors.primary,
-          textDayFontFamily: 'System',
-          textMonthFontFamily: 'System',
-          textDayHeaderFontFamily: 'System',
-          textDayFontWeight: '300',
-          textMonthFontWeight: 'bold',
-          textDayHeaderFontWeight: '500',
-          textDayFontSize: 16,
-          textMonthFontSize: 16,
-          textDayHeaderFontSize: 13,
-        }}
-      />
+      {loading ? (
+        <>
+          <SkeletonPiece style={{ width: '100%', height: 370, borderRadius: 10, marginBottom: 20 }} />
+          <SkeletonPiece style={{ width: '50%', height: 20, borderRadius: 4, marginBottom: 5 }} />
+          <View style={styles.dropdownContainer}>
+            <SkeletonPiece style={{ width: '100%', height: 50, borderRadius: 10 }} />
+          </View>
+        </>
+      ) : (
+        <>
+          <Calendar
+            onDayPress={onDayPress}
+            markedDates={markedDates}
+            markingType="multi-period"
+            theme={{
+              backgroundColor: theme.colors.background,
+              calendarBackground: theme.colors.background,
+              dayTextColor: theme.colors.text,
+              textDisabledColor: theme.colors.placeholder,
+              monthTextColor: theme.colors.text,
+              textSectionTitleColor: theme.colors.text,
+              selectedDayBackgroundColor: theme.colors.primary,
+              selectedDayTextColor: theme.colors.buttonPrimaryText,
+              todayTextColor: theme.colors.primary,
+              arrowColor: theme.colors.primary,
+              dotColor: theme.colors.primary,
+              textDayFontFamily: 'System',
+              textMonthFontFamily: 'System',
+              textDayHeaderFontFamily: 'System',
+              textDayFontWeight: '300',
+              textMonthFontWeight: 'bold',
+              textDayHeaderFontWeight: '500',
+              textDayFontSize: 16,
+              textMonthFontSize: 16,
+              textDayHeaderFontSize: 13,
+            }}
+          />
 
-      <Text style={[styles.listHeader, { color: theme.colors.text }]}>Upcoming Classes</Text>
-      {Object.keys(upcomingGrouped).length === 0 ? (
-        <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>You have no upcoming classes.</Text>
-      ) : Object.entries(upcomingGrouped).map(([title, scheds]) => renderClassDropdown(title, scheds))}
+          <Text style={[styles.listHeader, { color: theme.colors.text }]}>Upcoming Classes</Text>
+          {Object.keys(upcomingGrouped).length === 0 ? (
+            <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>You have no upcoming classes.</Text>
+          ) : Object.entries(upcomingGrouped).map(([title, scheds]) => renderClassDropdown(title, scheds))}
 
-      <Text style={[styles.listHeader, { color: theme.colors.text }]}>Past Classes</Text>
-      {Object.keys(pastGrouped).length === 0 ? (
-        <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No past classes yet.</Text>
-      ) : Object.entries(pastGrouped).map(([title, scheds]) => renderClassDropdown(title, scheds))}
+          <Text style={[styles.listHeader, { color: theme.colors.text }]}>Past Classes</Text>
+          {Object.keys(pastGrouped).length === 0 ? (
+            <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No past classes yet.</Text>
+          ) : Object.entries(pastGrouped).map(([title, scheds]) => renderClassDropdown(title, scheds))}
+        </>
+      )}
 
       {/* Class Detail Modal */}
       <StandardBottomModal

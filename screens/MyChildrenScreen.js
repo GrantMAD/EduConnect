@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faUser, faChalkboard, faCheckCircle, faTimesCircle, faChevronDown, faChevronUp, faTag, faGraduationCap, faCalendarCheck } from '@fortawesome/free-solid-svg-icons';
-import MyChildrenScreenSkeleton from '../components/skeletons/MyChildrenScreenSkeleton';
+import MyChildrenScreenSkeleton, { ChildCardSkeleton } from '../components/skeletons/MyChildrenScreenSkeleton';
 import { useGamification } from '../context/GamificationContext';
 
 
@@ -303,15 +303,11 @@ export default function MyChildrenScreen() {
     initializeScreen();
   }, [fetchAssociatedChildren]);
 
-  if (loading) {
-    return <MyChildrenScreenSkeleton />;
-  }
-
   return (
     <FlatList
-      data={children}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => <ChildItem child={item} theme={theme} />}
+      data={loading ? [1, 2, 3] : children}
+      keyExtractor={(item, index) => loading ? index.toString() : item.id}
+      renderItem={({ item }) => loading ? <ChildCardSkeleton /> : <ChildItem child={item} theme={theme} />}
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={{ padding: 16 }}
       ListHeaderComponent={
@@ -323,9 +319,11 @@ export default function MyChildrenScreen() {
         </>
       }
       ListEmptyComponent={
-        <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>You have no children associated with your account.</Text>
-        </View>
+        !loading && (
+          <View style={styles.emptyContainer}>
+            <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>You have no children associated with your account.</Text>
+          </View>
+        )
       }
     />
   );

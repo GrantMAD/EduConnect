@@ -14,7 +14,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import MarketScreenSkeleton from '../../components/skeletons/MarketScreenSkeleton';
+import MarketScreenSkeleton, { SkeletonPiece, MarketplaceItemCardSkeleton } from '../../components/skeletons/MarketScreenSkeleton';
 import {
   faPlus,
   faSearch,
@@ -172,12 +172,6 @@ export default function MarketScreen({ navigation }) {
 
     try {
       // Check if a direct chat already exists with this seller
-      // A direct chat has type 'direct' and contains the seller in its members
-      // Since we don't have the full member list in the channel object easily accessible in a way that guarantees we find the *other* user without iterating,
-      // we rely on the fact that 'direct' channels usually have a specific naming convention or we check membership.
-      // However, the best way in this app's context (based on ChatContext) is to check if we have a channel where the other member is the seller.
-
-      // Actually, ChatContext's channels array has channel_members.
       const existingChannel = channels.find(channel =>
         channel.type === 'direct' &&
         channel.channel_members.some(member => member.user_id === seller.id)
@@ -196,8 +190,6 @@ export default function MarketScreen({ navigation }) {
     }
   };
 
-  if (loading) return <MarketScreenSkeleton />;
-
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
 
@@ -214,76 +206,102 @@ export default function MarketScreen({ navigation }) {
       <View style={styles.searchContainerWrapper}>
         <View style={[styles.searchContainer, { backgroundColor: theme.colors.cardBackground }]}>
           <FontAwesomeIcon icon={faSearch} size={16} color={theme.colors.placeholder} style={styles.searchIcon} />
-          <TextInput
-            style={[styles.searchInput, { color: theme.colors.text }]}
-            placeholder="Search for items..."
-            placeholderTextColor={theme.colors.placeholder}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
+          {loading ? (
+            <SkeletonPiece style={{ flex: 1, height: 20, borderRadius: 4 }} />
+          ) : (
+            <TextInput
+              style={[styles.searchInput, { color: theme.colors.text }]}
+              placeholder="Search for items..."
+              placeholderTextColor={theme.colors.placeholder}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          )}
         </View>
       </View>
 
       {/* CATEGORY FILTER — FIXED HORIZONTAL SCROLL */}
       <View style={styles.filterContainer}>
-        <FlatList
-          data={categories}
-          horizontal
-          nestedScrollEnabled
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryScroll}
-          keyExtractor={(item) => item}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.categoryChip,
-                selectedCategory === item
-                  ? { backgroundColor: theme.colors.primary }
-                  : { backgroundColor: theme.colors.cardBackground, borderWidth: 1, borderColor: theme.colors.cardBorder },
-              ]}
-              onPress={() => setSelectedCategory(item)}
-            >
-              <Text
+        {loading ? (
+          <View style={{ paddingHorizontal: 16, flexDirection: 'row' }}>
+            {[1, 2, 3, 4].map(i => (
+              <SkeletonPiece key={i} style={{ width: 80, height: 35, borderRadius: 20, marginRight: 8 }} />
+            ))}
+          </View>
+        ) : (
+          <FlatList
+            data={categories}
+            horizontal
+            nestedScrollEnabled
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryScroll}
+            keyExtractor={(item) => item}
+            renderItem={({ item }) => (
+              <TouchableOpacity
                 style={[
-                  styles.categoryChipText,
+                  styles.categoryChip,
                   selectedCategory === item
-                    ? { color: theme.colors.buttonPrimaryText }
-                    : { color: theme.colors.text },
+                    ? { backgroundColor: theme.colors.primary }
+                    : { backgroundColor: theme.colors.cardBackground, borderWidth: 1, borderColor: theme.colors.cardBorder },
                 ]}
+                onPress={() => setSelectedCategory(item)}
               >
-                {item}
-              </Text>
-            </TouchableOpacity>
-          )}
-        />
+                <Text
+                  style={[
+                    styles.categoryChipText,
+                    selectedCategory === item
+                      ? { color: theme.colors.buttonPrimaryText }
+                      : { color: theme.colors.text },
+                  ]}
+                >
+                  {item}
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+        )}
       </View>
 
       {/* CONTROLS */}
-      <View style={styles.controlsRow}>
-        <TouchableOpacity style={styles.controlButton} onPress={toggleSort}>
-          <FontAwesomeIcon icon={getSortIcon()} size={14} color={theme.colors.text} style={{ marginRight: 6 }} />
-          <Text style={[styles.controlText, { color: theme.colors.text }]}>{getSortLabel()}</Text>
-        </TouchableOpacity>
-
-        <View style={{ flexDirection: 'row' }}>
-          <TouchableOpacity
-            style={[styles.iconButton, viewMode === 'horizontal' && { backgroundColor: theme.colors.cardBackground }]}
-            onPress={() => setViewMode('horizontal')}
-          >
-            <FontAwesomeIcon icon={faList} size={16} color={viewMode === 'horizontal' ? theme.colors.primary : theme.colors.placeholder} />
+      {!loading && (
+        <View style={styles.controlsRow}>
+          <TouchableOpacity style={styles.controlButton} onPress={toggleSort}>
+            <FontAwesomeIcon icon={getSortIcon()} size={14} color={theme.colors.text} style={{ marginRight: 6 }} />
+            <Text style={[styles.controlText, { color: theme.colors.text }]}>{getSortLabel()}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.iconButton, viewMode === 'grid' && { backgroundColor: theme.colors.cardBackground }]}
-            onPress={() => setViewMode('grid')}
-          >
-            <FontAwesomeIcon icon={faThLarge} size={16} color={viewMode === 'grid' ? theme.colors.primary : theme.colors.placeholder} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row' }}>
+            <TouchableOpacity
+              style={[styles.iconButton, viewMode === 'horizontal' && { backgroundColor: theme.colors.cardBackground }]}
+              onPress={() => setViewMode('horizontal')}
+            >
+              <FontAwesomeIcon icon={faList} size={16} color={viewMode === 'horizontal' ? theme.colors.primary : theme.colors.placeholder} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.iconButton, viewMode === 'grid' && { backgroundColor: theme.colors.cardBackground }]}
+              onPress={() => setViewMode('grid')}
+            >
+              <FontAwesomeIcon icon={faThLarge} size={16} color={viewMode === 'grid' ? theme.colors.primary : theme.colors.placeholder} />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      )}
 
       {/* GRID MODE */}
-      {viewMode === 'grid' ? (
+      {loading ? (
+        <FlatList
+          data={[1, 2, 3, 4]}
+          keyExtractor={(item) => item.toString()}
+          numColumns={2}
+          renderItem={() => (
+            <View style={{ flex: 0.5, paddingHorizontal: 8 }}>
+              <MarketplaceItemCardSkeleton />
+            </View>
+          )}
+          contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 80 }}
+        />
+      ) : viewMode === 'grid' ? (
         <FlatList
           data={filteredItems}
           keyExtractor={(item) => item.id.toString()}

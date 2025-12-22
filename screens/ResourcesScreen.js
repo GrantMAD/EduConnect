@@ -7,14 +7,16 @@ import CreateResourceModal from '../components/CreateResourceModal';
 import ResourceDetailModal from '../components/ResourceDetailModal';
 import StandardBottomModal from '../components/StandardBottomModal';
 import { useSchool } from '../context/SchoolContext';
+import { useTheme } from '../context/ThemeContext';
 import RNFetchBlob from 'rn-fetch-blob';
 import FileViewer from 'react-native-file-viewer';
 import { useGamification } from '../context/GamificationContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ResourcesScreenSkeleton from '../components/skeletons/ResourcesScreenSkeleton';
+import ResourcesScreenSkeleton, { SkeletonPiece, ResourceCardSkeleton } from '../components/skeletons/ResourcesScreenSkeleton';
 
 export default function ResourcesScreen() {
   const { schoolId } = useSchool();
+  const { theme } = useTheme();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
   const insets = useSafeAreaInsets();
@@ -202,16 +204,16 @@ export default function ResourcesScreen() {
 
   const filteredResources = processResources();
 
-  if (loading) return <ResourcesScreenSkeleton />;
-
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.headerContainer}>
         <View style={styles.headerLeft}>
           <FontAwesomeIcon icon={faBook} size={24} color="#007AFF" style={styles.headerIcon} />
-          <Text style={styles.header}>Resources</Text>
+          <Text style={[styles.header, { color: theme.colors.text }]}>Resources</Text>
         </View>
-        {(userRole === 'teacher' || userRole === 'admin') && (
+        {loading ? (
+          <SkeletonPiece style={{ width: 100, height: 35, borderRadius: 10 }} />
+        ) : (userRole === 'teacher' || userRole === 'admin') && (
           <TouchableOpacity style={styles.addButton} onPress={() => setShowCreateModal(true)}>
             <FontAwesomeIcon icon={faPlus} size={16} color="#fff" />
             <Text style={styles.addButtonText}>Add Resource</Text>
@@ -237,7 +239,7 @@ export default function ResourcesScreen() {
       )}
 
       <View style={styles.descriptionContainer}>
-        <Text style={styles.descriptionText}>
+        <Text style={[styles.descriptionText, { color: theme.colors.text }]}>
           {activeTab === 'public' 
             ? "Access and manage all your educational resources here."
             : "Keep your private study materials and notes here. Only you can see these."}
@@ -247,44 +249,51 @@ export default function ResourcesScreen() {
         </TouchableOpacity>
       </View>
 
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Search by title..."
-        value={searchTerm}
-        onChangeText={setSearchTerm}
-      />
+      {loading ? (
+        <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8, marginBottom: 20 }} />
+      ) : (
+        <TextInput
+          style={[styles.searchInput, { color: theme.colors.text, borderColor: theme.colors.cardBorder }]}
+          placeholder="Search by title..."
+          placeholderTextColor={theme.colors.placeholder}
+          value={searchTerm}
+          onChangeText={setSearchTerm}
+        />
+      )}
 
       <View style={styles.controlsContainer}>
         <TouchableOpacity
-          style={styles.controlButton}
+          style={[styles.controlButton, { backgroundColor: theme.colors.inputBackground }]}
           onPress={() => {
             if (sortBy === 'newest') setSortBy('popular');
             else if (sortBy === 'popular') setSortBy('oldest');
             else setSortBy('newest');
           }}
         >
-          <FontAwesomeIcon icon={faSortAmountDown} size={14} color="#555" />
-          <Text style={styles.controlText}>
+          <FontAwesomeIcon icon={faSortAmountDown} size={14} color={theme.colors.placeholder} />
+          <Text style={[styles.controlText, { color: theme.colors.text }]}>
             Sort: {sortBy === 'newest' ? 'Newest' : sortBy === 'popular' ? 'Popular' : 'Oldest'}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.controlButton, showBookmarkedOnly && styles.controlButtonActive]}
+          style={[styles.controlButton, showBookmarkedOnly ? styles.controlButtonActive : { backgroundColor: theme.colors.inputBackground }]}
           onPress={() => setShowBookmarkedOnly(!showBookmarkedOnly)}
         >
-          <FontAwesomeIcon icon={faBookmark} size={14} color={showBookmarkedOnly ? "#fff" : "#555"} />
-          <Text style={[styles.controlText, showBookmarkedOnly && { color: '#fff' }]}>My Bookmarks</Text>
+          <FontAwesomeIcon icon={faBookmark} size={14} color={showBookmarkedOnly ? "#fff" : theme.colors.placeholder} />
+          <Text style={[styles.controlText, showBookmarkedOnly ? { color: '#fff' } : { color: theme.colors.text }]}>My Bookmarks</Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
-        {Object.keys(filteredResources).length === 0 ? (
-          <Text style={styles.noResourcesText}>No resources available yet.</Text>
+        {loading ? (
+          [1, 2, 3].map(i => <ResourceCardSkeleton key={i} />)
+        ) : Object.keys(filteredResources).length === 0 ? (
+          <Text style={[styles.noResourcesText, { color: theme.colors.placeholder }]}>No resources available yet.</Text>
         ) : (
           Object.keys(filteredResources).map((category) => (
             <View key={category} style={styles.categoryContainer}>
-              <Text style={styles.categoryHeader}>{category}</Text>
+              <Text style={[styles.categoryHeader, { color: theme.colors.text }]}>{category}</Text>
               {filteredResources[category].map((item) => (
                 <View key={item.id.toString()} style={styles.resourceItemContainer}>
                   <TouchableOpacity
@@ -293,24 +302,24 @@ export default function ResourcesScreen() {
                       setDetailModalVisible(true);
                     }}
                   >
-                    <View style={styles.card}>
+                    <View style={[styles.card, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
                       <FontAwesomeIcon icon={faFileAlt} size={24} color="#007AFF" style={{ marginRight: 10 }} />
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.title}>{item.title}</Text>
-                        <Text style={styles.description} numberOfLines={2} ellipsizeMode="tail">
+                        <Text style={[styles.title, { color: theme.colors.text }]}>{item.title}</Text>
+                        <Text style={[styles.description, { color: theme.colors.textSecondary }]} numberOfLines={2} ellipsizeMode="tail">
                           {item.description}
                         </Text>
-                        <Text style={styles.uploader}>
+                        <Text style={[styles.uploader, { color: theme.colors.placeholder }]}>
                           Uploaded by: {item.users?.full_name ?? item.users?.email ?? "Unknown"}
                         </Text>
                       </View>
                     </View>
                   </TouchableOpacity>
-                  <View style={styles.voteSummaryContainer}>
+                  <View style={[styles.voteSummaryContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
                     <FontAwesomeIcon icon={faThumbsUp} size={16} color="#28A745" />
-                    <Text style={styles.voteCount}>{item.upvotes}</Text>
+                    <Text style={[styles.voteCount, { color: theme.colors.text }]}>{item.upvotes}</Text>
                     <FontAwesomeIcon icon={faThumbsDown} size={16} color="#FF3B30" style={{ marginLeft: 12 }} />
-                    <Text style={styles.voteCount}>{item.downvotes}</Text>
+                    <Text style={[styles.voteCount, { color: theme.colors.text }]}>{item.downvotes}</Text>
                   </View>
 
                   <TouchableOpacity

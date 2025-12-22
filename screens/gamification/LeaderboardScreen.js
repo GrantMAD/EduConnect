@@ -7,6 +7,26 @@ import { faTrophy, faMedal, faCrown, faArrowLeft } from '@fortawesome/free-solid
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import UserProfileModal from '../../components/UserProfileModal';
+import { SkeletonPiece } from '../../components/skeletons/DashboardScreenSkeleton';
+
+const LeaderboardItemSkeleton = () => {
+    const { theme } = useTheme();
+    return (
+        <View style={[styles.itemContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+            <View style={styles.rankContainer}>
+                <SkeletonPiece style={{ width: 24, height: 24, borderRadius: 12 }} />
+            </View>
+            <SkeletonPiece style={{ width: 48, height: 48, borderRadius: 24, marginHorizontal: 16 }} />
+            <View style={styles.userInfo}>
+                <SkeletonPiece style={{ width: 120, height: 16, borderRadius: 4, marginBottom: 6 }} />
+                <SkeletonPiece style={{ width: 60, height: 12, borderRadius: 4 }} />
+            </View>
+            <View style={styles.xpContainer}>
+                <SkeletonPiece style={{ width: 50, height: 16, borderRadius: 4 }} />
+            </View>
+        </View>
+    );
+};
 
 export default function LeaderboardScreen({ navigation }) {
     const { theme } = useTheme();
@@ -132,14 +152,6 @@ export default function LeaderboardScreen({ navigation }) {
         );
     };
 
-    if (loading) {
-        return (
-            <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
-                <ActivityIndicator size="large" color={theme.colors.primary} />
-            </View>
-        );
-    }
-
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <View style={styles.contentHeader}>
@@ -158,9 +170,9 @@ export default function LeaderboardScreen({ navigation }) {
             </View>
 
             <FlatList
-                data={users}
-                renderItem={renderItem}
-                keyExtractor={(item, index) => index.toString()}
+                data={loading ? [1, 2, 3, 4, 5] : users}
+                renderItem={loading ? () => <LeaderboardItemSkeleton /> : renderItem}
+                keyExtractor={(item, index) => loading ? index.toString() : item.user_id}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
             />

@@ -21,7 +21,7 @@ const SkeletonPiece = ({ style }) => {
   return <Animated.View style={[styles.skeleton, { backgroundColor: theme.colors.cardBorder }, animatedStyle, style]} />;
 };
 
-const UserItemSkeleton = () => {
+export const UserItemSkeleton = () => {
     const { theme } = useTheme(); // Use the theme hook
     return (
         <View style={[styles.userItem, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>

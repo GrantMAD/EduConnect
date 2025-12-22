@@ -18,6 +18,7 @@ import { faSchool, faPlusCircle, faChevronDown, faBuilding, faMapMarkerAlt, faEn
 import { Modal } from 'react-native';
 
 import SchoolSetupScreenSkeleton from '../components/skeletons/SchoolSetupScreenSkeleton';
+import { SkeletonPiece } from '../components/skeletons/SettingsScreenSkeleton';
 import { useToast } from '../context/ToastContext';
 
 export default function SchoolSetupScreen({ navigation }) {
@@ -301,8 +302,6 @@ export default function SchoolSetupScreen({ navigation }) {
     await supabase.auth.signOut();
   };
 
-  if (loading) return <SchoolSetupScreenSkeleton />;
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 60 + insets.bottom }}>
       <TouchableOpacity onPress={() => navigation.navigate('RoleSelection')} style={styles.backButton}>
@@ -311,204 +310,217 @@ export default function SchoolSetupScreen({ navigation }) {
       </TouchableOpacity>
       <Text style={styles.title}>Welcome to ClassConnect</Text>
 
-
-      {(role === 'student' || role === 'parent' || role === 'teacher') && (
-        <>
-          {/* --- JOIN EXISTING --- */}
-          {/* --- JOIN EXISTING --- */}
-          <View style={styles.sectionHeaderContainer}>
-            <FontAwesomeIcon icon={faSchool} size={20} color="#007AFF" style={{ marginRight: 10 }} />
-            <Text style={styles.sectionTitle}>Join Existing School</Text>
-          </View>
-          <Text style={styles.sectionDescription}>Search for your school and send a request to join. Acceptance is determined by the school admins.</Text>
-
-          {requestStatus === 'pending' ? (
-            <View>
-              <Text style={styles.pendingText}>Request is currently pending...</Text>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={handleCancelRequest}
-                disabled={cancellingRequest}
-              >
-                <Text style={styles.cancelButtonText}>
-                  {cancellingRequest ? 'Cancelling...' : 'Cancel Request'}
-                </Text>
-              </TouchableOpacity>
+      {loading ? (
+        <View style={{ marginTop: 20 }}>
+            <SkeletonPiece style={{ width: '60%', height: 20, borderRadius: 4, marginTop: 16, marginBottom: 8 }} />
+            <SkeletonPiece style={{ width: '90%', height: 14, borderRadius: 4, marginBottom: 15 }} />
+            <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 12, marginBottom: 12 }} />
+            <View style={[styles.schoolCard, { backgroundColor: '#fff' }]}>
+                <SkeletonPiece style={{ width: '60%', height: 16, borderRadius: 4 }} />
+                <SkeletonPiece style={{ width: '20%', height: 30, borderRadius: 8 }} />
             </View>
-          ) : (
+        </View>
+      ) : (
+        <>
+          {(role === 'student' || role === 'parent' || role === 'teacher') && (
             <>
-              <View style={styles.searchRow}>
-                <TextInput
-                  style={[styles.input, { color: '#333' }]}
-                  placeholder="Search for a school"
-                  placeholderTextColor="#666"
-                  value={search}
-                  onChangeText={(text) => {
-                    setSearch(text);
-                    setDeclinedMessage(null);
-                    if (text.length > 0) {
-                      setSearching(true);
-                    } else {
-                      setSearching(false);
-                    }
-                  }}
-                />
+              {/* --- JOIN EXISTING --- */}
+              {/* --- JOIN EXISTING --- */}
+              <View style={styles.sectionHeaderContainer}>
+                <FontAwesomeIcon icon={faSchool} size={20} color="#007AFF" style={{ marginRight: 10 }} />
+                <Text style={styles.sectionTitle}>Join Existing School</Text>
               </View>
+              <Text style={styles.sectionDescription}>Search for your school and send a request to join. Acceptance is determined by the school admins.</Text>
 
-              {declinedMessage && <Text style={styles.declinedText}>{declinedMessage}</Text>}
-
-              {searching ? (
-                <ActivityIndicator style={{ marginTop: 10 }} />
+              {requestStatus === 'pending' ? (
+                <View>
+                  <Text style={styles.pendingText}>Request is currently pending...</Text>
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={handleCancelRequest}
+                    disabled={cancellingRequest}
+                  >
+                    <Text style={styles.cancelButtonText}>
+                      {cancellingRequest ? 'Cancelling...' : 'Cancel Request'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               ) : (
-                schools.length > 0 ? (
-                  <FlatList
-                    data={schools}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                      <View style={styles.schoolCard}>
-                        <Image
-                          source={item.logo_url ? { uri: item.logo_url } : require('../assets/DefaultSchool.png')}
-                          style={styles.schoolLogo}
-                        />
-                        <Text style={styles.schoolName}>{item.name}</Text>
-                        <TouchableOpacity
-                          style={styles.joinButton}
-                          onPress={() => handleJoinSchool(item.id, item.name, item.created_by)}
-                          disabled={joiningSchool === item.id}
-                        >
-                          <Text style={styles.joinButtonText}>Join</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                    scrollEnabled={false}
-                  />
-                ) : (
-                  search.length > 0 && <Text style={{ textAlign: 'center', marginVertical: 10 }}>No schools found</Text>
-                )
+                <>
+                  <View style={styles.searchRow}>
+                    <TextInput
+                      style={[styles.input, { color: '#333' }]}
+                      placeholder="Search for a school"
+                      placeholderTextColor="#666"
+                      value={search}
+                      onChangeText={(text) => {
+                        setSearch(text);
+                        setDeclinedMessage(null);
+                        if (text.length > 0) {
+                          setSearching(true);
+                        } else {
+                          setSearching(false);
+                        }
+                      }}
+                    />
+                  </View>
+
+                  {declinedMessage && <Text style={styles.declinedText}>{declinedMessage}</Text>}
+
+                  {searching ? (
+                    <ActivityIndicator style={{ marginTop: 10 }} />
+                  ) : (
+                    schools.length > 0 ? (
+                      <FlatList
+                        data={schools}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => (
+                          <View style={styles.schoolCard}>
+                            <Image
+                              source={item.logo_url ? { uri: item.logo_url } : require('../assets/DefaultSchool.png')}
+                              style={styles.schoolLogo}
+                            />
+                            <Text style={styles.schoolName}>{item.name}</Text>
+                            <TouchableOpacity
+                              style={styles.joinButton}
+                              onPress={() => handleJoinSchool(item.id, item.name, item.created_by)}
+                              disabled={joiningSchool === item.id}
+                            >
+                              <Text style={styles.joinButtonText}>Join</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                        scrollEnabled={false}
+                      />
+                    ) : (
+                      search.length > 0 && <Text style={{ textAlign: 'center', marginVertical: 10 }}>No schools found</Text>
+                    )
+                  )}
+                </>
               )}
             </>
           )}
-        </>
-      )}
 
-      {role === 'admin' && (
-        <>
-          {/* --- CREATE NEW --- */}
-          {/* --- CREATE NEW --- */}
-          <View style={styles.sectionHeaderContainer}>
-            <FontAwesomeIcon icon={faPlusCircle} size={20} color="#333" style={{ marginRight: 10 }} />
-            <Text style={styles.sectionTitle}>Create New School</Text>
-          </View>
-          <Text style={styles.sectionDescription}>Register a new school and become its administrator.</Text>
-          <View style={styles.inputHeaderContainer}>
-            <FontAwesomeIcon icon={faBuilding} size={16} color="#333" style={{ marginRight: 8 }} />
-            <Text style={styles.inputHeading}>School Name</Text>
-          </View>
-          <Text style={styles.inputDescription}>Enter the official name of your school.</Text>
-          <TextInput
-            style={[styles.input, { color: '#333' }]}
-            placeholder="Enter new school name"
-            placeholderTextColor="#666"
-            value={newSchoolName}
-            onChangeText={setNewSchoolName}
-          />
-          <View style={styles.inputHeaderContainer}>
-            <FontAwesomeIcon icon={faMapMarkerAlt} size={16} color="#333" style={{ marginRight: 8 }} />
-            <Text style={styles.inputHeading}>Address</Text>
-          </View>
-          <Text style={styles.inputDescription}>Provide the physical address of your school.</Text>
-          <TextInput
-            style={[styles.input, { color: '#333' }]}
-            placeholder="Address"
-            placeholderTextColor="#666"
-            value={newSchoolAddress}
-            onChangeText={setNewSchoolAddress}
-          />
-          <View style={styles.inputHeaderContainer}>
-            <FontAwesomeIcon icon={faEnvelope} size={16} color="#333" style={{ marginRight: 8 }} />
-            <Text style={styles.inputHeading}>Contact Email</Text>
-          </View>
-          <Text style={styles.inputDescription}>Enter the primary contact email for your school.</Text>
-          <TextInput
-            style={[styles.input, { color: '#333' }]}
-            placeholder="Contact Email"
-            placeholderTextColor="#666"
-            value={newSchoolContactEmail}
-            onChangeText={setNewSchoolContactEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          <View style={styles.inputHeaderContainer}>
-            <FontAwesomeIcon icon={faPhone} size={16} color="#333" style={{ marginRight: 8 }} />
-            <Text style={styles.inputHeading}>Contact Number</Text>
-          </View>
-          <Text style={styles.inputDescription}>Enter the primary contact phone number for your school.</Text>
-          <TextInput
-            style={[styles.input, { color: '#333' }]}
-            placeholder="Contact Number"
-            placeholderTextColor="#666"
-            value={newSchoolContactPhone}
-            onChangeText={(text) => setNewSchoolContactPhone(text.replace(/[^0-9]/g, ''))}
-            keyboardType="phone-pad"
-          />
-
-          <View style={styles.inputHeaderContainer}>
-            <FontAwesomeIcon icon={faGraduationCap} size={16} color="#333" style={{ marginRight: 8 }} />
-            <Text style={styles.inputHeading}>School Type</Text>
-          </View>
-          <Text style={styles.inputDescription}>Select the type of educational institution.</Text>
-          <TouchableOpacity
-            style={styles.dropdownButton}
-            onPress={() => setShowTypePicker(true)}
-          >
-            <Text style={styles.dropdownButtonText}>{schoolType}</Text>
-            <FontAwesomeIcon icon={faChevronDown} size={16} color="#666" />
-          </TouchableOpacity>
-
-          <Modal
-            visible={showTypePicker}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowTypePicker(false)}
-          >
-            <TouchableOpacity
-              style={styles.modalOverlay}
-              activeOpacity={1}
-              onPress={() => setShowTypePicker(false)}
-            >
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Select School Type</Text>
-                {schoolTypes.map((type) => (
-                  <TouchableOpacity
-                    key={type}
-                    style={styles.modalItem}
-                    onPress={() => {
-                      setSchoolType(type);
-                      setShowTypePicker(false);
-                    }}
-                  >
-                    <Text style={[
-                      styles.modalItemText,
-                      schoolType === type && styles.modalItemTextSelected
-                    ]}>
-                      {type}
-                    </Text>
-                    {schoolType === type && (
-                      <FontAwesomeIcon icon={faSchool} size={16} color="#007AFF" />
-                    )}
-                  </TouchableOpacity>
-                ))}
+          {role === 'admin' && (
+            <>
+              {/* --- CREATE NEW --- */}
+              {/* --- CREATE NEW --- */}
+              <View style={styles.sectionHeaderContainer}>
+                <FontAwesomeIcon icon={faPlusCircle} size={20} color="#333" style={{ marginRight: 10 }} />
+                <Text style={styles.sectionTitle}>Create New School</Text>
               </View>
-            </TouchableOpacity>
-          </Modal>
+              <Text style={styles.sectionDescription}>Register a new school and become its administrator.</Text>
+              <View style={styles.inputHeaderContainer}>
+                <FontAwesomeIcon icon={faBuilding} size={16} color="#333" style={{ marginRight: 8 }} />
+                <Text style={styles.inputHeading}>School Name</Text>
+              </View>
+              <Text style={styles.inputDescription}>Enter the official name of your school.</Text>
+              <TextInput
+                style={[styles.input, { color: '#333' }]}
+                placeholder="Enter new school name"
+                placeholderTextColor="#666"
+                value={newSchoolName}
+                onChangeText={setNewSchoolName}
+              />
+              <View style={styles.inputHeaderContainer}>
+                <FontAwesomeIcon icon={faMapMarkerAlt} size={16} color="#333" style={{ marginRight: 8 }} />
+                <Text style={styles.inputHeading}>Address</Text>
+              </View>
+              <Text style={styles.inputDescription}>Provide the physical address of your school.</Text>
+              <TextInput
+                style={[styles.input, { color: '#333' }]}
+                placeholder="Address"
+                placeholderTextColor="#666"
+                value={newSchoolAddress}
+                onChangeText={setNewSchoolAddress}
+              />
+              <View style={styles.inputHeaderContainer}>
+                <FontAwesomeIcon icon={faEnvelope} size={16} color="#333" style={{ marginRight: 8 }} />
+                <Text style={styles.inputHeading}>Contact Email</Text>
+              </View>
+              <Text style={styles.inputDescription}>Enter the primary contact email for your school.</Text>
+              <TextInput
+                style={[styles.input, { color: '#333' }]}
+                placeholder="Contact Email"
+                placeholderTextColor="#666"
+                value={newSchoolContactEmail}
+                onChangeText={setNewSchoolContactEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <View style={styles.inputHeaderContainer}>
+                <FontAwesomeIcon icon={faPhone} size={16} color="#333" style={{ marginRight: 8 }} />
+                <Text style={styles.inputHeading}>Contact Number</Text>
+              </View>
+              <Text style={styles.inputDescription}>Enter the primary contact phone number for your school.</Text>
+              <TextInput
+                style={[styles.input, { color: '#333' }]}
+                placeholder="Contact Number"
+                placeholderTextColor="#666"
+                value={newSchoolContactPhone}
+                onChangeText={(text) => setNewSchoolContactPhone(text.replace(/[^0-9]/g, ''))}
+                keyboardType="phone-pad"
+              />
 
-          <TouchableOpacity
-            style={styles.createButton}
-            onPress={handleCreateSchool}
-            disabled={creating}
-          >
-            <Text style={styles.createButtonText}>{creating ? 'Creating...' : 'Create School'}</Text>
-          </TouchableOpacity>
+              <View style={styles.inputHeaderContainer}>
+                <FontAwesomeIcon icon={faGraduationCap} size={16} color="#333" style={{ marginRight: 8 }} />
+                <Text style={styles.inputHeading}>School Type</Text>
+              </View>
+              <Text style={styles.inputDescription}>Select the type of educational institution.</Text>
+              <TouchableOpacity
+                style={styles.dropdownButton}
+                onPress={() => setShowTypePicker(true)}
+              >
+                <Text style={styles.dropdownButtonText}>{schoolType}</Text>
+                <FontAwesomeIcon icon={faChevronDown} size={16} color="#666" />
+              </TouchableOpacity>
+
+              <Modal
+                visible={showTypePicker}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowTypePicker(false)}
+              >
+                <TouchableOpacity
+                  style={styles.modalOverlay}
+                  activeOpacity={1}
+                  onPress={() => setShowTypePicker(false)}
+                >
+                  <div style={styles.modalContent}>
+                    <Text style={styles.modalTitle}>Select School Type</Text>
+                    {schoolTypes.map((type) => (
+                      <TouchableOpacity
+                        key={type}
+                        style={styles.modalItem}
+                        onPress={() => {
+                          setSchoolType(type);
+                          setShowTypePicker(false);
+                        }}
+                      >
+                        <Text style={[
+                          styles.modalItemText,
+                          schoolType === type && styles.modalItemTextSelected
+                        ]}>
+                          {type}
+                        </Text>
+                        {schoolType === type && (
+                          <FontAwesomeIcon icon={faSchool} size={16} color="#007AFF" />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </div>
+                </TouchableOpacity>
+              </Modal>
+
+              <TouchableOpacity
+                style={styles.createButton}
+                onPress={handleCreateSchool}
+                disabled={creating}
+              >
+                <Text style={styles.createButtonText}>{creating ? 'Creating...' : 'Create School'}</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </>
       )}
 

@@ -4,7 +4,7 @@ import CardSkeleton from './CardSkeleton';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
 import { useTheme } from '../../context/ThemeContext'; // Import useTheme
 
-const SkeletonPiece = ({ style }) => {
+export const SkeletonPiece = ({ style }) => {
     const progress = useSharedValue(0);
     const { theme } = useTheme(); // Use the theme hook
   

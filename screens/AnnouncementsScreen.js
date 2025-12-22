@@ -208,30 +208,61 @@ export default function AnnouncementsScreen({ navigation }) {
     setShowModal(true);
   };
 
-  if (loading || loadingSchool) {
+  const renderAnnouncementItem = ({ item }) => {
+    if (loading || loadingSchool) {
+      return <AnnouncementCardSkeleton />;
+    }
+
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.welcomeContainer}>
-          <View style={[styles.skeleton, { width: '70%', height: 24, borderRadius: 4, marginBottom: 5 }]} />
-          <View style={[styles.skeleton, { width: '90%', height: 16, borderRadius: 4 }]} />
-        </View>
-        <View style={styles.sectionHeaderContainer}>
-          <View style={[styles.skeleton, { width: '40%', height: 20, borderRadius: 4 }]} />
-        </View>
-        <FlatList
-          data={[1, 2, 3]} // Render 3 skeleton cards
-          keyExtractor={(item) => item.toString()}
-          renderItem={() => <AnnouncementCardSkeleton />}
-        />
-      </View>
+      <TouchableOpacity onPress={() => handleCardPress(item)} style={[styles.cardContainer, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }]}>
+        <View style={[styles.typeIndicator, item.type === 'general' ? { backgroundColor: theme.colors.primary } : { backgroundColor: theme.colors.success }]} />
+        <View style={styles.cardContent}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <FontAwesomeIcon icon={faBullhorn} size={18} color={theme.colors.primary} style={{ marginRight: 10 }} />
+              <Text style={[styles.title, { color: theme.colors.text }]}>{item.title}</Text>
+            </View>
+            {new Date(item.created_at) > new Date(Date.now() - 48 * 60 * 60 * 1000) ? (
+              <View style={[styles.newBadge, { backgroundColor: theme.colors.error }]}>
+                <Text style={[styles.newBadgeText, { color: theme.colors.buttonPrimaryText }]}>NEW</Text>
+              </View>
+            ) : (
+              <View style={[styles.oldBadge, { backgroundColor: theme.colors.buttonSecondary }]}>
+                <Text style={[styles.oldBadgeText, { color: theme.colors.buttonPrimaryText }]}>OLD</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.postedByContainer}>
+            <Text style={[styles.postedBy, { color: theme.colors.placeholder }]}>Posted by: {item.author ? item.author.full_name : 'Unknown Author'}</Text>
+            <Text style={[styles.timeSince, { color: theme.colors.placeholder }]}>{timeSince(item.created_at)}</Text>
+          </View>
+          <View style={[styles.separator, { backgroundColor: theme.colors.cardBorder }]} />
+          <Text style={[styles.messagePreview, { color: theme.colors.text }]} numberOfLines={3}>
+            {item.message.length > 100 ? item.message.substring(0, 100) + '...' : item.message}
+          </Text>
+          {
+            item.class?.name && (
+              <View>
+                <View style={[styles.separator, { backgroundColor: theme.colors.cardBorder }]} />
+                <View style={[styles.classBadge, { backgroundColor: theme.colors.inputBackground }]}>
+                  <FontAwesomeIcon icon={faUsers} size={12} color={theme.colors.primary} />
+                  <Text style={[styles.classBadgeText, { color: theme.colors.primary }]}>
+                    {item.class.name}
+                  </Text>
+                </View>
+              </View>
+            )
+          }
+        </View >
+      </TouchableOpacity >
     );
-  }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <FlatList
-        data={announcements}
-        keyExtractor={(item) => item.id.toString()}
+        data={(loading || loadingSchool) ? [1, 2, 3] : announcements}
+        keyExtractor={(item, index) => (loading || loadingSchool) ? index.toString() : item.id.toString()}
         onRefresh={onRefresh}
         refreshing={refreshing}
         ListHeaderComponent={() => (
@@ -257,62 +288,21 @@ export default function AnnouncementsScreen({ navigation }) {
                 </TouchableOpacity>
               )}
             </View>
-            <Text style={[styles.announcementCount, { color: theme.colors.placeholder }]}>{announcements.length} announcements</Text>
+            <Text style={[styles.announcementCount, { color: theme.colors.placeholder }]}>
+              {(loading || loadingSchool) ? '--' : announcements.length} announcements
+            </Text>
           </>
         )}
-        renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => handleCardPress(item)} style={[styles.cardContainer, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }]}>
-            <View style={[styles.typeIndicator, item.type === 'general' ? { backgroundColor: theme.colors.primary } : { backgroundColor: theme.colors.success }]} />
-            <View style={styles.cardContent}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <FontAwesomeIcon icon={faBullhorn} size={18} color={theme.colors.primary} style={{ marginRight: 10 }} />
-                  <Text style={[styles.title, { color: theme.colors.text }]}>{item.title}</Text>
-                </View>
-                {new Date(item.created_at) > new Date(Date.now() - 48 * 60 * 60 * 1000) ? (
-                  <View style={[styles.newBadge, { backgroundColor: theme.colors.error }]}>
-                    <Text style={[styles.newBadgeText, { color: theme.colors.buttonPrimaryText }]}>NEW</Text>
-                  </View>
-                ) : (
-                  <View style={[styles.oldBadge, { backgroundColor: theme.colors.buttonSecondary }]}>
-                    <Text style={[styles.oldBadgeText, { color: theme.colors.buttonPrimaryText }]}>OLD</Text>
-                  </View>
-                )}
-              </View>
-              <View style={styles.postedByContainer}>
-                <Text style={[styles.postedBy, { color: theme.colors.placeholder }]}>Posted by: {item.author ? item.author.full_name : 'Unknown Author'}</Text>
-                <Text style={[styles.timeSince, { color: theme.colors.placeholder }]}>{timeSince(item.created_at)}</Text>
-              </View>
-              <View style={[styles.separator, { backgroundColor: theme.colors.cardBorder }]} />
-              <Text style={[styles.messagePreview, { color: theme.colors.text }]} numberOfLines={3}>
-                {item.message.length > 100 ? item.message.substring(0, 100) + '...' : item.message}
-              </Text>
-              {
-                item.class?.name && (
-                  <View>
-                    <View style={[styles.separator, { backgroundColor: theme.colors.cardBorder }]} />
-                    <View style={[styles.classBadge, { backgroundColor: theme.colors.inputBackground }]}>
-                      <FontAwesomeIcon icon={faUsers} size={12} color={theme.colors.primary} />
-                      <Text style={[styles.classBadgeText, { color: theme.colors.primary }]}>
-                        {item.class.name}
-                      </Text>
-                    </View>
-                  </View>
-                )
-              }
-            </View >
-          </TouchableOpacity >
-        )
-        }
-        ListEmptyComponent={< Text style={[styles.emptyText, { color: theme.colors.placeholder }]} > No announcements yet.</Text >}
+        renderItem={renderAnnouncementItem}
+        ListEmptyComponent={!(loading || loadingSchool) && <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No announcements yet.</Text>}
       />
 
-      < AnnouncementDetailModal
+      <AnnouncementDetailModal
         visible={showModal}
         onClose={() => setShowModal(false)}
         announcement={selectedAnnouncement}
       />
-    </View >
+    </View>
   );
 }
 

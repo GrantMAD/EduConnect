@@ -5,7 +5,8 @@ import { createMaterialTopTabNavigator } from '@react-navigation/material-top-ta
 import { FAB, Portal, Provider } from 'react-native-paper';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import CardListSkeleton from '../components/skeletons/CardListSkeleton';
+import CardListSkeleton, { SkeletonPiece } from '../components/skeletons/CardListSkeleton';
+import CardSkeleton from '../components/skeletons/CardSkeleton';
 import { faTimes, faCalendarAlt, faClipboardList, faCalendarPlus, faBook, faPen, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { Calendar } from 'react-native-calendars';
 
@@ -126,8 +127,6 @@ const HomeworkList = () => {
     return date.toLocaleDateString('en-GB', options);
   };
 
-  if (loading) return <CardListSkeleton />;
-
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Text style={[styles.screenDescription, { color: theme.colors.text }]}>Here is a list of all your current homework. Tap on a card to view more details.</Text>
@@ -245,10 +244,10 @@ const HomeworkList = () => {
       </Modal>
 
       <FlatList
-        data={homework}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => <HomeworkCard homework={item} onPress={() => handleCardPress(item)} />}
-        ListEmptyComponent={<Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No homework found.</Text>}
+        data={loading ? [1, 2, 3] : homework}
+        keyExtractor={(item, index) => loading ? index.toString() : item.id.toString()}
+        renderItem={({ item }) => loading ? <CardSkeleton /> : <HomeworkCard homework={item} onPress={() => handleCardPress(item)} />}
+        ListEmptyComponent={!loading && <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No homework found.</Text>}
       />
     </View>
   );
@@ -361,8 +360,6 @@ const AssignmentsList = () => {
     const options = { day: '2-digit', month: 'long', year: 'numeric' };
     return date.toLocaleDateString('en-GB', options);
   };
-
-  if (loading) return <CardListSkeleton />;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -481,10 +478,10 @@ const AssignmentsList = () => {
       </Modal>
 
       <FlatList
-        data={assignments}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => <AssignmentCard assignment={item} onPress={() => handleCardPress(item)} />}
-        ListEmptyComponent={<Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No assignments found.</Text>}
+        data={loading ? [1, 2, 3] : assignments}
+        keyExtractor={(item, index) => loading ? index.toString() : item.id.toString()}
+        renderItem={({ item }) => loading ? <CardSkeleton /> : <AssignmentCard assignment={item} onPress={() => handleCardPress(item)} />}
+        ListEmptyComponent={!loading && <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No assignments found.</Text>}
       />
     </View>
   );

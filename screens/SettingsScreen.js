@@ -11,7 +11,7 @@ import { Switch } from 'react-native-paper';
 import * as Notifications from 'expo-notifications';
 import { useTheme } from '../context/ThemeContext';
 import { useNotificationPreferences } from '../context/NotificationPreferencesContext';
-import SettingsScreenSkeleton from '../components/skeletons/SettingsScreenSkeleton';
+import SettingsScreenSkeleton, { SkeletonPiece } from '../components/skeletons/SettingsScreenSkeleton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppInfoModal from '../components/AppInfoModal';
 import HelpSupportModal from '../components/HelpSupportModal';
@@ -91,10 +91,6 @@ export default function SettingsScreen({ navigation }) {
     </TouchableOpacity>
   );
 
-  if (loading) {
-    return <SettingsScreenSkeleton />;
-  }
-
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -153,7 +149,7 @@ export default function SettingsScreen({ navigation }) {
           Control which notifications you receive
         </Text>
 
-        {notificationPermissions !== 'granted' && (
+        {notificationPermissions !== 'granted' && !loading && (
           <View style={[styles.warningContainer, { backgroundColor: '#FFF3CD', borderColor: '#FFC107' }]}>
             <Text style={[styles.warningText, { color: '#856404' }]}>
               ⚠️ Push notifications are not enabled. Please enable them in your device settings to receive notifications.
@@ -217,7 +213,20 @@ export default function SettingsScreen({ navigation }) {
       </View>
 
       {/* Management - Admin/Teacher Only */}
-      {user && (user.role === 'admin' || user.role === 'teacher') && (
+      {loading ? (
+        <View style={styles.section}>
+          <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
+          <SkeletonPiece style={{ width: '60%', height: 20, borderRadius: 4, marginBottom: 8 }} />
+          <SkeletonPiece style={{ width: '90%', height: 14, borderRadius: 4, marginBottom: 16 }} />
+          <View style={{ paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
+            <SkeletonPiece style={{ width: 18, height: 18, borderRadius: 4 }} />
+            <View style={{ marginLeft: 15 }}>
+              <SkeletonPiece style={{ width: 100, height: 16, borderRadius: 4, marginBottom: 4 }} />
+              <SkeletonPiece style={{ width: 150, height: 12, borderRadius: 4 }} />
+            </View>
+          </View>
+        </View>
+      ) : user && (user.role === 'admin' || user.role === 'teacher') && (
         <View>
           <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
           <View style={styles.section}>

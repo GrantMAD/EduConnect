@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Image, TouchableOpacity, Platform, TextInput, ScrollView } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import SchoolDataScreenSkeleton from '../components/skeletons/SchoolDataScreenSkeleton';
+import { SkeletonPiece } from '../components/skeletons/SettingsScreenSkeleton';
 import { faImage, faArrowLeft, faBuilding, faMapMarkerAlt, faEnvelope, faPhone, faGraduationCap, faChevronDown, faSchool, faTimes } from '@fortawesome/free-solid-svg-icons';
 import Modal from 'react-native-modal';
 import { supabase } from '../lib/supabase';
@@ -148,10 +149,6 @@ export default function SchoolDataScreen({ navigation, route }) {
     }
   };
 
-  if (loading) {
-    return <SchoolDataScreenSkeleton />;
-  }
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -169,16 +166,20 @@ export default function SchoolDataScreen({ navigation, route }) {
           <Text style={styles.sectionHeader}>School Image</Text>
         </View>
         <Text style={styles.sectionDescription}>Select an image of your school to display on the announcements screen.</Text>
-        <TouchableOpacity onPress={pickImage} activeOpacity={0.7} style={{ marginBottom: 16 }}>
-          {logoLocalUri || schoolData?.logo_url ? (
-            <Image source={{ uri: logoLocalUri || schoolData.logo_url }} style={styles.logo} />
-          ) : (
-            <View style={styles.logoPlaceholder}>
-              <Text style={styles.logoPlaceholderText}>No image selected</Text>
-            </View>
-          )}
-          <Text style={{ textAlign: 'center', color: '#007AFF', marginTop: 4 }}>Tap to change photo</Text>
-        </TouchableOpacity>
+        {loading ? (
+          <SkeletonPiece style={styles.logo} />
+        ) : (
+          <TouchableOpacity onPress={pickImage} activeOpacity={0.7} style={{ marginBottom: 16 }}>
+            {logoLocalUri || schoolData?.logo_url ? (
+              <Image source={{ uri: logoLocalUri || schoolData.logo_url }} style={styles.logo} />
+            ) : (
+              <View style={styles.logoPlaceholder}>
+                <Text style={styles.logoPlaceholderText}>No image selected</Text>
+              </View>
+            )}
+            <Text style={{ textAlign: 'center', color: '#007AFF', marginTop: 4 }}>Tap to change photo</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.section}>
@@ -194,13 +195,17 @@ export default function SchoolDataScreen({ navigation, route }) {
             <FontAwesomeIcon icon={faBuilding} size={16} color="#007AFF" style={{ marginRight: 8 }} />
             <Text style={styles.inputLabel}>School Name</Text>
           </View>
-          <TextInput
-            style={[styles.input, { color: '#333' }]}
-            value={name}
-            onChangeText={setName}
-            placeholder="School Name"
-            placeholderTextColor="#666"
-          />
+          {loading ? (
+            <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8 }} />
+          ) : (
+            <TextInput
+              style={[styles.input, { color: '#333' }]}
+              value={name}
+              onChangeText={setName}
+              placeholder="School Name"
+              placeholderTextColor="#666"
+            />
+          )}
         </View>
 
         {/* Address */}
@@ -209,13 +214,17 @@ export default function SchoolDataScreen({ navigation, route }) {
             <FontAwesomeIcon icon={faMapMarkerAlt} size={16} color="#007AFF" style={{ marginRight: 8 }} />
             <Text style={styles.inputLabel}>Address</Text>
           </View>
-          <TextInput
-            style={[styles.input, { color: '#333' }]}
-            value={address}
-            onChangeText={setAddress}
-            placeholder="Address"
-            placeholderTextColor="#666"
-          />
+          {loading ? (
+            <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8 }} />
+          ) : (
+            <TextInput
+              style={[styles.input, { color: '#333' }]}
+              value={address}
+              onChangeText={setAddress}
+              placeholder="Address"
+              placeholderTextColor="#666"
+            />
+          )}
         </View>
 
         {/* Email */}
@@ -224,15 +233,19 @@ export default function SchoolDataScreen({ navigation, route }) {
             <FontAwesomeIcon icon={faEnvelope} size={16} color="#007AFF" style={{ marginRight: 8 }} />
             <Text style={styles.inputLabel}>Contact Email</Text>
           </View>
-          <TextInput
-            style={[styles.input, { color: '#333' }]}
-            value={contactEmail}
-            onChangeText={setContactEmail}
-            placeholder="Contact Email"
-            placeholderTextColor="#666"
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
+          {loading ? (
+            <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8 }} />
+          ) : (
+            <TextInput
+              style={[styles.input, { color: '#333' }]}
+              value={contactEmail}
+              onChangeText={setContactEmail}
+              placeholder="Contact Email"
+              placeholderTextColor="#666"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          )}
         </View>
 
         {/* Phone */}
@@ -241,14 +254,18 @@ export default function SchoolDataScreen({ navigation, route }) {
             <FontAwesomeIcon icon={faPhone} size={16} color="#007AFF" style={{ marginRight: 8 }} />
             <Text style={styles.inputLabel}>Contact Number</Text>
           </View>
-          <TextInput
-            style={[styles.input, { color: '#333' }]}
-            value={contactPhone}
-            onChangeText={(text) => setContactPhone(text.replace(/[^0-9]/g, ''))}
-            placeholder="Contact Number"
-            placeholderTextColor="#666"
-            keyboardType="phone-pad"
-          />
+          {loading ? (
+            <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8 }} />
+          ) : (
+            <TextInput
+              style={[styles.input, { color: '#333' }]}
+              value={contactPhone}
+              onChangeText={(text) => setContactPhone(text.replace(/[^0-9]/g, ''))}
+              placeholder="Contact Number"
+              placeholderTextColor="#666"
+              keyboardType="phone-pad"
+            />
+          )}
         </View>
 
         {/* School Type */}
@@ -257,13 +274,17 @@ export default function SchoolDataScreen({ navigation, route }) {
             <FontAwesomeIcon icon={faGraduationCap} size={16} color="#007AFF" style={{ marginRight: 8 }} />
             <Text style={styles.inputLabel}>School Type</Text>
           </View>
-          <TouchableOpacity
-            style={styles.dropdownButton}
-            onPress={() => setShowTypePicker(true)}
-          >
-            <Text style={styles.dropdownButtonText}>{schoolType}</Text>
-            <FontAwesomeIcon icon={faChevronDown} size={16} color="#666" />
-          </TouchableOpacity>
+          {loading ? (
+            <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8 }} />
+          ) : (
+            <TouchableOpacity
+              style={styles.dropdownButton}
+              onPress={() => setShowTypePicker(true)}
+            >
+              <Text style={styles.dropdownButtonText}>{schoolType}</Text>
+              <FontAwesomeIcon icon={faChevronDown} size={16} color="#666" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 

@@ -10,7 +10,8 @@ import {
   Alert,
 } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import ManagementListSkeleton from '../../components/skeletons/ManagementListSkeleton';
+import ManagementListSkeleton, { SkeletonPiece } from '../../components/skeletons/ManagementListSkeleton';
+import CardSkeleton from '../../components/skeletons/CardSkeleton';
 import { faPlus, faStore, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../../lib/supabase';
 import ManageMarketItemListItem from '../../components/ManageMarketItemListItem';
@@ -85,8 +86,6 @@ export default function ManageMarketDataScreen({ navigation }) {
     navigation.navigate('CreateMarketplaceItem', { item });
   };
 
-  if (loading) return <ManagementListSkeleton />;
-
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -99,9 +98,11 @@ export default function ManageMarketDataScreen({ navigation }) {
       </View>
       <Text style={styles.description}>Here you can edit or delete your marketplace items.</Text>
       <FlatList
-        data={items}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
+        data={loading ? [1, 2, 3] : items}
+        keyExtractor={(item, index) => loading ? index.toString() : item.id.toString()}
+        renderItem={({ item }) => loading ? (
+          <CardSkeleton />
+        ) : (
           <ManageMarketItemListItem
             item={item}
             onPress={(selectedItem) => {
@@ -110,7 +111,7 @@ export default function ManageMarketDataScreen({ navigation }) {
             }}
           />
         )}
-        ListEmptyComponent={() => (
+        ListEmptyComponent={() => !loading && (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>You haven't listed any items yet.</Text>
             <TouchableOpacity style={styles.createItemButton} onPress={() => navigation.navigate('CreateMarketplaceItem')}>

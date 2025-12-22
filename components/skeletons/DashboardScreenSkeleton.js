@@ -3,7 +3,7 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
 import { useTheme } from '../../context/ThemeContext';
 
-const SkeletonPiece = ({ style }) => {
+export const SkeletonPiece = ({ style }) => {
     const progress = useSharedValue(0);
     const { theme } = useTheme();
 

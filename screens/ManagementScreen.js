@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faUsers, faSchool, faBullhorn, faStore, faCog, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
-import SettingsScreenSkeleton from '../components/skeletons/SettingsScreenSkeleton';
+import SettingsScreenSkeleton, { SkeletonPiece } from '../components/skeletons/SettingsScreenSkeleton';
 
 export default function ManagementScreen({ navigation }) {
     const [user, setUser] = useState(null);
@@ -45,10 +45,6 @@ export default function ManagementScreen({ navigation }) {
         </TouchableOpacity>
     );
 
-    if (loading) {
-        return <SettingsScreenSkeleton />;
-    }
-
     return (
         <ScrollView
             style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -66,74 +62,104 @@ export default function ManagementScreen({ navigation }) {
                 Manage users, content, and school data
             </Text>
 
-            {/* User Management - Admin Only */}
-            {user && user.role === 'admin' && (
-                <View style={styles.section}>
-                    <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>User Management</Text>
-                    <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
-                        Manage users and classes within your school
-                    </Text>
-                    <ManagementButton
-                        icon={faUsers}
-                        title="Manage Users"
-                        description="Add, edit, or remove users from your school"
-                        onPress={() => navigation.navigate('UserManagement')}
-                        color="#007AFF"
-                    />
-                </View>
-            )}
+            {loading ? (
+                <>
+                    <View style={styles.section}>
+                        <SkeletonPiece style={{ width: '60%', height: 20, borderRadius: 4, marginBottom: 8 }} />
+                        <SkeletonPiece style={{ width: '90%', height: 14, borderRadius: 4, marginBottom: 16 }} />
+                        <View style={{ paddingVertical: 16, flexDirection: 'row', alignItems: 'center' }}>
+                            <SkeletonPiece style={{ width: 20, height: 20, borderRadius: 4 }} />
+                            <View style={{ marginLeft: 15, flex: 1 }}>
+                                <SkeletonPiece style={{ width: 100, height: 16, borderRadius: 4, marginBottom: 4 }} />
+                                <SkeletonPiece style={{ width: 150, height: 13, borderRadius: 4 }} />
+                            </View>
+                        </View>
+                    </View>
+                    <View style={styles.section}>
+                        <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
+                        <SkeletonPiece style={{ width: '60%', height: 20, borderRadius: 4, marginBottom: 8 }} />
+                        <SkeletonPiece style={{ width: '90%', height: 14, borderRadius: 4, marginBottom: 16 }} />
+                        <View style={{ paddingVertical: 16, flexDirection: 'row', alignItems: 'center' }}>
+                            <SkeletonPiece style={{ width: 20, height: 20, borderRadius: 4 }} />
+                            <View style={{ marginLeft: 15, flex: 1 }}>
+                                <SkeletonPiece style={{ width: 100, height: 16, borderRadius: 4, marginBottom: 4 }} />
+                                <SkeletonPiece style={{ width: 150, height: 13, borderRadius: 4 }} />
+                            </View>
+                        </View>
+                    </View>
+                </>
+            ) : (
+                <>
+                    {/* User Management - Admin Only */}
+                    {user && user.role === 'admin' && (
+                        <View style={styles.section}>
+                            <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>User Management</Text>
+                            <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
+                                Manage users and classes within your school
+                            </Text>
+                            <ManagementButton
+                                icon={faUsers}
+                                title="Manage Users"
+                                description="Add, edit, or remove users from your school"
+                                onPress={() => navigation.navigate('UserManagement')}
+                                color="#007AFF"
+                            />
+                        </View>
+                    )}
 
-            {/* Announcements - Admin & Teacher */}
-            {user && (user.role === 'admin' || user.role === 'teacher') && (
-                <View style={styles.section}>
-                    <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
-                    <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Announcements</Text>
-                    <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
-                        Manage school-wide announcements
-                    </Text>
-                    <ManagementButton
-                        icon={faBullhorn}
-                        title="Manage Announcements"
-                        description="Create, edit, or delete announcements"
-                        onPress={() => navigation.navigate('ManageAnnouncements')}
-                        color="#FF3B30"
-                    />
-                </View>
-            )}
+                    {/* Announcements - Admin & Teacher */}
+                    {user && (user.role === 'admin' || user.role === 'teacher') && (
+                        <View style={styles.section}>
+                            <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
+                            <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Announcements</Text>
+                            <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
+                                Manage school-wide announcements
+                            </Text>
+                            <ManagementButton
+                                icon={faBullhorn}
+                                title="Manage Announcements"
+                                description="Create, edit, or delete announcements"
+                                onPress={() => navigation.navigate('ManageAnnouncements')}
+                                color="#FF3B30"
+                            />
+                        </View>
+                    )}
 
-            {/* School Data - Admin Only */}
-            {user && user.role === 'admin' && (
-                <View style={styles.section}>
-                    <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
-                    <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>School Data</Text>
-                    <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
-                        Manage your school's information and branding
-                    </Text>
-                    <ManagementButton
-                        icon={faSchool}
-                        title="Manage School Data"
-                        description="Update school-wide information and branding"
-                        onPress={() => navigation.navigate('SchoolData')}
-                        color="#34C759"
-                    />
-                </View>
-            )}
+                    {/* School Data - Admin Only */}
+                    {user && user.role === 'admin' && (
+                        <View style={styles.section}>
+                            <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
+                            <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>School Data</Text>
+                            <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
+                                Manage your school's information and branding
+                            </Text>
+                            <ManagementButton
+                                icon={faSchool}
+                                title="Manage School Data"
+                                description="Update school-wide information and branding"
+                                onPress={() => navigation.navigate('SchoolData')}
+                                color="#34C759"
+                            />
+                        </View>
+                    )}
 
-            {/* Marketplace - All Users */}
-            <View style={styles.section}>
-                <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
-                <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Marketplace</Text>
-                <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
-                    Manage your marketplace items
-                </Text>
-                <ManagementButton
-                    icon={faStore}
-                    title="Manage Market Data"
-                    description="Oversee marketplace items"
-                    onPress={() => navigation.navigate('ManageMarketData')}
-                    color="#FF9500"
-                />
-            </View>
+                    {/* Marketplace - All Users */}
+                    <View style={styles.section}>
+                        <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
+                        <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Marketplace</Text>
+                        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
+                            Manage your marketplace items
+                        </Text>
+                        <ManagementButton
+                            icon={faStore}
+                            title="Manage Market Data"
+                            description="Oversee marketplace items"
+                            onPress={() => navigation.navigate('ManageMarketData')}
+                            color="#FF9500"
+                        />
+                    </View>
+                </>
+            )}
         </ScrollView>
     );
 }

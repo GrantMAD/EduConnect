@@ -32,11 +32,11 @@ import UserListModal from '../components/UserListModal';
 import UserProfileModal from '../components/UserProfileModal';
 import ClassListModal from '../components/ClassListModal';
 import ContentListModal from '../components/ContentListModal';
-import DashboardScreenSkeleton, { StatCardSkeleton, ActionButtonSkeleton } from '../components/skeletons/DashboardScreenSkeleton';
+import DashboardScreenSkeleton, { StatCardSkeleton, ActionButtonSkeleton, SkeletonPiece } from '../components/skeletons/DashboardScreenSkeleton';
 
 export default function DashboardScreen({ navigation }) {
     const { theme } = useTheme();
-    const { schoolId, schoolData } = useSchool();
+    const { schoolId, schoolData, loadingSchool } = useSchool();
     const { showToast } = useToast();
     const { createChannel, channels, user: currentUser } = useChat();
     const gamification = useGamification();
@@ -108,9 +108,6 @@ export default function DashboardScreen({ navigation }) {
     const fetchDashboardData = async (profile) => {
         try {
             if (!schoolId) {
-                showToast('School ID not found. Cannot load data.', 'error');
-                setLoading(false);
-                setRefreshing(false);
                 return;
             }
 
@@ -176,9 +173,15 @@ export default function DashboardScreen({ navigation }) {
         }
     };
 
+    useEffect(() => {
+        if (schoolId && userProfile) {
+            fetchDashboardData(userProfile);
+        }
+    }, [schoolId]);
+
     const onRefresh = async () => {
         setRefreshing(true);
-        await fetchDashboardData();
+        await fetchDashboardData(userProfile);
     };
 
     const fetchUsersByCategory = async (category) => {
@@ -335,7 +338,11 @@ export default function DashboardScreen({ navigation }) {
             <View style={[styles.iconContainer, { backgroundColor: color + '20' }]}>
                 <FontAwesomeIcon icon={icon} size={24} color={color} />
             </View>
-            <Text style={[styles.statValue, { color: theme.colors.text }]}>{value}</Text>
+            {loading ? (
+                <SkeletonPiece style={{ width: 60, height: 28, borderRadius: 4, marginBottom: 4 }} />
+            ) : (
+                <Text style={[styles.statValue, { color: theme.colors.text }]}>{value}</Text>
+            )}
             <Text style={[styles.statTitle, { color: theme.colors.placeholder }]}>{title}</Text>
         </TouchableOpacity>
     );
@@ -358,6 +365,14 @@ export default function DashboardScreen({ navigation }) {
     };
 
     const renderTodaySchedule = () => {
+        if (loading) {
+            return [1, 2].map((i) => (
+                <View key={i} style={[styles.sessionItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+                    <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8 }} />
+                </View>
+            ));
+        }
+
         if (todaySessions.length === 0) return (
             <View style={[styles.emptyWidget, { backgroundColor: theme.colors.card }]}>
                 <FontAwesomeIcon icon={faInfoCircle} size={24} color={theme.colors.placeholder} />
@@ -398,6 +413,14 @@ export default function DashboardScreen({ navigation }) {
     };
 
     const renderUpcomingTasks = () => {
+        if (loading) {
+            return [1, 2].map((i) => (
+                <View key={i} style={[styles.taskItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+                    <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8 }} />
+                </View>
+            ));
+        }
+
         if (upcomingTasks.length === 0) return (
             <View style={[styles.emptyWidget, { backgroundColor: theme.colors.card }]}>
                 <FontAwesomeIcon icon={faClipboardList} size={24} color={theme.colors.placeholder} />
@@ -434,12 +457,6 @@ export default function DashboardScreen({ navigation }) {
         });
     };
 
-
-
-    if (loading) {
-        return <DashboardScreenSkeleton />;
-    }
-
     return (
         <ScrollView
             style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -453,7 +470,13 @@ export default function DashboardScreen({ navigation }) {
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         <FontAwesomeIcon icon={faChartLine} size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
                         <Text style={[styles.greetingText, { color: theme.colors.text }]}>
-                            {getGreeting()}, <Text style={{ color: theme.colors.primary }}>{userProfile?.full_name?.split(' ')[0] || 'there'}</Text>
+                            {getGreeting()}, <Text style={{ color: theme.colors.primary }}>
+                                {loading && !userProfile ? (
+                                    <SkeletonPiece style={{ width: 80, height: 24, borderRadius: 4 }} />
+                                ) : (
+                                    userProfile?.full_name?.split(' ')[0] || 'there'
+                                )}
+                            </Text>
                         </Text>
                     </View>
                     <Text style={[styles.headerDate, { color: theme.colors.placeholder }]}>
@@ -464,7 +487,9 @@ export default function DashboardScreen({ navigation }) {
 
             {/* School Image Area */}
             <View style={[styles.schoolImageContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
-                {schoolData?.logo_url ? (
+                {loadingSchool ? (
+                    <SkeletonPiece style={styles.schoolImage} />
+                ) : schoolData?.logo_url ? (
                     <Image 
                         source={{ uri: schoolData.logo_url }} 
                         style={styles.schoolImage}
@@ -482,14 +507,27 @@ export default function DashboardScreen({ navigation }) {
             <View style={[styles.gamificationCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
                 <View style={styles.gamificationTop}>
                     <View>
-                        <Text style={[styles.levelText, { color: theme.colors.primary }]}>Level {gamification?.current_level}</Text>
-                        <Text style={[styles.xpText, { color: theme.colors.placeholder }]}>
-                            {gamification?.current_xp % 1000} / 1000 XP
-                        </Text>
+                        {loading ? (
+                            <View>
+                                <SkeletonPiece style={{ width: 80, height: 18, borderRadius: 4, marginBottom: 6 }} />
+                                <SkeletonPiece style={{ width: 60, height: 12, borderRadius: 4 }} />
+                            </View>
+                        ) : (
+                            <>
+                                <Text style={[styles.levelText, { color: theme.colors.primary }]}>Level {gamification?.current_level}</Text>
+                                <Text style={[styles.xpText, { color: theme.colors.placeholder }]}>
+                                    {gamification?.current_xp % 1000} / 1000 XP
+                                </Text>
+                            </>
+                        )}
                     </View>
                     <View style={styles.streakBadge}>
                         <FontAwesomeIcon icon={faFire} color="#FF9500" size={16} />
-                        <Text style={styles.streakText}>{gamification?.streak?.current_streak || 0}</Text>
+                        {loading ? (
+                            <SkeletonPiece style={{ width: 20, height: 16, borderRadius: 4, marginLeft: 4 }} />
+                        ) : (
+                            <Text style={styles.streakText}>{gamification?.streak?.current_streak || 0}</Text>
+                        )}
                     </View>
                 </View>
                 <View style={[styles.progressBarBg, { backgroundColor: theme.colors.background }]}>
@@ -498,7 +536,7 @@ export default function DashboardScreen({ navigation }) {
                             styles.progressBarFill, 
                             { 
                                 backgroundColor: theme.colors.primary, 
-                                width: `${(gamification?.current_xp % 1000) / 10}%` 
+                                width: loading ? '0%' : `${(gamification?.current_xp % 1000) / 10}%` 
                             }
                         ]} 
                     />
@@ -506,13 +544,21 @@ export default function DashboardScreen({ navigation }) {
                 <View style={styles.gamificationBottom}>
                     <View style={styles.coinContainer}>
                         <FontAwesomeIcon icon={faCoins} color="#FFD700" size={16} />
-                        <Text style={[styles.coinText, { color: theme.colors.text }]}>{gamification?.coins}</Text>
+                        {loading ? (
+                            <SkeletonPiece style={{ width: 40, height: 16, borderRadius: 4, marginLeft: 6 }} />
+                        ) : (
+                            <Text style={[styles.coinText, { color: theme.colors.text }]}>{gamification?.coins}</Text>
+                        )}
                     </View>
-                    {gamification?.nextBadge && (
-                        <View style={styles.nextBadgeContainer}>
-                            <Text style={[styles.nextBadgeLabel, { color: theme.colors.placeholder }]}>Next: </Text>
-                            <Text style={[styles.nextBadgeName, { color: theme.colors.text }]}>{gamification.nextBadge.name}</Text>
-                        </View>
+                    {loading ? (
+                        <SkeletonPiece style={{ width: 90, height: 16, borderRadius: 4 }} />
+                    ) : (
+                        gamification?.nextBadge && (
+                            <View style={styles.nextBadgeContainer}>
+                                <Text style={[styles.nextBadgeLabel, { color: theme.colors.placeholder }]}>Next: </Text>
+                                <Text style={[styles.nextBadgeName, { color: theme.colors.text }]}>{gamification.nextBadge.name}</Text>
+                            </View>
+                        )
                     )}
                 </View>
             </View>
@@ -542,7 +588,14 @@ export default function DashboardScreen({ navigation }) {
             </View>
 
             {/* Admin/Teacher Stats (Only show if role matches) */}
-            {['admin', 'teacher'].includes(userRole) && (
+            {(!userRole && loading) ? (
+                <View style={styles.section}>
+                    <SkeletonPiece style={{ width: 140, height: 20, borderRadius: 4, marginBottom: 16, marginTop: 16 }} />
+                    <View style={styles.statsGrid}>
+                        {[1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)}
+                    </View>
+                </View>
+            ) : ['admin', 'teacher'].includes(userRole) && (
                 <>
                     {/* User Statistics */}
                     <View style={styles.section}>

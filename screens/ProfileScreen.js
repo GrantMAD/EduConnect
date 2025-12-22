@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, TextInput, StyleSheet, ActivityIndicator, Alert, ScrollView, Image, TouchableOpacity, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import ProfileScreenSkeleton from '../components/skeletons/ProfileScreenSkeleton';
+import ProfileScreenSkeleton, { SkeletonPiece } from '../components/skeletons/ProfileScreenSkeleton';
 import { faUserFriends, faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone, faMinus, faTrophy, faMedal, faFire, faStore, faChartBar, faCoins, faInfoCircle, faArrowRight, faGlobe } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
@@ -240,10 +240,6 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
-  if (loading) {
-    return <ProfileScreenSkeleton />;
-  }
-
   const borderStyle = equippedItem ? BORDER_STYLES[equippedItem.image_url] : { borderColor: theme.colors.primary, borderWidth: 2 };
   const isAnimated = borderStyle.animated || false;
   const isRainbow = borderStyle.rainbow || false;
@@ -253,13 +249,17 @@ export default function ProfileScreen({ navigation }) {
     <ScrollView ref={scrollViewRef} contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Profile Image and Description */}
       <View style={{ marginBottom: 16 }}>
-        <AnimatedAvatarBorder
-          avatarSource={avatarSource}
-          size={120}
-          borderStyle={borderStyle}
-          isRainbow={isRainbow}
-          isAnimated={isAnimated}
-        />
+        {loading ? (
+          <SkeletonPiece style={{ width: 120, height: 120, borderRadius: 60, marginBottom: 16 }} />
+        ) : (
+          <AnimatedAvatarBorder
+            avatarSource={avatarSource}
+            size={120}
+            borderStyle={borderStyle}
+            isRainbow={isRainbow}
+            isAnimated={isAnimated}
+          />
+        )}
       </View>
 
       <Text style={[styles.header, { color: theme.colors.text }]}>My Profile</Text>
@@ -290,7 +290,11 @@ export default function ProfileScreen({ navigation }) {
           <FontAwesomeIcon icon={faUser} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
           <Text style={[styles.label, { color: theme.colors.text }]}>Full Name</Text>
         </View>
-        <Text style={[styles.value, { color: theme.colors.text }]}>{userData.full_name}</Text>
+        {loading ? (
+          <SkeletonPiece style={{ width: '80%', height: 16, borderRadius: 4, marginTop: 4 }} />
+        ) : (
+          <Text style={[styles.value, { color: theme.colors.text }]}>{userData.full_name}</Text>
+        )}
       </View>
 
       <View style={styles.infoContainer}>
@@ -298,7 +302,11 @@ export default function ProfileScreen({ navigation }) {
           <FontAwesomeIcon icon={faEnvelope} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
           <Text style={[styles.label, { color: theme.colors.text }]}>Email</Text>
         </View>
-        <Text style={[styles.value, { color: theme.colors.text }]}>{userData.email}</Text>
+        {loading ? (
+          <SkeletonPiece style={{ width: '80%', height: 16, borderRadius: 4, marginTop: 4 }} />
+        ) : (
+          <Text style={[styles.value, { color: theme.colors.text }]}>{userData.email}</Text>
+        )}
       </View>
 
       <View style={styles.infoContainer}>
@@ -306,7 +314,11 @@ export default function ProfileScreen({ navigation }) {
           <FontAwesomeIcon icon={faPhone} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
           <Text style={[styles.label, { color: theme.colors.text }]}>Phone Number</Text>
         </View>
-        <Text style={[styles.value, { color: theme.colors.text }]}>{userData.number || 'Not provided'}</Text>
+        {loading ? (
+          <SkeletonPiece style={{ width: '80%', height: 16, borderRadius: 4, marginTop: 4 }} />
+        ) : (
+          <Text style={[styles.value, { color: theme.colors.text }]}>{userData.number || 'Not provided'}</Text>
+        )}
       </View>
 
       <View style={styles.infoContainer}>
@@ -314,7 +326,11 @@ export default function ProfileScreen({ navigation }) {
           <FontAwesomeIcon icon={faBriefcase} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
           <Text style={[styles.label, { color: theme.colors.text }]}>Role</Text>
         </View>
-        <Text style={[styles.value, { color: theme.colors.text }]}>{userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}</Text>
+        {loading ? (
+          <SkeletonPiece style={{ width: '80%', height: 16, borderRadius: 4, marginTop: 4 }} />
+        ) : (
+          <Text style={[styles.value, { color: theme.colors.text }]}>{userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}</Text>
+        )}
       </View>
 
       <View style={styles.infoContainer}>
@@ -322,7 +338,11 @@ export default function ProfileScreen({ navigation }) {
           <FontAwesomeIcon icon={faGlobe} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
           <Text style={[styles.label, { color: theme.colors.text }]}>Country</Text>
         </View>
-        <Text style={[styles.value, { color: theme.colors.text }]}>{userData.country || 'Not provided'}</Text>
+        {loading ? (
+          <SkeletonPiece style={{ width: '80%', height: 16, borderRadius: 4, marginTop: 4 }} />
+        ) : (
+          <Text style={[styles.value, { color: theme.colors.text }]}>{userData.country || 'Not provided'}</Text>
+        )}
       </View>
 
       <View style={styles.sectionHeaderContainer}>
@@ -339,8 +359,17 @@ export default function ProfileScreen({ navigation }) {
             <FontAwesomeIcon icon={faTrophy} size={20} color="#fff" />
           </View>
           <View style={{ flex: 1, marginLeft: 15 }}>
-            <Text style={[styles.levelText, { color: theme.colors.text }]}>Level {current_level}</Text>
-            <Text style={[styles.xpText, { color: theme.colors.placeholder }]}>{current_xp} Total XP</Text>
+            {gamificationLoading ? (
+              <>
+                <SkeletonPiece style={{ width: 80, height: 18, borderRadius: 4, marginBottom: 6 }} />
+                <SkeletonPiece style={{ width: 60, height: 14, borderRadius: 4 }} />
+              </>
+            ) : (
+              <>
+                <Text style={[styles.levelText, { color: theme.colors.text }]}>Level {current_level}</Text>
+                <Text style={[styles.xpText, { color: theme.colors.placeholder }]}>{current_xp} Total XP</Text>
+              </>
+            )}
           </View>
           <TouchableOpacity onPress={() => setShowGamificationInfo(true)} style={{ padding: 5 }}>
             <FontAwesomeIcon icon={faInfoCircle} size={20} color={theme.colors.primary} />
@@ -348,24 +377,36 @@ export default function ProfileScreen({ navigation }) {
         </View>
 
         <View style={{ alignItems: 'flex-end', marginBottom: 10 }}>
-          <Text style={[styles.nextLevelText, { color: theme.colors.primary }]}>{Math.round(progressPercent)}% to Lvl {current_level + 1}</Text>
+          {gamificationLoading ? (
+            <SkeletonPiece style={{ width: 100, height: 12, borderRadius: 4 }} />
+          ) : (
+            <Text style={[styles.nextLevelText, { color: theme.colors.primary }]}>{Math.round(progressPercent)}% to Lvl {current_level + 1}</Text>
+          )}
         </View>
 
         <View style={[styles.progressBarBackground, { backgroundColor: theme.colors.inputBackground }]}>
-          <View style={[styles.progressBarFill, { width: `${progressPercent}%`, backgroundColor: theme.colors.primary }]} />
+          <View style={[styles.progressBarFill, { width: gamificationLoading ? '0%' : `${progressPercent}%`, backgroundColor: theme.colors.primary }]} />
         </View>
 
         {/* Stats Row: Streak & Coins */}
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <FontAwesomeIcon icon={faFire} size={20} color="#FF9500" />
-            <Text style={[styles.statValue, { color: theme.colors.text }]}>{streak?.current_streak || 0}</Text>
+            {gamificationLoading ? (
+              <SkeletonPiece style={{ width: 30, height: 18, borderRadius: 4, marginTop: 4 }} />
+            ) : (
+              <Text style={[styles.statValue, { color: theme.colors.text }]}>{streak?.current_streak || 0}</Text>
+            )}
             <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>Day Streak</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <FontAwesomeIcon icon={faCoins} size={20} color="#FFD700" />
-            <Text style={[styles.statValue, { color: theme.colors.text }]}>{coins}</Text>
+            {gamificationLoading ? (
+              <SkeletonPiece style={{ width: 50, height: 18, borderRadius: 4, marginTop: 4 }} />
+            ) : (
+              <Text style={[styles.statValue, { color: theme.colors.text }]}>{coins}</Text>
+            )}
             <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>Coins</Text>
           </View>
         </View>
@@ -393,7 +434,14 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.badgesContainer}>
           <Text style={[styles.badgesTitle, { color: theme.colors.text }]}>Badges</Text>
           <View style={styles.badgesGrid}>
-            {(BADGES[userData.role] || BADGES['student']).map((badge, index) => {
+            {gamificationLoading ? (
+              [1, 2, 3].map(i => (
+                <View key={i} style={styles.badgeItem}>
+                  <SkeletonPiece style={{ width: 50, height: 50, borderRadius: 25, marginBottom: 8 }} />
+                  <SkeletonPiece style={{ width: 60, height: 12, borderRadius: 4 }} />
+                </View>
+              ))
+            ) : (BADGES[userData.role] || BADGES['student']).map((badge, index) => {
               const isEarned = badges.some(b => b.id === badge.id);
               return (
                 <View key={index} style={[styles.badgeItem, !isEarned && { opacity: 0.5 }]}>
@@ -413,21 +461,33 @@ export default function ProfileScreen({ navigation }) {
 
       <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
       {/* My Children (for Parents) */}
-      {userData.role === 'parent' && (
+      {(userData.role === 'parent' || (loading && !userData.role)) && (
         <>
           <View style={styles.sectionHeaderContainer}>
             <FontAwesomeIcon icon={faUserFriends} size={20} color={theme.colors.primary} style={styles.sectionHeaderIcon} />
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>My Children</Text>
-            <TouchableOpacity onPress={() => setShowManageChildren(!showManageChildren)} style={[styles.manageChildrenButton, { backgroundColor: theme.colors.buttonPrimary }]}>
-              <Text style={[styles.manageChildrenButtonText, { color: theme.colors.buttonPrimaryText }]}>{showManageChildren ? 'Close' : 'Manage Children'}</Text>
-            </TouchableOpacity>
+            {!loading && (
+              <TouchableOpacity onPress={() => setShowManageChildren(!showManageChildren)} style={[styles.manageChildrenButton, { backgroundColor: theme.colors.buttonPrimary }]}>
+                <Text style={[styles.manageChildrenButtonText, { color: theme.colors.buttonPrimaryText }]}>{showManageChildren ? 'Close' : 'Manage Children'}</Text>
+              </TouchableOpacity>
+            )}
           </View>
           <View style={{ alignSelf: 'stretch' }}>
             <Text style={[styles.sectionDescription, { color: theme.colors.text }]}>View and manage your associated children.</Text>
           </View>
 
           <View style={styles.associatedChildrenContainer}>
-            {associatedChildren.length === 0 ? (
+            {loading ? (
+              [1, 2].map(i => (
+                <View key={i} style={[styles.childItem, { borderBottomColor: theme.colors.cardBorder }]}>
+                  <SkeletonPiece style={{ width: 16, height: 16, borderRadius: 8, marginRight: 10 }} />
+                  <View>
+                    <SkeletonPiece style={{ width: 100, height: 16, borderRadius: 4, marginBottom: 5 }} />
+                    <SkeletonPiece style={{ width: 150, height: 14, borderRadius: 4 }} />
+                  </View>
+                </View>
+              ))
+            ) : associatedChildren.length === 0 ? (
               <Text style={[styles.noChildrenText, { color: theme.colors.placeholder }]}>No children associated yet.</Text>
             ) : (
               associatedChildren.map(childId => {

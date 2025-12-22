@@ -3,7 +3,7 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
 import { useTheme } from '../../context/ThemeContext';
 
-const SkeletonPiece = ({ style }) => {
+export const SkeletonPiece = ({ style }) => {
     const progress = useSharedValue(0);
     const { theme } = useTheme();
 
@@ -21,7 +21,7 @@ const SkeletonPiece = ({ style }) => {
     return <Animated.View style={[styles.skeleton, { backgroundColor: theme.colors.cardBorder }, animatedStyle, style]} />;
 };
 
-const ResourceCardSkeleton = () => {
+export const ResourceCardSkeleton = () => {
     const { theme } = useTheme();
     return (
         <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>

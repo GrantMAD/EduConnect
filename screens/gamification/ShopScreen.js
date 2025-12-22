@@ -7,10 +7,22 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faCoins, faLock, faCheck, faTimes, faArrowLeft, faStore } from '@fortawesome/free-solid-svg-icons';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
+import { SkeletonPiece } from '../../components/skeletons/DashboardScreenSkeleton';
+
+const ShopItemSkeleton = () => {
+    const { theme } = useTheme();
+    return (
+        <View style={[styles.itemCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 0.5 }]}>
+            <SkeletonPiece style={{ width: 80, height: 80, borderRadius: 40, marginBottom: 12 }} />
+            <View style={styles.itemInfo}>
+                <SkeletonPiece style={{ width: 80, height: 16, borderRadius: 4, marginBottom: 8 }} />
+                <SkeletonPiece style={{ width: 50, height: 20, borderRadius: 12 }} />
+            </View>
+        </View>
+    );
+};
 
 const defaultUserImage = require('../../assets/user.png');
-
-
 
 export default function ShopScreen({ navigation }) {
     const { theme } = useTheme();
@@ -186,20 +198,14 @@ export default function ShopScreen({ navigation }) {
                 </View>
             </View>
 
-            {loading ? (
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                </View>
-            ) : (
-                <FlatList
-                    data={items}
-                    renderItem={renderItem}
-                    keyExtractor={item => item.id}
-                    numColumns={2}
-                    contentContainerStyle={styles.listContent}
-                    columnWrapperStyle={styles.columnWrapper}
-                />
-            )}
+            <FlatList
+                data={loading ? [1, 2, 3, 4] : items}
+                renderItem={loading ? () => <ShopItemSkeleton /> : renderItem}
+                keyExtractor={(item, index) => loading ? index.toString() : item.id}
+                numColumns={2}
+                contentContainerStyle={styles.listContent}
+                columnWrapperStyle={styles.columnWrapper}
+            />
 
             {/* Purchase Modal */}
             <Modal

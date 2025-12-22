@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, ScrollView, Linking } from 'react-native';
 import { supabase } from '../lib/supabase';
-import NotificationCardSkeleton from '../components/skeletons/NotificationCardSkeleton';
+import NotificationCardSkeleton, { SkeletonPiece } from '../components/skeletons/NotificationCardSkeleton';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
@@ -376,18 +376,6 @@ export default function NotificationsScreen({ route, navigation }) {
     );
   };
 
-  if (loading) return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text style={[styles.header, { color: theme.colors.text }]}>Notifications</Text>
-      <FlatList
-        data={[1, 2, 3, 4, 5]}
-        keyExtractor={(item) => item.toString()}
-        renderItem={() => <NotificationCardSkeleton />}
-        contentContainerStyle={{ paddingBottom: 20 }}
-      />
-    </View>
-  );
-
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Text style={[styles.header, { color: theme.colors.text }]}>Notifications</Text>
@@ -397,25 +385,29 @@ export default function NotificationsScreen({ route, navigation }) {
       <View style={styles.subHeaderContainer}>
         <View style={styles.countContainer}>
           <FontAwesome5 name="bell" solid size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
-          <Text style={[styles.notificationCount, { color: theme.colors.placeholder }]}>You have {notifications.length} notifications</Text>
+          {loading ? (
+            <SkeletonPiece style={{ width: 150, height: 14, borderRadius: 4 }} />
+          ) : (
+            <Text style={[styles.notificationCount, { color: theme.colors.placeholder }]}>You have {notifications.length} notifications</Text>
+          )}
         </View>
-        {notifications.length > 0 && (
+        {!loading && notifications.length > 0 && (
           <TouchableOpacity onPress={handleClearAll}>
             <Text style={[styles.clearAllButtonText, { color: theme.colors.error }]}>Clear All</Text>
           </TouchableOpacity>
         )}
       </View>
       <View style={[styles.hr, { borderBottomColor: theme.colors.cardBorder, marginBottom: 15 }]} />
-      {notifications.length === 0 ? (
-        <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No notifications</Text>
-      ) : (
-        <FlatList
-          data={notifications}
-          keyExtractor={(item) => item.id}
-          renderItem={renderNotification}
-          contentContainerStyle={{ paddingBottom: 20 }}
-        />
-      )}
+      
+      <FlatList
+        data={loading ? [1, 2, 3, 4, 5] : notifications}
+        keyExtractor={(item, index) => loading ? index.toString() : item.id}
+        renderItem={loading ? () => <NotificationCardSkeleton /> : renderNotification}
+        contentContainerStyle={{ paddingBottom: 20 }}
+        ListEmptyComponent={
+          !loading && <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No notifications</Text>
+        }
+      />
 
       <Modal
         transparent={true}

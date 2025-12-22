@@ -4,7 +4,8 @@ import { supabase } from '../../lib/supabase';
 import { useSchool } from '../../context/SchoolContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import ManagementListSkeleton from '../../components/skeletons/ManagementListSkeleton';
+import ManagementListSkeleton, { SkeletonPiece } from '../../components/skeletons/ManagementListSkeleton';
+import CardSkeleton from '../../components/skeletons/CardSkeleton';
 import { faBook, faChalkboardTeacher } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../context/ToastContext';
 
@@ -68,10 +69,6 @@ export default function ManageClassesScreen({ navigation }) {
     }, [schoolId])
   );
 
-  if (loading) {
-    return <ManagementListSkeleton />;
-  }
-
   return (
     <View style={styles.container}>
       <View style={styles.headerContainer}>
@@ -79,19 +76,25 @@ export default function ManageClassesScreen({ navigation }) {
           <FontAwesomeIcon icon={faChalkboardTeacher} size={24} color="#007AFF" style={{ marginRight: 10 }} />
           <Text style={styles.header}>Manage Classes</Text>
         </View>
-        <TouchableOpacity
-          style={styles.createButton}
-          onPress={() => navigation.navigate('CreateClass', { fromManageClassesScreen: true })}
-        >
-          <Text style={styles.createButtonText}>+ Create Class</Text>
-        </TouchableOpacity>
+        {loading ? (
+          <SkeletonPiece style={{ width: 100, height: 35, borderRadius: 8 }} />
+        ) : (
+          <TouchableOpacity
+            style={styles.createButton}
+            onPress={() => navigation.navigate('CreateClass', { fromManageClassesScreen: true })}
+          >
+            <Text style={styles.createButtonText}>+ Create Class</Text>
+          </TouchableOpacity>
+        )}
       </View>
       <Text style={styles.description}>Here you can manage your classes. You can create new classes, and manage existing ones.</Text>
 
       <FlatList
-        data={classes}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
+        data={loading ? [1, 2, 3] : classes}
+        keyExtractor={(item, index) => loading ? index.toString() : item.id.toString()}
+        renderItem={({ item }) => loading ? (
+          <CardSkeleton />
+        ) : (
           <TouchableOpacity
             style={styles.classCard}
             onPress={() => navigation.navigate('ManageUsersInClass', { classId: item.id, className: item.name })}
@@ -108,7 +111,7 @@ export default function ManageClassesScreen({ navigation }) {
             )}
           </TouchableOpacity>
         )}
-        ListEmptyComponent={<Text style={styles.emptyText}>No classes found. Create one!</Text>}
+        ListEmptyComponent={!loading && <Text style={styles.emptyText}>No classes found. Create one!</Text>}
       />
     </View>
   );

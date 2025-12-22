@@ -18,7 +18,7 @@ import { useSchool } from '../../context/SchoolContext';
 import { useRoute } from "@react-navigation/native";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ManageUsersInClassScreenSkeleton from '../../components/skeletons/ManageUsersInClassScreenSkeleton';
+import ManageUsersInClassScreenSkeleton, { SkeletonPiece } from '../../components/skeletons/ManageUsersInClassScreenSkeleton';
 import {
   faPlusCircle,
   faMinusCircle,
@@ -173,7 +173,7 @@ export default function ManageUsersInClassScreen() {
         fetchClassMembers(),
         fetchAllStudents(),
         fetchClassSchedules(),
-        fetchClassDetails(), // <--- Add this
+        fetchClassDetails(),
       ]).finally(() => setLoading(false));
     }
   }, [schoolId, classId, fetchClassMembers, fetchClassSchedules, fetchClassDetails]);
@@ -733,8 +733,30 @@ export default function ManageUsersInClassScreen() {
     }
   };
 
-  // Main FlatList Header
   const renderHeader = () => {
+    if (loading && !selectedScheduleDate) {
+        return (
+            <>
+              <Text style={[styles.header, { textAlign: 'center' }]}>Manage {className}</Text>
+              <Text style={[styles.description, { textAlign: 'center' }]}>Select a class session below to manage attendance.</Text>
+              <View style={{ marginBottom: 25 }}>
+                <View style={styles.sectionHeaderContainer}>
+                  <View style={styles.sectionHeader}>
+                    <FontAwesomeIcon icon={faCalendarAlt} size={18} color="#007AFF" />
+                    <Text style={styles.sectionTitle}>Class Schedule</Text>
+                  </View>
+                  <SkeletonPiece style={{ width: 120, height: 30, borderRadius: 8 }} />
+                </View>
+                <Text style={styles.sectionDescription}>Tap a session to manage attendance, or use the edit icon to modify its details.</Text>
+                <View style={styles.card}>
+                    <SkeletonPiece style={{ width: '60%', height: 14, borderRadius: 4, marginBottom: 5 }} />
+                    <SkeletonPiece style={{ width: '80%', height: 14, borderRadius: 4 }} />
+                </View>
+              </View>
+            </>
+        );
+    }
+
     if (!selectedScheduleDate) {
       return (
         <>
@@ -828,10 +850,6 @@ export default function ManageUsersInClassScreen() {
       </>
     );
   };
-
-  if (loading) {
-    return <ManageUsersInClassScreenSkeleton />;
-  }
 
   return (
     <View style={styles.container}>

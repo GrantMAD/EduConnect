@@ -8,7 +8,7 @@ const SkeletonElement = ({ style }) => {
   return <View style={[styles.skeleton, { backgroundColor: theme.colors.cardBorder }, style]} />;
 };
 
-const ChildCardSkeleton = () => {
+export const ChildCardSkeleton = () => {
   return (
     <View style={styles.childCard}>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>

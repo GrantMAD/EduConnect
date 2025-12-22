@@ -7,7 +7,8 @@ import { useToast } from '../context/ToastContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faPlus, faPoll, faClock, faCheckCircle, faInfoCircle, faTrophy, faGift, faInbox } from '@fortawesome/free-solid-svg-icons';
-import CardListSkeleton from '../components/skeletons/CardListSkeleton';
+import CardListSkeleton, { SkeletonPiece } from '../components/skeletons/CardListSkeleton';
+import CardSkeleton from '../components/skeletons/CardSkeleton';
 import PollVoteModal from '../components/PollVoteModal';
 import StandardBottomModal from '../components/StandardBottomModal';
 import { useGamification } from '../context/GamificationContext';
@@ -141,11 +142,9 @@ export default function PollsScreen({ navigation, route }) {
     });
   };
 
-  if (loading) {
-    return <CardListSkeleton />;
-  }
-
   const renderPollCard = (item) => {
+    if (loading) return <CardSkeleton />;
+    
     const isExpired = item.end_date ? new Date(item.end_date) < new Date() : false;
 
     return (
@@ -215,17 +214,19 @@ export default function PollsScreen({ navigation, route }) {
       </View>
 
       <FlatList
-        data={getFilteredPolls()}
-        keyExtractor={(item) => item.id.toString()}
+        data={loading ? [1, 2, 3] : getFilteredPolls()}
+        keyExtractor={(item, index) => loading ? index.toString() : item.id.toString()}
         contentContainerStyle={{ paddingBottom: 80 + insets.bottom, paddingTop: 10 }}
         renderItem={({ item }) => renderPollCard(item)}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <FontAwesomeIcon icon={faInbox} size={48} color={theme.colors.placeholder} />
-            <Text style={[styles.emptyStateText, { color: theme.colors.text }]}>
-              {activeTab === 'active' ? 'No active polls at the moment.' : 'No past polls found.'}
-            </Text>
-          </View>
+          !loading && (
+            <View style={styles.emptyState}>
+              <FontAwesomeIcon icon={faInbox} size={48} color={theme.colors.placeholder} />
+              <Text style={[styles.emptyStateText, { color: theme.colors.text }]}>
+                {activeTab === 'active' ? 'No active polls at the moment.' : 'No past polls found.'}
+              </Text>
+            </View>
+          )
         }
       />
 

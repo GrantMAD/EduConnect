@@ -129,20 +129,6 @@ export default function ManageAnnouncementsScreen({ navigation }) {
     setEditingAnnouncement(null);
   };
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.header}>Manage Announcements</Text>
-        <Text style={styles.description}>View, edit, or delete announcements for your school.</Text>
-        <FlatList
-          data={[1, 2, 3, 4, 5]}
-          keyExtractor={(item) => item.toString()}
-          renderItem={() => <ManagementCardSkeleton />}
-        />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -153,12 +139,14 @@ export default function ManageAnnouncementsScreen({ navigation }) {
       <Text style={styles.description}>View, edit, or delete announcements for your school.</Text>
 
       <FlatList
-        data={announcements}
-        keyExtractor={(item) => item.id.toString()}
+        data={loading ? [1, 2, 3, 4, 5] : announcements}
+        keyExtractor={(item, index) => loading ? index.toString() : item.id.toString()}
         onRefresh={onRefresh}
         refreshing={refreshing}
-        ListEmptyComponent={<Text style={styles.emptyText}>No announcements to manage.</Text>}
-        renderItem={({ item }) => (
+        ListEmptyComponent={!loading && <Text style={styles.emptyText}>No announcements to manage.</Text>}
+        renderItem={({ item }) => loading ? (
+          <ManagementCardSkeleton />
+        ) : (
           <View style={styles.announcementCard}>
             <View style={styles.cardContent}>
               <Text style={styles.cardTitle}>{item.title}</Text>
