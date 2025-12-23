@@ -11,7 +11,8 @@ import {
     faRightFromBracket,
     faChartLine,
     faStore,
-    faHandshake
+    faHandshake,
+    faFootballBall
 } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
@@ -220,6 +221,14 @@ const CustomDrawerContent = (props) => {
                 )}
 
                 <SectionHeader title="Community" />
+                <DrawerItem
+                    icon={faFootballBall}
+                    label="Clubs & Teams"
+                    description="Extracurricular groups"
+                    routeName="ClubList"
+                    active={activeMainStackRouteName === 'ClubList'}
+                    onPress={() => props.navigation.navigate('MainStack', { screen: 'ClubList' })}
+                />
                 <DrawerItem
                     icon={faStore}
                     label="Marketplace"

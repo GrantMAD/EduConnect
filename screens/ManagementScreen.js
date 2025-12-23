@@ -104,6 +104,13 @@ export default function ManagementScreen({ navigation }) {
                                 onPress={() => navigation.navigate('UserManagement')}
                                 color="#007AFF"
                             />
+                            <ManagementButton
+                                icon={faHandshake}
+                                title="Manage Clubs & Teams"
+                                description="Organize extracurricular activities"
+                                onPress={() => navigation.navigate('ClubList')}
+                                color="#AF52DE"
+                            />
                         </View>
                     )}
 

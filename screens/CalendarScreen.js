@@ -6,7 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import CalendarScreenSkeleton, { SkeletonPiece } from '../components/skeletons/CalendarScreenSkeleton';
-import { faTimes, faCalendarAlt, faClock, faChevronDown, faChevronUp, faBook, faHandshake, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faCalendarAlt, faClock, faChevronDown, faChevronUp, faBook, faHandshake, faChevronRight, faFootballBall } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
 import StandardBottomModal from '../components/StandardBottomModal';
@@ -90,7 +90,7 @@ export default function CalendarScreen() {
           if (classIds.length > 0) {
             const { data: classSchedules, error: schedulesError } = await supabase
               .from('class_schedules')
-              .select('*, class:classes(id, name)')
+              .select('*, class:classes(id, name, subject)')
               .in('class_id', classIds)
               .order('start_time', { ascending: true });
             if (schedulesError) throw schedulesError;
@@ -140,7 +140,8 @@ export default function CalendarScreen() {
           const formattedMarkedDates = {};
           allEvents.forEach(event => {
             const date = event.start_time.split('T')[0];
-            const color = event.eventType === 'meeting' ? theme.colors.warning : classColorMap[event.class_id || event.id];
+            const isClub = event.class?.subject === 'Extracurricular';
+            const color = event.eventType === 'meeting' ? theme.colors.warning : isClub ? '#AF52DE' : classColorMap[event.class_id || event.id];
             if (!formattedMarkedDates[date]) formattedMarkedDates[date] = { periods: [] };
             
             // Avoid duplicate bars for the same category on the same day
@@ -155,13 +156,17 @@ export default function CalendarScreen() {
           });
 
           // Prepare colored and descriptive schedules
-          const coloredSchedules = allEvents.map(e => ({
-            ...e,
-            color: e.eventType === 'meeting' ? theme.colors.warning : (classColorMap[e.class_id || e.id] || theme.colors.primary),
-            badgeColor: e.eventType === 'meeting' ? theme.colors.warning : (classColorMap[e.class_id || e.id] || theme.colors.primary),
-            description: e.description || '',
-            class_info: e.class_info || '',
-          }));
+          const coloredSchedules = allEvents.map(e => {
+            const isClub = e.class?.subject === 'Extracurricular';
+            const color = e.eventType === 'meeting' ? theme.colors.warning : isClub ? '#AF52DE' : (classColorMap[e.class_id || e.id] || theme.colors.primary);
+            return {
+              ...e,
+              color: color,
+              badgeColor: color,
+              description: e.description || '',
+              class_info: e.class_info || '',
+            };
+          });
 
           setSchedules(coloredSchedules);
           setMarkedDates(formattedMarkedDates);
@@ -188,6 +193,8 @@ export default function CalendarScreen() {
   const openScheduleModal = (schedule) => {
     if (schedule.eventType === 'meeting') {
       navigation.navigate('Meetings');
+    } else if (schedule.class?.subject === 'Extracurricular') {
+      navigation.navigate('ClubDetail', { clubId: schedule.class_id });
     } else {
       setSelectedSchedule(schedule);
       setModalVisible(true);
@@ -204,7 +211,9 @@ export default function CalendarScreen() {
 
   const renderEventCard = (item) => {
     const isMeeting = item.eventType === 'meeting';
+    const isClub = item.class?.subject === 'Extracurricular';
     const start = new Date(item.start_time);
+    const eventColor = isMeeting ? theme.colors.warning : isClub ? '#AF52DE' : theme.colors.primary;
     
     return (
       <TouchableOpacity
@@ -213,12 +222,12 @@ export default function CalendarScreen() {
         style={[
           styles.eventCard, 
           { backgroundColor: theme.colors.cardBackground },
-          isMeeting && { borderLeftColor: theme.colors.warning, borderLeftWidth: 4 }
+          (isMeeting || isClub) && { borderLeftColor: eventColor, borderLeftWidth: 4 }
         ]}
       >
         <View style={styles.eventCardLeft}>
-          <View style={[styles.timeBox, { backgroundColor: isMeeting ? theme.colors.warning + '15' : theme.colors.primary + '15' }]}>
-            <Text style={[styles.timeText, { color: isMeeting ? theme.colors.warning : theme.colors.primary }]}>
+          <View style={[styles.timeBox, { backgroundColor: eventColor + '15' }]}>
+            <Text style={[styles.timeText, { color: eventColor }]}>
               {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </View>
@@ -229,16 +238,16 @@ export default function CalendarScreen() {
             <Text style={[styles.eventTitle, { color: theme.colors.text }]} numberOfLines={1}>
               {isMeeting ? item.title : (item.class?.name || item.title || 'Untitled Class')}
             </Text>
-            <View style={[styles.eventBadge, { backgroundColor: isMeeting ? theme.colors.warning + '20' : theme.colors.primary + '20' }]}>
-              <Text style={[styles.eventBadgeText, { color: isMeeting ? theme.colors.warning : theme.colors.primary }]}>
-                {isMeeting ? 'PTM' : 'Class'}
+            <View style={[styles.eventBadge, { backgroundColor: eventColor + '20' }]}>
+              <Text style={[styles.eventBadgeText, { color: eventColor }]}>
+                {isMeeting ? 'PTM' : isClub ? 'Club' : 'Class'}
               </Text>
             </View>
           </View>
           
           <View style={styles.eventDetailsRow}>
             <FontAwesomeIcon 
-              icon={isMeeting ? faHandshake : faBook} 
+              icon={isMeeting ? faHandshake : isClub ? faFootballBall : faBook} 
               size={12} 
               color={theme.colors.placeholder} 
               style={{ marginRight: 6 }} 

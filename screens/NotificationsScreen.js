@@ -88,6 +88,20 @@ export default function NotificationsScreen({ route, navigation }) {
 
         navigation.navigate('Meetings');
         return;
+      case 'added_to_club':
+      case 'club_join_accepted':
+      case 'club_join_request':
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', notification.id);
+
+        setNotifications(prev =>
+          prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
+        );
+
+        navigation.navigate('ClubList');
+        return;
       default:
         return; // Not a pressable notification
     }
@@ -297,13 +311,15 @@ export default function NotificationsScreen({ route, navigation }) {
         ? 'bullhorn'
         : item.type === 'added_to_class'
           ? 'user-plus'
-          : item.type === 'new_homework' || item.type === 'new_assignment'
-            ? 'clipboard-list'
-            : item.type === 'new_poll'
-              ? 'poll'
-              : item.type === 'new_ptm_booking' || item.type === 'ptm_cancellation'
-                ? 'handshake'
-                : 'bell';
+          : item.type === 'added_to_club' || item.type === 'club_join_request' || item.type === 'club_join_accepted'
+            ? 'user-friends'
+            : item.type === 'new_homework' || item.type === 'new_assignment'
+              ? 'clipboard-list'
+              : item.type === 'new_poll'
+                ? 'poll'
+                : item.type === 'new_ptm_booking' || item.type === 'ptm_cancellation'
+                  ? 'handshake'
+                  : 'bell';
 
     const isPressable = [
       'new_general_announcement',
@@ -312,8 +328,15 @@ export default function NotificationsScreen({ route, navigation }) {
       'new_assignment',
       'new_poll',
       'new_ptm_booking',
-      'ptm_cancellation'
+      'ptm_cancellation',
+      'added_to_club',
+      'club_join_request',
+      'club_join_accepted'
     ].includes(item.type);
+
+    const iconColor = isUnread 
+      ? (['added_to_club', 'club_join_request', 'club_join_accepted'].includes(item.type) ? '#AF52DE' : theme.colors.primary) 
+      : theme.colors.placeholder;
 
     return (
       <TouchableOpacity
@@ -321,7 +344,7 @@ export default function NotificationsScreen({ route, navigation }) {
         onPress={() => handleNotificationPress(item)}
         disabled={!isPressable}
       >
-        <FontAwesome5 name={iconName} size={24} color={isUnread ? theme.colors.primary : theme.colors.placeholder} style={styles.icon} />
+        <FontAwesome5 name={iconName} size={24} color={iconColor} style={styles.icon} />
         <View style={styles.contentContainer}>
           <Text style={[styles.title, { color: theme.colors.text }, isUnread && { color: theme.colors.primary }]}>{item.title}</Text>
           <Text style={[styles.message, { color: theme.colors.text }]}>{item.message}</Text>

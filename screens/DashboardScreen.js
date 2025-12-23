@@ -20,7 +20,8 @@ import {
     faInfoCircle,
     faClipboardList,
     faComments,
-    faHandshake
+    faHandshake,
+    faFootballBall
 } from '@fortawesome/free-solid-svg-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
@@ -56,6 +57,7 @@ export default function DashboardScreen({ navigation }) {
         studentCount: 0,
         parentCount: 0,
         totalClasses: 0,
+        totalClubs: 0,
         totalAnnouncements: 0,
         totalHomework: 0,
         totalAssignments: 0,
@@ -135,7 +137,7 @@ export default function DashboardScreen({ navigation }) {
             if (classIds.length > 0) {
                 const { data: sessions } = await supabase
                     .from('class_schedules')
-                    .select('*, class:classes(id, name)')
+                    .select('*, class:classes(id, name, subject)')
                     .in('class_id', classIds)
                     .gte('start_time', startOfDay)
                     .lte('start_time', endOfDay)
@@ -189,12 +191,16 @@ export default function DashboardScreen({ navigation }) {
 
     const fetchDashboardData = async (profile) => {
         try {
-            if (!schoolId) {
+            const targetSchoolId = profile?.school_id || schoolId;
+            if (!targetSchoolId) {
+                console.log('[Dashboard] No schoolId available yet');
                 return;
             }
 
+            console.log('[Dashboard] Fetching stats for school:', targetSchoolId);
+
             // Use the corrected RPC function for all stats
-            const { data, error } = await supabase.rpc('get_dashboard_stats', { target_school_id: schoolId });
+            const { data, error } = await supabase.rpc('get_dashboard_stats', { target_school_id: targetSchoolId });
 
             if (error) {
                 console.error('Error fetching dashboard stats via RPC:', error);
@@ -204,28 +210,35 @@ export default function DashboardScreen({ navigation }) {
             if (data) {
                 // The RPC returns an object within an array, so we take the first element
                 const statsData = Array.isArray(data) ? data[0] : data || {};
-                 const { data: { user } } = await supabase.auth.getUser();
+                
+                 const { count: clubCount } = await supabase
+                    .from('classes')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('school_id', targetSchoolId)
+                    .eq('subject', 'Extracurricular');
 
                  const { count: unreadNotifications } = await supabase
                     .from('notifications')
                     .select('*', { count: 'exact', head: true })
-                    .eq('user_id', user.id)
+                    .eq('user_id', profile.id)
                     .eq('is_read', false);
 
                 const { count: totalAnnouncements } = await supabase
                     .from('announcements')
                     .select('*', { count: 'exact', head: true })
-                    .eq('school_id', schoolId);
+                    .eq('school_id', targetSchoolId);
 
                 const { count: totalHomework } = await supabase
                     .from('homework')
                     .select('*', { count: 'exact', head: true })
-                    .eq('school_id', schoolId);
+                    .eq('school_id', targetSchoolId);
                 
                 const { count: totalMarketItems } = await supabase
                     .from('marketplace_items')
                     .select('*', { count: 'exact', head: true })
-                    .eq('school_id', schoolId);
+                    .eq('school_id', targetSchoolId);
+
+                console.log('[Dashboard] Stats fetched successfully');
 
                 // Set all stats at once from the RPC data
                 setStats({
@@ -234,10 +247,10 @@ export default function DashboardScreen({ navigation }) {
                     teacherCount: statsData.teacherCount || 0,
                     studentCount: statsData.studentCount || 0,
                     parentCount: statsData.parentCount || 0,
-                    totalClasses: statsData.classCount || 0,
+                    totalClasses: (statsData.classCount || 0) - (clubCount || 0),
+                    totalClubs: clubCount || 0,
                     totalAssignments: statsData.assignmentCount || 0,
-                    activePolls: statsData.pollCount || 0, // RPC returns all polls, might need adjustment if only active are desired
-                    // The following stats are not in the RPC, default to 0 or fetch separately if needed
+                    activePolls: statsData.pollCount || 0,
                     totalAnnouncements: totalAnnouncements || 0,
                     totalHomework: totalHomework || 0,
                     totalPolls: statsData.pollCount || 0,
@@ -293,6 +306,42 @@ export default function DashboardScreen({ navigation }) {
         }
     };
 
+    const fetchClubs = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('classes')
+                .select(`
+                    id, 
+                    name,
+                    class_schedules (
+                        id,
+                        title,
+                        description,
+                        class_info,
+                        start_time,
+                        end_time
+                    )
+                `)
+                .eq('school_id', schoolId)
+                .eq('subject', 'Extracurricular')
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+
+            const clubsWithSchedules = (data || []).map(cls => ({
+                id: cls.id,
+                name: cls.name,
+                schedules: cls.class_schedules || [],
+            }));
+
+            setContentModalData(clubsWithSchedules);
+            setShowClassModal(true);
+        } catch (error) {
+            console.error('Error fetching clubs:', error);
+            showToast('Failed to load clubs', 'error');
+        }
+    };
+
     const fetchClasses = async () => {
         try {
             const { data, error } = await supabase
@@ -310,6 +359,7 @@ export default function DashboardScreen({ navigation }) {
                     )
                 `)
                 .eq('school_id', schoolId)
+                .neq('subject', 'Extracurricular')
                 .order('name', { ascending: true });
 
             if (error) throw error;
@@ -470,15 +520,16 @@ export default function DashboardScreen({ navigation }) {
             const end = new Date(session.end_time);
             const isNow = new Date() >= start && new Date() <= end;
             const isMeeting = session.eventType === 'meeting';
+            const isClub = session.class?.subject === 'Extracurricular';
 
             return (
                 <TouchableOpacity 
                     key={session.id} 
-                    onPress={() => isMeeting ? navigation.navigate('Meetings') : null}
-                    activeOpacity={isMeeting ? 0.7 : 1}
+                    onPress={() => isMeeting ? navigation.navigate('Meetings') : isClub ? navigation.navigate('ClubDetail', { clubId: session.class?.id }) : null}
+                    activeOpacity={isMeeting || isClub ? 0.7 : 1}
                     style={[
                         styles.sessionItem, 
-                        { backgroundColor: theme.colors.card, borderColor: isNow ? theme.colors.primary : isMeeting ? theme.colors.warning + '40' : theme.colors.cardBorder }
+                        { backgroundColor: theme.colors.card, borderColor: isNow ? theme.colors.primary : isMeeting ? theme.colors.warning + '40' : isClub ? '#AF52DE40' : theme.colors.cardBorder }
                     ]}
                 >
                     <View style={styles.sessionHeader}>
@@ -488,17 +539,17 @@ export default function DashboardScreen({ navigation }) {
                             </Text>
                             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
                                 <FontAwesomeIcon 
-                                    icon={isMeeting ? faHandshake : faChalkboardTeacher} 
+                                    icon={isMeeting ? faHandshake : isClub ? faFootballBall : faChalkboardTeacher} 
                                     size={10} 
-                                    color={isMeeting ? theme.colors.warning : theme.colors.placeholder} 
+                                    color={isMeeting ? theme.colors.warning : isClub ? '#AF52DE' : theme.colors.placeholder} 
                                 />
-                                <Text style={[styles.sessionType, { color: isMeeting ? theme.colors.warning : theme.colors.placeholder, marginLeft: 4 }]}>
-                                    {isMeeting ? 'Parent-Teacher Meeting' : (session.type || 'Lecture')}
+                                <Text style={[styles.sessionType, { color: isMeeting ? theme.colors.warning : isClub ? '#AF52DE' : theme.colors.placeholder, marginLeft: 4 }]}>
+                                    {isMeeting ? 'Parent-Teacher Meeting' : isClub ? 'Club Meeting' : (session.type || 'Lecture')}
                                 </Text>
                             </View>
                         </View>
                         <View style={styles.sessionTimeContainer}>
-                            <Text style={[styles.sessionStartTime, { color: isMeeting ? theme.colors.warning : theme.colors.primary }]}>
+                            <Text style={[styles.sessionStartTime, { color: isMeeting ? theme.colors.warning : isClub ? '#AF52DE' : theme.colors.primary }]}>
                                 {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </Text>
                         </View>
@@ -677,21 +728,38 @@ export default function DashboardScreen({ navigation }) {
                             <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.primary} />
                         </TouchableOpacity>
                     </View>
-                    <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>View your classes.</Text>
+                    <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>View your classes & clubs.</Text>
                     {renderTodaySchedule()}
                 </View>
 
-                {/* Due Soon */}
+                {/* Clubs Widget - New for Students/Parents */}
                 <View style={styles.halfSection}>
                     <View style={styles.sectionHeaderRow}>
-                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Due Soon</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('Homework')}>
-                            <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.primary} />
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Clubs</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('ClubList')}>
+                            <FontAwesomeIcon icon={faChevronRight} size={14} color="#AF52DE" />
                         </TouchableOpacity>
                     </View>
-                    <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>Upcoming tasks.</Text>
-                    {renderUpcomingTasks()}
+                    <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>Groups & teams.</Text>
+                    <TouchableOpacity 
+                        style={[styles.actionButton, { width: '100%', margin: 0, backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, paddingVertical: 12 }]}
+                        onPress={() => navigation.navigate('ClubList')}
+                    >
+                        <FontAwesomeIcon icon={faFootballBall} size={18} color="#AF52DE" />
+                        <Text style={[styles.actionButtonText, { color: theme.colors.text, fontSize: 12 }]}>Explore Clubs</Text>
+                    </TouchableOpacity>
                 </View>
+            </View>
+
+            <View style={styles.section}>
+                <View style={styles.sectionHeaderRow}>
+                    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Due Soon</Text>
+                    <TouchableOpacity onPress={() => navigation.navigate('Homework')}>
+                        <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.primary} />
+                    </TouchableOpacity>
+                </View>
+                <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>Upcoming tasks.</Text>
+                {renderUpcomingTasks()}
             </View>
 
             {/* Admin/Teacher Stats (Only show if role matches) */}
@@ -758,6 +826,13 @@ export default function DashboardScreen({ navigation }) {
                                 value={stats.totalClasses}
                                 color="#007AFF"
                                 onPress={() => fetchClasses()}
+                            />
+                            <StatCard
+                                icon={faFootballBall}
+                                title="Clubs"
+                                value={stats.totalClubs}
+                                color="#AF52DE"
+                                onPress={() => fetchClubs()}
                             />
                             <StatCard
                                 icon={faBullhorn}
@@ -837,6 +912,12 @@ export default function DashboardScreen({ navigation }) {
                                 title="New Class"
                                 onPress={() => navigation.navigate('CreateClass', { fromDashboard: true })}
                                 color="#007AFF"
+                            />
+                            <QuickActionButton
+                                icon={faFootballBall}
+                                title="New Club"
+                                onPress={() => navigation.navigate('CreateClub')}
+                                color="#AF52DE"
                             />
                             <QuickActionButton
                                 icon={faUsers}

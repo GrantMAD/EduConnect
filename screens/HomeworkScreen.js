@@ -1,24 +1,42 @@
-import React, { useEffect, useState, useContext } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, Text, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  ScrollView,
+} from 'react-native';
 import Modal from 'react-native-modal';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { FAB, Portal, Provider } from 'react-native-paper';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import CardListSkeleton, { SkeletonPiece } from '../components/skeletons/CardListSkeleton';
-import CardSkeleton from '../components/skeletons/CardSkeleton';
-import { faTimes, faCalendarAlt, faClipboardList, faCalendarPlus, faBook, faPen, faTrash } from '@fortawesome/free-solid-svg-icons';
+import {
+  faTimes,
+  faCalendarAlt,
+  faClipboardList,
+  faBook,
+  faPen,
+  faTrash,
+} from '@fortawesome/free-solid-svg-icons';
 import { Calendar } from 'react-native-calendars';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '../lib/supabase';
 import HomeworkCard from '../components/HomeworkCard';
 import AssignmentCard from '../components/AssignmentCard';
+import CardSkeleton from '../components/skeletons/CardSkeleton';
 import { useToast } from '../context/ToastContext';
-import { useTheme } from '../context/ThemeContext'; // Import useTheme
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../context/ThemeContext';
 
 const Tab = createMaterialTopTabNavigator();
 
+/* =========================
+   HOMEWORK TAB
+========================= */
 const HomeworkList = () => {
   const [homework, setHomework] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,117 +44,79 @@ const HomeworkList = () => {
   const [selectedHomework, setSelectedHomework] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
+
   const isFocused = useIsFocused();
   const { showToast } = useToast();
-  const { theme } = useTheme(); // Use the theme hook
+  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
-    if (isFocused) {
-      fetchHomework();
-    }
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setCurrentUserId(user.id);
-      }
-    };
+    if (isFocused) fetchHomework();
     fetchUser();
   }, [isFocused]);
 
+  const fetchUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) setCurrentUserId(user.id);
+  };
+
   const fetchHomework = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('homework')
       .select('*')
       .order('due_date', { ascending: true })
-      .limit(50);  // Pagination: Load first 50 items
-    if (error) console.error(error);
-    else setHomework(data);
+      .limit(50);
+
+    setHomework(data || []);
     setLoading(false);
   };
 
-  const handleCardPress = (item) => {
-    setSelectedHomework(item);
-    setModalVisible(true);
-    setIsEditing(false); // Ensure modal opens in view mode
-  };
+  const formatDate = (date) =>
+    new Date(date).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
 
   const handleUpdate = async () => {
-    if (!selectedHomework) return;
+    const { error } = await supabase
+      .from('homework')
+      .update({
+        subject: selectedHomework.subject,
+        description: selectedHomework.description,
+        due_date: selectedHomework.due_date,
+      })
+      .eq('id', selectedHomework.id);
 
-    try {
-      console.log('Attempting to update homework:', selectedHomework.id);
-      const { error } = await supabase
-        .from('homework')
-        .update({ subject: selectedHomework.subject, description: selectedHomework.description, due_date: selectedHomework.due_date })
-        .eq('id', selectedHomework.id);
-
-      if (error) {
-        console.error('Supabase update error:', error);
-        showToast('Failed to update homework: ' + error.message, 'error');
-      } else {
-        console.log('Homework updated successfully:', selectedHomework.id);
-        showToast('Homework updated successfully.', 'success');
-        setIsEditing(false);
-        fetchHomework();
-      }
-    } catch (err) {
-      console.error('Unexpected error during homework update:', err);
-      showToast('An unexpected error occurred: ' + err.message, 'error');
+    if (!error) {
+      showToast('Homework updated successfully', 'success');
+      setIsEditing(false);
+      fetchHomework();
     }
   };
 
   const handleDelete = async () => {
-    if (!selectedHomework) return;
-
-    Alert.alert(
-      'Delete Homework',
-      'Are you sure you want to delete this homework?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
+    Alert.alert('Delete Homework', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await supabase.from('homework').delete().eq('id', selectedHomework.id);
+          showToast('Homework deleted', 'success');
+          setModalVisible(false);
+          fetchHomework();
         },
-        {
-          text: 'Delete',
-          onPress: async () => {
-            const { error } = await supabase
-              .from('homework')
-              .delete()
-              .eq('id', selectedHomework.id);
-
-            if (error) {
-              showToast('Failed to delete homework.', 'error');
-            } else {
-              showToast('Homework deleted successfully.', 'success');
-              setModalVisible(false);
-              fetchHomework();
-            }
-          },
-          style: 'destructive',
-        },
-      ],
-      { cancelable: false }
-    );
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const options = { day: '2-digit', month: 'long', year: 'numeric' };
-    return date.toLocaleDateString('en-GB', options);
+      },
+    ]);
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text style={[styles.screenDescription, { color: theme.colors.text }]}>Here is a list of all your current homework. Tap on a card to view more details.</Text>
-      <View style={[styles.hr, { borderBottomColor: theme.colors.cardBorder }]} />
+    <View style={[styles.listContainer, { backgroundColor: theme.colors.background }]}>
       <Modal
         isVisible={modalVisible}
         onBackdropPress={() => setModalVisible(false)}
-        animationIn="slideInUp"
-        animationOut="slideOutDown"
-        backdropOpacity={0.5}
         style={{ justifyContent: 'flex-end', margin: 0 }}
       >
         <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 30) }]}>
@@ -145,95 +125,55 @@ const HomeworkList = () => {
               <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
                 <FontAwesomeIcon icon={faClipboardList} size={26} color={theme.colors.primary} />
                 <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Homework Details</Text>
-                <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseButton}>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
                   <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
                 </TouchableOpacity>
               </View>
 
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView>
                 <View style={styles.descriptionContainer}>
                   {isEditing ? (
                     <TextInput
-                      style={[styles.modalTextInput, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
+                      style={[styles.modalTextInput, { color: theme.colors.text }]}
                       value={selectedHomework.description}
-                      onChangeText={(text) => setSelectedHomework({ ...selectedHomework, description: text })}
                       multiline
+                      onChangeText={(t) => setSelectedHomework({ ...selectedHomework, description: t })}
                     />
                   ) : (
-                    <Text style={[styles.descriptionText, { color: theme.colors.text }]}>{selectedHomework.description}</Text>
+                    <Text style={[styles.descriptionText, { color: theme.colors.text }]}>
+                      {selectedHomework.description}
+                    </Text>
                   )}
                 </View>
 
-                <View style={[styles.detailsCard, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
-                  <View style={styles.modalDetailRow}>
-                    <FontAwesomeIcon icon={faBook} size={16} color={theme.colors.placeholder} style={styles.modalIcon} />
-                    {isEditing ? (
-                      <TextInput
-                        style={[styles.modalTextInput, { flex: 1, backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-                        value={selectedHomework.subject}
-                        onChangeText={(text) => setSelectedHomework({ ...selectedHomework, subject: text })}
-                      />
-                    ) : (
-                      <Text style={[styles.modalDetailText, { color: theme.colors.text }]}>Subject: {selectedHomework.subject}</Text>
-                    )}
-                  </View>
-                  <View style={[styles.separator, { backgroundColor: theme.colors.cardBorder }]} />
-                  <View style={styles.modalDetailRow}>
-                    <FontAwesomeIcon icon={faCalendarAlt} size={16} color={theme.colors.placeholder} style={styles.modalIcon} />
-                    <View style={{ flex: 1 }}>
-                      {isEditing ? (
-                        <Calendar
-                          minDate={new Date().toISOString().split('T')[0]}
-                          onDayPress={(day) => {
-                            setSelectedHomework({ ...selectedHomework, due_date: day.dateString });
-                          }}
-                          markedDates={{
-                            [selectedHomework.due_date]: { selected: true, marked: true, selectedColor: theme.colors.primary },
-                          }}
-                          style={styles.modalCalendar}
-                          theme={{
-                            backgroundColor: theme.colors.background,
-                            calendarBackground: theme.colors.background,
-                            dayTextColor: theme.colors.text,
-                            textDisabledColor: theme.colors.placeholder,
-                            monthTextColor: theme.colors.text,
-                            textSectionTitleColor: theme.colors.text,
-                            selectedDayBackgroundColor: theme.colors.primary,
-                            selectedDayTextColor: theme.colors.buttonPrimaryText,
-                            todayTextColor: theme.colors.primary,
-                            arrowColor: theme.colors.primary,
-                            dotColor: theme.colors.primary,
-                          }}
-                        />
-                      ) : (
-                        <Text style={[styles.modalDetailText, { color: theme.colors.text }]}>Due: {formatDate(selectedHomework.due_date)}</Text>
-                      )}
-                    </View>
-                  </View>
+                <View style={[styles.detailsCard, { backgroundColor: theme.colors.cardBackground }]}>
+                  <Text style={{ color: theme.colors.text }}>
+                    Subject: {selectedHomework.subject}
+                  </Text>
+                  <Text style={{ color: theme.colors.text }}>
+                    Due: {formatDate(selectedHomework.due_date)}
+                  </Text>
                 </View>
 
                 {currentUserId === selectedHomework.created_by && (
                   <View style={styles.modalButtonContainer}>
                     <TouchableOpacity
                       style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}
-                      onPress={() => {
-                        if (isEditing) {
-                          handleUpdate();
-                        } else {
-                          setIsEditing(true);
-                        }
-                      }}
+                      onPress={() => (isEditing ? handleUpdate() : setIsEditing(true))}
                     >
-                      <FontAwesomeIcon icon={faPen} size={16} color={theme.colors.buttonPrimaryText} style={{ marginRight: 8 }} />
-                      <Text style={[styles.modalButtonText, { color: theme.colors.buttonPrimaryText }]}>{isEditing ? 'Save Changes' : 'Edit'}</Text>
+                      <FontAwesomeIcon icon={faPen} size={16} color="#fff" />
+                      <Text style={styles.modalButtonText}>
+                        {isEditing ? 'Save' : 'Edit'}
+                      </Text>
                     </TouchableOpacity>
+
                     <TouchableOpacity
-                      style={[styles.modalButton, isEditing && styles.disabledButton, { backgroundColor: theme.colors.error }]}
+                      style={[styles.modalButton, { backgroundColor: theme.colors.error }]}
                       onPress={handleDelete}
                       disabled={isEditing}
                     >
-                      <FontAwesomeIcon icon={faTrash} size={16} color={theme.colors.buttonPrimaryText} style={{ marginRight: 8 }} />
-                      <Text style={[styles.modalButtonText, { color: theme.colors.buttonPrimaryText }]}>Delete</Text>
+                      <FontAwesomeIcon icon={faTrash} size={16} color="#fff" />
+                      <Text style={styles.modalButtonText}>Delete</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -245,310 +185,139 @@ const HomeworkList = () => {
 
       <FlatList
         data={loading ? [1, 2, 3] : homework}
-        keyExtractor={(item, index) => loading ? index.toString() : item.id.toString()}
-        renderItem={({ item }) => loading ? <CardSkeleton /> : <HomeworkCard homework={item} onPress={() => handleCardPress(item)} />}
-        ListEmptyComponent={!loading && <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No homework found.</Text>}
+        keyExtractor={(item, index) => loading ? index.toString() : item.id}
+        renderItem={({ item }) =>
+          loading ? <CardSkeleton /> : (
+            <HomeworkCard homework={item} onPress={() => {
+              setSelectedHomework(item);
+              setModalVisible(true);
+              setIsEditing(false);
+            }} />
+          )
+        }
+        ListEmptyComponent={!loading && (
+          <View style={styles.emptyContainer}>
+            <FontAwesomeIcon icon={faBook} size={40} color={theme.colors.placeholder} style={{ marginBottom: 10, opacity: 0.5 }} />
+            <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No homework assigned yet.</Text>
+          </View>
+        )}
       />
     </View>
   );
 };
 
+/* =========================
+   ASSIGNMENTS TAB
+========================= */
 const AssignmentsList = () => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedAssignment, setSelectedAssignment] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState(null);
+
   const isFocused = useIsFocused();
-  const { showToast } = useToast();
-  const { theme } = useTheme(); // Use the theme hook
-  const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
 
   useEffect(() => {
-    if (isFocused) {
-      fetchAssignments();
-    }
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setCurrentUserId(user.id);
-      }
-    };
-    fetchUser();
+    if (isFocused) fetchAssignments();
   }, [isFocused]);
 
   const fetchAssignments = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('assignments')
       .select('*')
-      .order('due_date', { ascending: true })
-      .limit(50);  // Pagination: Load first 50 items
-    if (error) console.error(error);
-    else setAssignments(data);
+      .order('due_date', { ascending: true });
+    setAssignments(data || []);
     setLoading(false);
   };
 
-  const handleCardPress = (item) => {
-    setSelectedAssignment(item);
-    setModalVisible(true);
-    setIsEditing(false); // Ensure modal opens in view mode
-  };
-
-  const handleUpdate = async () => {
-    if (!selectedAssignment) return;
-
-    try {
-      console.log('Attempting to update assignment:', selectedAssignment.id);
-      const { error } = await supabase
-        .from('assignments')
-        .update({ title: selectedAssignment.title, description: selectedAssignment.description, due_date: selectedAssignment.due_date })
-        .eq('id', selectedAssignment.id);
-
-      if (error) {
-        console.error('Supabase update error:', error);
-        showToast('Failed to update assignment: ' + error.message, 'error');
-      } else {
-        console.log('Assignment updated successfully:', selectedAssignment.id);
-        showToast('Assignment updated successfully.', 'success');
-        setIsEditing(false);
-        fetchAssignments();
-      }
-    } catch (err) {
-      console.error('Unexpected error during assignment update:', err);
-      showToast('An unexpected error occurred: ' + err.message, 'error');
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!selectedAssignment) return;
-
-    Alert.alert(
-      'Delete Assignment',
-      'Are you sure you want to delete this assignment?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          onPress: async () => {
-            const { error } = await supabase
-              .from('assignments')
-              .delete()
-              .eq('id', selectedAssignment.id);
-
-            if (error) {
-              showToast('Failed to delete assignment.', 'error');
-            } else {
-              showToast('Assignment deleted successfully.', 'success');
-              setModalVisible(false);
-              fetchAssignments();
-            }
-          },
-          style: 'destructive',
-        },
-      ],
-      { cancelable: false }
-    );
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const options = { day: '2-digit', month: 'long', year: 'numeric' };
-    return date.toLocaleDateString('en-GB', options);
-  };
-
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text style={[styles.screenDescription, { color: theme.colors.text }]}>Here is a list of all your current assignments. Tap on a card to view more details.</Text>
-      <View style={[styles.hr, { borderBottomColor: theme.colors.cardBorder }]} />
-      <Modal
-        isVisible={modalVisible}
-        onBackdropPress={() => setModalVisible(false)}
-        animationIn="slideInUp"
-        animationOut="slideOutDown"
-        backdropOpacity={0.5}
-        style={{ justifyContent: 'flex-end', margin: 0 }}
-      >
-        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 30) }]}>
-          {selectedAssignment && (
-            <>
-              <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
-                <FontAwesomeIcon icon={faClipboardList} size={26} color={theme.colors.primary} />
-                <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Assignment Details</Text>
-                <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseButton}>
-                  <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <View style={styles.descriptionContainer}>
-                  {isEditing ? (
-                    <TextInput
-                      style={[styles.modalTextInput, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-                      value={selectedAssignment.description}
-                      onChangeText={(text) => setSelectedAssignment({ ...selectedAssignment, description: text })}
-                      multiline
-                    />
-                  ) : (
-                    <Text style={[styles.descriptionText, { color: theme.colors.text }]}>{selectedAssignment.description}</Text>
-                  )}
-                </View>
-
-                <View style={[styles.detailsCard, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
-                  <View style={styles.modalDetailRow}>
-                    <FontAwesomeIcon icon={faBook} size={16} color={theme.colors.placeholder} style={styles.modalIcon} />
-                    {isEditing ? (
-                      <TextInput
-                        style={[styles.modalTextInput, { flex: 1, backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-                        value={selectedAssignment.title}
-                        onChangeText={(text) => setSelectedAssignment({ ...selectedAssignment, title: text })}
-                      />
-                    ) : (
-                      <Text style={[styles.modalDetailText, { color: theme.colors.text }]}>Title: {selectedAssignment.title}</Text>
-                    )}
-                  </View>
-                  <View style={[styles.separator, { backgroundColor: theme.colors.cardBorder }]} />
-                  <View style={styles.modalDetailRow}>
-                    <FontAwesomeIcon icon={faCalendarAlt} size={16} color={theme.colors.placeholder} style={styles.modalIcon} />
-                    <View style={{ flex: 1 }}>
-                      {isEditing ? (
-                        <Calendar
-                          minDate={new Date().toISOString().split('T')[0]}
-                          onDayPress={(day) => {
-                            setSelectedAssignment({ ...selectedAssignment, due_date: day.dateString });
-                          }}
-                          markedDates={{
-                            [selectedAssignment.due_date]: { selected: true, marked: true, selectedColor: theme.colors.primary },
-                          }}
-                          style={styles.modalCalendar}
-                          theme={{
-                            backgroundColor: theme.colors.background,
-                            calendarBackground: theme.colors.background,
-                            dayTextColor: theme.colors.text,
-                            textDisabledColor: theme.colors.placeholder,
-                            monthTextColor: theme.colors.text,
-                            textSectionTitleColor: theme.colors.text,
-                            selectedDayBackgroundColor: theme.colors.primary,
-                            selectedDayTextColor: theme.colors.buttonPrimaryText,
-                            todayTextColor: theme.colors.primary,
-                            arrowColor: theme.colors.primary,
-                            dotColor: theme.colors.primary,
-                          }}
-                        />
-                      ) : (
-                        <Text style={[styles.modalDetailText, { color: theme.colors.text }]}>Due: {formatDate(selectedAssignment.due_date)}</Text>
-                      )}
-                    </View>
-                  </View>
-                </View>
-
-                {currentUserId === selectedAssignment.assigned_by && (
-                  <View style={styles.modalButtonContainer}>
-                    <TouchableOpacity
-                      style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}
-                      onPress={() => {
-                        if (isEditing) {
-                          handleUpdate();
-                        } else {
-                          setIsEditing(true);
-                        }
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faPen} size={16} color={theme.colors.buttonPrimaryText} style={{ marginRight: 8 }} />
-                      <Text style={[styles.modalButtonText, { color: theme.colors.buttonPrimaryText }]}>{isEditing ? 'Save Changes' : 'Edit'}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.modalButton, isEditing && styles.disabledButton, { backgroundColor: theme.colors.error }]}
-                      onPress={handleDelete}
-                      disabled={isEditing}
-                    >
-                      <FontAwesomeIcon icon={faTrash} size={16} color={theme.colors.buttonPrimaryText} style={{ marginRight: 8 }} />
-                      <Text style={[styles.modalButtonText, { color: theme.colors.buttonPrimaryText }]}>Delete</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </ScrollView>
-            </>
-          )}
-        </View>
-      </Modal>
-
+    <View style={[styles.listContainer, { backgroundColor: theme.colors.background }]}>
       <FlatList
         data={loading ? [1, 2, 3] : assignments}
-        keyExtractor={(item, index) => loading ? index.toString() : item.id.toString()}
-        renderItem={({ item }) => loading ? <CardSkeleton /> : <AssignmentCard assignment={item} onPress={() => handleCardPress(item)} />}
-        ListEmptyComponent={!loading && <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No assignments found.</Text>}
+        keyExtractor={(item, index) => loading ? index.toString() : item.id}
+        renderItem={({ item }) =>
+          loading ? <CardSkeleton /> : <AssignmentCard assignment={item} />
+        }
+        ListEmptyComponent={!loading && (
+          <View style={styles.emptyContainer}>
+            <FontAwesomeIcon icon={faClipboardList} size={40} color={theme.colors.placeholder} style={{ marginBottom: 10, opacity: 0.5 }} />
+            <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No assignments found.</Text>
+          </View>
+        )}
       />
     </View>
   );
 };
 
+/* =========================
+   MAIN SCREEN
+========================= */
 export default function HomeworkScreen() {
   const navigation = useNavigation();
+  const { theme } = useTheme();
   const [userRole, setUserRole] = useState(null);
   const [fabOpen, setFabOpen] = useState(false);
-  const { theme } = useTheme(); // Use the theme hook
 
   useEffect(() => {
-    const fetchUserRole = async () => {
+    const loadRole = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-        if (profile) {
-          setUserRole(profile.role);
-        }
-      }
+      if (!user) return;
+
+      const { data } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      setUserRole(data?.role);
     };
-    fetchUserRole();
+    loadRole();
   }, []);
 
   const isTeacherOrAdmin = userRole === 'teacher' || userRole === 'admin';
 
   return (
     <Provider>
-      <Tab.Navigator
-        screenOptions={{
-          tabBarLabelStyle: { textTransform: 'none', color: theme.colors.text },
-          tabBarStyle: { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.cardBorder },
-          tabBarIndicatorStyle: { backgroundColor: theme.colors.primary },
-        }}
-      >
-        <Tab.Screen name="HomeworkList" component={HomeworkList} options={{ title: 'Homework' }} />
-        <Tab.Screen name="AssignmentsList" component={AssignmentsList} options={{ title: 'Assignments' }} />
-      </Tab.Navigator>
+      <View style={[styles.screenWrapper, { backgroundColor: theme.colors.background }]}>
+        <View style={styles.headerRow}>
+          <FontAwesomeIcon
+            icon={faClipboardList}
+            size={24}
+            color={theme.colors.primary}
+            style={styles.headerIcon}
+          />
+          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
+            Tasks & Assignments
+          </Text>
+        </View>
+
+        <Text style={[styles.screenDescription, { color: theme.colors.text }]}>
+          View all homework and assignments assigned to you. Tap on a card to see full details.
+        </Text>
+
+        <View style={[styles.hr, { borderBottomColor: theme.colors.cardBorder }]} />
+
+        <Tab.Navigator
+          screenOptions={{
+            tabBarLabelStyle: { textTransform: 'none', color: theme.colors.text },
+            tabBarStyle: { backgroundColor: theme.colors.surface },
+            tabBarIndicatorStyle: { backgroundColor: theme.colors.primary },
+          }}
+        >
+          <Tab.Screen name="HomeworkTab" component={HomeworkList} options={{ title: 'Homework' }} />
+          <Tab.Screen name="AssignmentsTab" component={AssignmentsList} options={{ title: 'Assignments' }} />
+        </Tab.Navigator>
+      </View>
+
       {isTeacherOrAdmin && (
         <Portal>
           <FAB.Group
             open={fabOpen}
             icon={fabOpen ? 'close' : 'plus'}
-            color={theme.colors.buttonPrimaryText}
-            fabStyle={{ backgroundColor: theme.colors.primary, borderRadius: 50 }}
-            backdropColor="transparent"
+            fabStyle={{ backgroundColor: theme.colors.primary }}
             actions={[
-              {
-                icon: 'notebook-plus',
-                label: 'Create Homework',
-                onPress: () => navigation.navigate('CreateHomework'),
-                color: theme.colors.text,
-                labelTextColor: theme.colors.text,
-                style: { backgroundColor: theme.colors.surface },
-              },
-              {
-                icon: 'file-plus',
-                label: 'Create Assignment',
-                onPress: () => navigation.navigate('CreateAssignment'),
-                color: theme.colors.text,
-                labelTextColor: theme.colors.text,
-                style: { backgroundColor: theme.colors.surface },
-              },
+              { icon: 'notebook-plus', label: 'Create Homework', onPress: () => navigation.navigate('CreateHomework') },
+              { icon: 'file-plus', label: 'Create Assignment', onPress: () => navigation.navigate('CreateAssignment') },
             ]}
             onStateChange={({ open }) => setFabOpen(open)}
           />
@@ -558,27 +327,48 @@ export default function HomeworkScreen() {
   );
 }
 
+/* =========================
+   STYLES
+========================= */
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
+  screenWrapper: { flex: 1 },
+  listContainer: { flex: 1, padding: 16 },
+
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 5,
+  },
+
+  headerIcon: {
+    marginRight: 10,
   },
   screenDescription: {
     fontSize: 14,
+    marginHorizontal: 16,
+    marginTop: 5,
     marginBottom: 10,
+  },
+  hr: {
+    borderBottomWidth: 1,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 50,
   },
   emptyText: {
     textAlign: 'center',
-    marginTop: 20,
     fontSize: 16,
-  },
-  modalContent: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 30,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
   },
   header: {
     flexDirection: 'row',
@@ -592,72 +382,34 @@ const styles = StyleSheet.create({
     marginLeft: 15,
     flex: 1,
   },
-  modalCloseButton: {
-    padding: 5,
-  },
-  descriptionContainer: {
-    paddingVertical: 20,
-  },
-  descriptionText: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
+  descriptionContainer: { paddingVertical: 20 },
+  descriptionText: { fontSize: 16, lineHeight: 24 },
+
   detailsCard: {
-    borderRadius: 12,
     padding: 15,
-    borderWidth: 1,
+    borderRadius: 12,
     marginBottom: 20,
-  },
-  modalDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 5,
-  },
-  modalIcon: {
-    marginRight: 12,
-  },
-  modalDetailText: {
-    fontSize: 16,
-  },
-  separator: {
-    height: 1,
-    marginVertical: 12,
-  },
-  hr: {
-    borderBottomWidth: 1,
-    marginVertical: 10,
   },
   modalButtonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 15,
-    marginBottom: 20,
+    justifyContent: 'space-between',
   },
   modalButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    flex: 0.48,
+    padding: 12,
     borderRadius: 8,
-    flexDirection: 'row',
     alignItems: 'center',
+    flexDirection: 'row',
     justifyContent: 'center',
-    flex: 0.45,
   },
   modalButtonText: {
+    color: '#fff',
     fontWeight: 'bold',
-    fontSize: 16,
-  },
-  disabledButton: {
-    backgroundColor: '#a9a9a9',
+    marginLeft: 8,
   },
   modalTextInput: {
     borderWidth: 1,
-    borderRadius: 5,
+    borderRadius: 6,
     padding: 10,
-    fontSize: 16,
-  },
-  modalCalendar: {
-    width: '100%',
-    marginTop: 10,
-    marginBottom: 10,
   },
 });
