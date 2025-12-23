@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faUsers, faSchool, faBullhorn, faStore, faCog, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faUsers, faSchool, faBullhorn, faStore, faCog, faArrowLeft, faHandshake } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import SettingsScreenSkeleton, { SkeletonPiece } from '../components/skeletons/SettingsScreenSkeleton';
 
@@ -121,6 +121,24 @@ export default function ManagementScreen({ navigation }) {
                                 description="Create, edit, or delete announcements"
                                 onPress={() => navigation.navigate('ManageAnnouncements')}
                                 color="#FF3B30"
+                            />
+                        </View>
+                    )}
+
+                    {/* Meetings - Admin & Teacher */}
+                    {user && (user.role === 'admin' || user.role === 'teacher') && (
+                        <View style={styles.section}>
+                            <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
+                            <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Meetings</Text>
+                            <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
+                                Manage parent-teacher conferences
+                            </Text>
+                            <ManagementButton
+                                icon={faHandshake}
+                                title="Parent-Teacher Meetings"
+                                description="Manage availability and bookings"
+                                onPress={() => navigation.navigate('Meetings')}
+                                color="#00BCD4"
                             />
                         </View>
                     )}

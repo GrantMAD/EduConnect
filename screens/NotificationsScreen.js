@@ -75,6 +75,19 @@ export default function NotificationsScreen({ route, navigation }) {
 
         navigation.navigate('Polls');
         return;
+      case 'new_ptm_booking':
+      case 'ptm_cancellation':
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', notification.id);
+
+        setNotifications(prev =>
+          prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
+        );
+
+        navigation.navigate('Meetings');
+        return;
       default:
         return; // Not a pressable notification
     }
@@ -288,14 +301,18 @@ export default function NotificationsScreen({ route, navigation }) {
             ? 'clipboard-list'
             : item.type === 'new_poll'
               ? 'poll'
-              : 'bell';
+              : item.type === 'new_ptm_booking' || item.type === 'ptm_cancellation'
+                ? 'handshake'
+                : 'bell';
 
     const isPressable = [
       'new_general_announcement',
       'new_class_announcement',
       'new_homework',
       'new_assignment',
-      'new_poll'
+      'new_poll',
+      'new_ptm_booking',
+      'ptm_cancellation'
     ].includes(item.type);
 
     return (

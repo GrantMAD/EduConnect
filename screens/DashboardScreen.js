@@ -19,7 +19,8 @@ import {
     faChevronRight,
     faInfoCircle,
     faClipboardList,
-    faComments
+    faComments,
+    faHandshake
 } from '@fortawesome/free-solid-svg-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
@@ -100,10 +101,89 @@ export default function DashboardScreen({ navigation }) {
             setUserRole(userData.role);
             setUserProfile(userData);
             fetchDashboardData(userData);
+            fetchTodayEvents(userData);
         } catch (error) {
             console.error('Error checking access:', error);
             showToast('Failed to verify access.', 'error');
             navigation.goBack();
+        }
+    };
+
+    const fetchTodayEvents = async (profile) => {
+        try {
+            const today = new Date();
+            const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
+            const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+            const allTodayEvents = [];
+
+            // 1. Fetch Class Sessions
+            const { data: classMembers } = await supabase
+                .from('class_members')
+                .select('class_id')
+                .eq('user_id', profile.id);
+            
+            let classIds = classMembers?.map(m => m.class_id) || [];
+            
+            if (['admin', 'teacher'].includes(profile.role)) {
+                const { data: teacherClasses } = await supabase
+                    .from('classes')
+                    .select('id')
+                    .eq('school_id', profile.school_id);
+                classIds = [...new Set([...classIds, ...(teacherClasses?.map(c => c.id) || [])])];
+            }
+
+            if (classIds.length > 0) {
+                const { data: sessions } = await supabase
+                    .from('class_schedules')
+                    .select('*, class:classes(id, name)')
+                    .in('class_id', classIds)
+                    .gte('start_time', startOfDay)
+                    .lte('start_time', endOfDay)
+                    .order('start_time', { ascending: true });
+                
+                if (sessions) {
+                    allTodayEvents.push(...sessions.map(s => ({ ...s, eventType: 'class' })));
+                }
+            }
+
+            // 2. Fetch today's PTMs
+            const isParent = profile.role === 'parent';
+            let ptmQuery = supabase
+                .from('ptm_bookings')
+                .select(`
+                    *,
+                    slot:ptm_slots!inner(*, teacher:users!teacher_id(full_name)),
+                    parent:users!parent_id(full_name),
+                    student:users!student_id(full_name)
+                `);
+
+            if (isParent) {
+                ptmQuery = ptmQuery.eq('parent_id', profile.id);
+            } else {
+                ptmQuery = ptmQuery.eq('ptm_slots.teacher_id', profile.id);
+            }
+
+            const { data: ptmData } = await ptmQuery;
+            
+            if (ptmData) {
+                const todayPtms = ptmData.filter(b => {
+                    const d = new Date(b.slot.start_time);
+                    return d.toDateString() === new Date().toDateString();
+                });
+
+                allTodayEvents.push(...todayPtms.map(b => ({
+                    id: b.id,
+                    start_time: b.slot.start_time,
+                    end_time: b.slot.end_time,
+                    title: `PTM: ${isParent ? b.slot.teacher.full_name : b.parent.full_name}`,
+                    eventType: 'meeting',
+                    class: { name: `Meeting: ${b.student.full_name}` }
+                })));
+            }
+
+            setTodaySessions(allTodayEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time)));
+        } catch (e) {
+            console.error('Error fetching today events:', e);
         }
     };
 
@@ -183,7 +263,10 @@ export default function DashboardScreen({ navigation }) {
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await fetchDashboardData(userProfile);
+        await Promise.all([
+            fetchDashboardData(userProfile),
+            fetchTodayEvents(userProfile)
+        ]);
     };
 
     const fetchUsersByCategory = async (category) => {
@@ -386,22 +469,38 @@ export default function DashboardScreen({ navigation }) {
             const start = new Date(session.start_time);
             const end = new Date(session.end_time);
             const isNow = new Date() >= start && new Date() <= end;
+            const isMeeting = session.eventType === 'meeting';
 
             return (
-                <View 
+                <TouchableOpacity 
                     key={session.id} 
+                    onPress={() => isMeeting ? navigation.navigate('Meetings') : null}
+                    activeOpacity={isMeeting ? 0.7 : 1}
                     style={[
                         styles.sessionItem, 
-                        { backgroundColor: theme.colors.card, borderColor: isNow ? theme.colors.primary : theme.colors.cardBorder }
+                        { backgroundColor: theme.colors.card, borderColor: isNow ? theme.colors.primary : isMeeting ? theme.colors.warning + '40' : theme.colors.cardBorder }
                     ]}
                 >
                     <View style={styles.sessionHeader}>
-                        <View>
-                            <Text style={[styles.sessionClassName, { color: theme.colors.text }]}>{session.class?.name}</Text>
-                            <Text style={[styles.sessionType, { color: theme.colors.placeholder }]}>{session.type || 'Lecture'}</Text>
+                        <View style={{ flex: 1 }}>
+                            <Text style={[styles.sessionClassName, { color: theme.colors.text }]}>
+                                {isMeeting ? session.title : session.class?.name}
+                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                                <FontAwesomeIcon 
+                                    icon={isMeeting ? faHandshake : faChalkboardTeacher} 
+                                    size={10} 
+                                    color={isMeeting ? theme.colors.warning : theme.colors.placeholder} 
+                                />
+                                <Text style={[styles.sessionType, { color: isMeeting ? theme.colors.warning : theme.colors.placeholder, marginLeft: 4 }]}>
+                                    {isMeeting ? 'Parent-Teacher Meeting' : (session.type || 'Lecture')}
+                                </Text>
+                            </View>
                         </View>
                         <View style={styles.sessionTimeContainer}>
-                            <Text style={[styles.sessionStartTime, { color: theme.colors.primary }]}>{start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                            <Text style={[styles.sessionStartTime, { color: isMeeting ? theme.colors.warning : theme.colors.primary }]}>
+                                {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </Text>
                         </View>
                     </View>
                     {isNow && (
@@ -409,7 +508,7 @@ export default function DashboardScreen({ navigation }) {
                             <Text style={styles.liveBadgeText}>LIVE</Text>
                         </View>
                     )}
-                </View>
+                </TouchableOpacity>
             );
         });
     };

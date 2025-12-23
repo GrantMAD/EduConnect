@@ -10,7 +10,8 @@ import {
     faGear,
     faRightFromBracket,
     faChartLine,
-    faStore
+    faStore,
+    faHandshake
 } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
@@ -195,6 +196,14 @@ const CustomDrawerContent = (props) => {
                                 onPress={() => props.navigation.navigate('MainStack', { screen: 'MyChildren' })}
                             />
                         )}
+                        <DrawerItem
+                            icon={faHandshake}
+                            label="Meetings"
+                            description="Parent-Teacher conferences"
+                            routeName="Meetings"
+                            active={activeMainStackRouteName === 'Meetings'}
+                            onPress={() => props.navigation.navigate('MainStack', { screen: 'Meetings' })}
+                        />
                         {['admin', 'teacher'].includes(userRole) && (
                             <>
                                 <DrawerItem

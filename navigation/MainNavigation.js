@@ -33,6 +33,7 @@ import DashboardScreen from '../screens/DashboardScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import HomeworkScreen from '../screens/HomeworkScreen';
 import MarketScreen from '../screens/market/MarketScreen';
+import MeetingsScreen from '../screens/meetings/MeetingsScreen';
 
 // Gamification Screens
 import LeaderboardScreen from '../screens/gamification/LeaderboardScreen';
@@ -79,6 +80,7 @@ const MainStackNavigator = () => (
     <Stack.Screen name="Calendar" component={CalendarScreen} options={{ title: 'Calendar' }} />
     <Stack.Screen name="Homework" component={HomeworkScreen} options={{ title: 'Homework' }} />
     <Stack.Screen name="Market" component={MarketScreen} options={{ title: 'Marketplace' }} />
+    <Stack.Screen name="Meetings" component={MeetingsScreen} options={{ title: 'Meetings' }} />
 
     {/* Gamification Screens */}
     <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: 'Leaderboard' }} />

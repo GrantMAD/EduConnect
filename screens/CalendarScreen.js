@@ -6,7 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import CalendarScreenSkeleton, { SkeletonPiece } from '../components/skeletons/CalendarScreenSkeleton';
-import { faTimes, faCalendarAlt, faClock, faChevronDown, faChevronUp, faBook } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faCalendarAlt, faClock, faChevronDown, faChevronUp, faBook, faHandshake, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
 import StandardBottomModal from '../components/StandardBottomModal';
@@ -84,48 +84,83 @@ export default function CalendarScreen() {
             }
           }
 
-          if (classIds.length === 0) {
-            setSchedules([]);
-            setMarkedDates({});
-            setLoading(false);
-            return;
+          const allEvents = [];
+
+          // 1. Fetch Class Schedules
+          if (classIds.length > 0) {
+            const { data: classSchedules, error: schedulesError } = await supabase
+              .from('class_schedules')
+              .select('*, class:classes(id, name)')
+              .in('class_id', classIds)
+              .order('start_time', { ascending: true });
+            if (schedulesError) throw schedulesError;
+            allEvents.push(...classSchedules.map(s => ({ ...s, eventType: 'class' })));
           }
 
-          // Fetch schedules for the visible classes
-          const { data: classSchedules, error: schedulesError } = await supabase
-            .from('class_schedules')
-            .select('*')
-            .in('class_id', classIds)
-            .order('start_time', { ascending: true });
-          if (schedulesError) throw schedulesError;
+          // 2. Fetch PTM Bookings
+          const isParent = userRole === 'parent';
+          let ptmQuery = supabase
+            .from('ptm_bookings')
+            .select(`
+                *,
+                slot:ptm_slots!inner(*, teacher:users!teacher_id(full_name)),
+                parent:users!parent_id(full_name),
+                student:users!student_id(full_name)
+            `);
 
+          if (isParent) {
+            ptmQuery = ptmQuery.eq('parent_id', user.id);
+          } else {
+            ptmQuery = ptmQuery.eq('ptm_slots.teacher_id', user.id);
+          }
 
-          // Assign colors to classes
+          const { data: ptmData, error: ptmError } = await ptmQuery;
+
+          if (!ptmError && ptmData) {
+            allEvents.push(...ptmData.map(b => ({
+              id: b.id,
+              start_time: b.slot.start_time,
+              end_time: b.slot.end_time,
+              title: `PTM: ${isParent ? b.slot.teacher.full_name : b.parent.full_name}`,
+              description: `Meeting regarding ${b.student.full_name}`,
+              eventType: 'meeting',
+              originalData: b,
+              class_id: b.slot.id // Use slot id as a dummy class_id for coloring
+            })));
+          }
+
+          // Assign colors
           const classColorMap = {};
-          classIds.forEach((id, index) => {
+          const uniqueIds = [...new Set(allEvents.map(e => e.class_id || e.id))];
+          uniqueIds.forEach((id, index) => {
             classColorMap[id] = dotColors[index % dotColors.length];
           });
 
           // Build marked dates for the calendar
           const formattedMarkedDates = {};
-          classSchedules.forEach(schedule => {
-            const date = schedule.start_time.split('T')[0];
-            const color = classColorMap[schedule.class_id];
+          allEvents.forEach(event => {
+            const date = event.start_time.split('T')[0];
+            const color = event.eventType === 'meeting' ? theme.colors.warning : classColorMap[event.class_id || event.id];
             if (!formattedMarkedDates[date]) formattedMarkedDates[date] = { periods: [] };
-            // Avoid duplicate bars for the same class on the same day
+            
+            // Avoid duplicate bars for the same category on the same day
             const existingPeriod = formattedMarkedDates[date].periods.find(p => p.color === color);
             if (!existingPeriod) {
-              formattedMarkedDates[date].periods.push({ startingDay: true, endingDay: true, color });
+              formattedMarkedDates[date].periods.push({ 
+                startingDay: true, 
+                endingDay: true, 
+                color: color 
+              });
             }
           });
 
           // Prepare colored and descriptive schedules
-          const coloredSchedules = classSchedules.map(s => ({
-            ...s,
-            color: classColorMap[s.class_id] || theme.colors.primary,
-            badgeColor: classColorMap[s.class_id] || theme.colors.primary,
-            description: s.description || '',
-            class_info: s.class_info || '',
+          const coloredSchedules = allEvents.map(e => ({
+            ...e,
+            color: e.eventType === 'meeting' ? theme.colors.warning : (classColorMap[e.class_id || e.id] || theme.colors.primary),
+            badgeColor: e.eventType === 'meeting' ? theme.colors.warning : (classColorMap[e.class_id || e.id] || theme.colors.primary),
+            description: e.description || '',
+            class_info: e.class_info || '',
           }));
 
           setSchedules(coloredSchedules);
@@ -142,101 +177,101 @@ export default function CalendarScreen() {
     }, [theme.colors.primary, theme.colors.success, theme.colors.warning, theme.colors.error])
   );
 
-  const upcomingSchedules = schedules.filter(s => new Date(s.start_time) >= new Date());
-  const pastSchedules = schedules.filter(s => new Date(s.start_time) < new Date());
+  const upcomingClasses = schedules.filter(s => s.eventType === 'class' && new Date(s.start_time) >= new Date());
+  const pastEvents = schedules.filter(s => new Date(s.start_time) < new Date());
+  const upcomingMeetings = schedules.filter(s => s.eventType === 'meeting' && new Date(s.start_time) >= new Date());
 
   const toggleDropdown = (title) => {
     setDropdowns(prev => ({ ...prev, [title]: !prev[title] }));
   };
 
   const openScheduleModal = (schedule) => {
-    setSelectedSchedule(schedule);
-    setModalVisible(true);
+    if (schedule.eventType === 'meeting') {
+      navigation.navigate('Meetings');
+    } else {
+      setSelectedSchedule(schedule);
+      setModalVisible(true);
+    }
   };
 
   const onDayPress = (day) => {
     const daySchedules = schedules.filter(s => s.start_time.startsWith(day.dateString));
     if (daySchedules.length > 0) {
-      setDayModalSchedules(daySchedules);
+      setDayModalSchedules(daySchedules.sort((a, b) => new Date(a.start_time) - new Date(b.start_time)));
       setDayModalVisible(true);
     }
   };
 
-  const renderDayCard = (schedule) => (
-    <TouchableOpacity
-      key={schedule.id}
-      onPress={() => openScheduleModal(schedule)}
-      style={[styles.dayCard, { backgroundColor: theme.colors.cardBackground }]}
-    >
-      <View style={styles.infoRow}>
-        <FontAwesomeIcon icon={faCalendarAlt} size={14} color={theme.colors.primary} style={styles.icon} />
-        <Text style={[styles.scheduleDate, { color: theme.colors.text }]}>{new Date(schedule.start_time).toLocaleDateString()}</Text>
-      </View>
-      <View style={styles.infoRow}>
-        <FontAwesomeIcon icon={faClock} size={14} color={theme.colors.primary} style={styles.icon} />
-        <Text style={[styles.scheduleTime, { color: theme.colors.text }]}>
-          {new Date(schedule.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(schedule.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-      </View>
-      <Text style={[styles.tapText, { color: theme.colors.placeholder }]}>Tap to view class details</Text>
-    </TouchableOpacity>
-  );
-
-  const renderClassDropdown = (title, schedulesArray) => {
-    const isOpen = dropdowns[title];
+  const renderEventCard = (item) => {
+    const isMeeting = item.eventType === 'meeting';
+    const start = new Date(item.start_time);
+    
     return (
-      <View key={title} style={styles.dropdownContainer}>
-        <TouchableOpacity onPress={() => toggleDropdown(title)} style={[styles.dropdownHeader, { backgroundColor: theme.colors.inputBackground }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={[styles.colorStripe, { backgroundColor: schedulesArray[0].color }]} />
-            <FontAwesomeIcon icon={faBook} size={18} color={theme.colors.primary} style={{ marginRight: 6 }} />
-            <Text style={[styles.scheduleTitle, { color: theme.colors.primary }]}>{title}</Text>
+      <TouchableOpacity
+        key={item.id}
+        onPress={() => openScheduleModal(item)}
+        style={[
+          styles.eventCard, 
+          { backgroundColor: theme.colors.cardBackground },
+          isMeeting && { borderLeftColor: theme.colors.warning, borderLeftWidth: 4 }
+        ]}
+      >
+        <View style={styles.eventCardLeft}>
+          <View style={[styles.timeBox, { backgroundColor: isMeeting ? theme.colors.warning + '15' : theme.colors.primary + '15' }]}>
+            <Text style={[styles.timeText, { color: isMeeting ? theme.colors.warning : theme.colors.primary }]}>
+              {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {schedulesArray[0].description ? (
-              <View style={[styles.badgeContainer, { backgroundColor: schedulesArray[0].badgeColor }]}>
-                <Text style={[styles.badgeText, { color: theme.colors.buttonPrimaryText }]}>{schedulesArray[0].description}</Text>
-              </View>
-            ) : null}
-            <FontAwesomeIcon icon={isOpen ? faChevronUp : faChevronDown} size={18} color={theme.colors.primary} style={{ marginLeft: 8 }} />
+        </View>
+        
+        <View style={styles.eventCardContent}>
+          <View style={styles.eventHeaderRow}>
+            <Text style={[styles.eventTitle, { color: theme.colors.text }]} numberOfLines={1}>
+              {isMeeting ? item.title : (item.class?.name || item.title || 'Untitled Class')}
+            </Text>
+            <View style={[styles.eventBadge, { backgroundColor: isMeeting ? theme.colors.warning + '20' : theme.colors.primary + '20' }]}>
+              <Text style={[styles.eventBadgeText, { color: isMeeting ? theme.colors.warning : theme.colors.primary }]}>
+                {isMeeting ? 'PTM' : 'Class'}
+              </Text>
+            </View>
           </View>
-        </TouchableOpacity>
-        {isOpen && (
-          <View style={{ marginTop: 8 }}>
-            {schedulesArray.map(renderDayCard)}
+          
+          <View style={styles.eventDetailsRow}>
+            <FontAwesomeIcon 
+              icon={isMeeting ? faHandshake : faBook} 
+              size={12} 
+              color={theme.colors.placeholder} 
+              style={{ marginRight: 6 }} 
+            />
+            <Text style={[styles.eventDescription, { color: theme.colors.placeholder }]} numberOfLines={1}>
+              {item.description || item.class_info || 'No details provided'}
+            </Text>
           </View>
-        )}
-      </View>
+        </View>
+        
+        <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.cardBorder} />
+      </TouchableOpacity>
     );
   };
 
-  const groupSchedulesByTitle = (arr) => {
-    const grouped = {};
-    arr.forEach(s => {
-      if (!grouped[s.title]) grouped[s.title] = [];
-      grouped[s.title].push(s);
-    });
-    return grouped;
-  };
-
-  const upcomingGrouped = groupSchedulesByTitle(upcomingSchedules);
-  const pastGrouped = groupSchedulesByTitle(pastSchedules);
-
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} contentContainerStyle={styles.scrollContent}>
+    <ScrollView 
+      style={[styles.container, { backgroundColor: theme.colors.background }]} 
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
         <FontAwesomeIcon icon={faCalendarAlt} size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
         <Text style={[styles.header, { color: theme.colors.text }]}>Class Calendar</Text>
       </View>
-      <Text style={[styles.descriptionText, { color: theme.colors.text }]}>View all your scheduled classes and tap on class days for more details.</Text>
+      <Text style={[styles.descriptionText, { color: theme.colors.placeholder }]}>View all your scheduled classes and tap on class days for more details.</Text>
 
       {loading ? (
         <>
           <SkeletonPiece style={{ width: '100%', height: 370, borderRadius: 10, marginBottom: 20 }} />
-          <SkeletonPiece style={{ width: '50%', height: 20, borderRadius: 4, marginBottom: 5 }} />
-          <View style={styles.dropdownContainer}>
-            <SkeletonPiece style={{ width: '100%', height: 50, borderRadius: 10 }} />
-          </View>
+          <SkeletonPiece style={{ width: '50%', height: 20, borderRadius: 4, marginBottom: 15 }} />
+          <SkeletonPiece style={{ width: '100%', height: 80, borderRadius: 12, marginBottom: 10 }} />
+          <SkeletonPiece style={{ width: '100%', height: 80, borderRadius: 12 }} />
         </>
       ) : (
         <>
@@ -268,15 +303,26 @@ export default function CalendarScreen() {
             }}
           />
 
-          <Text style={[styles.listHeader, { color: theme.colors.text }]}>Upcoming Classes</Text>
-          {Object.keys(upcomingGrouped).length === 0 ? (
-            <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>You have no upcoming classes.</Text>
-          ) : Object.entries(upcomingGrouped).map(([title, scheds]) => renderClassDropdown(title, scheds))}
+          {upcomingMeetings.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.listHeader, { color: theme.colors.text }]}>Upcoming Meetings</Text>
+              {upcomingMeetings.slice(0, 5).map(renderEventCard)}
+            </View>
+          )}
 
-          <Text style={[styles.listHeader, { color: theme.colors.text }]}>Past Classes</Text>
-          {Object.keys(pastGrouped).length === 0 ? (
-            <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No past classes yet.</Text>
-          ) : Object.entries(pastGrouped).map(([title, scheds]) => renderClassDropdown(title, scheds))}
+          <View style={styles.section}>
+            <Text style={[styles.listHeader, { color: theme.colors.text }]}>Upcoming Classes</Text>
+            {upcomingClasses.length === 0 ? (
+              <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No upcoming classes found.</Text>
+            ) : upcomingClasses.slice(0, 5).map(renderEventCard)}
+          </View>
+
+          <View style={styles.section}>
+            <Text style={[styles.listHeader, { color: theme.colors.text }]}>Past Events</Text>
+            {pastEvents.length === 0 ? (
+              <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No past events yet.</Text>
+            ) : pastEvents.slice(0, 5).map(renderEventCard)}
+          </View>
         </>
       )}
 
@@ -317,12 +363,12 @@ export default function CalendarScreen() {
       <StandardBottomModal
         visible={isDayModalVisible}
         onClose={() => setDayModalVisible(false)}
-        title="Classes for selected day"
+        title="Events for selected day"
         icon={faCalendarAlt}
       >
-        <View>
-          <Text style={[styles.modalDescription, { color: theme.colors.text }]}>Tap a class to view its details.</Text>
-          {dayModalSchedules.map(renderDayCard)}
+        <View style={{ paddingBottom: 20 }}>
+          <Text style={[styles.modalDescription, { color: theme.colors.placeholder }]}>Tap an event to view its details.</Text>
+          {dayModalSchedules.map(renderEventCard)}
         </View>
       </StandardBottomModal>
     </ScrollView>
@@ -331,41 +377,76 @@ export default function CalendarScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { padding: 16, paddingBottom: 24 },
+  scrollContent: { padding: 16, paddingBottom: 40 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { fontSize: 24, fontWeight: 'bold', marginBottom: 5 },
-  descriptionText: { fontSize: 14, marginBottom: 15 },
-  listHeader: { fontSize: 20, fontWeight: 'bold', marginTop: 20, marginBottom: 5 },
+  descriptionText: { fontSize: 14, marginBottom: 20 },
+  listHeader: { fontSize: 18, fontWeight: 'bold', marginTop: 24, marginBottom: 12, marginLeft: 4 },
+  section: { marginBottom: 8 },
 
-  dropdownContainer: { marginBottom: 15 },
-  dropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10 },
-  scheduleTitle: { fontSize: 18, fontWeight: 'bold' },
-  colorStripe: { width: 6, height: '100%', marginRight: 6, borderRadius: 3 },
-  badgeContainer: { borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start', marginLeft: 8 },
-  badgeText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-
-  dayCard: {
+  eventCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.22,
-    shadowRadius: 2.22,
-    elevation: 3,
+    borderRadius: 16,
+    marginBottom: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
-  tapText: { fontSize: 12, marginTop: 4, fontStyle: 'italic' },
-  infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  icon: { marginRight: 8, width: 18, textAlign: 'center' },
-  scheduleDate: { fontSize: 14 },
-  scheduleTime: { fontSize: 14 },
-  emptyText: { textAlign: 'center', marginTop: 20, fontSize: 16 },
+  eventCardLeft: {
+    marginRight: 12,
+  },
+  timeBox: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 10,
+    minWidth: 65,
+    alignItems: 'center',
+  },
+  timeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  eventCardContent: {
+    flex: 1,
+  },
+  eventHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  eventTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    flex: 1,
+    marginRight: 8,
+  },
+  eventBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  eventBadgeText: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  eventDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  eventDescription: {
+    fontSize: 12,
+    flex: 1,
+  },
+
+  emptyText: { textAlign: 'center', marginTop: 10, fontSize: 14, fontStyle: 'italic' },
 
   centeredModal: { justifyContent: 'center', alignItems: 'center', margin: 0 },
-  modalDescription: { fontSize: 14, marginBottom: 10, textAlign: 'center' },
+  modalDescription: { fontSize: 14, marginBottom: 15, textAlign: 'center' },
   modalDescriptionBadge: { fontSize: 14, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'center', marginBottom: 10 },
   classInfo: { fontSize: 14, marginTop: 10 },
 });
