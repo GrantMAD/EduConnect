@@ -1,13 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, Alert, Modal } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, Alert, Modal, ScrollView, Dimensions } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useGamification } from '../../context/GamificationContext';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faCoins, faLock, faCheck, faTimes, faArrowLeft, faStore } from '@fortawesome/free-solid-svg-icons';
-import { BORDER_STYLES } from '../../constants/GamificationStyles';
+import { faCoins, faLock, faCheck, faTimes, faArrowLeft, faStore, faIdCard, faUserCircle, faPalette, faAward, faComments, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { BORDER_STYLES, BANNER_STYLES, NAME_COLOR_STYLES, TITLE_STYLES, BUBBLE_STYLES, STICKER_PACKS } from '../../constants/GamificationStyles';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { SkeletonPiece } from '../../components/skeletons/DashboardScreenSkeleton';
+import LinearGradient from 'react-native-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { width } = Dimensions.get('window');
 
 const ShopItemSkeleton = () => {
     const { theme } = useTheme();
@@ -26,13 +30,21 @@ const defaultUserImage = require('../../assets/user.png');
 
 export default function ShopScreen({ navigation }) {
     const { theme } = useTheme();
-    const { coins, purchaseItem, equipItem, equippedItem, current_level } = useGamification();
+    const insets = useSafeAreaInsets();
+    const { 
+        coins, purchaseItem, equipItem, 
+        equippedBorder, equippedBanner, equippedNameColor, equippedTitle, equippedBubbleStyle, 
+        ownedStickerPacks, current_level 
+    } = useGamification();
+    
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedItem, setSelectedItem] = useState(null);
     const [purchasing, setPurchasing] = useState(false);
     const [inventory, setInventory] = useState([]);
     const [avatarUrl, setAvatarUrl] = useState(null);
+    const [activeTab, setActiveTab] = useState('all');
+    const [fullName, setFullName] = useState('Student');
 
     useEffect(() => {
         fetchShopData();
@@ -50,27 +62,25 @@ export default function ShopScreen({ navigation }) {
 
             if (itemsError) throw itemsError;
 
-            // Fetch user inventory and avatar
+            // Fetch user info
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                const { data: invData, error: invError } = await supabase
+                const { data: invData } = await supabase
                     .from('user_inventory')
                     .select('item_id')
                     .eq('user_id', user.id);
 
-                if (!invError) {
-                    setInventory(invData.map(i => i.item_id));
-                }
+                if (invData) setInventory(invData.map(i => i.item_id));
 
-                // Fetch avatar url
-                const { data: userData, error: userError } = await supabase
+                const { data: userData } = await supabase
                     .from('users')
-                    .select('avatar_url')
+                    .select('avatar_url, full_name')
                     .eq('id', user.id)
                     .single();
 
-                if (!userError && userData) {
+                if (userData) {
                     setAvatarUrl(userData.avatar_url);
+                    setFullName(userData.full_name || 'Student');
                 }
             }
 
@@ -84,48 +94,160 @@ export default function ShopScreen({ navigation }) {
 
     const handlePurchase = async () => {
         if (!selectedItem) return;
-
         setPurchasing(true);
         const success = await purchaseItem(selectedItem);
         setPurchasing(false);
-
         if (success) {
             setInventory(prev => [...prev, selectedItem.id]);
-            // Auto-equip on purchase? Maybe not.
-            // But let's refresh the modal to show "Equip" button
         }
     };
 
     const handleEquip = async () => {
         if (!selectedItem) return;
-        const success = await equipItem(selectedItem.id);
-        if (success) {
-            setSelectedItem(null);
-        }
+        const success = await equipItem(selectedItem);
+        if (success) setSelectedItem(null);
     };
 
-    const AvatarPreview = ({ item, size = 80 }) => {
-        const borderStyle = BORDER_STYLES[item.image_url] || {};
-        const isAnimated = borderStyle.animated || false;
-        const isRainbow = borderStyle.rainbow || false;
+    const getActionDetails = (item) => {
+        if (!item) return { label: '', action: () => {}, disabled: true };
+        
+        const isOwned = inventory.includes(item.id);
+        const isLocked = item.min_level > current_level;
+        const cat = item.category;
+        
+        if (cat === 'sticker_pack') {
+            const isPurchased = ownedStickerPacks?.some(p => p.id === item.id);
+            if (isPurchased) return { label: 'Unlocked', action: () => {}, disabled: true };
+            if (isLocked) return { label: `Lvl ${item.min_level}`, action: () => {}, disabled: true };
+            if (coins < item.cost) return { label: 'Not Enough', action: () => {}, disabled: true };
+            return { label: `Buy for ${item.cost}`, action: handlePurchase, disabled: false };
+        }
 
+        let currentEquipped = null;
+        if (cat === 'banner') currentEquipped = equippedBanner;
+        else if (cat === 'name_color') currentEquipped = equippedNameColor;
+        else if (cat === 'title') currentEquipped = equippedTitle;
+        else if (cat === 'bubble_style') currentEquipped = equippedBubbleStyle;
+        else currentEquipped = equippedBorder;
+
+        const isEquipped = currentEquipped?.id === item.id;
+        const canAfford = coins >= item.cost;
+
+        if (isEquipped) return { label: 'Equipped', action: () => {}, disabled: true };
+        if (isOwned) return { label: 'Equip', action: () => handleEquip(item), disabled: false };
+        if (isLocked) return { label: `Lvl ${item.min_level}`, action: () => {}, disabled: true };
+        if (!canAfford) return { label: 'Not Enough Coins', action: () => {}, disabled: true };
+        
+        return { label: `Buy for ${item.cost}`, action: handlePurchase, disabled: false };
+    };
+
+    const ItemPreview = ({ item, size = 80 }) => {
+        const cat = item.category;
+
+        if (cat === 'banner') {
+            const bannerStyle = BANNER_STYLES[item.image_url] || { background: ['#ccc', '#eee'] };
+            return (
+                <LinearGradient 
+                    colors={bannerStyle.background} 
+                    start={{x: 0, y: 0}} 
+                    end={{x: 1, y: 0}} 
+                    style={[styles.bannerPreview, { width: size * 1.5, height: size * 0.8 }]}
+                >
+                    <Text style={styles.previewLabel}>BANNER</Text>
+                </LinearGradient>
+            );
+        }
+
+        if (cat === 'name_color') {
+            const colorStyle = NAME_COLOR_STYLES[item.image_url] || { style: { color: '#666' } };
+            return (
+                <View style={[styles.previewBox, { backgroundColor: theme.colors.surface }]}>
+                    <Text style={[styles.namePreviewText, colorStyle.style]}>{fullName.split(' ')[0]}</Text>
+                </View>
+            );
+        }
+
+        if (cat === 'title') {
+            const titleStyle = TITLE_STYLES[item.image_url] || { label: 'Title', colors: { bg: '#eee', text: '#666' } };
+            return (
+                <View style={[styles.previewBox, { backgroundColor: theme.colors.surface }]}>
+                    <View style={[styles.titleTag, { backgroundColor: titleStyle.colors.bg }]}>
+                        <Text style={[styles.titleTagText, { color: titleStyle.colors.text }]}>{titleStyle.label}</Text>
+                    </View>
+                </View>
+            );
+        }
+
+        if (cat === 'bubble_style') {
+            const bubbleStyle = BUBBLE_STYLES[item.image_url] || { backgroundColor: '#eee' };
+            const bubbleContent = (
+                <View style={[styles.bubblePreview, { 
+                    backgroundColor: bubbleStyle.backgroundColor,
+                    borderColor: bubbleStyle.borderColor,
+                    borderWidth: bubbleStyle.borderWidth || 0,
+                    borderRadius: bubbleStyle.borderRadius || 12,
+                }]}>
+                    <Text style={{ color: bubbleStyle.textColor || '#000', fontSize: 10, fontWeight: 'bold' }}>Hello!</Text>
+                </View>
+            );
+
+            if (bubbleStyle.gradient) {
+                return (
+                    <LinearGradient 
+                        colors={bubbleStyle.gradient} 
+                        start={{x: 0, y: 0}} 
+                        end={{x: 1, y: 0}} 
+                        style={styles.bubblePreview}
+                    >
+                        <Text style={{ color: bubbleStyle.textColor || '#fff', fontSize: 10, fontWeight: 'bold' }}>Hello!</Text>
+                    </LinearGradient>
+                );
+            }
+            return bubbleContent;
+        }
+
+        if (cat === 'sticker_pack') {
+            const pack = STICKER_PACKS[item.image_url] || { stickers: ['❓'] };
+            return (
+                <View style={[styles.previewBox, { backgroundColor: theme.colors.surface }]}>
+                    <Text style={{ fontSize: 32 }}>{pack.stickers[0]}</Text>
+                </View>
+            );
+        }
+
+        // Default: Border
+        const borderStyle = BORDER_STYLES[item.image_url] || {};
         return (
-            <View style={[styles.avatarContainer, { width: size, height: size }]}>
-                <AnimatedAvatarBorder
-                    avatarSource={avatarUrl ? { uri: avatarUrl } : defaultUserImage}
-                    size={size}
-                    borderStyle={borderStyle}
-                    isRainbow={isRainbow}
-                    isAnimated={isAnimated}
-                />
-            </View>
+            <AnimatedAvatarBorder
+                avatarSource={avatarUrl ? { uri: avatarUrl } : defaultUserImage}
+                size={size}
+                borderStyle={borderStyle}
+                isRainbow={borderStyle.rainbow}
+                isAnimated={borderStyle.animated}
+            />
         );
     };
 
+    const filteredItems = items.filter(item => {
+        if (activeTab === 'all') return true;
+        const cat = item.category;
+        if (activeTab === 'border') return cat === 'avatar_border' || cat === 'border' || !cat;
+        return cat === activeTab;
+    });
+
+    const tabs = [
+        { id: 'all', label: 'All', icon: faStore },
+        { id: 'border', label: 'Borders', icon: faUserCircle },
+        { id: 'banner', label: 'Banners', icon: faIdCard },
+        { id: 'name_color', label: 'Colors', icon: faPalette },
+        { id: 'title', label: 'Titles', icon: faAward },
+        { id: 'bubble_style', label: 'Bubbles', icon: faComments },
+        { id: 'sticker_pack', label: 'Stickers', icon: faPalette },
+    ];
+
     const renderItem = ({ item }) => {
-        const isOwned = inventory.includes(item.id);
-        const isLocked = item.min_level > current_level;
-        const isEquipped = equippedItem?.id === item.id;
+        const details = getActionDetails(item);
+        const isEquipped = details.label === 'Equipped' || details.label === 'Unlocked';
 
         return (
             <TouchableOpacity
@@ -133,37 +255,28 @@ export default function ShopScreen({ navigation }) {
                     backgroundColor: theme.colors.card,
                     borderColor: isEquipped ? theme.colors.primary : theme.colors.cardBorder,
                     borderWidth: isEquipped ? 2 : 0.5,
-                    opacity: isLocked ? 0.6 : 1
                 }]}
                 onPress={() => setSelectedItem(item)}
-                disabled={isLocked}
+                disabled={item.min_level > current_level}
             >
-                <AvatarPreview item={item} size={80} />
+                <View style={styles.previewContainer}>
+                    <ItemPreview item={item} size={70} />
+                </View>
 
                 <View style={styles.itemInfo}>
                     <Text style={[styles.itemName, { color: theme.colors.text }]} numberOfLines={1}>{item.name}</Text>
-
-                    {isEquipped ? (
-                        <View style={[styles.ownedBadge, { backgroundColor: theme.colors.primary }]}>
-                            <FontAwesomeIcon icon={faCheck} size={12} color="#fff" />
-                            <Text style={styles.ownedText}>Equipped</Text>
-                        </View>
-                    ) : isOwned ? (
-                        <View style={styles.ownedBadge}>
-                            <FontAwesomeIcon icon={faCheck} size={12} color="#fff" />
-                            <Text style={styles.ownedText}>Owned</Text>
-                        </View>
-                    ) : isLocked ? (
-                        <View style={styles.lockedBadge}>
-                            <FontAwesomeIcon icon={faLock} size={12} color="#fff" />
-                            <Text style={styles.lockedText}>Lvl {item.min_level}</Text>
-                        </View>
-                    ) : (
-                        <View style={styles.priceContainer}>
-                            <FontAwesomeIcon icon={faCoins} size={12} color="#FFD700" />
-                            <Text style={[styles.priceText, { color: theme.colors.text }]}>{item.cost}</Text>
-                        </View>
-                    )}
+                    
+                    <View style={[styles.badge, { 
+                        backgroundColor: isEquipped ? theme.colors.primary : (details.disabled ? '#8E8E93' : theme.colors.cardBackground || '#F5F5F5'),
+                        borderColor: details.disabled ? 'transparent' : theme.colors.cardBorder || '#DDD',
+                        borderWidth: details.disabled ? 0 : 1
+                    }]}>
+                        {isEquipped && <FontAwesomeIcon icon={faCheck} size={10} color="#fff" style={{ marginRight: 4 }} />}
+                        {!isEquipped && !details.disabled && <FontAwesomeIcon icon={faCoins} size={10} color="#FFD700" style={{ marginRight: 4 }} />}
+                        <Text style={[styles.badgeText, { color: isEquipped ? '#fff' : (details.disabled ? '#fff' : theme.colors.text) }]}>
+                            {details.label.includes('Buy for') ? item.cost : details.label}
+                        </Text>
+                    </View>
                 </View>
             </TouchableOpacity>
         );
@@ -171,96 +284,145 @@ export default function ShopScreen({ navigation }) {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            {/* Header with Coin Balance */}
-            <View style={styles.headerContainer}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.customBackButton}>
-                    <FontAwesomeIcon icon={faArrowLeft} size={16} color={theme.colors.primary} />
-                    <Text style={[styles.customBackButtonText, { color: theme.colors.primary }]}>Back to Profile</Text>
-                </TouchableOpacity>
+            {/* Back Button */}
+            <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.backButtonContainer}>
+                <FontAwesomeIcon icon={faArrowLeft} size={14} color={theme.colors.primary} />
+                <Text style={[styles.backButtonText, { color: theme.colors.primary }]}>Back to Profile</Text>
+            </TouchableOpacity>
 
-                <View style={styles.titleRow}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <FontAwesomeIcon icon={faStore} size={28} color={theme.colors.primary} style={{ marginRight: 12 }} />
-                        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Shop</Text>
-                    </View>
+            {/* Header and Balance Row */}
+            <View style={styles.headerRow}>
+                <View style={styles.headerTitleGroup}>
+                    <FontAwesomeIcon icon={faStore} size={20} color={theme.colors.primary} style={styles.mainHeaderIcon} />
+                    <Text style={[styles.headerText, { color: theme.colors.text }]}>Shop</Text>
                 </View>
 
-                <Text style={[styles.headerDescription, { color: theme.colors.placeholder }]}>
-                    Spend your hard-earned coins on cool new items! Tap on purchased borders to equip them.
-                </Text>
-
-                <View style={[styles.balanceContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-                    <Text style={[styles.balanceText, { color: theme.colors.text }]}>Your current coin total is:</Text>
-                    <View style={styles.coinValueContainer}>
-                        <FontAwesomeIcon icon={faCoins} size={18} color="#FFD700" />
-                        <Text style={[styles.coinValueText, { color: theme.colors.text }]}>{coins}</Text>
+                {/* Coin Balance (Gradient Style) - Ultra Compact Single Line */}
+                <LinearGradient 
+                    colors={['#6366F1', '#8B5CF6']} 
+                    start={{x: 0, y: 0}} 
+                    end={{x: 1, y: 0}} 
+                    style={styles.balanceGradient}
+                >
+                    <View style={styles.balanceInfo}>
+                        <Text style={styles.balanceLabel}>Balance: </Text>
+                        <Text style={styles.balanceValue}>{coins}</Text>
+                        <FontAwesomeIcon icon={faCoins} size={10} color="#FFD700" style={{ marginLeft: 4 }} />
                     </View>
-                </View>
+                </LinearGradient>
+            </View>
+            
+            <Text style={[styles.subHeader, { color: theme.colors.placeholder }]}>
+                Spend your hard-earned coins on exclusive rewards!
+            </Text>
+
+            {/* Category Tabs Indicator */}
+            <View style={styles.scrollIndicatorRow}>
+                <Text style={[styles.scrollIndicatorText, { color: theme.colors.placeholder }]}>Scroll for more categories</Text>
+                <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.placeholder} />
+            </View>
+
+            {/* Category Tabs (Market-style Filter) */}
+            <View style={styles.filterContainer}>
+                <FlatList
+                    data={tabs}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.categoryScroll}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity
+                            style={[
+                                styles.categoryChip,
+                                activeTab === item.id
+                                    ? { backgroundColor: theme.colors.primary }
+                                    : { backgroundColor: theme.colors.cardBackground || theme.colors.surface, borderWidth: 1, borderColor: theme.colors.cardBorder },
+                            ]}
+                            onPress={() => setActiveTab(item.id)}
+                        >
+                            <FontAwesomeIcon 
+                                icon={item.icon} 
+                                size={14} 
+                                color={activeTab === item.id ? '#FFF' : theme.colors.text} 
+                                style={{ marginRight: 6 }}
+                            />
+                            <Text
+                                style={[
+                                    styles.categoryChipText,
+                                    activeTab === item.id
+                                        ? { color: '#FFF' }
+                                        : { color: theme.colors.text },
+                                ]}
+                            >
+                                {item.label}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                />
             </View>
 
             <FlatList
-                data={loading ? [1, 2, 3, 4] : items}
+                data={loading ? [1, 2, 3, 4, 5, 6] : filteredItems}
                 renderItem={loading ? () => <ShopItemSkeleton /> : renderItem}
                 keyExtractor={(item, index) => loading ? index.toString() : item.id}
                 numColumns={2}
                 contentContainerStyle={styles.listContent}
                 columnWrapperStyle={styles.columnWrapper}
+                ListEmptyComponent={!loading && (
+                    <View style={styles.emptyContainer}>
+                        <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No items found in this category.</Text>
+                    </View>
+                )}
             />
 
-            {/* Purchase Modal */}
+            {/* Selection Modal */}
             <Modal
                 visible={!!selectedItem}
                 transparent={true}
-                animationType="fade"
+                animationType="slide"
                 onRequestClose={() => setSelectedItem(null)}
             >
                 <View style={styles.modalOverlay}>
                     <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
                         {selectedItem && (
                             <>
-                                <TouchableOpacity
-                                    style={styles.closeButton}
-                                    onPress={() => setSelectedItem(null)}
-                                >
-                                    <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
-                                </TouchableOpacity>
-
-                                <View style={{ marginBottom: 20 }}>
-                                    <AvatarPreview item={selectedItem} size={120} />
+                                <View style={styles.modalHeader}>
+                                    <Text style={[styles.modalTitle, { color: theme.colors.text }]}>{selectedItem.name}</Text>
+                                    <TouchableOpacity onPress={() => setSelectedItem(null)}>
+                                        <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
+                                    </TouchableOpacity>
                                 </View>
 
-                                <Text style={[styles.modalTitle, { color: theme.colors.text }]}>{selectedItem.name}</Text>
-                                <Text style={[styles.modalDescription, { color: theme.colors.placeholder }]}>{selectedItem.description}</Text>
+                                <View style={styles.modalPreview}>
+                                    <ItemPreview item={selectedItem} size={120} />
+                                </View>
 
-                                {inventory.includes(selectedItem.id) ? (
-                                    equippedItem?.id === selectedItem.id ? (
-                                        <TouchableOpacity style={[styles.purchaseButton, { backgroundColor: theme.colors.placeholder }]}>
-                                            <Text style={styles.purchaseButtonText}>Equipped</Text>
-                                        </TouchableOpacity>
-                                    ) : (
+                                <Text style={[styles.modalDescription, { color: theme.colors.textSecondary }]}>
+                                    {selectedItem.description}
+                                </Text>
+
+                                {(() => {
+                                    const details = getActionDetails(selectedItem);
+                                    return (
                                         <TouchableOpacity
-                                            style={[styles.purchaseButton, { backgroundColor: theme.colors.primary }]}
-                                            onPress={handleEquip}
+                                            style={[styles.actionButton, { 
+                                                backgroundColor: details.disabled ? '#E5E7EB' : theme.colors.primary,
+                                                opacity: details.disabled && !details.label.includes('Equipped') ? 0.5 : 1
+                                            }]}
+                                            onPress={details.action}
+                                            disabled={details.disabled || purchasing}
                                         >
-                                            <Text style={styles.purchaseButtonText}>Equip</Text>
+                                            {purchasing ? (
+                                                <ActivityIndicator color="#fff" />
+                                            ) : (
+                                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                    <Text style={styles.actionButtonText}>{details.label}</Text>
+                                                    {details.label.includes('Buy') && <FontAwesomeIcon icon={faCoins} size={16} color="#FFD700" style={{ marginLeft: 8 }} />}
+                                                </View>
+                                            )}
                                         </TouchableOpacity>
-                                    )
-                                ) : (
-                                    <TouchableOpacity
-                                        style={[styles.purchaseButton, { backgroundColor: theme.colors.primary, opacity: coins < selectedItem.cost ? 0.5 : 1 }]}
-                                        onPress={handlePurchase}
-                                        disabled={coins < selectedItem.cost || purchasing}
-                                    >
-                                        {purchasing ? (
-                                            <ActivityIndicator color="#fff" />
-                                        ) : (
-                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                                <Text style={styles.purchaseButtonText}>Buy for {selectedItem.cost}</Text>
-                                                <FontAwesomeIcon icon={faCoins} size={16} color="#FFD700" style={{ marginLeft: 8 }} />
-                                            </View>
-                                        )}
-                                    </TouchableOpacity>
-                                )}
+                                    );
+                                })()}
                             </>
                         )}
                     </View>
@@ -271,189 +433,123 @@ export default function ShopScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    headerContainer: {
-        padding: 20,
-        paddingTop: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(0,0,0,0.05)',
-    },
-    customBackButton: {
+    container: { flex: 1 },
+    backButtonContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 16,
-        alignSelf: 'flex-start',
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        gap: 8,
     },
-    customBackButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginLeft: 8,
-    },
-    titleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 8,
-    },
-    headerTitle: {
-        fontSize: 32,
-        fontWeight: 'bold',
-    },
-    headerDescription: {
-        fontSize: 16,
-        marginBottom: 20,
-    },
-    balanceContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        marginBottom: 10,
-    },
-    balanceText: {
-        fontSize: 16,
-        fontWeight: '500',
-    },
-    coinValueContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    coinValueText: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginLeft: 8,
-    },
-    listContent: {
-        padding: 12,
-    },
-    columnWrapper: {
-        justifyContent: 'space-between',
-    },
-    itemCard: {
-        width: '48%',
-        marginBottom: 16,
-        borderRadius: 12,
-        padding: 12,
-        alignItems: 'center',
-        // Removed shadows for cleaner look
-        elevation: 0,
-    },
-    avatarContainer: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    avatarImage: {
-        // Border styles will be applied here dynamically
-    },
-    itemInfo: {
-        width: '100%',
-        alignItems: 'center',
-    },
-    itemName: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 8,
-        textAlign: 'center',
-    },
-    priceContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.05)',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    priceText: {
+    backButtonText: {
         fontSize: 14,
         fontWeight: 'bold',
-        marginLeft: 4,
     },
-    ownedBadge: {
+    headerRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        marginBottom: 4,
+    },
+    headerTitleGroup: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#34C759',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
     },
-    ownedText: {
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: 'bold',
-        marginLeft: 4,
-    },
-    lockedBadge: {
+    backButtonContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#8E8E93',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingTop: 8,
+        marginTop: 10,
+        gap: 6,
     },
-    lockedText: {
-        color: '#fff',
+    backButtonText: {
         fontSize: 12,
         fontWeight: 'bold',
-        marginLeft: 4,
     },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
+    mainHeaderIcon: { marginRight: 8 },
+    headerText: { fontSize: 22, fontWeight: '900' },
+    subHeader: {
+        fontSize: 12,
+        paddingHorizontal: 16,
+        marginBottom: 12,
+        lineHeight: 18,
+    },
+    balanceGradient: {
+        borderRadius: 10,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        elevation: 3,
+        shadowColor: '#6366F1',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+    },
+    balanceInfo: {
+        flexDirection: 'row',
         alignItems: 'center',
-        padding: 20,
     },
-    modalContent: {
-        width: '100%',
-        maxWidth: 340,
+    balanceLabel: {
+        fontSize: 10,
+        fontWeight: '900',
+        color: 'rgba(255,255,255,0.8)',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    balanceValue: {
+        fontSize: 14,
+        fontWeight: '900',
+        color: '#FFF',
+    },
+    scrollIndicatorRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        paddingHorizontal: 16,
+        marginBottom: 6,
+        gap: 4,
+    },
+    scrollIndicatorText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+    },
+    filterContainer: { marginBottom: 16 },
+    categoryScroll: { paddingHorizontal: 16 },
+    categoryChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
         borderRadius: 20,
-        padding: 24,
-        alignItems: 'center',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-        elevation: 5,
+        marginRight: 8,
     },
-    closeButton: {
-        position: 'absolute',
-        top: 16,
-        right: 16,
-        padding: 4,
-        zIndex: 1,
-    },
-    modalTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 8,
-        textAlign: 'center',
-    },
-    modalDescription: {
-        fontSize: 16,
-        textAlign: 'center',
-        marginBottom: 24,
-        lineHeight: 22,
-    },
-    purchaseButton: {
-        width: '100%',
-        paddingVertical: 14,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    purchaseButtonText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
+    categoryChipText: { fontSize: 14, fontWeight: '600' },
+    listContent: { padding: 12, paddingBottom: 40 },
+    columnWrapper: { justifyContent: 'space-between' },
+    itemCard: { width: '48%', marginBottom: 16, borderRadius: 20, padding: 15, alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'rgba(0,0,0,0.05)' },
+    previewContainer: { height: 90, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+    itemInfo: { width: '100%', alignItems: 'center' },
+    itemName: { fontSize: 14, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' },
+    badge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+    badgeText: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
+    bannerPreview: { borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+    previewLabel: { color: '#fff', fontSize: 8, fontWeight: 'bold', opacity: 0.5 },
+    previewBox: { width: 70, height: 70, borderRadius: 15, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#EEE', borderStyle: 'dashed' },
+    namePreviewText: { fontSize: 16, fontWeight: '900' },
+    titleTag: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+    titleTagText: { fontSize: 10, fontWeight: 'bold' },
+    bubblePreview: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    modalContent: { borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, alignItems: 'center' },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 20 },
+    modalTitle: { fontSize: 24, fontWeight: '900' },
+    modalPreview: { marginBottom: 30 },
+    modalDescription: { fontSize: 16, textAlign: 'center', marginBottom: 30, lineHeight: 24 },
+    actionButton: { width: '100%', paddingVertical: 16, borderRadius: 15, alignItems: 'center' },
+    actionButtonText: { color: '#fff', fontSize: 18, fontWeight: '900' },
+    emptyContainer: { flex: 1, alignItems: 'center', marginTop: 50 },
+    emptyText: { fontSize: 16, fontStyle: 'italic' }
 });

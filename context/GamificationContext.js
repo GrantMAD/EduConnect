@@ -17,6 +17,12 @@ export const GamificationProvider = ({ children, session }) => {
             last_activity_date: null
         },
         equippedItem: null,
+        equippedBorder: null,
+        equippedBanner: null,
+        equippedNameColor: null,
+        equippedTitle: null,
+        equippedBubbleStyle: null,
+        ownedStickerPacks: [],
         nextBadge: null
     });
     const [loading, setLoading] = useState(true);
@@ -66,22 +72,72 @@ export const GamificationProvider = ({ children, session }) => {
                 if (!newStreakError) streakData = newStreak;
             }
 
-            // Fetch equipped item
+            // Fetch equipped items (multiple slots)
             const { data: equippedData, error: equippedError } = await supabase
                 .from('user_inventory')
                 .select('*, shop_items(*)')
                 .eq('user_id', session.user.id)
-                .eq('is_equipped', true)
-                .maybeSingle();
+                .eq('is_equipped', true);
+
+            if (equippedError) throw equippedError;
+
+            // Helper to resolve shop_items which might be an object or array
+            const resolveItem = (invItem) => {
+                if (!invItem?.shop_items) return null;
+                return Array.isArray(invItem.shop_items) ? invItem.shop_items[0] : invItem.shop_items;
+            };
+
+            // Separate items by category
+            const equippedBorderItem = equippedData?.find(i => {
+                const item = resolveItem(i);
+                const cat = item?.category;
+                return cat === 'avatar_border' || cat === 'border' || !cat;
+            });
+
+            const equippedBannerItem = equippedData?.find(i => {
+                const item = resolveItem(i);
+                return item?.category === 'banner';
+            });
+
+            const equippedNameColorItem = equippedData?.find(i => {
+                const item = resolveItem(i);
+                return item?.category === 'name_color';
+            });
+
+            const equippedTitleItem = equippedData?.find(i => {
+                const item = resolveItem(i);
+                return item?.category === 'title';
+            });
+
+            const equippedBubbleItem = equippedData?.find(i => {
+                const item = resolveItem(i);
+                return item?.category === 'bubble_style';
+            });
+
+            // Fetch all owned items to identify sticker packs
+            const { data: inventoryData } = await supabase
+                .from('user_inventory')
+                .select('*, shop_items(*)')
+                .eq('user_id', session.user.id);
+
+            const ownedStickerPacks = inventoryData
+                ?.map(i => resolveItem(i))
+                ?.filter(item => item?.category === 'sticker_pack') || [];
+
+            const equippedBorder = resolveItem(equippedBorderItem);
+            const equippedBanner = resolveItem(equippedBannerItem);
+            const equippedNameColor = resolveItem(equippedNameColorItem);
+            const equippedTitle = resolveItem(equippedTitleItem);
+            const equippedBubbleStyle = resolveItem(equippedBubbleItem);
 
             // Fetch user role
-            const { data: userRoleData, error: roleError } = await supabase
+            const { data: userRoleData } = await supabase
                 .from('users')
                 .select('role')
                 .eq('id', session.user.id)
                 .single();
 
-            const userRole = userRoleData?.role || 'student'; // Default to student if not found
+            const userRole = userRoleData?.role || 'student';
 
             // Calculate Badges
             const roleBadges = BADGES[userRole] || BADGES['student'];
@@ -93,7 +149,13 @@ export const GamificationProvider = ({ children, session }) => {
             setGamificationState({
                 ...userData,
                 streak: streakData || { current_streak: 0, longest_streak: 0, last_activity_date: null },
-                equippedItem: equippedData?.shop_items || null,
+                equippedItem: equippedBorder, // Backward compatibility alias
+                equippedBorder,
+                equippedBanner,
+                equippedNameColor,
+                equippedTitle,
+                equippedBubbleStyle,
+                ownedStickerPacks,
                 badges: earnedBadges,
                 nextBadge: nextBadge
             });
@@ -206,33 +268,24 @@ export const GamificationProvider = ({ children, session }) => {
 
             if (error) throw error;
 
-            // Manually update coins if needed (though trigger might handle XP, coins usually need manual update or trigger)
-            // Assuming existing trigger handles XP -> Level, but maybe not coins.
-            // Let's update coins manually for now to be safe, or assume a trigger does it.
-            // Since we didn't add a trigger for coins, we should update it here.
-
-            const { error: updateError } = await supabase.rpc('increment_gamification_stats', {
-                p_user_id: session.user.id,
-                p_xp: xpAmount,
-                p_coins: coinsEarned
-            });
-
-            // Fallback if RPC doesn't exist (it likely doesn't yet), just rely on the ledger trigger for XP
-            // and manually update coins if the RPC fails or just do a direct update.
-            // For safety in this iteration without creating more SQL functions, let's do a direct update
-            // BUT concurrent updates are risky. Ideally we use an RPC.
-            // Let's try a direct update for coins since we are in the client.
-
             if (coinsEarned > 0) {
+                // Fetch latest coins to avoid stale state issues
+                const { data: currentStats } = await supabase
+                    .from('user_gamification')
+                    .select('coins')
+                    .eq('user_id', session.user.id)
+                    .single();
+
                 const { error: coinError } = await supabase
                     .from('user_gamification')
-                    .update({ coins: gamificationState.coins + coinsEarned }) // Potential race condition but okay for MVP
+                    .update({ coins: (currentStats?.coins || 0) + coinsEarned })
                     .eq('user_id', session.user.id);
 
                 if (coinError) console.warn('Error updating coins:', coinError);
             }
 
             showToast(`+${xpAmount} XP${coinsEarned > 0 ? ` & +${coinsEarned} Coins` : ''}!`, 'success');
+            fetchGamificationState();
         } catch (error) {
             console.error('[GamificationContext] Error awarding XP:', error);
             showToast('Failed to award XP', 'error');
@@ -240,7 +293,7 @@ export const GamificationProvider = ({ children, session }) => {
     };
 
     const purchaseItem = async (item) => {
-        if (gamificationState.coins < item.cost) {
+        if ((gamificationState.coins || 0) < item.cost) {
             showToast('Not enough coins!', 'error');
             return false;
         }
@@ -249,7 +302,7 @@ export const GamificationProvider = ({ children, session }) => {
             // 1. Deduct coins
             const { error: deductError } = await supabase
                 .from('user_gamification')
-                .update({ coins: gamificationState.coins - item.cost })
+                .update({ coins: (gamificationState.coins || 0) - item.cost })
                 .eq('user_id', session.user.id);
 
             if (deductError) throw deductError;
@@ -268,10 +321,11 @@ export const GamificationProvider = ({ children, session }) => {
             // Update local state immediately for UI responsiveness
             setGamificationState(prev => ({
                 ...prev,
-                coins: prev.coins - item.cost
+                coins: (prev.coins || 0) - item.cost
             }));
 
             showToast(`Purchased ${item.name}!`, 'success');
+            fetchGamificationState(); // Refresh to get latest inventory
             return true;
         } catch (error) {
             console.error('Error purchasing item:', error);
@@ -280,15 +334,32 @@ export const GamificationProvider = ({ children, session }) => {
         }
     };
 
-    const equipItem = async (itemId) => {
+    const equipItem = async (item) => {
         if (!session?.user) return;
+        const category = typeof item === 'object' ? (item.category || 'border') : 'border';
+        const itemId = typeof item === 'object' ? item.id : item;
 
         try {
-            // 1. Unequip all items (simplification for now, assuming single slot)
-            await supabase
+            // 1. Unequip items of the same category
+            const { data: equippedInv } = await supabase
                 .from('user_inventory')
-                .update({ is_equipped: false })
-                .eq('user_id', session.user.id);
+                .select('id, shop_items!inner(category)')
+                .eq('user_id', session.user.id)
+                .eq('is_equipped', true);
+
+            const itemsToUnequip = equippedInv?.filter(inv => {
+                const invCat = inv.shop_items?.category || 'border';
+                const targetCat = category === 'avatar_border' ? 'border' : category;
+                const normalizedInvCat = invCat === 'avatar_border' ? 'border' : invCat;
+                return normalizedInvCat === (targetCat === 'avatar_border' ? 'border' : targetCat);
+            }).map(i => i.id) || [];
+
+            if (itemsToUnequip.length > 0) {
+                await supabase
+                    .from('user_inventory')
+                    .update({ is_equipped: false })
+                    .in('id', itemsToUnequip);
+            }
 
             // 2. Equip the new item
             const { error } = await supabase
@@ -324,5 +395,9 @@ export const GamificationProvider = ({ children, session }) => {
 };
 
 export const useGamification = () => {
-    return useContext(GamificationContext);
+    const context = useContext(GamificationContext);
+    if (!context) {
+        throw new Error('useGamification must be used within a GamificationProvider');
+    }
+    return context;
 };

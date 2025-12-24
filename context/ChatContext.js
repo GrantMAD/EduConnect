@@ -94,6 +94,44 @@ export const ChatProvider = ({ children, session }) => {
     }
   }, [user]);
 
+  const fetchEquippedItemsMap = async (userIds) => {
+    const validUserIds = userIds?.filter(id => id != null) || []
+    if (validUserIds.length === 0) return {}
+    
+    try {
+        const { data, error } = await supabase
+            .from('user_inventory')
+            .select('user_id, item_id, shop_items(*)')
+            .in('user_id', validUserIds)
+            .eq('is_equipped', true)
+
+        if (error) return {}
+
+        const resultMap = data.reduce((acc, curr) => {
+            if (!acc[curr.user_id]) acc[curr.user_id] = {}
+            
+            const itemData = Array.isArray(curr.shop_items) ? curr.shop_items[0] : curr.shop_items
+            if (itemData) {
+                const cat = itemData.category
+                if (cat === 'avatar_border' || cat === 'border' || !cat) {
+                    acc[curr.user_id].border = itemData
+                } else if (cat === 'name_color') {
+                    acc[curr.user_id].nameColor = itemData
+                } else if (cat === 'title') {
+                    acc[curr.user_id].title = itemData
+                } else if (cat === 'bubble_style') {
+                    acc[curr.user_id].bubbleStyle = itemData
+                }
+            }
+            return acc
+        }, {})
+        
+        return resultMap
+    } catch (error) {
+        return {}
+    }
+  }
+
   const fetchChannels = async () => {
     try {
       setLoading(true);
@@ -131,29 +169,18 @@ export const ChatProvider = ({ children, session }) => {
       });
 
       if (userIds.size > 0) {
-        const { data: inventoryData } = await supabase
-          .from('user_inventory')
-          .select('user_id, shop_items(image_url)')
-          .in('user_id', Array.from(userIds))
-          .eq('is_equipped', true);
+        const equippedItemsMap = await fetchEquippedItemsMap(Array.from(userIds));
 
-        if (inventoryData) {
-          const inventoryMap = {};
-          inventoryData.forEach(item => {
-            // Handle potential array or object response for shop_items
-            const shopItem = Array.isArray(item.shop_items) ? item.shop_items[0] : item.shop_items;
-            inventoryMap[item.user_id] = shopItem;
+        // Inject into the data structure
+        data.forEach(channel => {
+          channel.channel_members?.forEach(member => {
+            if (member.users) {
+              member.users.equippedItems = equippedItemsMap[member.user_id] || {};
+              // Backward compatibility for generic 'equipped_item' (border)
+              member.users.equipped_item = member.users.equippedItems.border;
+            }
           });
-
-          // Inject into the data structure
-          data.forEach(channel => {
-            channel.channel_members?.forEach(member => {
-              if (member.users) {
-                member.users.equipped_item = inventoryMap[member.user_id];
-              }
-            });
-          });
-        }
+        });
       }
 
       // Calculate unread count
@@ -232,63 +259,19 @@ export const ChatProvider = ({ children, session }) => {
 
       if (error) throw error;
 
-      // Manually fetch reply_to_message data for messages that have reply_to_message_id
-      const messagesWithReplies = data.filter(msg => msg.reply_to_message_id);
-
-      if (messagesWithReplies.length > 0) {
-        const replyIds = messagesWithReplies.map(msg => msg.reply_to_message_id);
-
-        const { data: replyMessages } = await supabase
-          .from('messages')
-          .select(`
-            id,
-            content,
-            sender:users!sender_id (
-              full_name
-            )
-          `)
-          .in('id', replyIds);
-
-        if (replyMessages) {
-          // Create a map of reply messages
-          const replyMap = {};
-          replyMessages.forEach(reply => {
-            replyMap[reply.id] = reply;
-          });
-
-          // Attach reply_to_message to the correct messages
-          data.forEach(msg => {
-            if (msg.reply_to_message_id && replyMap[msg.reply_to_message_id]) {
-              msg.reply_to_message = replyMap[msg.reply_to_message_id];
-            }
-          });
-        }
-      }
-
       // Fetch equipped items for all senders
       const senderIds = [...new Set(data.map(msg => msg.sender_id))];
 
       if (senderIds.length > 0) {
-        const { data: inventoryData } = await supabase
-          .from('user_inventory')
-          .select('user_id, shop_items(image_url)')
-          .in('user_id', senderIds)
-          .eq('is_equipped', true);
+        const equippedItemsMap = await fetchEquippedItemsMap(senderIds);
 
-        if (inventoryData) {
-          const inventoryMap = {};
-          inventoryData.forEach(item => {
-            const shopItem = Array.isArray(item.shop_items) ? item.shop_items[0] : item.shop_items;
-            inventoryMap[item.user_id] = shopItem;
-          });
-
-          // Inject equipped_item into sender objects
-          data.forEach(msg => {
-            if (msg.sender) {
-              msg.sender.equipped_item = inventoryMap[msg.sender_id];
-            }
-          });
-        }
+        // Inject equippedItems into sender objects
+        data.forEach(msg => {
+          if (msg.sender) {
+            msg.sender.equippedItems = equippedItemsMap[msg.sender_id] || {};
+            msg.sender.equipped_item = msg.sender.equippedItems.border;
+          }
+        });
       }
 
       setMessages(prev => {
@@ -321,17 +304,13 @@ export const ChatProvider = ({ children, session }) => {
 
   const editMessage = async (messageId, newContent) => {
     try {
-      // Optimistic update - update UI immediately
+      // Optimistic update
       setMessages(prev => {
         const updatedMessages = {};
         Object.keys(prev).forEach(channelId => {
           updatedMessages[channelId] = prev[channelId].map(msg => {
             if (msg.id === messageId) {
-              return {
-                ...msg,
-                content: newContent,
-                edited_at: new Date().toISOString()
-              };
+              return { ...msg, content: newContent, edited_at: new Date().toISOString() };
             }
             return msg;
           });
@@ -339,13 +318,9 @@ export const ChatProvider = ({ children, session }) => {
         return updatedMessages;
       });
 
-      // Perform the actual database update
       const { error } = await supabase
         .from('messages')
-        .update({
-          content: newContent,
-          edited_at: new Date().toISOString()
-        })
+        .update({ content: newContent, edited_at: new Date().toISOString() })
         .eq('id', messageId)
         .eq('sender_id', user.id);
 
@@ -359,17 +334,12 @@ export const ChatProvider = ({ children, session }) => {
 
   const deleteMessage = async (messageId) => {
     try {
-      // Optimistic update - update UI immediately
       setMessages(prev => {
         const updatedMessages = {};
         Object.keys(prev).forEach(channelId => {
           updatedMessages[channelId] = prev[channelId].map(msg => {
             if (msg.id === messageId) {
-              return {
-                ...msg,
-                is_deleted: true,
-                content: '🗑️ This message was deleted'
-              };
+              return { ...msg, is_deleted: true, content: '🗑️ This message was deleted' };
             }
             return msg;
           });
@@ -377,13 +347,9 @@ export const ChatProvider = ({ children, session }) => {
         return updatedMessages;
       });
 
-      // Perform the actual database update
       const { error } = await supabase
         .from('messages')
-        .update({
-          is_deleted: true,
-          content: '🗑️ This message was deleted'
-        })
+        .update({ is_deleted: true, content: '🗑️ This message was deleted' })
         .eq('id', messageId)
         .eq('sender_id', user.id);
 
@@ -397,16 +363,12 @@ export const ChatProvider = ({ children, session }) => {
 
   const pinMessage = async (messageId, isPinned) => {
     try {
-      // Optimistic update - update UI immediately
       setMessages(prev => {
         const updatedMessages = {};
         Object.keys(prev).forEach(channelId => {
           updatedMessages[channelId] = prev[channelId].map(msg => {
             if (msg.id === messageId) {
-              return {
-                ...msg,
-                is_pinned: isPinned
-              };
+              return { ...msg, is_pinned: isPinned };
             }
             return msg;
           });
@@ -414,7 +376,6 @@ export const ChatProvider = ({ children, session }) => {
         return updatedMessages;
       });
 
-      // Perform the actual database update
       const { error } = await supabase
         .from('messages')
         .update({ is_pinned: isPinned })
@@ -455,18 +416,13 @@ export const ChatProvider = ({ children, session }) => {
   const markAsRead = async (channelId) => {
     try {
       if (!user) return;
-
       const now = new Date().toISOString();
 
-      // Optimistic update
       setChannels(prev => prev.map(c => {
-        if (c.id === channelId) {
-          return { ...c, hasUnread: false };
-        }
+        if (c.id === channelId) return { ...c, hasUnread: false };
         return c;
       }));
 
-      // Recalculate unread count
       setUnreadCount(prev => {
         const channel = channels.find(c => c.id === channelId);
         if (channel && channel.hasUnread) return Math.max(0, prev - 1);
@@ -485,21 +441,15 @@ export const ChatProvider = ({ children, session }) => {
     }
   };
 
-  // Reactions are stored in the 'message_reactions' table in Supabase.
-  // Each row links a message_id, user_id, and an emoji.
   const addReaction = async (messageId, emoji) => {
     try {
-      // Optimistic update
       setMessages(prev => {
         const updatedMessages = {};
         Object.keys(prev).forEach(channelId => {
           updatedMessages[channelId] = prev[channelId].map(msg => {
             if (msg.id === messageId) {
               const currentReactions = msg.message_reactions || [];
-
-              // Filter out ANY existing reaction by this user to enforce single reaction
               const otherReactions = currentReactions.filter(r => r.user_id !== user.id);
-
               return {
                 ...msg,
                 message_reactions: [...otherReactions, { id: `temp-${Date.now()}`, message_id: messageId, user_id: user.id, emoji }]
@@ -511,33 +461,25 @@ export const ChatProvider = ({ children, session }) => {
         return updatedMessages;
       });
 
-      // Remove any existing reaction by this user on this message first
       await supabase
         .from('message_reactions')
         .delete()
         .eq('message_id', messageId)
         .eq('user_id', user.id);
 
-      // Then insert the new one
       const { error } = await supabase
         .from('message_reactions')
-        .insert({
-          message_id: messageId,
-          user_id: user.id,
-          emoji
-        });
+        .insert({ message_id: messageId, user_id: user.id, emoji });
 
       if (error) throw error;
     } catch (error) {
       console.error('Error adding reaction:', error);
       showToast('Failed to add reaction', 'error');
-      // Revert optimistic update (optional, but good practice - for now we'll rely on the subscription to fix it eventually or a refresh)
     }
   };
 
   const removeReaction = async (messageId, emoji) => {
     try {
-      // Optimistic update
       setMessages(prev => {
         const updatedMessages = {};
         Object.keys(prev).forEach(channelId => {
@@ -591,7 +533,6 @@ export const ChatProvider = ({ children, session }) => {
 
     const sub = supabase
       .channel(`chat:${channelId}`)
-      // Listen for new messages
       .on(
         'postgres_changes',
         {
@@ -601,43 +542,32 @@ export const ChatProvider = ({ children, session }) => {
           filter: `channel_id=eq.${channelId}`,
         },
         async (payload) => {
-          console.log('📨 Realtime message received for channel', channelId, payload.new);
-
           const newMsg = payload.new;
 
-          // Fetch sender info
           const { data: senderData } = await supabase
             .from('users')
             .select('id, full_name, avatar_url')
             .eq('id', newMsg.sender_id)
             .single();
 
-          // Fetch reply message if applicable
-          let replyData = null;
-          if (newMsg.reply_to_message_id) {
-            const { data: rData } = await supabase
-              .from('messages')
-              .select('id, content, sender:users!sender_id(full_name)')
-              .eq('id', newMsg.reply_to_message_id)
-              .single();
-            replyData = rData;
-          }
+          const equippedItemsMap = await fetchEquippedItemsMap([newMsg.sender_id]);
 
           const message = {
             ...newMsg,
-            sender: senderData || { id: newMsg.sender_id, full_name: 'Unknown' },
-            message_reactions: [],
-            reply_to_message: replyData
+            sender: senderData ? {
+                ...senderData,
+                equippedItems: equippedItemsMap[newMsg.sender_id] || {},
+                equipped_item: equippedItemsMap[newMsg.sender_id]?.border
+            } : { id: newMsg.sender_id, full_name: 'Unknown' },
+            message_reactions: []
           };
 
-          // Prepend to messages state
           setMessages(prev => {
             const current = prev[channelId] || [];
-            if (current.some(m => m.id === message.id)) return prev; // prevent duplicates
+            if (current.some(m => m.id === message.id)) return prev;
             return { ...prev, [channelId]: [message, ...current] };
           });
 
-          // Optionally update channel's last_message
           setChannels(prev => {
             const idx = prev.findIndex(c => c.id === channelId);
             if (idx === -1) return prev;
@@ -659,14 +589,10 @@ export const ChatProvider = ({ children, session }) => {
           });
         }
       )
-      // Listen for typing events
       .on('broadcast', { event: 'typing' }, (payload) => {
         if (onTyping) onTyping(payload.payload);
       })
-      .subscribe((status, err) => {
-        console.log(`🔌 Subscription status for channel ${channelId}:`, status);
-        if (err) console.error('❌ Subscription error:', err);
-      });
+      .subscribe();
 
     subscriptions.current[channelId] = sub;
   };
@@ -679,13 +605,14 @@ export const ChatProvider = ({ children, session }) => {
   };
 
   const sendMessage = async (channelId, content, attachments = [], replyToMessageId = null) => {
-    // Generate a temporary ID for optimistic update
     const tempId = `temp-${Date.now()}`;
 
     try {
       if (!user) throw new Error('Not authenticated');
 
-      // 1. Optimistic Update
+      const equippedItemsMap = await fetchEquippedItemsMap([user.id]);
+      const myEquipped = equippedItemsMap[user.id] || {};
+
       const optimisticMessage = {
         id: tempId,
         channel_id: channelId,
@@ -696,11 +623,11 @@ export const ChatProvider = ({ children, session }) => {
         reply_to_message_id: replyToMessageId,
         sender: {
           id: user.id,
-          full_name: user.user_metadata?.full_name || 'Me',
-          avatar_url: user.user_metadata?.avatar_url
+          full_name: userProfile?.full_name || 'Me',
+          avatar_url: user.user_metadata?.avatar_url,
+          equippedItems: myEquipped
         },
         message_reactions: [],
-        // We'll try to find the reply message from local state if possible
         reply_to_message: replyToMessageId ? (messages[channelId]?.find(m => m.id === replyToMessageId) || null) : null
       };
 
@@ -729,7 +656,6 @@ export const ChatProvider = ({ children, session }) => {
         return newChannels;
       });
 
-      // 2. Perform Insert
       const { data, error } = await supabase
         .from('messages')
         .insert({
@@ -744,25 +670,13 @@ export const ChatProvider = ({ children, session }) => {
 
       if (error) throw error;
 
-
-
-      // 4. Update Optimistic Message with Real Data
       setMessages(prev => {
         const current = prev[channelId] || [];
-        // Check if the real message was already added by subscription
         const exists = current.some(m => m.id === data.id);
 
         if (exists) {
-          // If it exists, just remove the temp one
-          return {
-            ...prev,
-            [channelId]: current.filter(m => m.id !== tempId)
-          };
+          return { ...prev, [channelId]: current.filter(m => m.id !== tempId) };
         } else {
-          // Otherwise, update the temp one to be the real one
-          // We need to preserve the sender/reply objects we constructed if the response doesn't have them populated yet
-          // But actually, the subscription might fetch them. 
-          // Let's just merge the real data into the optimistic one, keeping the structure.
           return {
             ...prev,
             [channelId]: current.map(m => m.id === tempId ? { ...m, ...data, id: data.id } : m)
@@ -773,7 +687,6 @@ export const ChatProvider = ({ children, session }) => {
     } catch (error) {
       console.error('Error sending message:', error);
       showToast('Failed to send message', 'error');
-      // Remove the optimistic message on error
       setMessages(prev => ({
         ...prev,
         [channelId]: (prev[channelId] || []).filter(m => m.id !== tempId)
@@ -786,14 +699,13 @@ export const ChatProvider = ({ children, session }) => {
     try {
       if (!user) throw new Error('Not authenticated');
 
-      // 1. Create Channel
       const { data: channel, error: channelError } = await supabase
         .from('channels')
         .insert({
           name,
           type,
           class_id: classId,
-          school_id: user.user_metadata?.school_id, // Assuming metadata has school_id, or fetch it
+          school_id: user.user_metadata?.school_id,
           created_by: user.id
         })
         .select()
@@ -801,7 +713,6 @@ export const ChatProvider = ({ children, session }) => {
 
       if (channelError) throw channelError;
 
-      // 2. Add Members (Creator + selected members)
       const members = [user.id, ...memberIds].map(uid => ({
         channel_id: channel.id,
         user_id: uid,
@@ -814,7 +725,6 @@ export const ChatProvider = ({ children, session }) => {
 
       if (membersError) throw membersError;
 
-      // Refresh channels list
       fetchChannels();
       return channel;
     } catch (error) {
@@ -827,11 +737,7 @@ export const ChatProvider = ({ children, session }) => {
   const uploadAttachment = async (uri, fileName, type) => {
     try {
       const formData = new FormData();
-      formData.append('file', {
-        uri,
-        name: fileName,
-        type,
-      });
+      formData.append('file', { uri, name: fileName, type });
 
       const fileExt = fileName.split('.').pop();
       const filePath = `${user.id}/${Date.now()}.${fileExt}`;

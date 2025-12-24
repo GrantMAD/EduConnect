@@ -11,7 +11,7 @@ import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
 import StandardBottomModal from '../components/StandardBottomModal';
 
-export default function CalendarScreen() {
+export default function CalendarScreen({ navigation }) {
   const [schedules, setSchedules] = useState([]);
   const [markedDates, setMarkedDates] = useState({});
   const [loading, setLoading] = useState(true);

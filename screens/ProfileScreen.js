@@ -1,26 +1,32 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, TextInput, StyleSheet, ActivityIndicator, Alert, ScrollView, Image, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, ScrollView, Image, TouchableOpacity, Dimensions } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import ProfileScreenSkeleton, { SkeletonPiece } from '../components/skeletons/ProfileScreenSkeleton';
-import { faUserFriends, faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone, faMinus, faTrophy, faMedal, faFire, faStore, faChartBar, faCoins, faInfoCircle, faArrowRight, faGlobe } from '@fortawesome/free-solid-svg-icons';
+import { faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone, faTrophy, faMedal, faFire, faStore, faChartBar, faCoins, faInfoCircle, faArrowRight, faGlobe, faUserFriends, faPencilAlt } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../lib/supabase';
-import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
-import { Buffer } from 'buffer';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import { useGamification } from '../context/GamificationContext';
 import GamificationInfoModal from '../components/GamificationInfoModal';
-import { BORDER_STYLES } from '../constants/GamificationStyles';
+import EditProfileModal from '../components/EditProfileModal';
+import { BORDER_STYLES, BANNER_STYLES, NAME_COLOR_STYLES, TITLE_STYLES } from '../constants/GamificationStyles';
 import AnimatedAvatarBorder from '../components/AnimatedAvatarBorder';
 import { BADGES } from '../constants/Badges';
+import LinearGradient from 'react-native-linear-gradient';
+
+const { width } = Dimensions.get('window');
 
 export default function ProfileScreen({ navigation }) {
   const defaultUserImage = require('../assets/user.png');
-  const gamificationData = useGamification();
-  const { current_level = 1, current_xp = 0, coins = 0, streak = {}, badges = [], equippedItem, loading: gamificationLoading, refreshGamificationState } = gamificationData || {};
+  const { 
+    current_level = 1, current_xp = 0, coins = 0, streak = {}, badges = [], 
+    equippedBorder, equippedBanner, equippedNameColor, equippedTitle,
+    loading: gamificationLoading, refreshGamificationState 
+  } = useGamification();
+  
   const [showGamificationInfo, setShowGamificationInfo] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -30,8 +36,7 @@ export default function ProfileScreen({ navigation }) {
     }, [refreshGamificationState])
   );
 
-  // Calculate progress
-  const xpForNextLevel = 100; // Based on linear 100 XP per level
+  const xpForNextLevel = 100;
   const currentLevelProgress = current_xp % xpForNextLevel;
   const progressPercent = (currentLevelProgress / xpForNextLevel) * 100;
 
@@ -41,101 +46,31 @@ export default function ProfileScreen({ navigation }) {
     email: '',
     role: '',
     avatar_url: '',
-    school_id: null,
-    number: '',
     country: '',
+    number: ''
   });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [students, setStudents] = useState([]);
-  const [selectedStudents, setSelectedStudents] = useState([]);
-  const [studentSearch, setStudentSearch] = useState('');
-  const [associatedChildren, setAssociatedChildren] = useState([]);
-  const [showManageChildren, setShowManageChildren] = useState(false);
-  const scrollViewRef = useRef(null);
-  const { showToast } = useToast();
   const { theme } = useTheme();
+  const { showToast } = useToast();
 
   useEffect(() => {
     fetchUserData();
   }, []);
 
-  useEffect(() => {
-    if (showManageChildren && scrollViewRef.current) {
-      scrollViewRef.current.scrollToEnd({ animated: true });
-    }
-  }, [showManageChildren]);
-
-  useEffect(() => {
-    if (userData.role === 'parent' && userData.school_id) {
-      fetchStudentsAndChildren(userData.school_id, userData.id);
-    }
-  }, [userData.role, userData.school_id]);
-
-  const fetchStudentsAndChildren = async (schoolId, parentId) => {
-    try {
-      // Fetch all students in the same school
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('users')
-        .select('id, full_name, email')
-        .eq('school_id', schoolId)
-        .eq('role', 'student');
-
-      if (studentsError) throw studentsError;
-      setStudents(studentsData || []);
-
-      // Fetch already associated children
-      const { data: relationshipsData, error: relationshipsError } = await supabase
-        .from('parent_child_relationships')
-        .select('child_id')
-        .eq('parent_id', parentId);
-
-      if (relationshipsError) throw relationshipsError;
-      setAssociatedChildren(relationshipsData.map(rel => rel.child_id) || []);
-
-    } catch (error) {
-      console.error('Error fetching students or relationships:', error.message);
-      showToast('Failed to load student data.', 'error');
-    }
-  };
-
   const fetchUserData = async () => {
     setLoading(true);
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) throw userError || new Error("No user logged in");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user logged in");
 
-      let { data, error } = await supabase
+      const { data } = await supabase
         .from('users')
         .select('*')
         .eq('id', user.id)
-        .maybeSingle();
-
-      if (!data) {
-        const { data: insertData, error: insertError } = await supabase.from('users').insert({
-          id: user.id,
-          full_name: '',
-          email: user.email,
-          role: 'user',
-        }).select().maybeSingle();
-
-        if (insertError) throw insertError;
-        data = insertData;
-      }
+        .single();
 
       if (data) {
-        setUserData({
-          id: user.id,
-          full_name: data.full_name || '',
-          email: data.email || '',
-          role: data.role || '',
-          avatar_url: data.avatar_url || '',
-          school_id: data.school_id || null,
-          number: data.number || '',
-          country: data.country || '',
-        });
-      } else {
-        throw new Error("Could not fetch or create user profile.");
+        setUserData(data);
       }
     } catch (error) {
       console.error(error.message);
@@ -145,732 +80,273 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
+  const bannerStyle = equippedBanner ? BANNER_STYLES[equippedBanner.image_url] : null;
+  const nameColorStyle = equippedNameColor ? NAME_COLOR_STYLES[equippedNameColor.image_url] : null;
+  const titleStyle = equippedTitle ? TITLE_STYLES[equippedTitle.image_url] : null;
 
-
-  const handleSendAssociationRequest = async () => {
-    if (selectedStudents.length === 0) {
-      showToast('Please select at least one student.', 'error');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated.");
-
-      const requestsToInsert = selectedStudents.map(childId => ({
-        parent_id: user.id,
-        child_id: childId,
-        status: 'pending',
-      }));
-
-      const { error: requestError } = await supabase
-        .from('parent_child_requests')
-        .insert(requestsToInsert);
-
-      if (requestError) throw requestError;
-
-      // Create notifications for each child
-      const notificationsToInsert = selectedStudents.map(childId => {
-        const child = students.find(s => s.id === childId);
-        return {
-          user_id: childId,
-          type: 'parent_child_request',
-          title: 'Parent Association Request',
-          message: `Your parent ${userData.full_name || userData.email} wants to associate with you.`,
-          is_read: false,
-          related_user_id: user.id,
-        };
-      });
-
-      const { error: notificationError } = await supabase
-        .from('notifications')
-        .insert(notificationsToInsert);
-
-      if (notificationError) throw notificationError;
-
-      showToast('Association requests sent successfully!', 'success');
-      setSelectedStudents([]);
-    } catch (error) {
-      console.error('Error sending association request:', error.message);
-      showToast('Failed to send association requests.', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleRemoveChild = (childId, childName) => {
-    Alert.alert(
-      'Remove Student',
-      `Are you sure you want to remove ${childName} from your associated children? This action cannot be undone.`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            setSaving(true);
-            try {
-              const { data: { user } } = await supabase.auth.getUser();
-              if (!user) throw new Error("User not authenticated.");
-
-              const { error } = await supabase
-                .from('parent_child_relationships')
-                .delete()
-                .eq('parent_id', user.id)
-                .eq('child_id', childId);
-
-              if (error) throw error;
-
-              setAssociatedChildren(prev => prev.filter(id => id !== childId));
-              showToast(`${childName} has been removed.`, 'success');
-            } catch (error) {
-              console.error('Error removing child:', error.message);
-              showToast('Failed to remove child.', 'error');
-            } finally {
-              setSaving(false);
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
-  };
-
-  const borderStyle = equippedItem ? BORDER_STYLES[equippedItem.image_url] : { borderColor: theme.colors.primary, borderWidth: 2 };
-  const isAnimated = borderStyle.animated || false;
-  const isRainbow = borderStyle.rainbow || false;
+  const borderStyle = equippedBorder ? BORDER_STYLES[equippedBorder.image_url] : { borderColor: theme.colors.primary, borderWidth: 2 };
   const avatarSource = userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage;
 
   return (
-    <ScrollView ref={scrollViewRef} contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Profile Image and Description */}
-      <View style={{ marginBottom: 16 }}>
-        {loading ? (
-          <SkeletonPiece style={{ width: 120, height: 120, borderRadius: 60, marginBottom: 16 }} />
-        ) : (
-          <AnimatedAvatarBorder
-            avatarSource={avatarSource}
-            size={120}
-            borderStyle={borderStyle}
-            isRainbow={isRainbow}
-            isAnimated={isAnimated}
-          />
-        )}
-      </View>
-
-      <Text style={[styles.header, { color: theme.colors.text }]}>My Profile</Text>
-
-      {/* Informational Banner */}
-      <TouchableOpacity
-        style={[styles.infoBanner, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.cardBorder }]}
-        onPress={() => navigation.navigate('Settings')}
-      >
-        <View style={styles.infoBannerContent}>
-          <FontAwesomeIcon icon={faGear} size={20} color={theme.colors.primary} />
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={[styles.infoBannerTitle, { color: theme.colors.text }]}>Want to edit your profile?</Text>
-            <Text style={[styles.infoBannerText, { color: theme.colors.placeholder }]}>Go to Settings → Account Management</Text>
-          </View>
-          <FontAwesomeIcon icon={faArrowRight} size={16} color={theme.colors.primary} />
-        </View>
-      </TouchableOpacity>
-
-      {/* User Information */}
-      <View style={styles.sectionHeaderContainer}>
-        <FontAwesomeIcon icon={faAddressCard} size={20} color={theme.colors.primary} style={styles.sectionHeaderIcon} />
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Personal Information</Text>
-      </View>
-
-      <View style={styles.infoContainer}>
-        <View style={styles.infoRow}>
-          <FontAwesomeIcon icon={faUser} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
-          <Text style={[styles.label, { color: theme.colors.text }]}>Full Name</Text>
-        </View>
-        {loading ? (
-          <SkeletonPiece style={{ width: '80%', height: 16, borderRadius: 4, marginTop: 4 }} />
-        ) : (
-          <Text style={[styles.value, { color: theme.colors.text }]}>{userData.full_name}</Text>
-        )}
-      </View>
-
-      <View style={styles.infoContainer}>
-        <View style={styles.infoRow}>
-          <FontAwesomeIcon icon={faEnvelope} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
-          <Text style={[styles.label, { color: theme.colors.text }]}>Email</Text>
-        </View>
-        {loading ? (
-          <SkeletonPiece style={{ width: '80%', height: 16, borderRadius: 4, marginTop: 4 }} />
-        ) : (
-          <Text style={[styles.value, { color: theme.colors.text }]}>{userData.email}</Text>
-        )}
-      </View>
-
-      <View style={styles.infoContainer}>
-        <View style={styles.infoRow}>
-          <FontAwesomeIcon icon={faPhone} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
-          <Text style={[styles.label, { color: theme.colors.text }]}>Phone Number</Text>
-        </View>
-        {loading ? (
-          <SkeletonPiece style={{ width: '80%', height: 16, borderRadius: 4, marginTop: 4 }} />
-        ) : (
-          <Text style={[styles.value, { color: theme.colors.text }]}>{userData.number || 'Not provided'}</Text>
-        )}
-      </View>
-
-      <View style={styles.infoContainer}>
-        <View style={styles.infoRow}>
-          <FontAwesomeIcon icon={faBriefcase} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
-          <Text style={[styles.label, { color: theme.colors.text }]}>Role</Text>
-        </View>
-        {loading ? (
-          <SkeletonPiece style={{ width: '80%', height: 16, borderRadius: 4, marginTop: 4 }} />
-        ) : (
-          <Text style={[styles.value, { color: theme.colors.text }]}>{userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}</Text>
-        )}
-      </View>
-
-      <View style={styles.infoContainer}>
-        <View style={styles.infoRow}>
-          <FontAwesomeIcon icon={faGlobe} size={16} color={theme.colors.placeholder} style={styles.infoIcon} />
-          <Text style={[styles.label, { color: theme.colors.text }]}>Country</Text>
-        </View>
-        {loading ? (
-          <SkeletonPiece style={{ width: '80%', height: 16, borderRadius: 4, marginTop: 4 }} />
-        ) : (
-          <Text style={[styles.value, { color: theme.colors.text }]}>{userData.country || 'Not provided'}</Text>
-        )}
-      </View>
-
-      <View style={styles.sectionHeaderContainer}>
-        <FontAwesomeIcon icon={faTrophy} size={20} color={theme.colors.primary} style={styles.sectionHeaderIcon} />
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Gamification</Text>
-      </View>
-      <View style={{ alignSelf: 'stretch' }}>
-        <Text style={[styles.sectionDescription, { color: theme.colors.text }]}>Track your progress, badges, and achievements.</Text>
-      </View>
-
-      <View style={[styles.gamificationCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <View style={styles.levelContainer}>
-          <View style={[styles.levelBadge, { backgroundColor: theme.colors.primary }]}>
-            <FontAwesomeIcon icon={faTrophy} size={20} color="#fff" />
-          </View>
-          <View style={{ flex: 1, marginLeft: 15 }}>
-            {gamificationLoading ? (
-              <>
-                <SkeletonPiece style={{ width: 80, height: 18, borderRadius: 4, marginBottom: 6 }} />
-                <SkeletonPiece style={{ width: 60, height: 14, borderRadius: 4 }} />
-              </>
-            ) : (
-              <>
-                <Text style={[styles.levelText, { color: theme.colors.text }]}>Level {current_level}</Text>
-                <Text style={[styles.xpText, { color: theme.colors.placeholder }]}>{current_xp} Total XP</Text>
-              </>
-            )}
-          </View>
-          <TouchableOpacity onPress={() => setShowGamificationInfo(true)} style={{ padding: 5 }}>
-            <FontAwesomeIcon icon={faInfoCircle} size={20} color={theme.colors.primary} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={{ alignItems: 'flex-end', marginBottom: 10 }}>
-          {gamificationLoading ? (
-            <SkeletonPiece style={{ width: 100, height: 12, borderRadius: 4 }} />
+    <>
+      <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}>
+        {/* Header / Banner Section */}
+        <View style={[styles.headerSection, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+          {bannerStyle ? (
+            <LinearGradient 
+              colors={bannerStyle.background} 
+              start={{x: 0, y: 0}} 
+              end={{x: 1, y: 0}} 
+              style={styles.banner}
+            >
+              {bannerStyle.overlay && <View style={[StyleSheet.absoluteFill, { backgroundColor: bannerStyle.overlay }]} />}
+            </LinearGradient>
           ) : (
-            <Text style={[styles.nextLevelText, { color: theme.colors.primary }]}>{Math.round(progressPercent)}% to Lvl {current_level + 1}</Text>
+            <View style={[styles.banner, { backgroundColor: theme.colors.primary }]} />
           )}
-        </View>
 
-        <View style={[styles.progressBarBackground, { backgroundColor: theme.colors.inputBackground }]}>
-          <View style={[styles.progressBarFill, { width: gamificationLoading ? '0%' : `${progressPercent}%`, backgroundColor: theme.colors.primary }]} />
-        </View>
+          <View style={styles.profileContent}>
+            {/* Avatar and Main Actions Row */}
+            <View style={styles.avatarRow}>
+              <View style={styles.avatarWrapper}>
+                {loading ? (
+                  <SkeletonPiece style={{ width: 100, height: 100, borderRadius: 50 }} />
+                ) : (
+                  <AnimatedAvatarBorder
+                    avatarSource={avatarSource}
+                    size={100}
+                    borderStyle={borderStyle}
+                    isRainbow={borderStyle.rainbow}
+                    isAnimated={borderStyle.animated}
+                  />
+                )}
+              </View>
+              
+              <TouchableOpacity 
+                onPress={() => setShowEditProfile(true)}
+                style={[styles.editButton, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder }]}
+              >
+                <FontAwesomeIcon icon={faPencilAlt} size={14} color={theme.colors.text} />
+                <Text style={[styles.editButtonText, { color: theme.colors.text }]}>Edit Profile</Text>
+              </TouchableOpacity>
+            </View>
 
-        {/* Stats Row: Streak & Coins */}
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <FontAwesomeIcon icon={faFire} size={20} color="#FF9500" />
-            {gamificationLoading ? (
-              <SkeletonPiece style={{ width: 30, height: 18, borderRadius: 4, marginTop: 4 }} />
-            ) : (
-              <Text style={[styles.statValue, { color: theme.colors.text }]}>{streak?.current_streak || 0}</Text>
-            )}
-            <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>Day Streak</Text>
+            {/* User Name and Titles Block */}
+            <View style={styles.nameBlock}>
+              <View style={styles.fullNameRow}>
+                {loading ? (
+                  <SkeletonPiece style={{ width: 180, height: 28, borderRadius: 4 }} />
+                ) : (
+                  <>
+                    <Text 
+                      style={[styles.fullName, nameColorStyle?.style, !nameColorStyle && { color: theme.colors.text }]}
+                      numberOfLines={1}
+                    >
+                      {userData.full_name || 'Student'}
+                    </Text>
+                    {titleStyle && (
+                      <View style={[styles.titleTag, { backgroundColor: titleStyle.colors.bg }]}>
+                        <Text style={[styles.titleTagText, { color: titleStyle.colors.text }]}>{titleStyle.label}</Text>
+                      </View>
+                    )}
+                  </>
+                )}
+              </View>
+              
+              {loading ? (
+                <SkeletonPiece style={{ width: 140, height: 16, borderRadius: 4, marginTop: 8 }} />
+              ) : (
+                <Text style={[styles.email, { color: theme.colors.textSecondary }]}>{userData.email}</Text>
+              )}
+              
+              {loading ? (
+                <SkeletonPiece style={{ width: 60, height: 20, borderRadius: 8, marginTop: 10 }} />
+              ) : (
+                <View style={[styles.roleBadge, { backgroundColor: theme.colors.primary + '15' }]}>
+                  <Text style={[styles.roleText, { color: theme.colors.primary }]}>{userData.role?.toUpperCase() || 'USER'}</Text>
+                </View>
+              )}
+            </View>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <FontAwesomeIcon icon={faCoins} size={20} color="#FFD700" />
-            {gamificationLoading ? (
-              <SkeletonPiece style={{ width: 50, height: 18, borderRadius: 4, marginTop: 4 }} />
-            ) : (
-              <Text style={[styles.statValue, { color: theme.colors.text }]}>{coins}</Text>
-            )}
-            <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>Coins</Text>
-          </View>
         </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtonsRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
-            onPress={() => navigation.navigate('Leaderboard')}
-          >
-            <FontAwesomeIcon icon={faChartBar} size={16} color={theme.colors.primary} />
-            <Text style={[styles.actionButtonText, { color: theme.colors.text }]}>Leaderboard</Text>
-          </TouchableOpacity>
+        {/* Gamification Card */}
+        <View style={[styles.gamificationCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardTitleRow}>
+              <FontAwesomeIcon icon={faTrophy} size={18} color="#FF9500" />
+              <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Level {current_level}</Text>
+            </View>
+            <TouchableOpacity onPress={() => setShowGamificationInfo(true)}>
+              <FontAwesomeIcon icon={faInfoCircle} size={18} color={theme.colors.placeholder} />
+            </TouchableOpacity>
+          </View>
 
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
-            onPress={() => navigation.navigate('Shop')}
-          >
-            <FontAwesomeIcon icon={faStore} size={16} color={theme.colors.primary} />
-            <Text style={[styles.actionButtonText, { color: theme.colors.text }]}>Shop</Text>
-          </TouchableOpacity>
+          {gamificationLoading ? (
+            <View style={{ width: '100%' }}>
+              <SkeletonPiece style={{ height: 10, borderRadius: 5, marginBottom: 8 }} />
+              <SkeletonPiece style={{ width: 150, height: 12, borderRadius: 4, alignSelf: 'flex-end' }} />
+            </View>
+          ) : (
+            <>
+              <View style={[styles.progressBarBackground, { backgroundColor: theme.colors.background }]}>
+                <View style={[styles.progressBarFill, { width: `${progressPercent}%`, backgroundColor: theme.colors.primary }]} />
+              </View>
+              <Text style={[styles.xpText, { color: theme.colors.placeholder }]}>{current_xp} XP Total • {100 - (current_xp % 100)} XP to Level {current_level + 1}</Text>
+            </>
+          )}
+
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <FontAwesomeIcon icon={faFire} size={24} color="#FF4500" />
+              {gamificationLoading ? (
+                <SkeletonPiece style={{ width: 30, height: 22, borderRadius: 4, marginTop: 5 }} />
+              ) : (
+                <Text style={[styles.statValue, { color: theme.colors.text }]}>{streak?.current_streak || 0}</Text>
+              )}
+              <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>STREAK</Text>
+            </View>
+            <View style={[styles.statDivider, { backgroundColor: theme.colors.cardBorder }]} />
+            <View style={styles.statBox}>
+              <FontAwesomeIcon icon={faCoins} size={24} color="#FFD700" />
+              {gamificationLoading ? (
+                <SkeletonPiece style={{ width: 50, height: 22, borderRadius: 4, marginTop: 5 }} />
+              ) : (
+                <Text style={[styles.statValue, { color: theme.colors.text }]}>{coins}</Text>
+              )}
+              <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>COINS</Text>
+            </View>
+          </View>
+
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={[styles.cardButton, { backgroundColor: theme.colors.primary }]} onPress={() => navigation.navigate('Shop')}>
+              <FontAwesomeIcon icon={faStore} size={14} color="#fff" />
+              <Text style={styles.cardButtonText}>Rewards Shop</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.cardButton, { backgroundColor: theme.colors.background, borderWidth: 1, borderColor: theme.colors.cardBorder }]} onPress={() => navigation.navigate('Leaderboard')}>
+              <FontAwesomeIcon icon={faChartBar} size={14} color={theme.colors.text} />
+              <Text style={[styles.cardButtonText, { color: theme.colors.text }]}>Leaderboard</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Badges Section */}
-        <View style={styles.badgesContainer}>
-          <Text style={[styles.badgesTitle, { color: theme.colors.text }]}>Badges</Text>
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <FontAwesomeIcon icon={faMedal} size={18} color={theme.colors.primary} />
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Badges & Achievements</Text>
+          </View>
+          
           <View style={styles.badgesGrid}>
             {gamificationLoading ? (
               [1, 2, 3].map(i => (
                 <View key={i} style={styles.badgeItem}>
-                  <SkeletonPiece style={{ width: 50, height: 50, borderRadius: 25, marginBottom: 8 }} />
-                  <SkeletonPiece style={{ width: 60, height: 12, borderRadius: 4 }} />
+                  <SkeletonPiece style={{ width: 60, height: 60, borderRadius: 30, marginBottom: 8 }} />
+                  <SkeletonPiece style={{ width: 50, height: 10, borderRadius: 4 }} />
                 </View>
               ))
             ) : (BADGES[userData.role] || BADGES['student']).map((badge, index) => {
               const isEarned = badges.some(b => b.id === badge.id);
               return (
-                <View key={index} style={[styles.badgeItem, !isEarned && { opacity: 0.5 }]}>
-                  <View style={[styles.badgeIconContainer, { backgroundColor: isEarned ? '#FFF9C4' : theme.colors.inputBackground }]}>
+                <View key={index} style={[styles.badgeItem, !isEarned && { opacity: 0.4 }]}>
+                  <View style={[styles.badgeCircle, { backgroundColor: isEarned ? '#FFF9C4' : theme.colors.surface, borderColor: isEarned ? '#FFD700' : theme.colors.cardBorder }]}>
                     <FontAwesomeIcon icon={badge.icon} size={24} color={isEarned ? '#FFD700' : theme.colors.placeholder} />
                   </View>
-                  <Text style={[styles.badgeText, { color: theme.colors.text }]} numberOfLines={1}>{badge.name}</Text>
-                  {!isEarned && (
-                    <Text style={[styles.badgeXpText, { color: theme.colors.placeholder }]}>{badge.min_xp} XP</Text>
-                  )}
+                  <Text style={[styles.badgeName, { color: theme.colors.text }]} numberOfLines={1}>{badge.name}</Text>
                 </View>
               );
             })}
           </View>
         </View>
-      </View>
 
-      <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
-      {/* My Children (for Parents) */}
-      {(userData.role === 'parent' || (loading && !userData.role)) && (
-        <>
-          <View style={styles.sectionHeaderContainer}>
-            <FontAwesomeIcon icon={faUserFriends} size={20} color={theme.colors.primary} style={styles.sectionHeaderIcon} />
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>My Children</Text>
-            {!loading && (
-              <TouchableOpacity onPress={() => setShowManageChildren(!showManageChildren)} style={[styles.manageChildrenButton, { backgroundColor: theme.colors.buttonPrimary }]}>
-                <Text style={[styles.manageChildrenButtonText, { color: theme.colors.buttonPrimaryText }]}>{showManageChildren ? 'Close' : 'Manage Children'}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          <View style={{ alignSelf: 'stretch' }}>
-            <Text style={[styles.sectionDescription, { color: theme.colors.text }]}>View and manage your associated children.</Text>
+        {/* Personal Info */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <FontAwesomeIcon icon={faAddressCard} size={18} color={theme.colors.primary} />
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Personal Information</Text>
           </View>
 
-          <View style={styles.associatedChildrenContainer}>
-            {loading ? (
-              [1, 2].map(i => (
-                <View key={i} style={[styles.childItem, { borderBottomColor: theme.colors.cardBorder }]}>
-                  <SkeletonPiece style={{ width: 16, height: 16, borderRadius: 8, marginRight: 10 }} />
-                  <View>
-                    <SkeletonPiece style={{ width: 100, height: 16, borderRadius: 4, marginBottom: 5 }} />
-                    <SkeletonPiece style={{ width: 150, height: 14, borderRadius: 4 }} />
-                  </View>
-                </View>
-              ))
-            ) : associatedChildren.length === 0 ? (
-              <Text style={[styles.noChildrenText, { color: theme.colors.placeholder }]}>No children associated yet.</Text>
-            ) : (
-              associatedChildren.map(childId => {
-                const child = students.find(s => s.id === childId);
-                return child ? (
-                  <View key={child.id} style={[styles.childItem, { borderBottomColor: theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={faUserFriends} size={16} color={theme.colors.placeholder} style={{ marginRight: 10 }} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.childName, { color: theme.colors.text }]}>{child.full_name || 'N/A'}</Text>
-                      <Text style={[styles.childEmail, { color: theme.colors.placeholder }]}>{child.email || 'N/A'}</Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => handleRemoveChild(child.id, child.full_name || child.email)}
-                      style={{
-                        marginLeft: 'auto',
-                        backgroundColor: theme.colors.error,
-                        borderRadius: 12,
-                        width: 24,
-                        height: 24,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faMinus} size={14} color={theme.colors.buttonPrimaryText} />
-                    </TouchableOpacity>
-                  </View>
-                ) : null;
-              })
-            )}
+          <View style={[styles.infoList, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+            <InfoRow icon={faUser} label="Full Name" value={userData.full_name} theme={theme} loading={loading} />
+            <InfoRow icon={faEnvelope} label="Email" value={userData.email} theme={theme} loading={loading} />
+            <InfoRow icon={faPhone} label="Phone" value={userData.number || 'Not provided'} theme={theme} loading={loading} />
+            <InfoRow icon={faGlobe} label="Country" value={userData.country || 'Not provided'} theme={theme} loading={loading} />
           </View>
+        </View>
 
-          {/* Manage Children Area (conditionally rendered) */}
-          {showManageChildren && (
-            <View style={[styles.manageChildrenSection, { borderTopColor: theme.colors.cardBorder }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 10 }}>
-                <FontAwesomeIcon icon={faUserFriends} size={18} color={theme.colors.primary} style={{ marginRight: 10 }} />
-                <Text style={[styles.manageChildrenHeader, { color: theme.colors.text }]}>Manage Children</Text>
-              </View>
-              <Text style={[styles.sectionDescription, { color: theme.colors.text }]}>Search for students to send association requests. You can search by name or email.</Text>
-
-              {/* Student Search Input */}
-              <TextInput
-                style={[styles.input, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-                placeholder="Search for students"
-                placeholderTextColor={theme.colors.placeholder}
-                value={studentSearch}
-                onChangeText={setStudentSearch}
-              />
-
-              {/* Student List for Selection */}
-              <View style={styles.studentListContainer}>
-                {students.filter(student =>
-                  !associatedChildren.includes(student.id) &&
-                  student.id !== userData.id &&
-                  (student.full_name?.toLowerCase().includes(studentSearch.toLowerCase()) ||
-                    student.email?.toLowerCase().includes(studentSearch.toLowerCase()))
-                ).map(student => (
-                  <TouchableOpacity
-                    key={student.id}
-                    style={styles.studentItem}
-                    onPress={() => {
-                      setSelectedStudents(prev =>
-                        prev.includes(student.id)
-                          ? prev.filter(id => id !== student.id)
-                          : [...prev, student.id]
-                      );
-                    }}
-                  >
-                    <FontAwesomeIcon icon={faUserFriends} size={16} color={theme.colors.placeholder} style={{ marginRight: 10 }} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.childName, { color: theme.colors.text }]}>{student.full_name || 'N/A'}</Text>
-                      <Text style={[styles.childEmail, { color: theme.colors.placeholder }]}>{student.email || 'N/A'}</Text>
-                    </View>
-                    <View style={[selectedStudents.includes(student.id) ? styles.checkboxChecked : styles.checkboxUnchecked, { marginLeft: 'auto', borderColor: theme.colors.inputBorder, backgroundColor: selectedStudents.includes(student.id) ? theme.colors.primary : 'transparent' }]} />
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Send Request Button */}
-              {selectedStudents.length > 0 && (
-                <TouchableOpacity style={[styles.button, { backgroundColor: theme.colors.buttonPrimary }]} onPress={handleSendAssociationRequest} disabled={saving}>
-                  <Text style={[styles.buttonText, { color: theme.colors.buttonPrimaryText }]}>Send Association Request ({selectedStudents.length})</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-        </>
-      )}
-      <GamificationInfoModal
-        visible={showGamificationInfo}
-        onClose={() => setShowGamificationInfo(false)}
-      />
-    </ScrollView>
+        <GamificationInfoModal visible={showGamificationInfo} onClose={() => setShowGamificationInfo(false)} />
+        <EditProfileModal
+          visible={showEditProfile}
+          onClose={(updated) => {
+            setShowEditProfile(false);
+            if (updated) {
+              fetchUserData();
+              if (refreshGamificationState) refreshGamificationState();
+            }
+          }}
+          currentUser={userData}
+        />
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </>
   );
 }
 
+const InfoRow = ({ icon, label, value, theme, loading }) => (
+  <View style={[styles.infoRow, { borderBottomColor: theme.colors.background }]}>
+    <FontAwesomeIcon icon={icon} size={16} color={theme.colors.placeholder} />
+    <View style={{ marginLeft: 15, flex: 1 }}>
+      <Text style={[styles.infoLabel, { color: theme.colors.placeholder }]}>{label}</Text>
+      {loading ? (
+        <SkeletonPiece style={{ width: '80%', height: 16, borderRadius: 4, marginTop: 4 }} />
+      ) : (
+        <Text style={[styles.infoValue, { color: theme.colors.text }]}>{value}</Text>
+      )}
+    </View>
+  </View>
+);
+
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, padding: 24, alignItems: 'center' },
-  avatar: { width: 120, height: 120, borderRadius: 60, borderWidth: 4, marginBottom: 16 },
-  header: { fontSize: 32, fontWeight: 'bold', marginBottom: 24 },
-  description: { fontSize: 16, marginBottom: 32, textAlign: 'center' },
-  infoBanner: {
-    width: '100%',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 20,
-  },
-  infoBannerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  infoBannerTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  infoBannerText: {
-    fontSize: 13,
-  },
-  sectionHeaderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    marginTop: 20,
-    alignSelf: 'stretch',
-  },
-  sectionHeaderIcon: {
-    marginRight: 10,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  sectionDescription: {
-    fontSize: 14,
-    marginBottom: 15,
-  },
-  manageChildrenButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    marginLeft: 'auto',
-  },
-  manageChildrenButtonText: {
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  infoContainer: { width: '100%', marginBottom: 16, alignSelf: 'flex-start' },
-  label: { fontSize: 14, fontWeight: 'bold' },
-  value: { fontSize: 16 },
-  input: { borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 16, borderWidth: 1, width: '100%' },
-  buttonGroup: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-  },
-  button: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8, alignItems: 'center', marginHorizontal: 5 },
-  buttonText: { fontWeight: '600', fontSize: 16 },
-  cancelButton: { backgroundColor: 'transparent', borderWidth: 1 },
-  cancelButtonText: {},
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  infoIcon: {
-    marginRight: 10,
-  },
-  editProfileButton: {
-    flexDirection: 'row',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-    width: '100%',
-  },
-  editProfileButtonText: {
-    fontWeight: '600',
-    fontSize: 16,
-    marginLeft: 10,
-  },
-  manageChildrenHeader: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  manageChildrenSection: {
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    alignSelf: 'flex-start',
-  },
-  studentListContainer: {
-    marginTop: 10,
-    marginBottom: 20,
-    maxHeight: 200,
-    borderRadius: 8,
-    width: '100%',
-  },
-  studentItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    width: '100%',
-  },
-  studentName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  studentEmail: {
-    fontSize: 14,
-  },
-  checkboxUnchecked: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-  },
-  checkboxChecked: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-  },
-  noChildrenText: {
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginTop: 10,
-  },
-  associatedChildrenContainer: {
-    width: '100%',
-    marginBottom: 20,
-  },
-  childItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  childName: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  childEmail: {
-    fontSize: 14,
-  },
-  separator: {
-    height: 1,
-    width: '100%',
-    marginVertical: 20,
-    borderBottomWidth: 1,
-  },
-  gamificationCard: {
-    width: '100%',
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  levelContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  levelBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  levelText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  xpText: {
-    fontSize: 14,
-  },
-  nextLevelText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  progressBarBackground: {
-    height: 8,
-    borderRadius: 4,
-    width: '100%',
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  badgesContainer: {
-    marginTop: 20,
-    width: '100%',
-  },
-  badgesTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  badgesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  badgeItem: {
-    width: '30%',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  badgeIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  badgeText: {
-    fontSize: 12,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  badgeXpText: {
-    fontSize: 10,
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    height: '80%',
-    backgroundColor: 'rgba(0,0,0,0.1)',
-  },
-  actionButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    width: '48%',
-  },
-  actionButtonText: {
-    fontWeight: '600',
-    fontSize: 14,
-    marginLeft: 8,
-  },
+  container: { flexGrow: 1, paddingBottom: 24 },
+  headerSection: { borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden', borderBottomWidth: 1, elevation: 5 },
+  banner: { height: 160 },
+  profileContent: { paddingHorizontal: 24, paddingBottom: 24 },
+  avatarRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: -50, marginBottom: 15 },
+  avatarWrapper: { elevation: 10 },
+  editButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, gap: 6, marginBottom: 5 },
+  editButtonText: { fontSize: 12, fontWeight: 'bold' },
+  nameBlock: { alignSelf: 'stretch' },
+  fullNameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
+  fullName: { fontSize: 26, fontWeight: '900' },
+  email: { fontSize: 14, fontWeight: '600', marginTop: 2 },
+  roleBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginTop: 10 },
+  roleText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  titleTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  titleTagText: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+  gamificationCard: { margin: 24, padding: 20, borderRadius: 25, borderWidth: 1, elevation: 3 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cardTitle: { fontSize: 20, fontWeight: '900' },
+  progressBarBackground: { height: 10, borderRadius: 5, width: '100%', overflow: 'hidden', marginBottom: 8 },
+  progressBarFill: { height: '100%', borderRadius: 5 },
+  xpText: { fontSize: 12, fontWeight: '700', textAlign: 'right' },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-around', marginVertical: 20, paddingVertical: 15, borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(0,0,0,0.05)' },
+  statBox: { alignItems: 'center' },
+  statValue: { fontSize: 22, fontWeight: '900', marginTop: 5 },
+  statLabel: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1 },
+  statDivider: { width: 1, height: '100%' },
+  buttonRow: { flexDirection: 'row', gap: 10 },
+  cardButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 15, gap: 8 },
+  cardButtonText: { color: '#fff', fontSize: 13, fontWeight: 'bold' },
+  section: { paddingHorizontal: 24, marginTop: 10 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15 },
+  sectionTitle: { fontSize: 18, fontWeight: '900' },
+  badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  badgeItem: { width: '30%', alignItems: 'center', marginBottom: 20 },
+  badgeCircle: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  badgeName: { fontSize: 11, fontWeight: 'bold', textAlign: 'center' },
+  infoList: { borderRadius: 20, borderWidth: 1, overflow: 'hidden' },
+  infoRow: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
+  infoLabel: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
+  infoValue: { fontSize: 15, fontWeight: '600', marginTop: 2 }
 });

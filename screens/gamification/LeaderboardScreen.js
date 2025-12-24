@@ -3,39 +3,17 @@ import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndi
 import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTrophy, faMedal, faCrown, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
-import { BORDER_STYLES } from '../../constants/GamificationStyles';
+import { faTrophy, faMedal } from '@fortawesome/free-solid-svg-icons';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
-import UserProfileModal from '../../components/UserProfileModal';
-import { SkeletonPiece } from '../../components/skeletons/DashboardScreenSkeleton';
+import { BORDER_STYLES, NAME_COLOR_STYLES, TITLE_STYLES } from '../../constants/GamificationStyles';
+import LeaderboardSkeleton from '../../components/skeletons/LeaderboardSkeleton';
 
-const LeaderboardItemSkeleton = () => {
-    const { theme } = useTheme();
-    return (
-        <View style={[styles.itemContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
-            <View style={styles.rankContainer}>
-                <SkeletonPiece style={{ width: 24, height: 24, borderRadius: 12 }} />
-            </View>
-            <SkeletonPiece style={{ width: 48, height: 48, borderRadius: 24, marginHorizontal: 16 }} />
-            <View style={styles.userInfo}>
-                <SkeletonPiece style={{ width: 120, height: 16, borderRadius: 4, marginBottom: 6 }} />
-                <SkeletonPiece style={{ width: 60, height: 12, borderRadius: 4 }} />
-            </View>
-            <View style={styles.xpContainer}>
-                <SkeletonPiece style={{ width: 50, height: 16, borderRadius: 4 }} />
-            </View>
-        </View>
-    );
-};
+const defaultUserImage = require('../../assets/user.png');
 
-export default function LeaderboardScreen({ navigation }) {
+export default function LeaderboardScreen() {
     const { theme } = useTheme();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [period, setPeriod] = useState('all_time'); // 'all_time', 'weekly' (weekly requires more complex SQL, sticking to all_time for MVP)
-    const [selectedUser, setSelectedUser] = useState(null);
-    const [selectedEquippedItem, setSelectedEquippedItem] = useState(null);
-    const [isModalVisible, setIsModalVisible] = useState(false);
 
     useEffect(() => {
         fetchLeaderboard();
@@ -44,7 +22,7 @@ export default function LeaderboardScreen({ navigation }) {
     const fetchLeaderboard = async () => {
         setLoading(true);
         try {
-            // 1. Get top 50 scores
+            // 1. Get top scores
             const { data: scores, error: scoresError } = await supabase
                 .from('user_gamification')
                 .select('user_id, current_xp, current_level')
@@ -53,43 +31,45 @@ export default function LeaderboardScreen({ navigation }) {
 
             if (scoresError) throw scoresError;
 
-            if (!scores || scores.length === 0) {
-                setUsers([]);
-                return;
+            if (scores && scores.length > 0) {
+                const userIds = scores.map(s => s.user_id);
+
+                // 2. Get user details
+                const { data: userDetails } = await supabase
+                    .from('users')
+                    .select('id, full_name, avatar_url')
+                    .in('id', userIds);
+
+                // 3. Get equipped items for all users
+                const { data: inventoryData } = await supabase
+                    .from('user_inventory')
+                    .select('user_id, shop_items(*)')
+                    .in('user_id', userIds)
+                    .eq('is_equipped', true);
+
+                // Helper to resolve shop_items
+                const resolveItem = (item) => Array.isArray(item) ? item[0] : item;
+
+                // 4. Merge data
+                const leaderboardData = scores.map(score => {
+                    const user = userDetails?.find(u => u.id === score.user_id);
+                    const userEquipped = inventoryData?.filter(i => i.user_id === score.user_id).map(i => resolveItem(i.shop_items)) || [];
+
+                    const equippedBorder = userEquipped.find(i => i?.category === 'avatar_border' || i?.category === 'border' || !i?.category);
+                    const equippedNameColor = userEquipped.find(i => i?.category === 'name_color');
+                    const equippedTitle = userEquipped.find(i => i?.category === 'title');
+
+                    return {
+                        ...score,
+                        user: user || { full_name: 'Unknown User' },
+                        equippedBorder,
+                        equippedNameColor,
+                        equippedTitle
+                    };
+                });
+
+                setUsers(leaderboardData);
             }
-
-            // 2. Get user details for these scores
-            const userIds = scores.map(s => s.user_id);
-            const { data: userDetails, error: usersError } = await supabase
-                .from('users')
-                .select('id, full_name, avatar_url, role, email, number')
-                .in('id', userIds);
-
-            if (usersError) throw usersError;
-
-            // 3. Get equipped items separately
-            const { data: inventoryData, error: inventoryError } = await supabase
-                .from('user_inventory')
-                .select('user_id, shop_items(*)')
-                .in('user_id', userIds)
-                .eq('is_equipped', true);
-
-            if (inventoryError) throw inventoryError;
-
-            // 4. Merge data
-            const leaderboardData = scores.map(score => {
-                const user = userDetails.find(u => u.id === score.user_id);
-                const equippedInventoryItem = inventoryData?.find(i => i.user_id === score.user_id);
-                const equippedItem = equippedInventoryItem?.shop_items;
-
-                return {
-                    ...score,
-                    users: user || { full_name: 'Unknown User', avatar_url: null },
-                    equippedItem
-                };
-            });
-
-            setUsers(leaderboardData);
         } catch (error) {
             console.error('Error fetching leaderboard:', error);
         } finally {
@@ -97,187 +77,88 @@ export default function LeaderboardScreen({ navigation }) {
         }
     };
 
-    const renderItem = ({ item, index }) => {
-        const user = item.users;
-        const rank = index + 1;
-        let rankIcon = null;
-        let rankColor = theme.colors.text;
-
-        if (rank === 1) {
-            rankIcon = faCrown;
-            rankColor = '#FFD700'; // Gold
-        } else if (rank === 2) {
-            rankIcon = faMedal;
-            rankColor = '#C0C0C0'; // Silver
-        } else if (rank === 3) {
-            rankIcon = faMedal;
-            rankColor = '#CD7F32'; // Bronze
-        }
+    const renderUser = ({ item, index }) => {
+        const nameColorStyle = item.equippedNameColor ? NAME_COLOR_STYLES[item.equippedNameColor.image_url] : null;
+        const titleStyle = item.equippedTitle ? TITLE_STYLES[item.equippedTitle.image_url] : null;
 
         return (
-            <TouchableOpacity
-                style={[styles.itemContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
-                onPress={() => {
-                    setSelectedUser(user);
-                    setSelectedEquippedItem(item.equippedItem);
-                    setIsModalVisible(true);
-                }}
-            >
+            <View style={[styles.userCard, { backgroundColor: theme.colors.card, borderBottomColor: theme.colors.cardBorder }]}>
                 <View style={styles.rankContainer}>
-                    {rankIcon ? (
-                        <FontAwesomeIcon icon={rankIcon} size={24} color={rankColor} />
-                    ) : (
-                        <Text style={[styles.rankText, { color: theme.colors.text }]}>{rank}</Text>
-                    )}
+                    {index === 0 && <FontAwesomeIcon icon={faTrophy} size={18} color="#FFD700" />}
+                    {index === 1 && <FontAwesomeIcon icon={faMedal} size={18} color="#C0C0C0" />}
+                    {index === 2 && <FontAwesomeIcon icon={faMedal} size={18} color="#CD7F32" />}
+                    {index > 2 && <Text style={[styles.rankText, { color: theme.colors.placeholder }]}>{index + 1}</Text>}
                 </View>
 
-                <AnimatedAvatarBorder
-                    avatarSource={user.avatar_url ? { uri: user.avatar_url } : require('../../assets/user.png')}
-                    size={48}
-                    borderStyle={item.equippedItem ? BORDER_STYLES[item.equippedItem.image_url] : {}}
-                    isRainbow={item.equippedItem && BORDER_STYLES[item.equippedItem.image_url]?.rainbow}
-                    isAnimated={item.equippedItem && BORDER_STYLES[item.equippedItem.image_url]?.animated}
-                    containerStyle={{ marginHorizontal: 16 }}
-                />
+                <View style={styles.avatarContainer}>
+                    <AnimatedAvatarBorder
+                        avatarSource={item.user.avatar_url ? { uri: item.user.avatar_url } : defaultUserImage}
+                        size={44}
+                        borderStyle={item.equippedBorder ? BORDER_STYLES[item.equippedBorder.image_url] : {}}
+                    />
+                </View>
 
                 <View style={styles.userInfo}>
-                    <Text style={[styles.userName, { color: theme.colors.text }]}>{user.full_name || 'Unknown User'}</Text>
+                    <View style={styles.nameRow}>
+                        <Text 
+                            style={[styles.userName, nameColorStyle?.style, !nameColorStyle && { color: theme.colors.text }]}
+                            numberOfLines={1}
+                        >
+                            {item.user.full_name}
+                        </Text>
+                        {titleStyle && (
+                            <View style={[styles.titleTag, { backgroundColor: titleStyle.colors.bg }]}>
+                                <Text style={[styles.titleTagText, { color: titleStyle.colors.text }]}>{titleStyle.label}</Text>
+                            </View>
+                        )}
+                    </View>
                     <Text style={[styles.userLevel, { color: theme.colors.placeholder }]}>Level {item.current_level}</Text>
                 </View>
 
-                <View style={styles.xpContainer}>
-                    <Text style={[styles.xpText, { color: theme.colors.primary }]}>{item.current_xp} XP</Text>
+                <View style={styles.pointsContainer}>
+                    <Text style={[styles.pointsText, { color: theme.colors.primary }]}>{item.current_xp} XP</Text>
                 </View>
-            </TouchableOpacity>
+            </View>
         );
     };
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            <View style={styles.contentHeader}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.customBackButton}>
-                    <FontAwesomeIcon icon={faArrowLeft} size={16} color={theme.colors.primary} />
-                    <Text style={[styles.customBackButtonText, { color: theme.colors.primary }]}>Back to Profile</Text>
-                </TouchableOpacity>
-
-                <View style={styles.header}>
-                    <FontAwesomeIcon icon={faTrophy} size={32} color="#FFD700" />
-                    <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Leaderboard</Text>
-                </View>
-                <Text style={[styles.headerDescription, { color: theme.colors.placeholder }]}>
-                    See who's topping the charts this week!
-                </Text>
+            <View style={styles.header}>
+                <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Global Leaderboard</Text>
+                <Text style={[styles.headerSubtitle, { color: theme.colors.placeholder }]}>The top students in your community</Text>
             </View>
 
-            <FlatList
-                data={loading ? [1, 2, 3, 4, 5] : users}
-                renderItem={loading ? () => <LeaderboardItemSkeleton /> : renderItem}
-                keyExtractor={(item, index) => loading ? index.toString() : item.user_id}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-            />
-
-            <UserProfileModal
-                visible={isModalVisible}
-                user={selectedUser}
-                equippedItem={selectedEquippedItem}
-                onClose={() => setIsModalVisible(false)}
-                onMessageUser={(user) => {
-                    console.log('Message user:', user);
-                    setIsModalVisible(false);
-                }}
-            />
+            {loading ? (
+                <LeaderboardSkeleton />
+            ) : (
+                <FlatList
+                    data={users}
+                    renderItem={renderUser}
+                    keyExtractor={item => item.user_id}
+                    contentContainerStyle={styles.listContent}
+                />
+            )}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    contentHeader: {
-        padding: 20,
-        paddingBottom: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(0,0,0,0.05)',
-    },
-    customBackButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 16,
-        alignSelf: 'flex-start',
-    },
-    customBackButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginLeft: 8,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    headerTitle: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        marginLeft: 12,
-    },
-    headerDescription: {
-        fontSize: 16,
-        marginLeft: 4,
-    },
-    listContent: {
-        padding: 16,
-    },
-    itemContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
-        marginBottom: 8,
-        borderRadius: 12,
-        borderWidth: 1,
-        // Removed shadow to reduce "gray area"
-        shadowColor: "transparent",
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0,
-        shadowRadius: 0,
-        elevation: 0,
-    },
-    rankContainer: {
-        width: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    rankText: {
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    avatar: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        marginHorizontal: 12,
-    },
-    userInfo: {
-        flex: 1,
-    },
-    userName: {
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    userLevel: {
-        fontSize: 14,
-    },
-    xpContainer: {
-        alignItems: 'flex-end',
-    },
-    xpText: {
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
+    container: { flex: 1 },
+    header: { padding: 24, paddingTop: 20 },
+    headerTitle: { fontSize: 24, fontWeight: '900' },
+    headerSubtitle: { fontSize: 14, marginTop: 4, fontWeight: '600' },
+    listContent: { paddingHorizontal: 16, paddingBottom: 30 },
+    userCard: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, marginBottom: 10, borderBottomWidth: 1 },
+    rankContainer: { width: 30, alignItems: 'center', marginRight: 10 },
+    rankText: { fontSize: 14, fontWeight: 'bold' },
+    avatarContainer: { marginRight: 12 },
+    userInfo: { flex: 1 },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+    userName: { fontSize: 15, fontWeight: 'bold' },
+    userLevel: { fontSize: 11, fontWeight: '700' },
+    titleTag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    titleTagText: { fontSize: 8, fontWeight: '900', textTransform: 'uppercase' },
+    pointsContainer: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: 'rgba(99, 102, 241, 0.1)' },
+    pointsText: { fontSize: 13, fontWeight: '900' }
 });
