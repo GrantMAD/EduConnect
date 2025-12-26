@@ -28,6 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import HomeworkCard from '../components/HomeworkCard';
 import AssignmentCard from '../components/AssignmentCard';
+import ManageCompletionsModal from '../components/ManageCompletionsModal';
 import CardSkeleton from '../components/skeletons/CardSkeleton';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
@@ -44,6 +45,8 @@ const HomeworkList = () => {
   const [selectedHomework, setSelectedHomework] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [manageModalVisible, setManageModalVisible] = useState(false);
+  const [currentTrackItem, setCurrentTrackItem] = useState(null);
 
   const isFocused = useIsFocused();
   const { showToast } = useToast();
@@ -62,14 +65,70 @@ const HomeworkList = () => {
 
   const fetchHomework = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('homework')
-      .select('*')
-      .order('due_date', { ascending: true })
-      .limit(50);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    setHomework(data || []);
-    setLoading(false);
+      const { data: profile } = await supabase
+        .from('users')
+        .select('role, school_id')
+        .eq('id', user.id)
+        .single();
+
+      const userRole = profile?.role;
+      let childIds = [];
+      if (userRole === 'parent') {
+        const { data: relationships } = await supabase
+          .from('parent_child_relationships')
+          .select('child_id')
+          .eq('parent_id', user.id);
+        childIds = relationships?.map(r => r.child_id) || [];
+      }
+
+      let selectStr = '*, created_by_user:users!created_by(full_name, email)';
+      if (userRole === 'student' || userRole === 'parent') {
+        selectStr += ', student_completions(id, student_id)';
+      }
+
+      let query = supabase.from('homework').select(selectStr);
+
+      if (userRole === 'student') {
+        query = query.filter('student_completions.student_id', 'eq', user.id);
+      } else if (userRole === 'parent' && childIds.length > 0) {
+        query = query.filter('student_completions.student_id', 'in', `(${childIds.join(',')})`);
+      }
+
+      if (userRole === 'student' || userRole === 'parent') {
+        const targetUsers = userRole === 'student' ? [user.id] : childIds;
+        if (targetUsers.length > 0) {
+          const { data: members } = await supabase
+            .from('class_members')
+            .select('class_id')
+            .in('user_id', targetUsers);
+          const classIds = [...new Set(members?.map(m => m.class_id) || [])];
+          if (classIds.length > 0) {
+            query = query.in('class_id', classIds);
+          } else {
+            setHomework([]);
+            setLoading(false);
+            return;
+          }
+        } else {
+          setHomework([]);
+          setLoading(false);
+          return;
+        }
+      } else if (profile?.school_id) {
+        query = query.eq('school_id', profile.school_id);
+      }
+
+      const { data } = await query.order('due_date', { ascending: true }).limit(50);
+      setHomework(data || []);
+    } catch (error) {
+      console.error('Error fetching homework:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatDate = (date) =>
@@ -188,11 +247,18 @@ const HomeworkList = () => {
         keyExtractor={(item, index) => loading ? index.toString() : item.id}
         renderItem={({ item }) =>
           loading ? <CardSkeleton /> : (
-            <HomeworkCard homework={item} onPress={() => {
-              setSelectedHomework(item);
-              setModalVisible(true);
-              setIsEditing(false);
-            }} />
+            <HomeworkCard
+              homework={item}
+              onPress={() => {
+                setSelectedHomework(item);
+                setModalVisible(true);
+                setIsEditing(false);
+              }}
+              onTrackPress={() => {
+                setCurrentTrackItem(item);
+                setManageModalVisible(true);
+              }}
+            />
           )
         }
         ListEmptyComponent={!loading && (
@@ -201,6 +267,13 @@ const HomeworkList = () => {
             <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No homework assigned yet.</Text>
           </View>
         )}
+      />
+
+      <ManageCompletionsModal
+        visible={manageModalVisible}
+        onClose={() => setManageModalVisible(false)}
+        item={currentTrackItem}
+        type="homework"
       />
     </View>
   );
@@ -212,6 +285,8 @@ const HomeworkList = () => {
 const AssignmentsList = () => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [manageModalVisible, setManageModalVisible] = useState(false);
+  const [currentTrackItem, setCurrentTrackItem] = useState(null);
 
   const isFocused = useIsFocused();
   const { theme } = useTheme();
@@ -222,12 +297,68 @@ const AssignmentsList = () => {
 
   const fetchAssignments = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('assignments')
-      .select('*')
-      .order('due_date', { ascending: true });
-    setAssignments(data || []);
-    setLoading(false);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('users')
+        .select('role, school_id')
+        .eq('id', user.id)
+        .single();
+
+      const userRole = profile?.role;
+      let childIds = [];
+      if (userRole === 'parent') {
+        const { data: relationships } = await supabase
+          .from('parent_child_relationships')
+          .select('child_id')
+          .eq('parent_id', user.id);
+        childIds = relationships?.map(r => r.child_id) || [];
+      }
+
+      let selectStr = '*, assigned_by_user:users!assigned_by(full_name, email)';
+      if (userRole === 'student' || userRole === 'parent') {
+        selectStr += ', student_completions(id, student_id)';
+      }
+
+      let query = supabase.from('assignments').select(selectStr);
+
+      if (userRole === 'student') {
+        query = query.filter('student_completions.student_id', 'eq', user.id);
+      } else if (userRole === 'parent' && childIds.length > 0) {
+        query = query.filter('student_completions.student_id', 'in', `(${childIds.join(',')})`);
+      }
+
+      if (userRole === 'student' || userRole === 'parent') {
+        const targetUsers = userRole === 'student' ? [user.id] : childIds;
+        if (targetUsers.length > 0) {
+          const { data: members } = await supabase
+            .from('class_members')
+            .select('class_id')
+            .in('user_id', targetUsers);
+          const classIds = [...new Set(members?.map(m => m.class_id) || [])];
+          if (classIds.length > 0) {
+            query = query.in('class_id', classIds);
+          } else {
+            setAssignments([]);
+            setLoading(false);
+            return;
+          }
+        } else {
+          setAssignments([]);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const { data } = await query.order('due_date', { ascending: true });
+      setAssignments(data || []);
+    } catch (error) {
+      console.error('Error fetching assignments:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -236,7 +367,15 @@ const AssignmentsList = () => {
         data={loading ? [1, 2, 3] : assignments}
         keyExtractor={(item, index) => loading ? index.toString() : item.id}
         renderItem={({ item }) =>
-          loading ? <CardSkeleton /> : <AssignmentCard assignment={item} />
+          loading ? <CardSkeleton /> : (
+            <AssignmentCard
+              assignment={item}
+              onTrackPress={() => {
+                setCurrentTrackItem(item);
+                setManageModalVisible(true);
+              }}
+            />
+          )
         }
         ListEmptyComponent={!loading && (
           <View style={styles.emptyContainer}>
@@ -244,6 +383,13 @@ const AssignmentsList = () => {
             <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No assignments found.</Text>
           </View>
         )}
+      />
+
+      <ManageCompletionsModal
+        visible={manageModalVisible}
+        onClose={() => setManageModalVisible(false)}
+        item={currentTrackItem}
+        type="assignment"
       />
     </View>
   );

@@ -143,14 +143,14 @@ export default function CalendarScreen({ navigation }) {
             const isClub = event.class?.subject === 'Extracurricular';
             const color = event.eventType === 'meeting' ? theme.colors.warning : isClub ? '#AF52DE' : classColorMap[event.class_id || event.id];
             if (!formattedMarkedDates[date]) formattedMarkedDates[date] = { periods: [] };
-            
+
             // Avoid duplicate bars for the same category on the same day
             const existingPeriod = formattedMarkedDates[date].periods.find(p => p.color === color);
             if (!existingPeriod) {
-              formattedMarkedDates[date].periods.push({ 
-                startingDay: true, 
-                endingDay: true, 
-                color: color 
+              formattedMarkedDates[date].periods.push({
+                startingDay: true,
+                endingDay: true,
+                color: color
               });
             }
           });
@@ -214,13 +214,13 @@ export default function CalendarScreen({ navigation }) {
     const isClub = item.class?.subject === 'Extracurricular';
     const start = new Date(item.start_time);
     const eventColor = isMeeting ? theme.colors.warning : isClub ? '#AF52DE' : theme.colors.primary;
-    
+
     return (
       <TouchableOpacity
         key={item.id}
         onPress={() => openScheduleModal(item)}
         style={[
-          styles.eventCard, 
+          styles.eventCard,
           { backgroundColor: theme.colors.cardBackground },
           (isMeeting || isClub) && { borderLeftColor: eventColor, borderLeftWidth: 4 }
         ]}
@@ -232,7 +232,7 @@ export default function CalendarScreen({ navigation }) {
             </Text>
           </View>
         </View>
-        
+
         <View style={styles.eventCardContent}>
           <View style={styles.eventHeaderRow}>
             <Text style={[styles.eventTitle, { color: theme.colors.text }]} numberOfLines={1}>
@@ -244,28 +244,28 @@ export default function CalendarScreen({ navigation }) {
               </Text>
             </View>
           </View>
-          
+
           <View style={styles.eventDetailsRow}>
-            <FontAwesomeIcon 
-              icon={isMeeting ? faHandshake : isClub ? faFootballBall : faBook} 
-              size={12} 
-              color={theme.colors.placeholder} 
-              style={{ marginRight: 6 }} 
+            <FontAwesomeIcon
+              icon={isMeeting ? faHandshake : isClub ? faFootballBall : faBook}
+              size={12}
+              color={theme.colors.placeholder}
+              style={{ marginRight: 6 }}
             />
             <Text style={[styles.eventDescription, { color: theme.colors.placeholder }]} numberOfLines={1}>
               {item.description || item.class_info || 'No details provided'}
             </Text>
           </View>
         </View>
-        
+
         <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.cardBorder} />
       </TouchableOpacity>
     );
   };
 
   return (
-    <ScrollView 
-      style={[styles.container, { backgroundColor: theme.colors.background }]} 
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
@@ -341,29 +341,59 @@ export default function CalendarScreen({ navigation }) {
         onClose={() => setModalVisible(false)}
         title={selectedSchedule?.title || 'Class Details'}
         icon={faBook}
+        hideHeader={true}
       >
         {selectedSchedule && (
           <View>
-            <Text style={[styles.modalDescription, { color: theme.colors.text }]}>Here is the detailed information for this class.</Text>
-
-            {selectedSchedule.description ? (
-              <Text style={[styles.modalDescriptionBadge, { backgroundColor: theme.colors.primary, color: theme.colors.buttonPrimaryText }]}>{selectedSchedule.description}</Text>
-            ) : null}
-
-            <View style={styles.infoRow}>
-              <FontAwesomeIcon icon={faCalendarAlt} size={14} color={theme.colors.primary} style={styles.icon} />
-              <Text style={[styles.scheduleDate, { color: theme.colors.text }]}>{new Date(selectedSchedule.start_time).toLocaleDateString()}</Text>
+            {/* Hero Section */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+              <View style={[styles.modalIconBox, { backgroundColor: selectedSchedule.color + '20' }]}>
+                <FontAwesomeIcon
+                  icon={selectedSchedule.eventType === 'meeting' ? faHandshake : selectedSchedule.class?.subject === 'Extracurricular' ? faFootballBall : faBook}
+                  size={24}
+                  color={selectedSchedule.color}
+                />
+              </View>
+              <View style={{ flex: 1, marginLeft: 16 }}>
+                <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+                  {selectedSchedule.class?.name || selectedSchedule.title || 'Untitled Event'}
+                </Text>
+                <View style={[styles.modalBadge, { backgroundColor: selectedSchedule.color + '20', alignSelf: 'flex-start', marginTop: 6 }]}>
+                  <Text style={[styles.modalBadgeText, { color: selectedSchedule.color }]}>
+                    {selectedSchedule.eventType === 'meeting' ? 'Meeting' : selectedSchedule.class?.subject === 'Extracurricular' ? 'Club' : 'Class'}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={{ padding: 8 }}>
+                <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
+              </TouchableOpacity>
             </View>
-            <View style={styles.infoRow}>
-              <FontAwesomeIcon icon={faClock} size={14} color={theme.colors.primary} style={styles.icon} />
-              <Text style={[styles.scheduleTime, { color: theme.colors.text }]}>
-                {new Date(selectedSchedule.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(selectedSchedule.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+
+            {/* Info Grid */}
+            <View style={styles.modalGrid}>
+              <View style={[styles.modalGridItem, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                <FontAwesomeIcon icon={faCalendarAlt} size={16} color={theme.colors.placeholder} style={{ marginBottom: 8 }} />
+                <Text style={[styles.gridLabel, { color: theme.colors.placeholder }]}>Date</Text>
+                <Text style={[styles.gridValue, { color: theme.colors.text }]}>
+                  {new Date(selectedSchedule.start_time).toLocaleDateString('en-US', { day: 'numeric', month: 'short', weekday: 'short' })}
+                </Text>
+              </View>
+              <View style={[styles.modalGridItem, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                <FontAwesomeIcon icon={faClock} size={16} color={theme.colors.placeholder} style={{ marginBottom: 8 }} />
+                <Text style={[styles.gridLabel, { color: theme.colors.placeholder }]}>Time</Text>
+                <Text style={[styles.gridValue, { color: theme.colors.text }]}>
+                  {new Date(selectedSchedule.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+              </View>
+            </View>
+
+            {/* Description / Topic */}
+            <View style={[styles.descriptionBox, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
+              <Text style={[styles.boxLabel, { color: theme.colors.placeholder }]}>TOPIC / DESCRIPTION</Text>
+              <Text style={[styles.boxText, { color: theme.colors.text }]}>
+                {selectedSchedule.description || selectedSchedule.class_info || 'No detailed description provided for this session.'}
               </Text>
             </View>
-
-            {selectedSchedule.class_info ? (
-              <Text style={[styles.classInfo, { color: theme.colors.text }]}>{selectedSchedule.class_info}</Text>
-            ) : null}
           </View>
         )}
       </StandardBottomModal>
@@ -454,8 +484,15 @@ const styles = StyleSheet.create({
 
   emptyText: { textAlign: 'center', marginTop: 10, fontSize: 14, fontStyle: 'italic' },
 
-  centeredModal: { justifyContent: 'center', alignItems: 'center', margin: 0 },
-  modalDescription: { fontSize: 14, marginBottom: 15, textAlign: 'center' },
-  modalDescriptionBadge: { fontSize: 14, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'center', marginBottom: 10 },
-  classInfo: { fontSize: 14, marginTop: 10 },
+  modalIconBox: { width: 50, height: 50, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold' },
+  modalBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  modalBadgeText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
+  modalGrid: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  modalGridItem: { flex: 1, padding: 16, borderRadius: 16, alignItems: 'center' },
+  gridLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', marginBottom: 4 },
+  gridValue: { fontSize: 15, fontWeight: 'bold' },
+  descriptionBox: { padding: 20, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed' },
+  boxLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1, marginBottom: 8 },
+  boxText: { fontSize: 15, lineHeight: 22 },
 });

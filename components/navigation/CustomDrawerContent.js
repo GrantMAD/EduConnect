@@ -184,7 +184,7 @@ const CustomDrawerContent = (props) => {
                     onPress={() => props.navigation.navigate('MainStack', { screen: 'Profile' })}
                 />
 
-                {(userRole === 'parent' || ['admin', 'teacher'].includes(userRole)) && (
+                {(userRole === 'parent' || userRole === 'student' || ['admin', 'teacher'].includes(userRole)) && (
                     <>
                         <SectionHeader title="Management" />
                         {userRole === 'parent' && (
@@ -206,16 +206,14 @@ const CustomDrawerContent = (props) => {
                             onPress={() => props.navigation.navigate('MainStack', { screen: 'Meetings' })}
                         />
                         {['admin', 'teacher'].includes(userRole) && (
-                            <>
-                                <DrawerItem
-                                    icon={faBookOpen}
-                                    label="Classes"
-                                    description="Create and manage classes"
-                                    routeName="ManageClasses"
-                                    active={activeMainStackRouteName === 'ManageClasses'}
-                                    onPress={() => props.navigation.navigate('MainStack', { screen: 'ManageClasses' })}
-                                />
-                            </>
+                            <DrawerItem
+                                icon={faBookOpen}
+                                label="Classes"
+                                description="Create and manage classes"
+                                routeName="ManageClasses"
+                                active={activeMainStackRouteName === 'ManageClasses'}
+                                onPress={() => props.navigation.navigate('MainStack', { screen: 'ManageClasses' })}
+                            />
                         )}
                     </>
                 )}

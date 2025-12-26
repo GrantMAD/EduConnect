@@ -104,10 +104,95 @@ export default function DashboardScreen({ navigation }) {
             setUserProfile(userData);
             fetchDashboardData(userData);
             fetchTodayEvents(userData);
+            fetchUpcomingTasks(userData);
         } catch (error) {
             console.error('Error checking access:', error);
             showToast('Failed to verify access.', 'error');
             navigation.goBack();
+        }
+    };
+
+    const fetchUpcomingTasks = async (profile) => {
+        try {
+            const isStudent = profile.role === 'student';
+            const isParent = profile.role === 'parent';
+            const today = new Date().toISOString();
+
+            let childIds = [];
+            if (isParent) {
+                const { data: rels } = await supabase
+                    .from('parent_child_relationships')
+                    .select('child_id')
+                    .eq('parent_id', profile.id);
+                childIds = rels?.map(r => r.child_id) || [];
+            }
+
+            const targetUsers = isStudent ? [profile.id] : childIds;
+
+            // Fetch Homework
+            let hwQuery = supabase
+                .from('homework')
+                .select('*, student_completions(student_id)')
+                .gte('due_date', today)
+                .order('due_date', { ascending: true });
+
+            // Fetch Assignments
+            let assignQuery = supabase
+                .from('assignments')
+                .select('*, student_completions(student_id)')
+                .gte('due_date', today)
+                .order('due_date', { ascending: true });
+
+            if (isStudent || isParent) {
+                const { data: members } = await supabase
+                    .from('class_members')
+                    .select('class_id')
+                    .in('user_id', targetUsers);
+                const classIds = members?.map(m => m.class_id) || [];
+
+                if (classIds.length > 0) {
+                    hwQuery = hwQuery.in('class_id', classIds);
+                    assignQuery = assignQuery.in('class_id', classIds);
+                } else {
+                    setUpcomingTasks([]);
+                    return;
+                }
+            } else if (profile.school_id) {
+                hwQuery = hwQuery.eq('school_id', profile.school_id);
+                assignQuery = assignQuery.eq('school_id', profile.school_id);
+            }
+
+            const [{ data: homework }, { data: assignments }] = await Promise.all([
+                hwQuery,
+                assignQuery
+            ]);
+
+            let combined = [
+                ...(homework?.map(h => ({ ...h, type: 'homework' })) || []),
+                ...(assignments?.map(a => ({ ...a, type: 'assignment' })) || [])
+            ];
+
+            // Filter out completed tasks for student/parent
+            if (isStudent || isParent) {
+                combined = combined.filter(task => {
+                    const studentCompletions = task.student_completions || [];
+                    if (isStudent) {
+                        return !studentCompletions.some(c => c.student_id === profile.id);
+                    } else {
+                        // For parent, show if ANY child hasn't finished it? 
+                        // Actually, web logic shows it if NOT ALL children have finished it, 
+                        // but here we filter out if the task is completely "Done" for the viewing context.
+                        // Let's keep it simple: if it's in the list, it's pending for someone.
+                        // Better: if ANY child has NOT completed it, show it.
+                        const completedBy = studentCompletions.map(c => c.student_id);
+                        return childIds.some(id => !completedBy.includes(id));
+                    }
+                });
+            }
+
+            setUpcomingTasks(combined.sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).slice(0, 5));
+        } catch (e) {
+            console.error('Error fetching upcoming tasks:', e);
         }
     };
 
@@ -123,9 +208,9 @@ export default function DashboardScreen({ navigation }) {
                 .from('class_members')
                 .select('class_id')
                 .eq('user_id', profile.id);
-            
+
             let classIds = classMembers?.map(m => m.class_id) || [];
-            
+
             if (['admin', 'teacher'].includes(profile.role)) {
                 const { data: teacherClasses } = await supabase
                     .from('classes')
@@ -142,7 +227,7 @@ export default function DashboardScreen({ navigation }) {
                     .gte('start_time', startOfDay)
                     .lte('start_time', endOfDay)
                     .order('start_time', { ascending: true });
-                
+
                 if (sessions) {
                     allTodayEvents.push(...sessions.map(s => ({ ...s, eventType: 'class' })));
                 }
@@ -166,7 +251,7 @@ export default function DashboardScreen({ navigation }) {
             }
 
             const { data: ptmData } = await ptmQuery;
-            
+
             if (ptmData) {
                 const todayPtms = ptmData.filter(b => {
                     const d = new Date(b.slot.start_time);
@@ -210,14 +295,14 @@ export default function DashboardScreen({ navigation }) {
             if (data) {
                 // The RPC returns an object within an array, so we take the first element
                 const statsData = Array.isArray(data) ? data[0] : data || {};
-                
-                 const { count: clubCount } = await supabase
+
+                const { count: clubCount } = await supabase
                     .from('classes')
                     .select('*', { count: 'exact', head: true })
                     .eq('school_id', targetSchoolId)
                     .eq('subject', 'Extracurricular');
 
-                 const { count: unreadNotifications } = await supabase
+                const { count: unreadNotifications } = await supabase
                     .from('notifications')
                     .select('*', { count: 'exact', head: true })
                     .eq('user_id', profile.id)
@@ -232,7 +317,7 @@ export default function DashboardScreen({ navigation }) {
                     .from('homework')
                     .select('*', { count: 'exact', head: true })
                     .eq('school_id', targetSchoolId);
-                
+
                 const { count: totalMarketItems } = await supabase
                     .from('marketplace_items')
                     .select('*', { count: 'exact', head: true })
@@ -278,7 +363,8 @@ export default function DashboardScreen({ navigation }) {
         setRefreshing(true);
         await Promise.all([
             fetchDashboardData(userProfile),
-            fetchTodayEvents(userProfile)
+            fetchTodayEvents(userProfile),
+            fetchUpcomingTasks(userProfile)
         ]);
     };
 
@@ -308,7 +394,27 @@ export default function DashboardScreen({ navigation }) {
 
     const fetchClubs = async () => {
         try {
-            const { data, error } = await supabase
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data: profile } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', user.id)
+                .single();
+
+            const role = profile?.role;
+            let targetUsers = [user.id];
+
+            if (role === 'parent') {
+                const { data: rels } = await supabase
+                    .from('parent_child_relationships')
+                    .select('child_id')
+                    .eq('parent_id', user.id);
+                targetUsers = rels?.map(r => r.child_id) || [];
+            }
+
+            let query = supabase
                 .from('classes')
                 .select(`
                     id, 
@@ -323,8 +429,24 @@ export default function DashboardScreen({ navigation }) {
                     )
                 `)
                 .eq('school_id', schoolId)
-                .eq('subject', 'Extracurricular')
-                .order('name', { ascending: true });
+                .eq('subject', 'Extracurricular');
+
+            if (role === 'student' || role === 'parent') {
+                if (targetUsers.length > 0) {
+                    const { data: memberships } = await supabase
+                        .from('class_members')
+                        .select('class_id')
+                        .in('user_id', targetUsers);
+                    const classIds = memberships?.map(m => m.class_id) || [];
+                    query = query.in('id', classIds);
+                } else {
+                    setContentModalData([]);
+                    setShowClassModal(true);
+                    return;
+                }
+            }
+
+            const { data, error } = await query.order('name', { ascending: true });
 
             if (error) throw error;
 
@@ -344,7 +466,27 @@ export default function DashboardScreen({ navigation }) {
 
     const fetchClasses = async () => {
         try {
-            const { data, error } = await supabase
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data: profile } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', user.id)
+                .single();
+
+            const role = profile?.role;
+            let targetUsers = [user.id];
+
+            if (role === 'parent') {
+                const { data: rels } = await supabase
+                    .from('parent_child_relationships')
+                    .select('child_id')
+                    .eq('parent_id', user.id);
+                targetUsers = rels?.map(r => r.child_id) || [];
+            }
+
+            let query = supabase
                 .from('classes')
                 .select(`
                     id, 
@@ -359,12 +501,27 @@ export default function DashboardScreen({ navigation }) {
                     )
                 `)
                 .eq('school_id', schoolId)
-                .neq('subject', 'Extracurricular')
-                .order('name', { ascending: true });
+                .neq('subject', 'Extracurricular');
+
+            if (role === 'student' || role === 'parent') {
+                if (targetUsers.length > 0) {
+                    const { data: memberships } = await supabase
+                        .from('class_members')
+                        .select('class_id')
+                        .in('user_id', targetUsers);
+                    const classIds = memberships?.map(m => m.class_id) || [];
+                    query = query.in('id', classIds);
+                } else {
+                    setContentModalData([]);
+                    setShowClassModal(true);
+                    return;
+                }
+            }
+
+            const { data, error } = await query.order('name', { ascending: true });
 
             if (error) throw error;
 
-            // Keep the structure with schedules array
             const classesWithSchedules = (data || []).map(cls => ({
                 id: cls.id,
                 name: cls.name,
@@ -464,9 +621,9 @@ export default function DashboardScreen({ navigation }) {
         }
     };
 
-    const StatCard = ({ icon, title, value, color, onPress }) => (
+    const StatCard = ({ icon, title, value, color, onPress, style }) => (
         <TouchableOpacity
-            style={[styles.statCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
+            style={[styles.statCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }, style]}
             onPress={onPress}
             activeOpacity={onPress ? 0.7 : 1}
         >
@@ -523,12 +680,12 @@ export default function DashboardScreen({ navigation }) {
             const isClub = session.class?.subject === 'Extracurricular';
 
             return (
-                <TouchableOpacity 
-                    key={session.id} 
+                <TouchableOpacity
+                    key={session.id}
                     onPress={() => isMeeting ? navigation.navigate('Meetings') : isClub ? navigation.navigate('ClubDetail', { clubId: session.class?.id }) : null}
                     activeOpacity={isMeeting || isClub ? 0.7 : 1}
                     style={[
-                        styles.sessionItem, 
+                        styles.sessionItem,
                         { backgroundColor: theme.colors.card, borderColor: isNow ? theme.colors.primary : isMeeting ? theme.colors.warning + '40' : isClub ? '#AF52DE40' : theme.colors.cardBorder }
                     ]}
                 >
@@ -538,10 +695,10 @@ export default function DashboardScreen({ navigation }) {
                                 {isMeeting ? session.title : session.class?.name}
                             </Text>
                             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                                <FontAwesomeIcon 
-                                    icon={isMeeting ? faHandshake : isClub ? faFootballBall : faChalkboardTeacher} 
-                                    size={10} 
-                                    color={isMeeting ? theme.colors.warning : isClub ? '#AF52DE' : theme.colors.placeholder} 
+                                <FontAwesomeIcon
+                                    icon={isMeeting ? faHandshake : isClub ? faFootballBall : faChalkboardTeacher}
+                                    size={10}
+                                    color={isMeeting ? theme.colors.warning : isClub ? '#AF52DE' : theme.colors.placeholder}
                                 />
                                 <Text style={[styles.sessionType, { color: isMeeting ? theme.colors.warning : isClub ? '#AF52DE' : theme.colors.placeholder, marginLeft: 4 }]}>
                                     {isMeeting ? 'Parent-Teacher Meeting' : isClub ? 'Club Meeting' : (session.type || 'Lecture')}
@@ -585,15 +742,15 @@ export default function DashboardScreen({ navigation }) {
             const isToday = new Date().toDateString() === dueDate.toDateString();
 
             return (
-                <TouchableOpacity 
+                <TouchableOpacity
                     key={`${task.type}-${task.id}`}
                     style={[styles.taskItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
                     onPress={() => navigation.navigate(task.type === 'homework' ? 'Homework' : 'Assignments')}
                 >
                     <View style={styles.taskIconContainer}>
-                         <View style={[styles.taskTypeIcon, { backgroundColor: task.type === 'homework' ? '#007AFF20' : '#5856D620' }]}>
+                        <View style={[styles.taskTypeIcon, { backgroundColor: task.type === 'homework' ? '#007AFF20' : '#5856D620' }]}>
                             <FontAwesomeIcon icon={faClipboardList} size={16} color={task.type === 'homework' ? '#007AFF' : '#5856D6'} />
-                         </View>
+                        </View>
                     </View>
                     <View style={styles.taskInfo}>
                         <Text style={[styles.taskTitle, { color: theme.colors.text }]} numberOfLines={1}>{task.title || task.subject}</Text>
@@ -650,7 +807,7 @@ export default function DashboardScreen({ navigation }) {
             <View style={[styles.gamificationCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
                 <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Your Progress</Text>
                 <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Track your experience, level up, and earn rewards.</Text>
-                
+
                 <View style={styles.gamificationTop}>
                     <View>
                         {loading ? (
@@ -677,14 +834,14 @@ export default function DashboardScreen({ navigation }) {
                     </View>
                 </View>
                 <View style={[styles.progressBarBg, { backgroundColor: theme.colors.background }]}>
-                    <View 
+                    <View
                         style={[
-                            styles.progressBarFill, 
-                            { 
-                                backgroundColor: theme.colors.primary, 
-                                width: loading ? '0%' : `${(gamification?.current_xp % 1000) / 10}%` 
+                            styles.progressBarFill,
+                            {
+                                backgroundColor: theme.colors.primary,
+                                width: loading ? '0%' : `${(gamification?.current_xp % 1000) / 10}%`
                             }
-                        ]} 
+                        ]}
                     />
                 </View>
                 <View style={styles.gamificationBottom}>
@@ -712,9 +869,23 @@ export default function DashboardScreen({ navigation }) {
             {/* Recent Activity & Role Specific Widgets */}
             <View style={styles.section}>
                 <RecentActivity />
-                
+
                 {/* Parent: Child Progress Snapshot */}
-                {userRole === 'parent' && (
+                {/* Show Classes and Announcements for Everyone */}
+                {(userRole === 'student' || userRole === 'parent') && (
+                    <View style={[styles.statsGrid, { marginTop: -10, marginBottom: 24 }]}>
+                        <StatCard
+                            icon={faBullhorn}
+                            title="Announcements"
+                            value={stats.totalAnnouncements}
+                            onPress={() => fetchContentByType('announcements')}
+                            color="#FF9500"
+                            style={{ width: '100%' }}
+                        />
+                    </View>
+                )}
+
+                {userRole === 'admin' && (
                     <ChildProgressSnapshot />
                 )}
             </View>
@@ -741,7 +912,7 @@ export default function DashboardScreen({ navigation }) {
                         </TouchableOpacity>
                     </View>
                     <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>Groups & teams.</Text>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={[styles.actionButton, { width: '100%', margin: 0, backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, paddingVertical: 12 }]}
                         onPress={() => navigation.navigate('ClubList')}
                     >

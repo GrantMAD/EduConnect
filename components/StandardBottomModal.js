@@ -6,7 +6,7 @@ import { faTimes } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export default function StandardBottomModal({ visible, onClose, title, icon, description, children }) {
+export default function StandardBottomModal({ visible, onClose, title, icon, description, children, hideHeader }) {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
 
@@ -20,13 +20,15 @@ export default function StandardBottomModal({ visible, onClose, title, icon, des
             style={{ justifyContent: 'flex-end', margin: 0 }}
         >
             <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 30) }]}>
-                <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
-                    {icon && <FontAwesomeIcon icon={icon} size={24} color={theme.colors.primary} style={{ marginRight: 15 }} />}
-                    <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>{title}</Text>
-                    <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-                        <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
-                    </TouchableOpacity>
-                </View>
+                {!hideHeader && (
+                    <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
+                        {icon && <FontAwesomeIcon icon={icon} size={24} color={theme.colors.primary} style={{ marginRight: 15 }} />}
+                        <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>{title}</Text>
+                        <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+                            <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
+                        </TouchableOpacity>
+                    </View>
+                )}
                 {description && (
                     <Text style={[styles.description, { color: theme.colors.placeholder }]}>{description}</Text>
                 )}
