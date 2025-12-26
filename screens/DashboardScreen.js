@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, findNodeHandle } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
     faUsers,
@@ -37,6 +37,8 @@ import ContentListModal from '../components/ContentListModal';
 import DashboardScreenSkeleton, { StatCardSkeleton, ActionButtonSkeleton, SkeletonPiece } from '../components/skeletons/DashboardScreenSkeleton';
 import RecentActivity from '../components/RecentActivity';
 import ChildProgressSnapshot from '../components/ChildProgressSnapshot';
+import { useWalkthrough } from '../context/WalkthroughContext';
+import WalkthroughTarget from '../components/WalkthroughTarget';
 
 export default function DashboardScreen({ navigation }) {
     const { theme } = useTheme();
@@ -49,6 +51,10 @@ export default function DashboardScreen({ navigation }) {
     const [userRole, setUserRole] = useState(null);
     const [userProfile, setUserProfile] = useState(null);
     const insets = useSafeAreaInsets();
+
+    const { startWalkthrough, currentStep, targets, targetRefs, reMeasureTarget, isOpen } = useWalkthrough();
+    const scrollViewRef = React.useRef(null);
+    const scrollYRef = React.useRef(0);
 
     const [stats, setStats] = useState({
         totalUsers: 0,
@@ -105,6 +111,50 @@ export default function DashboardScreen({ navigation }) {
             fetchDashboardData(userData);
             fetchTodayEvents(userData);
             fetchUpcomingTasks(userData);
+            fetchTodayEvents(userData);
+            fetchUpcomingTasks(userData);
+
+            // Trigger Walkthrough if needed
+            if (userData && !userData.has_seen_walkthrough) {
+                const baseSteps = [
+                    {
+                        target: 'dashboard-welcome',
+                        title: 'Welcome to EduLink',
+                        content: 'This is your main dashboard on mobile. Access everything you need on the go.'
+                    },
+                    {
+                        target: 'dashboard-header',
+                        title: 'Daily Overview',
+                        content: 'See your daily greeting and today\'s date at a glance.'
+                    }
+                ];
+
+                if (['admin', 'teacher'].includes(userData.role)) {
+                    baseSteps.push({
+                        target: 'dashboard-stats',
+                        title: 'Quick Stats',
+                        content: 'Tap these cards for detailed statistics and management.'
+                    });
+                } else if (userData.role === 'student' || userData.role === 'parent') {
+                    baseSteps.push({
+                        target: 'dashboard-tasks',
+                        title: 'Upcoming Tasks',
+                        content: 'Stay on top of your homework and assignments here.'
+                    });
+                }
+
+                // Add recent activity for everyone
+                baseSteps.push({
+                    target: 'dashboard-recent',
+                    title: 'Recent Activity',
+                    content: 'Catch up on the latest announcements and messages.'
+                });
+
+                // Small delay to ensure layout is measured
+                setTimeout(() => {
+                    startWalkthrough(baseSteps);
+                }, 1500);
+            }
         } catch (error) {
             console.error('Error checking access:', error);
             showToast('Failed to verify access.', 'error');
@@ -278,11 +328,8 @@ export default function DashboardScreen({ navigation }) {
         try {
             const targetSchoolId = profile?.school_id || schoolId;
             if (!targetSchoolId) {
-                console.log('[Dashboard] No schoolId available yet');
                 return;
             }
-
-            console.log('[Dashboard] Fetching stats for school:', targetSchoolId);
 
             // Use the corrected RPC function for all stats
             const { data, error } = await supabase.rpc('get_dashboard_stats', { target_school_id: targetSchoolId });
@@ -323,8 +370,6 @@ export default function DashboardScreen({ navigation }) {
                     .select('*', { count: 'exact', head: true })
                     .eq('school_id', targetSchoolId);
 
-                console.log('[Dashboard] Stats fetched successfully');
-
                 // Set all stats at once from the RPC data
                 setStats({
                     totalUsers: statsData.totalUsers || 0,
@@ -358,6 +403,40 @@ export default function DashboardScreen({ navigation }) {
             fetchDashboardData(userProfile);
         }
     }, [schoolId]);
+
+    // Auto-scroll effect for Walkthrough
+    useEffect(() => {
+        if (currentStep && currentStep.target && scrollViewRef.current) {
+            const targetId = currentStep.target;
+            const targetRef = targetRefs[targetId];
+
+            if (targetRef && targetRef.measure) {
+                targetRef.measure((x, y, width, height, pageX, pageY) => {
+                    const offset = pageY - 150;
+                    const currentScroll = scrollYRef.current;
+                    const newScroll = Math.max(0, currentScroll + offset);
+
+                    scrollViewRef.current.scrollTo({
+                        y: newScroll,
+                        animated: true,
+                    });
+
+                    // Re-measure after scroll finishes
+                    setTimeout(() => {
+                        reMeasureTarget(targetId);
+                    }, 600);
+                });
+            }
+        }
+    }, [currentStep, targetRefs]);
+
+    // Scroll to top when Walkthrough finishes
+    useEffect(() => {
+        if (!isOpen && scrollViewRef.current) {
+            scrollViewRef.current.scrollTo({ y: 0, animated: true });
+        }
+    }, [isOpen]);
+
 
     const onRefresh = async () => {
         setRefreshing(true);
@@ -768,40 +847,49 @@ export default function DashboardScreen({ navigation }) {
 
     return (
         <ScrollView
+            ref={scrollViewRef}
             style={[styles.container, { backgroundColor: theme.colors.background }]}
             contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
             refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
             }
+            onScroll={(e) => {
+                scrollYRef.current = e.nativeEvent.contentOffset.y;
+            }}
+            scrollEventThrottle={16}
         >
             <View style={styles.header}>
-                <View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <FontAwesomeIcon icon={faChartLine} size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
-                        <Text style={[styles.greetingText, { color: theme.colors.text }]}>
-                            {getGreeting()}, <Text style={{ color: theme.colors.primary }}>
-                                {loading && !userProfile ? (
-                                    <SkeletonPiece style={{ width: 80, height: 24, borderRadius: 4 }} />
-                                ) : (
-                                    userProfile?.full_name?.split(' ')[0] || 'there'
-                                )}
+                <WalkthroughTarget id="dashboard-header">
+                    <View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <FontAwesomeIcon icon={faChartLine} size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
+                            <Text style={[styles.greetingText, { color: theme.colors.text }]}>
+                                {getGreeting()}, <Text style={{ color: theme.colors.primary }}>
+                                    {loading && !userProfile ? (
+                                        <SkeletonPiece style={{ width: 80, height: 24, borderRadius: 4 }} />
+                                    ) : (
+                                        userProfile?.full_name?.split(' ')[0] || 'there'
+                                    )}
+                                </Text>
                             </Text>
+                        </View>
+                        <Text style={[styles.headerDate, { color: theme.colors.placeholder }]}>
+                            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                         </Text>
                     </View>
-                    <Text style={[styles.headerDate, { color: theme.colors.placeholder }]}>
-                        {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-                    </Text>
-                </View>
+                </WalkthroughTarget>
             </View>
 
             {/* Welcome Banner - Visible to all */}
-            <View style={[styles.welcomeBanner, { backgroundColor: theme.colors.primary }]}>
-                <View style={styles.welcomeContent}>
-                    <Text style={styles.welcomeTitle}>Welcome to EduLink</Text>
-                    <Text style={styles.welcomeText}>We're glad to have you here. Explore your school's portal and track your progress.</Text>
+            <WalkthroughTarget id="dashboard-welcome">
+                <View style={[styles.welcomeBanner, { backgroundColor: theme.colors.primary }]}>
+                    <View style={styles.welcomeContent}>
+                        <Text style={styles.welcomeTitle}>Welcome to EduLink</Text>
+                        <Text style={styles.welcomeText}>We're glad to have you here. Explore your school's portal and track your progress.</Text>
+                    </View>
+                    {/* Decorative circles or background shapes can be added here with absolute positioning if needed */}
                 </View>
-                {/* Decorative circles or background shapes can be added here with absolute positioning if needed */}
-            </View>
+            </WalkthroughTarget>
 
             {/* Gamification Hub */}
             <View style={[styles.gamificationCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
@@ -868,7 +956,9 @@ export default function DashboardScreen({ navigation }) {
 
             {/* Recent Activity & Role Specific Widgets */}
             <View style={styles.section}>
-                <RecentActivity />
+                <WalkthroughTarget id="dashboard-recent">
+                    <RecentActivity />
+                </WalkthroughTarget>
 
                 {/* Parent: Child Progress Snapshot */}
                 {/* Show Classes and Announcements for Everyone */}
@@ -923,195 +1013,201 @@ export default function DashboardScreen({ navigation }) {
             </View>
 
             <View style={styles.section}>
-                <View style={styles.sectionHeaderRow}>
-                    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Due Soon</Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('Homework')}>
-                        <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.primary} />
-                    </TouchableOpacity>
-                </View>
-                <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>Upcoming tasks.</Text>
-                {renderUpcomingTasks()}
+                <WalkthroughTarget id="dashboard-tasks">
+                    <View style={styles.sectionHeaderRow}>
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Due Soon</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('Homework')}>
+                            <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.primary} />
+                        </TouchableOpacity>
+                    </View>
+                    <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>Upcoming tasks.</Text>
+                    {renderUpcomingTasks()}
+                </WalkthroughTarget>
             </View>
 
             {/* Admin/Teacher Stats (Only show if role matches) */}
-            {(!userRole && loading) ? (
-                <View style={styles.section}>
-                    <SkeletonPiece style={{ width: 140, height: 20, borderRadius: 4, marginBottom: 16, marginTop: 16 }} />
-                    <View style={styles.statsGrid}>
-                        {[1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)}
-                    </View>
-                </View>
-            ) : ['admin', 'teacher'].includes(userRole) && (
-                <>
-                    {/* User Statistics */}
+            {
+                (!userRole && loading) ? (
                     <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>User Statistics</Text>
-                        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Overview of all users in your school</Text>
+                        <SkeletonPiece style={{ width: 140, height: 20, borderRadius: 4, marginBottom: 16, marginTop: 16 }} />
                         <View style={styles.statsGrid}>
-                            <StatCard
-                                icon={faUsers}
-                                title="Total Users"
-                                value={stats.totalUsers}
-                                color="#007AFF"
-                                onPress={() => fetchUsersByCategory('total')}
-                            />
-                            <StatCard
-                                icon={faUserTie}
-                                title="Admins"
-                                value={stats.adminCount}
-                                color="#FF3B30"
-                                onPress={() => fetchUsersByCategory('admin')}
-                            />
-                            <StatCard
-                                icon={faChalkboardTeacher}
-                                title="Teachers"
-                                value={stats.teacherCount}
-                                color="#34C759"
-                                onPress={() => fetchUsersByCategory('teacher')}
-                            />
-                            <StatCard
-                                icon={faUserGraduate}
-                                title="Students"
-                                value={stats.studentCount}
-                                color="#5856D6"
-                                onPress={() => fetchUsersByCategory('student')}
-                            />
-                            <StatCard
-                                icon={faChild}
-                                title="Parents"
-                                value={stats.parentCount}
-                                color="#FF9500"
-                                onPress={() => fetchUsersByCategory('parent')}
-                            />
+                            {[1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)}
                         </View>
                     </View>
+                ) : ['admin', 'teacher'].includes(userRole) && (
+                    <>
+                        {/* User Statistics */}
+                        <View style={styles.section}>
+                            <WalkthroughTarget id="dashboard-stats">
+                                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>User Statistics</Text>
+                                <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Overview of all users in your school</Text>
+                                <View style={styles.statsGrid}>
+                                    <StatCard
+                                        icon={faUsers}
+                                        title="Total Users"
+                                        value={stats.totalUsers}
+                                        color="#007AFF"
+                                        onPress={() => fetchUsersByCategory('total')}
+                                    />
+                                    <StatCard
+                                        icon={faUserTie}
+                                        title="Admins"
+                                        value={stats.adminCount}
+                                        color="#FF3B30"
+                                        onPress={() => fetchUsersByCategory('admin')}
+                                    />
+                                    <StatCard
+                                        icon={faChalkboardTeacher}
+                                        title="Teachers"
+                                        value={stats.teacherCount}
+                                        color="#34C759"
+                                        onPress={() => fetchUsersByCategory('teacher')}
+                                    />
+                                    <StatCard
+                                        icon={faUserGraduate}
+                                        title="Students"
+                                        value={stats.studentCount}
+                                        color="#5856D6"
+                                        onPress={() => fetchUsersByCategory('student')}
+                                    />
+                                    <StatCard
+                                        icon={faChild}
+                                        title="Parents"
+                                        value={stats.parentCount}
+                                        color="#FF9500"
+                                        onPress={() => fetchUsersByCategory('parent')}
+                                    />
+                                </View>
+                            </WalkthroughTarget>
+                        </View>
 
-                    {/* Content & Activity */}
-                    <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Content & Activity</Text>
-                        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Track classes, announcements, and school activities</Text>
-                        <View style={styles.statsGrid}>
-                            <StatCard
-                                icon={faBookOpen}
-                                title="Classes"
-                                value={stats.totalClasses}
-                                color="#007AFF"
-                                onPress={() => fetchClasses()}
-                            />
-                            <StatCard
-                                icon={faFootballBall}
-                                title="Clubs"
-                                value={stats.totalClubs}
-                                color="#AF52DE"
-                                onPress={() => fetchClubs()}
-                            />
-                            <StatCard
-                                icon={faBullhorn}
-                                title="Announcements"
-                                value={stats.totalAnnouncements}
-                                color="#FF3B30"
-                                onPress={() => fetchContentByType('announcements')}
-                            />
-                            <StatCard
-                                icon={faClipboardList}
-                                title="Homework"
-                                value={stats.totalHomework}
-                                color="#34C759"
-                                onPress={() => fetchContentByType('homework')}
-                            />
-                            <StatCard
-                                icon={faClipboardList}
-                                title="Assignments"
-                                value={stats.totalAssignments}
-                                color="#5856D6"
-                                onPress={() => fetchContentByType('assignments')}
-                            />
-                            <StatCard
-                                icon={faPoll}
-                                title="Active Polls"
-                                value={stats.activePolls}
-                                color="#FF9500"
-                                onPress={() => fetchContentByType('polls')}
-                            />
-                            <StatCard
-                                icon={faShoppingCart}
-                                title="Marketplace"
-                                value={stats.totalMarketItems}
-                                color="#FF2D55"
-                                onPress={() => fetchContentByType('market')}
-                            />
+                        {/* Content & Activity */}
+                        <View style={styles.section}>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Content & Activity</Text>
+                            <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Track classes, announcements, and school activities</Text>
+                            <View style={styles.statsGrid}>
+                                <StatCard
+                                    icon={faBookOpen}
+                                    title="Classes"
+                                    value={stats.totalClasses}
+                                    color="#007AFF"
+                                    onPress={() => fetchClasses()}
+                                />
+                                <StatCard
+                                    icon={faFootballBall}
+                                    title="Clubs"
+                                    value={stats.totalClubs}
+                                    color="#AF52DE"
+                                    onPress={() => fetchClubs()}
+                                />
+                                <StatCard
+                                    icon={faBullhorn}
+                                    title="Announcements"
+                                    value={stats.totalAnnouncements}
+                                    color="#FF3B30"
+                                    onPress={() => fetchContentByType('announcements')}
+                                />
+                                <StatCard
+                                    icon={faClipboardList}
+                                    title="Homework"
+                                    value={stats.totalHomework}
+                                    color="#34C759"
+                                    onPress={() => fetchContentByType('homework')}
+                                />
+                                <StatCard
+                                    icon={faClipboardList}
+                                    title="Assignments"
+                                    value={stats.totalAssignments}
+                                    color="#5856D6"
+                                    onPress={() => fetchContentByType('assignments')}
+                                />
+                                <StatCard
+                                    icon={faPoll}
+                                    title="Active Polls"
+                                    value={stats.activePolls}
+                                    color="#FF9500"
+                                    onPress={() => fetchContentByType('polls')}
+                                />
+                                <StatCard
+                                    icon={faShoppingCart}
+                                    title="Marketplace"
+                                    value={stats.totalMarketItems}
+                                    color="#FF2D55"
+                                    onPress={() => fetchContentByType('market')}
+                                />
+                            </View>
                         </View>
-                    </View>
 
-                    {/* Quick Actions */}
-                    <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Quick Actions</Text>
-                        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Access common tasks and shortcuts.</Text>
-                        <View style={styles.actionsContainer}>
-                            <QuickActionButton
-                                icon={faBullhorn}
-                                title="New Announcement"
-                                onPress={() => navigation.navigate('CreateAnnouncement', { fromDashboard: true })}
-                                color="#FF3B30"
-                            />
-                            <QuickActionButton
-                                icon={faBookOpen}
-                                title="New Homework"
-                                onPress={() => navigation.navigate('CreateHomework', { fromDashboard: true })}
-                                color="#34C759"
-                            />
-                            <QuickActionButton
-                                icon={faClipboardList}
-                                title="New Assignment"
-                                onPress={() => navigation.navigate('CreateAssignment', { fromDashboard: true })}
-                                color="#5856D6"
-                            />
-                            <QuickActionButton
-                                icon={faPoll}
-                                title="New Poll"
-                                onPress={() => navigation.navigate('CreatePoll', { fromDashboard: true })}
-                                color="#FF9500"
-                            />
-                            <QuickActionButton
-                                icon={faShoppingCart}
-                                title="List Item"
-                                onPress={() => navigation.navigate('CreateMarketplaceItem', { fromDashboard: true })}
-                                color="#FF2D55"
-                            />
-                            <QuickActionButton
-                                icon={faChalkboardTeacher}
-                                title="New Class"
-                                onPress={() => navigation.navigate('CreateClass', { fromDashboard: true })}
-                                color="#007AFF"
-                            />
-                            <QuickActionButton
-                                icon={faFootballBall}
-                                title="New Club"
-                                onPress={() => navigation.navigate('CreateClub')}
-                                color="#AF52DE"
-                            />
-                            <QuickActionButton
-                                icon={faUsers}
-                                title="Manage Users"
-                                onPress={() => navigation.navigate('UserManagement', { fromDashboard: true })}
-                                color="#5856D6"
-                            />
-                            <QuickActionButton
-                                icon={faChartLine}
-                                title="School Data"
-                                onPress={() => navigation.navigate('SchoolData', { fromDashboard: true })}
-                                color="#FF9500"
-                            />
-                            <QuickActionButton
-                                icon={faComments}
-                                title="Messages"
-                                onPress={() => navigation.navigate('ChatList')}
-                                color="#007AFF"
-                            />
+                        {/* Quick Actions */}
+                        <View style={styles.section}>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Quick Actions</Text>
+                            <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Access common tasks and shortcuts.</Text>
+                            <View style={styles.actionsContainer}>
+                                <QuickActionButton
+                                    icon={faBullhorn}
+                                    title="New Announcement"
+                                    onPress={() => navigation.navigate('CreateAnnouncement', { fromDashboard: true })}
+                                    color="#FF3B30"
+                                />
+                                <QuickActionButton
+                                    icon={faBookOpen}
+                                    title="New Homework"
+                                    onPress={() => navigation.navigate('CreateHomework', { fromDashboard: true })}
+                                    color="#34C759"
+                                />
+                                <QuickActionButton
+                                    icon={faClipboardList}
+                                    title="New Assignment"
+                                    onPress={() => navigation.navigate('CreateAssignment', { fromDashboard: true })}
+                                    color="#5856D6"
+                                />
+                                <QuickActionButton
+                                    icon={faPoll}
+                                    title="New Poll"
+                                    onPress={() => navigation.navigate('CreatePoll', { fromDashboard: true })}
+                                    color="#FF9500"
+                                />
+                                <QuickActionButton
+                                    icon={faShoppingCart}
+                                    title="List Item"
+                                    onPress={() => navigation.navigate('CreateMarketplaceItem', { fromDashboard: true })}
+                                    color="#FF2D55"
+                                />
+                                <QuickActionButton
+                                    icon={faChalkboardTeacher}
+                                    title="New Class"
+                                    onPress={() => navigation.navigate('CreateClass', { fromDashboard: true })}
+                                    color="#007AFF"
+                                />
+                                <QuickActionButton
+                                    icon={faFootballBall}
+                                    title="New Club"
+                                    onPress={() => navigation.navigate('CreateClub')}
+                                    color="#AF52DE"
+                                />
+                                <QuickActionButton
+                                    icon={faUsers}
+                                    title="Manage Users"
+                                    onPress={() => navigation.navigate('UserManagement', { fromDashboard: true })}
+                                    color="#5856D6"
+                                />
+                                <QuickActionButton
+                                    icon={faChartLine}
+                                    title="School Data"
+                                    onPress={() => navigation.navigate('SchoolData', { fromDashboard: true })}
+                                    color="#FF9500"
+                                />
+                                <QuickActionButton
+                                    icon={faComments}
+                                    title="Messages"
+                                    onPress={() => navigation.navigate('ChatList')}
+                                    color="#007AFF"
+                                />
+                            </View>
                         </View>
-                    </View>
-                </>
-            )}
+                    </>
+                )
+            }
             <UserListModal
                 visible={showUserModal}
                 users={userListData}
@@ -1144,7 +1240,7 @@ export default function DashboardScreen({ navigation }) {
                 type={contentModalType}
                 onClose={() => setShowContentModal(false)}
             />
-        </ScrollView>
+        </ScrollView >
     );
 }
 
