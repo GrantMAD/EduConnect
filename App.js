@@ -14,6 +14,7 @@ import { PushNotificationProvider } from './context/PushNotificationContext';
 import { WalkthroughProvider } from './context/WalkthroughContext';
 import AppWalkthrough from './components/AppWalkthrough';
 import { supabase } from './lib/supabase';
+import ErrorBoundary from './components/ErrorBoundary';
 
 import AuthNavigation from './navigation/AuthNavigation';
 import MainNavigation from './navigation/MainNavigation';
@@ -78,17 +79,19 @@ export default function App() {
         <ToastProvider>
           <NotificationPreferencesProvider>
             <WalkthroughProvider>
-              <NavigationContainer>
-                <StatusBar style="auto" />
-                <SchoolProvider>
-                  <GamificationProvider session={session}>
-                    <ChatProvider session={session}>
-                      {session ? <AppStack /> : <AuthStack />}
-                      <AppWalkthrough />
-                    </ChatProvider>
-                  </GamificationProvider>
-                </SchoolProvider>
-              </NavigationContainer>
+              <ErrorBoundary>
+                <NavigationContainer>
+                  <StatusBar style="auto" />
+                  <SchoolProvider>
+                    <GamificationProvider session={session}>
+                      <ChatProvider session={session}>
+                        {session ? <AppStack /> : <AuthStack />}
+                        <AppWalkthrough />
+                      </ChatProvider>
+                    </GamificationProvider>
+                  </SchoolProvider>
+                </NavigationContainer>
+              </ErrorBoundary>
             </WalkthroughProvider>
           </NotificationPreferencesProvider>
         </ToastProvider>

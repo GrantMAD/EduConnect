@@ -5,9 +5,10 @@ import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faBullhorn, faCalendar, faUsers, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faBullhorn, faCalendar, faUsers, faTimes, faWifi } from '@fortawesome/free-solid-svg-icons';
 import AnnouncementDetailModal from '../components/AnnouncementDetailModal';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
+import { useSupabaseQuery } from '../hooks/useSupabaseQuery';
 
 const placeholderImage = require('../assets/user.png'); // Using existing asset as placeholder
 
@@ -37,17 +38,56 @@ const timeSince = (date) => {
 };
 
 export default function AnnouncementsScreen({ navigation }) {
-  const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
   const [userClasses, setUserClasses] = useState([]); // New state for classes user is associated with
   const [allClasses, setAllClasses] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
 
   const { schoolId, loadingSchool, schoolData } = useSchool();
   const { theme } = useTheme(); // Use the theme hook
+
+  // Prepare query function for the hook
+  const fetchAnnouncementsQuery = React.useCallback(async () => {
+    if (!schoolId) return [];
+
+    let query = supabase.from('announcements').select('*, author:users(full_name), class:classes(name)').eq('school_id', schoolId).order('created_at', { ascending: false }).limit(50);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    if (userRole === 'admin') {
+      return data;
+    } else if (userRole === 'teacher' || userRole === 'student' || userRole === 'parent') {
+      return data.filter(announcement => {
+        // Always show general announcements
+        if (!announcement.class_id) {
+          return true;
+        }
+        // Show class-specific announcements if the user is in that class
+        return userClasses.includes(announcement.class_id);
+      });
+    } else {
+      return data.filter(announcement => !announcement.class_id);
+    }
+  }, [schoolId, userRole, userClasses]);
+
+  // Use the hook
+  const { 
+    data: announcementsData, 
+    loading: announcementsLoading, 
+    refreshing: announcementsRefreshing, 
+    isOffline, 
+    refetch 
+  } = useSupabaseQuery(
+    `announcements_${schoolId}_${userRole}`, // Unique cache key
+    fetchAnnouncementsQuery,
+    [schoolId, userRole, userClasses.length] // Dependencies
+  );
+
+  const announcements = announcementsData || [];
+  const isLoading = loading || loadingSchool || announcementsLoading;
 
   useEffect(() => {
     const initializeUserAndClasses = async () => {
@@ -73,33 +113,6 @@ export default function AnnouncementsScreen({ navigation }) {
 
     initializeUserAndClasses();
   }, [schoolId, loadingSchool, schoolData]); // Re-run when schoolId, loadingSchool or schoolData changes
-
-  const fetchAllClasses = async () => {
-    if (!schoolId) return;
-    try {
-      const { data, error } = await supabase
-        .from('classes')
-        .select('id, name')
-        .eq('school_id', schoolId);
-      if (error) throw error;
-      setAllClasses(data);
-    } catch (error) {
-      console.error('Error fetching all classes:', error.message);
-    }
-  };
-
-  useFocusEffect(
-    React.useCallback(() => {
-      // Fetch announcements only when schoolId, userRole, userClasses, and allClasses are ready
-      if (schoolId && userRole !== null && userClasses !== null && allClasses !== null) {
-        fetchAnnouncements();
-      }
-    }, [schoolId, userRole, userClasses, allClasses])
-  );
-
-  const fetchUserRole = async () => {
-    // This function is now integrated into initializeUserAndClasses
-  };
 
   const fetchUserClasses = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -156,52 +169,32 @@ export default function AnnouncementsScreen({ navigation }) {
     }
   };
 
-  const fetchAnnouncements = async () => {
-    if (!schoolId) {
-      setLoading(false);
-      return;
-    }
-
+  const fetchAllClasses = async () => {
+    if (!schoolId) return;
     try {
-      let query = supabase.from('announcements').select('*, author:users(full_name), class:classes(name)').eq('school_id', schoolId).order('created_at', { ascending: false }).limit(50);  // Pagination: Load first 50 announcements
-
-      const { data, error } = await query;
-
+      const { data, error } = await supabase
+        .from('classes')
+        .select('id, name')
+        .eq('school_id', schoolId);
       if (error) throw error;
-
-      if (userRole === 'admin') {
-        setAnnouncements(data);
-      } else if (userRole === 'teacher' || userRole === 'student' || userRole === 'parent') {
-        const filteredAnnouncements = data.filter(announcement => {
-          // Always show general announcements
-          if (!announcement.class_id) {
-            return true;
-          }
-          // Show class-specific announcements if the user is in that class
-          return userClasses.includes(announcement.class_id);
-        });
-        setAnnouncements(filteredAnnouncements);
-      } else {
-        // For other roles or if role not yet loaded, show nothing or general announcements
-        setAnnouncements(data.filter(announcement => !announcement.class_id));
-      }
-
+      setAllClasses(data);
     } catch (error) {
-      console.error('Error fetching announcements:', error.message);
-      // Alert.alert('Error', 'Failed to fetch announcements.'); // Commented out to avoid spamming on minor fetch issues
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+      console.error('Error fetching all classes:', error.message);
     }
   };
 
+  useFocusEffect(
+    React.useCallback(() => {
+      // Fetch announcements only when schoolId, userRole, userClasses, and allClasses are ready
+      if (schoolId && userRole !== null && userClasses !== null && allClasses !== null) {
+        refetch();
+      }
+    }, [schoolId, userRole, userClasses, allClasses])
+  );
+
   const onRefresh = React.useCallback(async () => {
-
-    setRefreshing(true);
-
-    await fetchAnnouncements();
-
-  }, [schoolId, userRole, userClasses, allClasses]);
+    refetch();
+  }, [refetch]);
 
   const handleCardPress = (announcement) => {
     setSelectedAnnouncement(announcement);
@@ -209,7 +202,7 @@ export default function AnnouncementsScreen({ navigation }) {
   };
 
   const renderAnnouncementItem = ({ item }) => {
-    if (loading || loadingSchool) {
+    if (isLoading) {
       return <AnnouncementCardSkeleton />;
     }
 
@@ -260,11 +253,17 @@ export default function AnnouncementsScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {isOffline && (
+        <View style={[styles.offlineBanner, { backgroundColor: theme.colors.error }]}>
+          <FontAwesomeIcon icon={faWifi} size={14} color="#fff" style={{ marginRight: 8 }} />
+          <Text style={styles.offlineText}>You are offline. Showing cached data.</Text>
+        </View>
+      )}
       <FlatList
-        data={(loading || loadingSchool) ? [1, 2, 3] : announcements}
-        keyExtractor={(item, index) => (loading || loadingSchool) ? index.toString() : item.id.toString()}
+        data={isLoading ? [1, 2, 3] : announcements}
+        keyExtractor={(item, index) => isLoading ? index.toString() : item.id.toString()}
         onRefresh={onRefresh}
-        refreshing={refreshing}
+        refreshing={announcementsRefreshing}
         ListHeaderComponent={() => (
           <>
             {/* Welcome Area */}
@@ -289,12 +288,12 @@ export default function AnnouncementsScreen({ navigation }) {
               )}
             </View>
             <Text style={[styles.announcementCount, { color: theme.colors.placeholder }]}>
-              {(loading || loadingSchool) ? '--' : announcements.length} announcements
+              {isLoading ? '--' : announcements.length} announcements
             </Text>
           </>
         )}
         renderItem={renderAnnouncementItem}
-        ListEmptyComponent={!(loading || loadingSchool) && <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No announcements yet.</Text>}
+        ListEmptyComponent={!isLoading && <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No announcements yet.</Text>}
       />
 
       <AnnouncementDetailModal
@@ -478,5 +477,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 6,
     fontWeight: '600',
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+    marginBottom: 8,
+    borderRadius: 8,
+  },
+  offlineText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });

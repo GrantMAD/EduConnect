@@ -5,11 +5,13 @@ import {
     faBullhorn,
     faChartLine,
     faFire,
-    faCoins
+    faCoins,
+    faWifi
 } from '@fortawesome/free-solid-svg-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
+import { useSupabaseQuery } from '../hooks/useSupabaseQuery';
 import { useSchool } from '../context/SchoolContext';
 import { useToast } from '../context/ToastContext';
 import { useChat } from '../context/ChatContext';
@@ -35,8 +37,6 @@ export default function DashboardScreen({ navigation }) {
     const { showToast } = useToast();
     const { createChannel, channels, user: currentUser } = useChat();
     const gamification = useGamification();
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
     const [userRole, setUserRole] = useState(null);
     const [userProfile, setUserProfile] = useState(null);
     const insets = useSafeAreaInsets();
@@ -45,7 +45,8 @@ export default function DashboardScreen({ navigation }) {
     const scrollViewRef = React.useRef(null);
     const scrollYRef = React.useRef(0);
 
-    const [stats, setStats] = useState({
+    // Initial state for stats (fallback)
+    const initialStats = {
         totalUsers: 0,
         adminCount: 0,
         teacherCount: 0,
@@ -60,10 +61,184 @@ export default function DashboardScreen({ navigation }) {
         activePolls: 0,
         totalMarketItems: 0,
         unreadNotifications: 0,
-    });
+    };
 
-    const [todaySessions, setTodaySessions] = useState([]);
-    const [upcomingTasks, setUpcomingTasks] = useState([]);
+    // Helper functions for fetching specific data parts (moved from component body or kept as helpers)
+    const getUpcomingTasks = async (profile) => {
+        try {
+            const isStudent = profile.role === 'student';
+            const isParent = profile.role === 'parent';
+            const today = new Date().toISOString();
+
+            let childIds = [];
+            if (isParent) {
+                const { data: rels } = await supabase
+                    .from('parent_child_relationships')
+                    .select('child_id')
+                    .eq('parent_id', profile.id);
+                childIds = rels?.map(r => r.child_id) || [];
+            }
+
+            const targetUsers = isStudent ? [profile.id] : childIds;
+
+            let hwQuery = supabase.from('homework').select('*, student_completions(student_id)').gte('due_date', today).order('due_date', { ascending: true });
+            let assignQuery = supabase.from('assignments').select('*, student_completions(student_id)').gte('due_date', today).order('due_date', { ascending: true });
+
+            if (isStudent || isParent) {
+                const { data: members } = await supabase.from('class_members').select('class_id').in('user_id', targetUsers);
+                const classIds = members?.map(m => m.class_id) || [];
+
+                if (classIds.length > 0) {
+                    hwQuery = hwQuery.in('class_id', classIds);
+                    assignQuery = assignQuery.in('class_id', classIds);
+                } else {
+                    return [];
+                }
+            } else if (profile.school_id) {
+                hwQuery = hwQuery.eq('school_id', profile.school_id);
+                assignQuery = assignQuery.eq('school_id', profile.school_id);
+            }
+
+            const [{ data: homework }, { data: assignments }] = await Promise.all([hwQuery, assignQuery]);
+
+            let combined = [
+                ...(homework?.map(h => ({ ...h, type: 'homework' })) || []),
+                ...(assignments?.map(a => ({ ...a, type: 'assignment' })) || [])
+            ];
+
+            if (isStudent || isParent) {
+                combined = combined.filter(task => {
+                    const studentCompletions = task.student_completions || [];
+                    if (isStudent) {
+                        return !studentCompletions.some(c => c.student_id === profile.id);
+                    } else {
+                        const completedBy = studentCompletions.map(c => c.student_id);
+                        return childIds.some(id => !completedBy.includes(id));
+                    }
+                });
+            }
+            return combined.sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).slice(0, 5);
+        } catch (e) {
+            console.error('Error fetching upcoming tasks:', e);
+            return [];
+        }
+    };
+
+    const getTodayEvents = async (profile) => {
+        try {
+            const today = new Date();
+            const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
+            const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+            const allTodayEvents = [];
+
+            const { data: classMembers } = await supabase.from('class_members').select('class_id').eq('user_id', profile.id);
+            let classIds = classMembers?.map(m => m.class_id) || [];
+
+            if (['admin', 'teacher'].includes(profile.role)) {
+                const { data: teacherClasses } = await supabase.from('classes').select('id').eq('school_id', profile.school_id);
+                classIds = [...new Set([...classIds, ...(teacherClasses?.map(c => c.id) || [])])];
+            }
+
+            if (classIds.length > 0) {
+                const { data: sessions } = await supabase.from('class_schedules').select('*, class:classes(id, name, subject)')
+                    .in('class_id', classIds).gte('start_time', startOfDay).lte('start_time', endOfDay).order('start_time', { ascending: true });
+                if (sessions) allTodayEvents.push(...sessions.map(s => ({ ...s, eventType: 'class' })));
+            }
+
+            const isParent = profile.role === 'parent';
+            let ptmQuery = supabase.from('ptm_bookings').select(`*, slot:ptm_slots!inner(*, teacher:users!teacher_id(full_name)), parent:users!parent_id(full_name), student:users!student_id(full_name)`);
+            if (isParent) ptmQuery = ptmQuery.eq('parent_id', profile.id);
+            else ptmQuery = ptmQuery.eq('ptm_slots.teacher_id', profile.id);
+
+            const { data: ptmData } = await ptmQuery;
+            if (ptmData) {
+                const todayPtms = ptmData.filter(b => {
+                    const d = new Date(b.slot.start_time);
+                    return d.toDateString() === new Date().toDateString();
+                });
+                allTodayEvents.push(...todayPtms.map(b => ({
+                    id: b.id, start_time: b.slot.start_time, end_time: b.slot.end_time,
+                    title: `PTM: ${isParent ? b.slot.teacher.full_name : b.parent.full_name}`, eventType: 'meeting', class: { name: `Meeting: ${b.student.full_name}` }
+                })));
+            }
+            return allTodayEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+        } catch (e) {
+            console.error('Error fetching today events:', e);
+            return [];
+        }
+    };
+
+    const getDashboardStats = async (profile) => {
+        try {
+            const targetSchoolId = profile?.school_id || schoolId;
+            if (!targetSchoolId) return initialStats;
+
+            const { data, error } = await supabase.rpc('get_dashboard_stats', { target_school_id: targetSchoolId });
+            if (error) throw error;
+
+            const statsData = Array.isArray(data) ? data[0] : data || {};
+            const { count: clubCount } = await supabase.from('classes').select('*', { count: 'exact', head: true }).eq('school_id', targetSchoolId).eq('subject', 'Extracurricular');
+            const { count: unreadNotifications } = await supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', profile.id).eq('is_read', false);
+            const { count: totalAnnouncements } = await supabase.from('announcements').select('*', { count: 'exact', head: true }).eq('school_id', targetSchoolId);
+            const { count: totalHomework } = await supabase.from('homework').select('*', { count: 'exact', head: true }).eq('school_id', targetSchoolId);
+            const { count: totalMarketItems } = await supabase.from('marketplace_items').select('*', { count: 'exact', head: true }).eq('school_id', targetSchoolId);
+
+            return {
+                totalUsers: statsData.totalUsers || 0,
+                adminCount: statsData.adminCount || 0,
+                teacherCount: statsData.teacherCount || 0,
+                studentCount: statsData.studentCount || 0,
+                parentCount: statsData.parentCount || 0,
+                totalClasses: (statsData.classCount || 0) - (clubCount || 0),
+                totalClubs: clubCount || 0,
+                totalAssignments: statsData.assignmentCount || 0,
+                activePolls: statsData.pollCount || 0,
+                totalAnnouncements: totalAnnouncements || 0,
+                totalHomework: totalHomework || 0,
+                totalPolls: statsData.pollCount || 0,
+                totalMarketItems: totalMarketItems || 0,
+                unreadNotifications: unreadNotifications || 0,
+            };
+        } catch (error) {
+            console.error('Error fetching dashboard data:', error);
+            return initialStats;
+        }
+    };
+
+    // Consolidated Query Function
+    const fetchDashboardDataQuery = React.useCallback(async () => {
+        if (!userProfile) return { stats: initialStats, todaySessions: [], upcomingTasks: [] };
+        
+        const [statsResult, sessionsResult, tasksResult] = await Promise.all([
+            getDashboardStats(userProfile),
+            getTodayEvents(userProfile),
+            getUpcomingTasks(userProfile)
+        ]);
+
+        return {
+            stats: statsResult,
+            todaySessions: sessionsResult,
+            upcomingTasks: tasksResult
+        };
+    }, [userProfile, schoolId]);
+
+    // Use the Hook
+    const { 
+        data: dashboardData, 
+        loading: dashboardLoading, 
+        refreshing: dashboardRefreshing, 
+        isOffline, 
+        refetch 
+    } = useSupabaseQuery(
+        `dashboard_${schoolId}_${userProfile?.id}`,
+        fetchDashboardDataQuery,
+        [schoolId, userProfile]
+    );
+
+    const stats = dashboardData?.stats || initialStats;
+    const todaySessions = dashboardData?.todaySessions || [];
+    const upcomingTasks = dashboardData?.upcomingTasks || [];
+    const loading = dashboardLoading; // Map hook loading to local loading for compatibility
 
     // User List Modal State
     const [showUserModal, setShowUserModal] = useState(false);
@@ -97,12 +272,7 @@ export default function DashboardScreen({ navigation }) {
 
             setUserRole(userData.role);
             setUserProfile(userData);
-            fetchDashboardData(userData);
-            fetchTodayEvents(userData);
-            fetchUpcomingTasks(userData);
-            fetchTodayEvents(userData);
-            fetchUpcomingTasks(userData);
-
+            
             // Trigger Walkthrough if needed
             if (userData && !userData.has_seen_walkthrough) {
                 const baseSteps = [
@@ -151,289 +321,10 @@ export default function DashboardScreen({ navigation }) {
         }
     };
 
-    const fetchUpcomingTasks = async (profile) => {
-        try {
-            const isStudent = profile.role === 'student';
-            const isParent = profile.role === 'parent';
-            const today = new Date().toISOString();
-
-            let childIds = [];
-            if (isParent) {
-                const { data: rels } = await supabase
-                    .from('parent_child_relationships')
-                    .select('child_id')
-                    .eq('parent_id', profile.id);
-                childIds = rels?.map(r => r.child_id) || [];
-            }
-
-            const targetUsers = isStudent ? [profile.id] : childIds;
-
-            // Fetch Homework
-            let hwQuery = supabase
-                .from('homework')
-                .select('*, student_completions(student_id)')
-                .gte('due_date', today)
-                .order('due_date', { ascending: true });
-
-            // Fetch Assignments
-            let assignQuery = supabase
-                .from('assignments')
-                .select('*, student_completions(student_id)')
-                .gte('due_date', today)
-                .order('due_date', { ascending: true });
-
-            if (isStudent || isParent) {
-                const { data: members } = await supabase
-                    .from('class_members')
-                    .select('class_id')
-                    .in('user_id', targetUsers);
-                const classIds = members?.map(m => m.class_id) || [];
-
-                if (classIds.length > 0) {
-                    hwQuery = hwQuery.in('class_id', classIds);
-                    assignQuery = assignQuery.in('class_id', classIds);
-                } else {
-                    setUpcomingTasks([]);
-                    return;
-                }
-            } else if (profile.school_id) {
-                hwQuery = hwQuery.eq('school_id', profile.school_id);
-                assignQuery = assignQuery.eq('school_id', profile.school_id);
-            }
-
-            const [{ data: homework }, { data: assignments }] = await Promise.all([
-                hwQuery,
-                assignQuery
-            ]);
-
-            let combined = [
-                ...(homework?.map(h => ({ ...h, type: 'homework' })) || []),
-                ...(assignments?.map(a => ({ ...a, type: 'assignment' })) || [])
-            ];
-
-            // Filter out completed tasks for student/parent
-            if (isStudent || isParent) {
-                combined = combined.filter(task => {
-                    const studentCompletions = task.student_completions || [];
-                    if (isStudent) {
-                        return !studentCompletions.some(c => c.student_id === profile.id);
-                    } else {
-                        // For parent, show if ANY child hasn't finished it? 
-                        // Actually, web logic shows it if NOT ALL children have finished it, 
-                        // but here we filter out if the task is completely "Done" for the viewing context.
-                        // Let's keep it simple: if it's in the list, it's pending for someone.
-                        // Better: if ANY child has NOT completed it, show it.
-                        const completedBy = studentCompletions.map(c => c.student_id);
-                        return childIds.some(id => !completedBy.includes(id));
-                    }
-                });
-            }
-
-            setUpcomingTasks(combined.sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).slice(0, 5));
-        } catch (e) {
-            console.error('Error fetching upcoming tasks:', e);
-        }
-    };
-
-    const fetchTodayEvents = async (profile) => {
-        try {
-            const today = new Date();
-            const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-            const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
-            const allTodayEvents = [];
-
-            // 1. Fetch Class Sessions
-            const { data: classMembers } = await supabase
-                .from('class_members')
-                .select('class_id')
-                .eq('user_id', profile.id);
-
-            let classIds = classMembers?.map(m => m.class_id) || [];
-
-            if (['admin', 'teacher'].includes(profile.role)) {
-                const { data: teacherClasses } = await supabase
-                    .from('classes')
-                    .select('id')
-                    .eq('school_id', profile.school_id);
-                classIds = [...new Set([...classIds, ...(teacherClasses?.map(c => c.id) || [])])];
-            }
-
-            if (classIds.length > 0) {
-                const { data: sessions } = await supabase
-                    .from('class_schedules')
-                    .select('*, class:classes(id, name, subject)')
-                    .in('class_id', classIds)
-                    .gte('start_time', startOfDay)
-                    .lte('start_time', endOfDay)
-                    .order('start_time', { ascending: true });
-
-                if (sessions) {
-                    allTodayEvents.push(...sessions.map(s => ({ ...s, eventType: 'class' })));
-                }
-            }
-
-            // 2. Fetch today's PTMs
-            const isParent = profile.role === 'parent';
-            let ptmQuery = supabase
-                .from('ptm_bookings')
-                .select(`
-                    *,
-                    slot:ptm_slots!inner(*, teacher:users!teacher_id(full_name)),
-                    parent:users!parent_id(full_name),
-                    student:users!student_id(full_name)
-                `);
-
-            if (isParent) {
-                ptmQuery = ptmQuery.eq('parent_id', profile.id);
-            } else {
-                ptmQuery = ptmQuery.eq('ptm_slots.teacher_id', profile.id);
-            }
-
-            const { data: ptmData } = await ptmQuery;
-
-            if (ptmData) {
-                const todayPtms = ptmData.filter(b => {
-                    const d = new Date(b.slot.start_time);
-                    return d.toDateString() === new Date().toDateString();
-                });
-
-                allTodayEvents.push(...todayPtms.map(b => ({
-                    id: b.id,
-                    start_time: b.slot.start_time,
-                    end_time: b.slot.end_time,
-                    title: `PTM: ${isParent ? b.slot.teacher.full_name : b.parent.full_name}`,
-                    eventType: 'meeting',
-                    class: { name: `Meeting: ${b.student.full_name}` }
-                })));
-            }
-
-            setTodaySessions(allTodayEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time)));
-        } catch (e) {
-            console.error('Error fetching today events:', e);
-        }
-    };
-
-    const fetchDashboardData = async (profile) => {
-        try {
-            const targetSchoolId = profile?.school_id || schoolId;
-            if (!targetSchoolId) {
-                return;
-            }
-
-            // Use the corrected RPC function for all stats
-            const { data, error } = await supabase.rpc('get_dashboard_stats', { target_school_id: targetSchoolId });
-
-            if (error) {
-                console.error('Error fetching dashboard stats via RPC:', error);
-                throw error;
-            }
-
-            if (data) {
-                // The RPC returns an object within an array, so we take the first element
-                const statsData = Array.isArray(data) ? data[0] : data || {};
-
-                const { count: clubCount } = await supabase
-                    .from('classes')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('school_id', targetSchoolId)
-                    .eq('subject', 'Extracurricular');
-
-                const { count: unreadNotifications } = await supabase
-                    .from('notifications')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('user_id', profile.id)
-                    .eq('is_read', false);
-
-                const { count: totalAnnouncements } = await supabase
-                    .from('announcements')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('school_id', targetSchoolId);
-
-                const { count: totalHomework } = await supabase
-                    .from('homework')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('school_id', targetSchoolId);
-
-                const { count: totalMarketItems } = await supabase
-                    .from('marketplace_items')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('school_id', targetSchoolId);
-
-                // Set all stats at once from the RPC data
-                setStats({
-                    totalUsers: statsData.totalUsers || 0,
-                    adminCount: statsData.adminCount || 0,
-                    teacherCount: statsData.teacherCount || 0,
-                    studentCount: statsData.studentCount || 0,
-                    parentCount: statsData.parentCount || 0,
-                    totalClasses: (statsData.classCount || 0) - (clubCount || 0),
-                    totalClubs: clubCount || 0,
-                    totalAssignments: statsData.assignmentCount || 0,
-                    activePolls: statsData.pollCount || 0,
-                    totalAnnouncements: totalAnnouncements || 0,
-                    totalHomework: totalHomework || 0,
-                    totalPolls: statsData.pollCount || 0,
-                    totalMarketItems: totalMarketItems || 0,
-                    unreadNotifications: unreadNotifications || 0,
-                });
-            }
-
-        } catch (error) {
-            console.error('Error fetching dashboard data:', error);
-            showToast(`Failed to load dashboard data: ${error.message || 'Unknown error'}`, 'error');
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    };
-
-    useEffect(() => {
-        if (schoolId && userProfile) {
-            fetchDashboardData(userProfile);
-        }
-    }, [schoolId]);
-
-    // Auto-scroll effect for Walkthrough
-    useEffect(() => {
-        if (currentStep && currentStep.target && scrollViewRef.current) {
-            const targetId = currentStep.target;
-            const targetRef = targetRefs[targetId];
-
-            if (targetRef && targetRef.measure) {
-                targetRef.measure((x, y, width, height, pageX, pageY) => {
-                    const offset = pageY - 150;
-                    const currentScroll = scrollYRef.current;
-                    const newScroll = Math.max(0, currentScroll + offset);
-
-                    scrollViewRef.current.scrollTo({
-                        y: newScroll,
-                        animated: true,
-                    });
-
-                    // Re-measure after scroll finishes
-                    setTimeout(() => {
-                        reMeasureTarget(targetId);
-                    }, 600);
-                });
-            }
-        }
-    }, [currentStep, targetRefs]);
-
-    // Scroll to top when Walkthrough finishes
-    useEffect(() => {
-        if (!isOpen && scrollViewRef.current) {
-            scrollViewRef.current.scrollTo({ y: 0, animated: true });
-        }
-    }, [isOpen]);
-
-
+    // Removed original fetchUpcomingTasks, fetchTodayEvents, fetchDashboardData definitions as they are now helpers
+    // Updated onRefresh to use refetch
     const onRefresh = async () => {
-        setRefreshing(true);
-        await Promise.all([
-            fetchDashboardData(userProfile),
-            fetchTodayEvents(userProfile),
-            fetchUpcomingTasks(userProfile)
-        ]);
+        refetch();
     };
 
     const fetchUsersByCategory = async (category) => {
@@ -702,13 +593,19 @@ export default function DashboardScreen({ navigation }) {
             style={[styles.container, { backgroundColor: theme.colors.background }]}
             contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
             refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
+                <RefreshControl refreshing={dashboardRefreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
             }
             onScroll={(e) => {
                 scrollYRef.current = e.nativeEvent.contentOffset.y;
             }}
             scrollEventThrottle={16}
         >
+            {isOffline && (
+                <View style={[styles.offlineBanner, { backgroundColor: theme.colors.error }]}>
+                    <FontAwesomeIcon icon={faWifi} size={14} color="#fff" style={{ marginRight: 8 }} />
+                    <Text style={styles.offlineText}>You are offline. Showing cached data.</Text>
+                </View>
+            )}
             <View style={styles.header}>
                 <WalkthroughTarget id="dashboard-header">
                     <View>
@@ -1038,5 +935,18 @@ const styles = StyleSheet.create({
         color: 'rgba(255, 255, 255, 0.9)',
         fontSize: 14,
         lineHeight: 20,
+    },
+    offlineBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 8,
+        marginBottom: 16,
+        borderRadius: 8,
+    },
+    offlineText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 'bold',
     },
 });
