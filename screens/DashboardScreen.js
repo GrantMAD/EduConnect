@@ -2,26 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, findNodeHandle } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
-    faUsers,
-    faChalkboardTeacher,
     faBullhorn,
-    faBookOpen,
-    faPoll,
-    faShoppingCart,
-    faBell,
-    faUserGraduate,
-    faUserTie,
-    faChild,
-    faPlus,
     faChartLine,
     faFire,
-    faCoins,
-    faChevronRight,
-    faInfoCircle,
-    faClipboardList,
-    faComments,
-    faHandshake,
-    faFootballBall
+    faCoins
 } from '@fortawesome/free-solid-svg-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
@@ -34,11 +18,16 @@ import UserListModal from '../components/UserListModal';
 import UserProfileModal from '../components/UserProfileModal';
 import ClassListModal from '../components/ClassListModal';
 import ContentListModal from '../components/ContentListModal';
-import DashboardScreenSkeleton, { StatCardSkeleton, ActionButtonSkeleton, SkeletonPiece } from '../components/skeletons/DashboardScreenSkeleton';
+import { SkeletonPiece } from '../components/skeletons/DashboardScreenSkeleton';
 import RecentActivity from '../components/RecentActivity';
 import ChildProgressSnapshot from '../components/ChildProgressSnapshot';
 import { useWalkthrough } from '../context/WalkthroughContext';
 import WalkthroughTarget from '../components/WalkthroughTarget';
+import DashboardStats from '../components/dashboard/DashboardStats';
+import DailyOverview from '../components/dashboard/DailyOverview';
+import UpcomingTasks from '../components/dashboard/UpcomingTasks';
+import QuickActions from '../components/dashboard/QuickActions';
+import StatCard from '../components/dashboard/StatCard';
 
 export default function DashboardScreen({ navigation }) {
     const { theme } = useTheme();
@@ -700,149 +689,11 @@ export default function DashboardScreen({ navigation }) {
         }
     };
 
-    const StatCard = ({ icon, title, value, color, onPress, style }) => (
-        <TouchableOpacity
-            style={[styles.statCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }, style]}
-            onPress={onPress}
-            activeOpacity={onPress ? 0.7 : 1}
-        >
-            <View style={[styles.iconContainer, { backgroundColor: color + '20' }]}>
-                <FontAwesomeIcon icon={icon} size={24} color={color} />
-            </View>
-            {loading ? (
-                <SkeletonPiece style={{ width: 60, height: 28, borderRadius: 4, marginBottom: 4 }} />
-            ) : (
-                <Text style={[styles.statValue, { color: theme.colors.text }]}>{value}</Text>
-            )}
-            <Text style={[styles.statTitle, { color: theme.colors.placeholder }]}>{title}</Text>
-        </TouchableOpacity>
-    );
-
-    const QuickActionButton = ({ icon, title, onPress, color }) => (
-        <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
-            onPress={onPress}
-        >
-            <FontAwesomeIcon icon={icon} size={20} color={color || theme.colors.primary} />
-            <Text style={[styles.actionButtonText, { color: theme.colors.text }]}>{title}</Text>
-        </TouchableOpacity>
-    );
-
     const getGreeting = () => {
         const hour = new Date().getHours();
         if (hour < 12) return 'Good Morning';
         if (hour < 17) return 'Good Afternoon';
         return 'Good Evening';
-    };
-
-    const renderTodaySchedule = () => {
-        if (loading) {
-            return [1, 2].map((i) => (
-                <View key={i} style={[styles.sessionItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
-                    <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8 }} />
-                </View>
-            ));
-        }
-
-        if (todaySessions.length === 0) return (
-            <View style={[styles.emptyWidget, { backgroundColor: theme.colors.card }]}>
-                <FontAwesomeIcon icon={faInfoCircle} size={24} color={theme.colors.placeholder} />
-                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No classes scheduled for today.</Text>
-            </View>
-        );
-
-        return todaySessions.map((session) => {
-            const start = new Date(session.start_time);
-            const end = new Date(session.end_time);
-            const isNow = new Date() >= start && new Date() <= end;
-            const isMeeting = session.eventType === 'meeting';
-            const isClub = session.class?.subject === 'Extracurricular';
-
-            return (
-                <TouchableOpacity
-                    key={session.id}
-                    onPress={() => isMeeting ? navigation.navigate('Meetings') : isClub ? navigation.navigate('ClubDetail', { clubId: session.class?.id }) : null}
-                    activeOpacity={isMeeting || isClub ? 0.7 : 1}
-                    style={[
-                        styles.sessionItem,
-                        { backgroundColor: theme.colors.card, borderColor: isNow ? theme.colors.primary : isMeeting ? theme.colors.warning + '40' : isClub ? '#AF52DE40' : theme.colors.cardBorder }
-                    ]}
-                >
-                    <View style={styles.sessionHeader}>
-                        <View style={{ flex: 1 }}>
-                            <Text style={[styles.sessionClassName, { color: theme.colors.text }]}>
-                                {isMeeting ? session.title : session.class?.name}
-                            </Text>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                                <FontAwesomeIcon
-                                    icon={isMeeting ? faHandshake : isClub ? faFootballBall : faChalkboardTeacher}
-                                    size={10}
-                                    color={isMeeting ? theme.colors.warning : isClub ? '#AF52DE' : theme.colors.placeholder}
-                                />
-                                <Text style={[styles.sessionType, { color: isMeeting ? theme.colors.warning : isClub ? '#AF52DE' : theme.colors.placeholder, marginLeft: 4 }]}>
-                                    {isMeeting ? 'Parent-Teacher Meeting' : isClub ? 'Club Meeting' : (session.type || 'Lecture')}
-                                </Text>
-                            </View>
-                        </View>
-                        <View style={styles.sessionTimeContainer}>
-                            <Text style={[styles.sessionStartTime, { color: isMeeting ? theme.colors.warning : isClub ? '#AF52DE' : theme.colors.primary }]}>
-                                {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </Text>
-                        </View>
-                    </View>
-                    {isNow && (
-                        <View style={[styles.liveBadge, { backgroundColor: '#FF3B30' }]}>
-                            <Text style={styles.liveBadgeText}>LIVE</Text>
-                        </View>
-                    )}
-                </TouchableOpacity>
-            );
-        });
-    };
-
-    const renderUpcomingTasks = () => {
-        if (loading) {
-            return [1, 2].map((i) => (
-                <View key={i} style={[styles.taskItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
-                    <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8 }} />
-                </View>
-            ));
-        }
-
-        if (upcomingTasks.length === 0) return (
-            <View style={[styles.emptyWidget, { backgroundColor: theme.colors.card }]}>
-                <FontAwesomeIcon icon={faClipboardList} size={24} color={theme.colors.placeholder} />
-                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>All caught up! No tasks due soon.</Text>
-            </View>
-        );
-
-        return upcomingTasks.map((task) => {
-            const dueDate = new Date(task.due_date);
-            const isToday = new Date().toDateString() === dueDate.toDateString();
-
-            return (
-                <TouchableOpacity
-                    key={`${task.type}-${task.id}`}
-                    style={[styles.taskItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
-                    onPress={() => navigation.navigate(task.type === 'homework' ? 'Homework' : 'Assignments')}
-                >
-                    <View style={styles.taskIconContainer}>
-                        <View style={[styles.taskTypeIcon, { backgroundColor: task.type === 'homework' ? '#007AFF20' : '#5856D620' }]}>
-                            <FontAwesomeIcon icon={faClipboardList} size={16} color={task.type === 'homework' ? '#007AFF' : '#5856D6'} />
-                        </View>
-                    </View>
-                    <View style={styles.taskInfo}>
-                        <Text style={[styles.taskTitle, { color: theme.colors.text }]} numberOfLines={1}>{task.title || task.subject}</Text>
-                        <Text style={[styles.taskSubject, { color: theme.colors.placeholder }]}>{task.subject || task.type}</Text>
-                    </View>
-                    <View style={styles.taskDueContainer}>
-                        <Text style={[styles.taskDueDate, { color: isToday ? '#FF9500' : theme.colors.placeholder }]}>
-                            {isToday ? 'Today' : dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                        </Text>
-                    </View>
-                </TouchableOpacity>
-            );
-        });
     };
 
     return (
@@ -980,234 +831,32 @@ export default function DashboardScreen({ navigation }) {
                 )}
             </View>
 
-            <View style={styles.rowWidgets}>
-                {/* Today's Schedule */}
-                <View style={styles.halfSection}>
-                    <View style={styles.sectionHeaderRow}>
-                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Schedule</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('Calendar')}>
-                            <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.primary} />
-                        </TouchableOpacity>
-                    </View>
-                    <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>View your classes & clubs.</Text>
-                    {renderTodaySchedule()}
-                </View>
+            <DailyOverview 
+                loading={loading}
+                todaySessions={todaySessions}
+                navigation={navigation}
+            />
 
-                {/* Clubs Widget - New for Students/Parents */}
-                <View style={styles.halfSection}>
-                    <View style={styles.sectionHeaderRow}>
-                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Clubs</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('ClubList')}>
-                            <FontAwesomeIcon icon={faChevronRight} size={14} color="#AF52DE" />
-                        </TouchableOpacity>
-                    </View>
-                    <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>Groups & teams.</Text>
-                    <TouchableOpacity
-                        style={[styles.actionButton, { width: '100%', margin: 0, backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, paddingVertical: 12 }]}
-                        onPress={() => navigation.navigate('ClubList')}
-                    >
-                        <FontAwesomeIcon icon={faFootballBall} size={18} color="#AF52DE" />
-                        <Text style={[styles.actionButtonText, { color: theme.colors.text, fontSize: 12 }]}>Explore Clubs</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
+            <UpcomingTasks
+                loading={loading}
+                upcomingTasks={upcomingTasks}
+                navigation={navigation}
+            />
 
-            <View style={styles.section}>
-                <WalkthroughTarget id="dashboard-tasks">
-                    <View style={styles.sectionHeaderRow}>
-                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Due Soon</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('Homework')}>
-                            <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.primary} />
-                        </TouchableOpacity>
-                    </View>
-                    <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>Upcoming tasks.</Text>
-                    {renderUpcomingTasks()}
-                </WalkthroughTarget>
-            </View>
+            <DashboardStats
+                loading={loading}
+                userRole={userRole}
+                stats={stats}
+                fetchUsersByCategory={fetchUsersByCategory}
+                fetchClasses={fetchClasses}
+                fetchClubs={fetchClubs}
+                fetchContentByType={fetchContentByType}
+            />
 
-            {/* Admin/Teacher Stats (Only show if role matches) */}
-            {
-                (!userRole && loading) ? (
-                    <View style={styles.section}>
-                        <SkeletonPiece style={{ width: 140, height: 20, borderRadius: 4, marginBottom: 16, marginTop: 16 }} />
-                        <View style={styles.statsGrid}>
-                            {[1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)}
-                        </View>
-                    </View>
-                ) : ['admin', 'teacher'].includes(userRole) && (
-                    <>
-                        {/* User Statistics */}
-                        <View style={styles.section}>
-                            <WalkthroughTarget id="dashboard-stats">
-                                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>User Statistics</Text>
-                                <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Overview of all users in your school</Text>
-                                <View style={styles.statsGrid}>
-                                    <StatCard
-                                        icon={faUsers}
-                                        title="Total Users"
-                                        value={stats.totalUsers}
-                                        color="#007AFF"
-                                        onPress={() => fetchUsersByCategory('total')}
-                                    />
-                                    <StatCard
-                                        icon={faUserTie}
-                                        title="Admins"
-                                        value={stats.adminCount}
-                                        color="#FF3B30"
-                                        onPress={() => fetchUsersByCategory('admin')}
-                                    />
-                                    <StatCard
-                                        icon={faChalkboardTeacher}
-                                        title="Teachers"
-                                        value={stats.teacherCount}
-                                        color="#34C759"
-                                        onPress={() => fetchUsersByCategory('teacher')}
-                                    />
-                                    <StatCard
-                                        icon={faUserGraduate}
-                                        title="Students"
-                                        value={stats.studentCount}
-                                        color="#5856D6"
-                                        onPress={() => fetchUsersByCategory('student')}
-                                    />
-                                    <StatCard
-                                        icon={faChild}
-                                        title="Parents"
-                                        value={stats.parentCount}
-                                        color="#FF9500"
-                                        onPress={() => fetchUsersByCategory('parent')}
-                                    />
-                                </View>
-                            </WalkthroughTarget>
-                        </View>
-
-                        {/* Content & Activity */}
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Content & Activity</Text>
-                            <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Track classes, announcements, and school activities</Text>
-                            <View style={styles.statsGrid}>
-                                <StatCard
-                                    icon={faBookOpen}
-                                    title="Classes"
-                                    value={stats.totalClasses}
-                                    color="#007AFF"
-                                    onPress={() => fetchClasses()}
-                                />
-                                <StatCard
-                                    icon={faFootballBall}
-                                    title="Clubs"
-                                    value={stats.totalClubs}
-                                    color="#AF52DE"
-                                    onPress={() => fetchClubs()}
-                                />
-                                <StatCard
-                                    icon={faBullhorn}
-                                    title="Announcements"
-                                    value={stats.totalAnnouncements}
-                                    color="#FF3B30"
-                                    onPress={() => fetchContentByType('announcements')}
-                                />
-                                <StatCard
-                                    icon={faClipboardList}
-                                    title="Homework"
-                                    value={stats.totalHomework}
-                                    color="#34C759"
-                                    onPress={() => fetchContentByType('homework')}
-                                />
-                                <StatCard
-                                    icon={faClipboardList}
-                                    title="Assignments"
-                                    value={stats.totalAssignments}
-                                    color="#5856D6"
-                                    onPress={() => fetchContentByType('assignments')}
-                                />
-                                <StatCard
-                                    icon={faPoll}
-                                    title="Active Polls"
-                                    value={stats.activePolls}
-                                    color="#FF9500"
-                                    onPress={() => fetchContentByType('polls')}
-                                />
-                                <StatCard
-                                    icon={faShoppingCart}
-                                    title="Marketplace"
-                                    value={stats.totalMarketItems}
-                                    color="#FF2D55"
-                                    onPress={() => fetchContentByType('market')}
-                                />
-                            </View>
-                        </View>
-
-                        {/* Quick Actions */}
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Quick Actions</Text>
-                            <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Access common tasks and shortcuts.</Text>
-                            <View style={styles.actionsContainer}>
-                                <QuickActionButton
-                                    icon={faBullhorn}
-                                    title="New Announcement"
-                                    onPress={() => navigation.navigate('CreateAnnouncement', { fromDashboard: true })}
-                                    color="#FF3B30"
-                                />
-                                <QuickActionButton
-                                    icon={faBookOpen}
-                                    title="New Homework"
-                                    onPress={() => navigation.navigate('CreateHomework', { fromDashboard: true })}
-                                    color="#34C759"
-                                />
-                                <QuickActionButton
-                                    icon={faClipboardList}
-                                    title="New Assignment"
-                                    onPress={() => navigation.navigate('CreateAssignment', { fromDashboard: true })}
-                                    color="#5856D6"
-                                />
-                                <QuickActionButton
-                                    icon={faPoll}
-                                    title="New Poll"
-                                    onPress={() => navigation.navigate('CreatePoll', { fromDashboard: true })}
-                                    color="#FF9500"
-                                />
-                                <QuickActionButton
-                                    icon={faShoppingCart}
-                                    title="List Item"
-                                    onPress={() => navigation.navigate('CreateMarketplaceItem', { fromDashboard: true })}
-                                    color="#FF2D55"
-                                />
-                                <QuickActionButton
-                                    icon={faChalkboardTeacher}
-                                    title="New Class"
-                                    onPress={() => navigation.navigate('CreateClass', { fromDashboard: true })}
-                                    color="#007AFF"
-                                />
-                                <QuickActionButton
-                                    icon={faFootballBall}
-                                    title="New Club"
-                                    onPress={() => navigation.navigate('CreateClub')}
-                                    color="#AF52DE"
-                                />
-                                <QuickActionButton
-                                    icon={faUsers}
-                                    title="Manage Users"
-                                    onPress={() => navigation.navigate('UserManagement', { fromDashboard: true })}
-                                    color="#5856D6"
-                                />
-                                <QuickActionButton
-                                    icon={faChartLine}
-                                    title="School Data"
-                                    onPress={() => navigation.navigate('SchoolData', { fromDashboard: true })}
-                                    color="#FF9500"
-                                />
-                                <QuickActionButton
-                                    icon={faComments}
-                                    title="Messages"
-                                    onPress={() => navigation.navigate('ChatList')}
-                                    color="#007AFF"
-                                />
-                            </View>
-                        </View>
-                    </>
-                )
-            }
+            <QuickActions
+                navigation={navigation}
+                userRole={userRole}
+            />
             <UserListModal
                 visible={showUserModal}
                 users={userListData}
@@ -1355,102 +1004,6 @@ const styles = StyleSheet.create({
         fontSize: 11,
         fontWeight: 'bold',
     },
-    rowWidgets: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 24,
-    },
-    halfSection: {
-        width: '48%',
-    },
-    sectionHeaderRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    sessionItem: {
-        padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
-        marginBottom: 8,
-        position: 'relative',
-    },
-    sessionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    sessionClassName: {
-        fontSize: 12,
-        fontWeight: 'bold',
-    },
-    sessionType: {
-        fontSize: 10,
-    },
-    sessionStartTime: {
-        fontSize: 11,
-        fontWeight: 'bold',
-    },
-    liveBadge: {
-        position: 'absolute',
-        top: -6,
-        right: -6,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 4,
-    },
-    liveBadgeText: {
-        color: 'white',
-        fontSize: 8,
-        fontWeight: 'bold',
-    },
-    taskItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 10,
-        borderRadius: 12,
-        borderWidth: 1,
-        marginBottom: 8,
-    },
-    taskTypeIcon: {
-        width: 28,
-        height: 28,
-        borderRadius: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    taskInfo: {
-        flex: 1,
-        marginLeft: 8,
-    },
-    taskTitle: {
-        fontSize: 12,
-        fontWeight: 'bold',
-    },
-    taskSubject: {
-        fontSize: 10,
-    },
-    taskDueContainer: {
-        alignItems: 'flex-end',
-    },
-    taskDueDate: {
-        fontSize: 10,
-        fontWeight: 'bold',
-    },
-    emptyWidget: {
-        padding: 20,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderStyle: 'dashed',
-        borderWidth: 1,
-        borderColor: '#ccc',
-    },
-    emptyText: {
-        fontSize: 10,
-        marginTop: 8,
-        textAlign: 'center',
-    },
     section: {
         marginBottom: 32,
     },
@@ -1467,53 +1020,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         flexWrap: 'wrap',
         marginHorizontal: -6,
-    },
-    statCard: {
-        width: '48%',
-        margin: '1%',
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        alignItems: 'center',
-        minHeight: 120,
-        justifyContent: 'center',
-    },
-    iconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    statValue: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        marginBottom: 4,
-    },
-    statTitle: {
-        fontSize: 14,
-        textAlign: 'center',
-    },
-    actionsContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        marginHorizontal: -6,
-    },
-    actionButton: {
-        width: '48%',
-        margin: '1%',
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    actionButtonText: {
-        fontSize: 14,
-        fontWeight: '600',
-        marginLeft: 8,
     },
     welcomeBanner: {
         borderRadius: 16,
@@ -1532,10 +1038,5 @@ const styles = StyleSheet.create({
         color: 'rgba(255, 255, 255, 0.9)',
         fontSize: 14,
         lineHeight: 20,
-    },
-    miniDescription: {
-        fontSize: 11,
-        marginBottom: 12,
-        marginTop: -8,
     },
 });

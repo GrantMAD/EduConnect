@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { supabase } from '../lib/supabase';
@@ -11,7 +11,7 @@ import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
 import StandardBottomModal from '../components/StandardBottomModal';
 
-export default function CalendarScreen({ navigation }) {
+export default function CalendarScreen({ navigation, route }) {
   const [schedules, setSchedules] = useState([]);
   const [markedDates, setMarkedDates] = useState({});
   const [loading, setLoading] = useState(true);
@@ -23,6 +23,19 @@ export default function CalendarScreen({ navigation }) {
   const [isDayModalVisible, setDayModalVisible] = useState(false);
   const { showToast } = useToast();
   const { theme } = useTheme(); // Use the theme hook
+
+  // Check for deep link params to open modal
+  useEffect(() => {
+    if (route.params?.openScheduleId && schedules.length > 0) {
+      const targetSchedule = schedules.find(s => s.id === route.params.openScheduleId);
+      if (targetSchedule) {
+        setSelectedSchedule(targetSchedule);
+        setModalVisible(true);
+        // Clear the param so it doesn't reopen if the user navigates away and back without a new selection
+        navigation.setParams({ openScheduleId: null });
+      }
+    }
+  }, [route.params?.openScheduleId, schedules]);
 
   const dotColors = [theme.colors.primary, theme.colors.success, theme.colors.warning, theme.colors.error, '#5856d6', '#34c759', '#af52de', '#ffcc00'];
 
