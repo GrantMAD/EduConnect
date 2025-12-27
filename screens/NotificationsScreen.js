@@ -9,35 +9,43 @@ import { useTheme } from '../context/ThemeContext'; // Import useTheme
 export default function NotificationsScreen({ route, navigation }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [isDetailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedItemDetail, setSelectedItemDetail] = useState(null);
   const [modalLoading, setModalLoading] = useState(false);
   const { showToast } = useToast();
   const { theme } = useTheme(); // Use the theme hook
 
+  const fetchNotifications = async () => {
+    if (!refreshing) setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(100);  // Pagination: Load first 100 notifications
+
+      if (error) throw error;
+      setNotifications(data || []);
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+      showToast('Unable to fetch notifications.', 'error');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+    fetchNotifications();
+  }, []);
 
-        const { data, error } = await supabase
-          .from('notifications')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(100);  // Pagination: Load first 100 notifications
-
-        if (error) throw error;
-        setNotifications(data || []);
-      } catch (err) {
-        console.error('Error fetching notifications:', err);
-        showToast('Unable to fetch notifications.', 'error');
-      } finally {
-        setLoading(false);
-      }
-    };
-
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
     fetchNotifications();
   }, []);
 
@@ -444,6 +452,8 @@ export default function NotificationsScreen({ route, navigation }) {
         keyExtractor={(item, index) => loading ? index.toString() : item.id}
         renderItem={loading ? () => <NotificationCardSkeleton /> : renderNotification}
         contentContainerStyle={{ paddingBottom: 20 }}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         ListEmptyComponent={
           !loading && <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No notifications</Text>
         }

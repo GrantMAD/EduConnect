@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from "expo-file-system/legacy";
 import { Buffer } from 'buffer';
+import * as Clipboard from 'expo-clipboard';
 import { useSchool } from '../context/SchoolContext';
 import { useToast } from '../context/ToastContext';
 
@@ -52,7 +53,6 @@ export default function SchoolDataScreen({ navigation, route }) {
         .single();
 
       if (error) throw error;
-      if (error) throw error;
       setSchoolData(data);
       setName(data.name || '');
       setAddress(data.address || '');
@@ -65,6 +65,12 @@ export default function SchoolDataScreen({ navigation, route }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const copySchoolId = async () => {
+    if (!schoolId) return;
+    await Clipboard.setStringAsync(schoolId);
+    showToast('School ID copied to clipboard!', 'success');
   };
 
   const pickImage = async () => {
@@ -183,9 +189,16 @@ export default function SchoolDataScreen({ navigation, route }) {
       </View>
 
       <View style={styles.section}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-          <FontAwesomeIcon icon={faSchool} size={20} color="#007AFF" style={{ marginRight: 10 }} />
-          <Text style={styles.sectionHeader}>School Details</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <FontAwesomeIcon icon={faSchool} size={20} color="#007AFF" style={{ marginRight: 10 }} />
+            <Text style={styles.sectionHeader}>School Details</Text>
+          </View>
+          {!loading && (
+            <TouchableOpacity onPress={copySchoolId} style={styles.copyButton}>
+              <Text style={styles.copyButtonText}>Copy ID</Text>
+            </TouchableOpacity>
+          )}
         </View>
         <Text style={styles.sectionDescription}>Update your school's contact information.</Text>
 
@@ -401,6 +414,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+  },
+  copyButton: {
+    backgroundColor: '#e9ecef',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  copyButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#007AFF',
   },
   backButton: {
     marginBottom: 10,

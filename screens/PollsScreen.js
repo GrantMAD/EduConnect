@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function PollsScreen({ navigation, route }) {
   const [polls, setPolls] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [userId, setUserId] = useState(null);
   const [selectedPoll, setSelectedPoll] = useState(null);
@@ -97,6 +98,12 @@ export default function PollsScreen({ navigation, route }) {
       console.error('Error fetching polls:', error);
     }
   };
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await fetchPolls();
+    setRefreshing(false);
+  }, [schoolId, userId]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -217,6 +224,8 @@ export default function PollsScreen({ navigation, route }) {
         data={loading ? [1, 2, 3] : getFilteredPolls()}
         keyExtractor={(item, index) => loading ? index.toString() : item.id.toString()}
         contentContainerStyle={{ paddingBottom: 80 + insets.bottom, paddingTop: 10 }}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         renderItem={({ item }) => renderPollCard(item)}
         ListEmptyComponent={
           !loading && (

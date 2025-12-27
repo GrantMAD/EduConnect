@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faBook, faPlus, faFileAlt, faThumbsUp, faThumbsDown, faBookmark, faSortAmountDown, faFilter, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
@@ -8,6 +8,7 @@ import ResourceDetailModal from '../components/ResourceDetailModal';
 import StandardBottomModal from '../components/StandardBottomModal';
 import { useSchool } from '../context/SchoolContext';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 import RNFetchBlob from 'rn-fetch-blob';
 import FileViewer from 'react-native-file-viewer';
 import { useGamification } from '../context/GamificationContext';
@@ -17,12 +18,14 @@ import ResourcesScreenSkeleton, { SkeletonPiece, ResourceCardSkeleton } from '..
 export default function ResourcesScreen() {
   const { schoolId } = useSchool();
   const { theme } = useTheme();
+  const { showToast } = useToast();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
   const insets = useSafeAreaInsets();
 
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [userRole, setUserRole] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
@@ -78,6 +81,7 @@ export default function ResourcesScreen() {
           next.delete(resourceId);
           return next;
         });
+        showToast('Bookmark removed', 'info');
       } else {
         // Add bookmark
         const { error } = await supabase
@@ -90,9 +94,11 @@ export default function ResourcesScreen() {
           next.add(resourceId);
           return next;
         });
+        showToast('Resource bookmarked', 'success');
       }
     } catch (error) {
       console.error('Error toggling bookmark:', error);
+      showToast('Failed to toggle bookmark', 'error');
     }
   };
 
@@ -167,6 +173,12 @@ export default function ResourcesScreen() {
       if (!silent) setLoading(false);
     }
   };
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([fetchResources(true), fetchBookmarks()]);
+    setRefreshing(false);
+  }, [schoolId, activeTab]);
 
   // Filter and Sort resources
   const processResources = () => {
@@ -285,7 +297,13 @@ export default function ResourcesScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} tintColor={theme.colors.primary} />
+        }
+      >
         {loading ? (
           [1, 2, 3].map(i => <ResourceCardSkeleton key={i} />)
         ) : Object.keys(filteredResources).length === 0 ? (
@@ -338,6 +356,7 @@ export default function ResourcesScreen() {
           ))
         )}
       </ScrollView>
+
 
       <CreateResourceModal
         visible={showCreateModal}

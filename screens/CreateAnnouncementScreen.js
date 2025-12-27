@@ -177,18 +177,25 @@ export default function CreateAnnouncementScreen({ route }) {
       </Text>
 
       <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>Title</Text>
+        <View style={styles.labelRow}>
+          <Text style={[styles.label, { color: theme.colors.text }]}>Title</Text>
+          <Text style={[styles.charCount, { color: theme.colors.placeholder }]}>{title.length}/100</Text>
+        </View>
         <TextInput
           style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}
           placeholder="Enter title"
           placeholderTextColor={theme.colors.placeholder}
           value={title}
           onChangeText={setTitle}
+          maxLength={100}
         />
       </View>
 
       <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>Message</Text>
+        <View style={styles.labelRow}>
+          <Text style={[styles.label, { color: theme.colors.text }]}>Message</Text>
+          <Text style={[styles.charCount, { color: theme.colors.placeholder }]}>{message.length}/1000</Text>
+        </View>
         <TextInput
           style={[styles.textArea, { color: theme.colors.text, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}
           placeholder="Write your announcement here..."
@@ -198,6 +205,7 @@ export default function CreateAnnouncementScreen({ route }) {
           multiline
           numberOfLines={6}
           textAlignVertical="top"
+          maxLength={1000}
         />
       </View>
 
@@ -283,6 +291,15 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 10,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  charCount: {
+    fontSize: 12,
     marginBottom: 10,
   },
   subLabel: {

@@ -9,7 +9,8 @@ import {
   ScrollView,
   FlatList,
   TextInput,
-  Dimensions
+  Dimensions,
+  RefreshControl
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
@@ -161,7 +162,7 @@ const ClassCard = ({ classInfo, theme }) => {
 
 // --- Student Dashboard ---
 
-const StudentDashboard = ({ student, theme }) => {
+const StudentDashboard = ({ student, theme, refreshTrigger }) => {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -212,7 +213,7 @@ const StudentDashboard = ({ student, theme }) => {
     };
 
     fetchClassData();
-  }, [student.id]);
+  }, [student.id, refreshTrigger]);
 
   const stats = useMemo(() => {
     if (!classes.length) return { classes: 0, marks: 0, avgAttendance: 0 };
@@ -352,6 +353,8 @@ export default function MyChildrenScreen() {
   const [selectedChildId, setSelectedChildId] = useState(null);
   const [parents, setParents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [userRole, setUserRole] = useState(null);
 
   // Admin State
@@ -362,8 +365,8 @@ export default function MyChildrenScreen() {
     fetchInitialData();
   }, []);
 
-  const fetchInitialData = async () => {
-    setLoading(true);
+  const fetchInitialData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -399,15 +402,22 @@ export default function MyChildrenScreen() {
             .select('id, full_name, email, avatar_url')
             .in('id', rels.map(r => r.child_id));
           setChildren(students || []);
-          if (students?.length > 0) setSelectedChildId(students[0].id);
+          if (students?.length > 0 && !selectedChildId) setSelectedChildId(students[0].id);
         }
       }
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setRefreshTrigger(prev => prev + 1);
+    fetchInitialData(true);
+  }, []);
 
   if (loading) return <MyChildrenScreenSkeleton />;
 
@@ -424,6 +434,8 @@ export default function MyChildrenScreen() {
             keyExtractor={item => item.parent.id}
             renderItem={({ item }) => <AdminFamilyCard parentData={item} onClick={() => setSelectedParent(item)} theme={theme} />}
             contentContainerStyle={{ padding: 20, paddingTop: 30 }}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
             ListHeaderComponent={
               <View style={{ marginBottom: 24 }}>
                 <Text style={[styles.pageTitle, { color: theme.colors.text }]}>Family Connections</Text>
@@ -456,7 +468,13 @@ export default function MyChildrenScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={{ paddingBottom: 40 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} tintColor={theme.colors.primary} />
+        }
+      >
         <View style={{ padding: 20, paddingTop: 30 }}>
           <Text style={[styles.pageTitle, { color: theme.colors.text }]}>My Children</Text>
           <Text style={[styles.pageDesc, { color: theme.colors.placeholder }]}>Academic performance overview.</Text>
@@ -497,7 +515,7 @@ export default function MyChildrenScreen() {
                   </View>
                 </LinearGradient>
 
-                <StudentDashboard student={selectedChild} theme={theme} />
+                <StudentDashboard student={selectedChild} theme={theme} refreshTrigger={refreshTrigger} />
               </View>
             )}
           </>

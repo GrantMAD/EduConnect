@@ -220,9 +220,12 @@ export default function CreateHomeworkScreen({ route }) {
       )}
 
       <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-          <FontAwesomeIcon icon={faBook} size={18} color={theme.colors.primary} style={{ marginRight: 10 }} />
-          <Text style={[styles.label, { color: theme.colors.text }]}>Subject</Text>
+        <View style={styles.labelRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+            <FontAwesomeIcon icon={faBook} size={18} color={theme.colors.primary} style={{ marginRight: 10 }} />
+            <Text style={[styles.label, { color: theme.colors.text, marginBottom: 0 }]}>Subject</Text>
+          </View>
+          <Text style={[styles.charCount, { color: theme.colors.placeholder }]}>{subject.length}/100</Text>
         </View>
         <TextInput
           style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}
@@ -230,13 +233,17 @@ export default function CreateHomeworkScreen({ route }) {
           placeholderTextColor={theme.colors.placeholder}
           value={subject}
           onChangeText={setSubject}
+          maxLength={100}
         />
       </View>
 
       <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-          <FontAwesomeIcon icon={faClipboardList} size={18} color={theme.colors.primary} style={{ marginRight: 10 }} />
-          <Text style={[styles.label, { color: theme.colors.text }]}>Description</Text>
+        <View style={styles.labelRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+            <FontAwesomeIcon icon={faClipboardList} size={18} color={theme.colors.primary} style={{ marginRight: 10 }} />
+            <Text style={[styles.label, { color: theme.colors.text, marginBottom: 0 }]}>Description</Text>
+          </View>
+          <Text style={[styles.charCount, { color: theme.colors.placeholder }]}>{description.length}/1000</Text>
         </View>
         <TextInput
           style={[styles.textArea, { color: theme.colors.text, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}
@@ -247,6 +254,7 @@ export default function CreateHomeworkScreen({ route }) {
           multiline
           numberOfLines={4}
           textAlignVertical="top"
+          maxLength={1000}
         />
       </View>
 
@@ -330,6 +338,15 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 10,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  charCount: {
+    fontSize: 12,
     marginBottom: 10,
   },
   input: {

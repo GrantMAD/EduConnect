@@ -13,14 +13,16 @@ export default function UserManagementScreen({ navigation, route }) {
   const { fromDashboard } = route?.params || {};
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const { showToast } = useToast();
 
-  useEffect(() => {
-    const fetchUsers = async () => {
+  const fetchUsers = async () => {
+    if (!refreshing) setLoading(true);
+    try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: currentUserData, error: currentUserError } = await supabase
@@ -32,6 +34,7 @@ export default function UserManagementScreen({ navigation, route }) {
         if (currentUserError) {
           console.error('Error fetching current user data:', currentUserError);
           setLoading(false);
+          setRefreshing(false);
           return;
         }
 
@@ -51,9 +54,20 @@ export default function UserManagementScreen({ navigation, route }) {
           setUsers(sortedUsers);
         }
       }
+    } catch (e) {
+      console.error(e);
+    } finally {
       setLoading(false);
-    };
+      setRefreshing(false);
+    }
+  };
 
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
     fetchUsers();
   }, []);
 
@@ -109,6 +123,8 @@ export default function UserManagementScreen({ navigation, route }) {
       <FlatList
         data={loading ? [1, 2, 3, 4, 5] : filteredUsers}
         keyExtractor={(item, index) => loading ? index.toString() : item.id}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         renderItem={({ item }) => loading ? (
           <UserItemSkeleton />
         ) : (

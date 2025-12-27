@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { supabase } from '../lib/supabase';
 import { useFocusEffect } from '@react-navigation/native';
@@ -15,6 +15,7 @@ export default function CalendarScreen({ navigation }) {
   const [schedules, setSchedules] = useState([]);
   const [markedDates, setMarkedDates] = useState({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [isModalVisible, setModalVisible] = useState(false);
   const [dropdowns, setDropdowns] = useState({});
@@ -25,162 +26,168 @@ export default function CalendarScreen({ navigation }) {
 
   const dotColors = [theme.colors.primary, theme.colors.success, theme.colors.warning, theme.colors.error, '#5856d6', '#34c759', '#af52de', '#ffcc00'];
 
-  useFocusEffect(
-    useCallback(() => {
-      const fetchSchedules = async () => {
-        setLoading(true);
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) return;
+  const fetchSchedules = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-          // Fetch user's role
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('role, school_id')
-            .eq('id', user.id)
-            .single();
-          if (userError) throw userError;
+      // Fetch user's role
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role, school_id')
+        .eq('id', user.id)
+        .single();
+      if (userError) throw userError;
 
-          const userRole = userData.role;
-          const userSchoolId = userData.school_id;
-          let classIds = [];
+      const userRole = userData.role;
+      const userSchoolId = userData.school_id;
+      let classIds = [];
 
-          if (userRole === 'teacher' || userRole === 'admin') {
-            const { data: allClasses, error: allClassesError } = await supabase
-              .from('classes')
-              .select('id')
-              .eq('school_id', userSchoolId); // Filter by school_id
-            if (allClassesError) throw allClassesError;
-            classIds = allClasses.map(c => c.id);
-          } else {
-            // Fetch classes the user is directly a member of (student, parent, etc.)
-            const { data: directClasses, error: directClassesError } = await supabase
+      if (userRole === 'teacher' || userRole === 'admin') {
+        const { data: allClasses, error: allClassesError } = await supabase
+          .from('classes')
+          .select('id')
+          .eq('school_id', userSchoolId); // Filter by school_id
+        if (allClassesError) throw allClassesError;
+        classIds = allClasses.map(c => c.id);
+      } else {
+        // Fetch classes the user is directly a member of (student, parent, etc.)
+        const { data: directClasses, error: directClassesError } = await supabase
+          .from('class_members')
+          .select('class_id')
+          .eq('user_id', user.id);
+        if (directClassesError) throw directClassesError;
+        classIds = directClasses.map(c => c.class_id);
+
+        // If the user is a parent, also fetch their children's classes
+        if (userRole === 'parent') {
+          const { data: relationships, error: relError } = await supabase
+            .from('parent_child_relationships')
+            .select('child_id')
+            .eq('parent_id', user.id);
+          if (relError) throw relError;
+
+          const childIds = relationships.map(rel => rel.child_id);
+
+          if (childIds.length > 0) {
+            const { data: childrenClasses, error: childrenClassesError } = await supabase
               .from('class_members')
               .select('class_id')
-              .eq('user_id', user.id);
-            if (directClassesError) throw directClassesError;
-            classIds = directClasses.map(c => c.class_id);
+              .in('user_id', childIds);
+            if (childrenClassesError) throw childrenClassesError;
 
-            // If the user is a parent, also fetch their children's classes
-            if (userRole === 'parent') {
-              const { data: relationships, error: relError } = await supabase
-                .from('parent_child_relationships')
-                .select('child_id')
-                .eq('parent_id', user.id);
-              if (relError) throw relError;
-
-              const childIds = relationships.map(rel => rel.child_id);
-
-              if (childIds.length > 0) {
-                const { data: childrenClasses, error: childrenClassesError } = await supabase
-                  .from('class_members')
-                  .select('class_id')
-                  .in('user_id', childIds);
-                if (childrenClassesError) throw childrenClassesError;
-
-                const childrenClassIds = childrenClasses.map(c => c.class_id);
-                classIds = [...new Set([...classIds, ...childrenClassIds])]; // Combine and remove duplicates
-              }
-            }
+            const childrenClassIds = childrenClasses.map(c => c.class_id);
+            classIds = [...new Set([...classIds, ...childrenClassIds])]; // Combine and remove duplicates
           }
-
-          const allEvents = [];
-
-          // 1. Fetch Class Schedules
-          if (classIds.length > 0) {
-            const { data: classSchedules, error: schedulesError } = await supabase
-              .from('class_schedules')
-              .select('*, class:classes(id, name, subject)')
-              .in('class_id', classIds)
-              .order('start_time', { ascending: true });
-            if (schedulesError) throw schedulesError;
-            allEvents.push(...classSchedules.map(s => ({ ...s, eventType: 'class' })));
-          }
-
-          // 2. Fetch PTM Bookings
-          const isParent = userRole === 'parent';
-          let ptmQuery = supabase
-            .from('ptm_bookings')
-            .select(`
-                *,
-                slot:ptm_slots!inner(*, teacher:users!teacher_id(full_name)),
-                parent:users!parent_id(full_name),
-                student:users!student_id(full_name)
-            `);
-
-          if (isParent) {
-            ptmQuery = ptmQuery.eq('parent_id', user.id);
-          } else {
-            ptmQuery = ptmQuery.eq('ptm_slots.teacher_id', user.id);
-          }
-
-          const { data: ptmData, error: ptmError } = await ptmQuery;
-
-          if (!ptmError && ptmData) {
-            allEvents.push(...ptmData.map(b => ({
-              id: b.id,
-              start_time: b.slot.start_time,
-              end_time: b.slot.end_time,
-              title: `PTM: ${isParent ? b.slot.teacher.full_name : b.parent.full_name}`,
-              description: `Meeting regarding ${b.student.full_name}`,
-              eventType: 'meeting',
-              originalData: b,
-              class_id: b.slot.id // Use slot id as a dummy class_id for coloring
-            })));
-          }
-
-          // Assign colors
-          const classColorMap = {};
-          const uniqueIds = [...new Set(allEvents.map(e => e.class_id || e.id))];
-          uniqueIds.forEach((id, index) => {
-            classColorMap[id] = dotColors[index % dotColors.length];
-          });
-
-          // Build marked dates for the calendar
-          const formattedMarkedDates = {};
-          allEvents.forEach(event => {
-            const date = event.start_time.split('T')[0];
-            const isClub = event.class?.subject === 'Extracurricular';
-            const color = event.eventType === 'meeting' ? theme.colors.warning : isClub ? '#AF52DE' : classColorMap[event.class_id || event.id];
-            if (!formattedMarkedDates[date]) formattedMarkedDates[date] = { periods: [] };
-
-            // Avoid duplicate bars for the same category on the same day
-            const existingPeriod = formattedMarkedDates[date].periods.find(p => p.color === color);
-            if (!existingPeriod) {
-              formattedMarkedDates[date].periods.push({
-                startingDay: true,
-                endingDay: true,
-                color: color
-              });
-            }
-          });
-
-          // Prepare colored and descriptive schedules
-          const coloredSchedules = allEvents.map(e => {
-            const isClub = e.class?.subject === 'Extracurricular';
-            const color = e.eventType === 'meeting' ? theme.colors.warning : isClub ? '#AF52DE' : (classColorMap[e.class_id || e.id] || theme.colors.primary);
-            return {
-              ...e,
-              color: color,
-              badgeColor: color,
-              description: e.description || '',
-              class_info: e.class_info || '',
-            };
-          });
-
-          setSchedules(coloredSchedules);
-          setMarkedDates(formattedMarkedDates);
-        } catch (error) {
-          console.error('Error fetching schedules:', error.message);
-          showToast('Failed to fetch schedules.', 'error');
-        } finally {
-          setLoading(false);
         }
-      };
+      }
 
+      const allEvents = [];
+
+      // 1. Fetch Class Schedules
+      if (classIds.length > 0) {
+        const { data: classSchedules, error: schedulesError } = await supabase
+          .from('class_schedules')
+          .select('*, class:classes(id, name, subject)')
+          .in('class_id', classIds)
+          .order('start_time', { ascending: true });
+        if (schedulesError) throw schedulesError;
+        allEvents.push(...classSchedules.map(s => ({ ...s, eventType: 'class' })));
+      }
+
+      // 2. Fetch PTM Bookings
+      const isParent = userRole === 'parent';
+      let ptmQuery = supabase
+        .from('ptm_bookings')
+        .select(`
+            *,
+            slot:ptm_slots!inner(*, teacher:users!teacher_id(full_name)),
+            parent:users!parent_id(full_name),
+            student:users!student_id(full_name)
+        `);
+
+      if (isParent) {
+        ptmQuery = ptmQuery.eq('parent_id', user.id);
+      } else {
+        ptmQuery = ptmQuery.eq('ptm_slots.teacher_id', user.id);
+      }
+
+      const { data: ptmData, error: ptmError } = await ptmQuery;
+
+      if (!ptmError && ptmData) {
+        allEvents.push(...ptmData.map(b => ({
+          id: b.id,
+          start_time: b.slot.start_time,
+          end_time: b.slot.end_time,
+          title: `PTM: ${isParent ? b.slot.teacher.full_name : b.parent.full_name}`,
+          description: `Meeting regarding ${b.student.full_name}`,
+          eventType: 'meeting',
+          originalData: b,
+          class_id: b.slot.id // Use slot id as a dummy class_id for coloring
+        })));
+      }
+
+      // Assign colors
+      const classColorMap = {};
+      const uniqueIds = [...new Set(allEvents.map(e => e.class_id || e.id))];
+      uniqueIds.forEach((id, index) => {
+        classColorMap[id] = dotColors[index % dotColors.length];
+      });
+
+      // Build marked dates for the calendar
+      const formattedMarkedDates = {};
+      allEvents.forEach(event => {
+        const date = event.start_time.split('T')[0];
+        const isClub = event.class?.subject === 'Extracurricular';
+        const color = event.eventType === 'meeting' ? theme.colors.warning : isClub ? '#AF52DE' : classColorMap[event.class_id || event.id];
+        if (!formattedMarkedDates[date]) formattedMarkedDates[date] = { periods: [] };
+
+        // Avoid duplicate bars for the same category on the same day
+        const existingPeriod = formattedMarkedDates[date].periods.find(p => p.color === color);
+        if (!existingPeriod) {
+          formattedMarkedDates[date].periods.push({
+            startingDay: true,
+            endingDay: true,
+            color: color
+          });
+        }
+      });
+
+      // Prepare colored and descriptive schedules
+      const coloredSchedules = allEvents.map(e => {
+        const isClub = e.class?.subject === 'Extracurricular';
+        const color = e.eventType === 'meeting' ? theme.colors.warning : isClub ? '#AF52DE' : (classColorMap[e.class_id || e.id] || theme.colors.primary);
+        return {
+          ...e,
+          color: color,
+          badgeColor: color,
+          description: e.description || '',
+          class_info: e.class_info || '',
+        };
+      });
+
+      setSchedules(coloredSchedules);
+      setMarkedDates(formattedMarkedDates);
+    } catch (error) {
+      console.error('Error fetching schedules:', error.message);
+      showToast('Failed to fetch schedules.', 'error');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [theme.colors]);
+
+  useFocusEffect(
+    useCallback(() => {
       fetchSchedules();
-    }, [theme.colors.primary, theme.colors.success, theme.colors.warning, theme.colors.error])
+    }, [fetchSchedules])
   );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchSchedules(true);
+  }, [fetchSchedules]);
 
   const upcomingClasses = schedules.filter(s => s.eventType === 'class' && new Date(s.start_time) >= new Date());
   const pastEvents = schedules.filter(s => new Date(s.start_time) < new Date());
@@ -268,6 +275,9 @@ export default function CalendarScreen({ navigation }) {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} tintColor={theme.colors.primary} />
+      }
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
         <FontAwesomeIcon icon={faCalendarAlt} size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />

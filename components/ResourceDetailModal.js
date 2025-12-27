@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Share } from 'react-native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTimes, faUser, faCalendar, faFileAlt, faThumbsUp, faThumbsDown, faDownload, faTrash, faEdit } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faUser, faCalendar, faFileAlt, faThumbsUp, faThumbsDown, faDownload, faTrash, faEdit, faShareAlt } from '@fortawesome/free-solid-svg-icons';
 import RNFetchBlob from 'rn-fetch-blob';
 import FileViewer from 'react-native-file-viewer';
 import { supabase } from '../lib/supabase';
@@ -105,6 +105,17 @@ export default function ResourceDetailModal({ visible, onClose, resource, onVote
     return () => { isMounted = false; };
   }, [visible, resource]);
 
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        title: resource.title,
+        message: `${resource.title}\n\n${resource.description}${resource.file_url ? '\n\nFile Link: ' + resource.file_url : ''}`,
+      });
+    } catch (error) {
+      showToast('Error sharing resource', 'error');
+    }
+  };
+
   const handleDelete = async () => {
     Alert.alert(
       "Delete Resource",
@@ -200,6 +211,9 @@ export default function ResourceDetailModal({ visible, onClose, resource, onVote
         <View style={styles.header}>
           <FontAwesomeIcon icon={faFileAlt} size={26} color="#007AFF" />
           <Text style={styles.modalTitle}>{resource.title}</Text>
+          <TouchableOpacity onPress={handleShare} style={styles.shareAltButton}>
+            <FontAwesomeIcon icon={faShareAlt} size={20} color="#007AFF" />
+          </TouchableOpacity>
           <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
             <FontAwesomeIcon icon={faTimes} size={22} color="#666" />
           </TouchableOpacity>
@@ -304,6 +318,10 @@ const styles = StyleSheet.create({
     color: '#333',
     marginLeft: 15,
     flex: 1,
+  },
+  shareAltButton: {
+    padding: 8,
+    marginRight: 5,
   },
   modalCloseButton: {
     padding: 5,

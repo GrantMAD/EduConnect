@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Share } from 'react-native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTimes, faUser, faCalendar, faBullhorn } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faUser, faCalendar, faBullhorn, faCopy, faShareAlt } from '@fortawesome/free-solid-svg-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Clipboard from 'expo-clipboard';
+import { useToast } from '../context/ToastContext';
 
 const timeSince = (date) => {
   if (!date) return '';
@@ -23,7 +25,24 @@ const timeSince = (date) => {
 
 export default function AnnouncementDetailModal({ visible, onClose, announcement }) {
   const insets = useSafeAreaInsets();
+  const { showToast } = useToast();
   if (!announcement) return null;
+
+  const copyToClipboard = async () => {
+    await Clipboard.setStringAsync(announcement.message);
+    showToast('Announcement copied to clipboard!', 'success');
+  };
+
+  const shareAnnouncement = async () => {
+    try {
+      await Share.share({
+        title: announcement.title,
+        message: `${announcement.title}\n\n${announcement.message}`,
+      });
+    } catch (error) {
+      showToast('Error sharing announcement', 'error');
+    }
+  };
 
   return (
     <Modal
@@ -38,6 +57,12 @@ export default function AnnouncementDetailModal({ visible, onClose, announcement
         <View style={styles.header}>
           <FontAwesomeIcon icon={faBullhorn} size={26} color="#007AFF" />
           <Text style={styles.modalTitle}>{announcement.title}</Text>
+          <TouchableOpacity onPress={shareAnnouncement} style={styles.copyButton}>
+            <FontAwesomeIcon icon={faShareAlt} size={20} color="#007AFF" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={copyToClipboard} style={styles.copyButton}>
+            <FontAwesomeIcon icon={faCopy} size={20} color="#007AFF" />
+          </TouchableOpacity>
           <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
             <FontAwesomeIcon icon={faTimes} size={22} color="#666" />
           </TouchableOpacity>
@@ -90,6 +115,10 @@ const styles = StyleSheet.create({
     color: '#333',
     marginLeft: 15,
     flex: 1,
+  },
+  copyButton: {
+    padding: 8,
+    marginRight: 5,
   },
   modalCloseButton: {
     padding: 5,

@@ -252,9 +252,12 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
       </View>
 
       <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-          <FontAwesomeIcon icon={faBook} size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
-          <Text style={[styles.inputHeading, { color: theme.colors.text, marginTop: 0 }]}>Title</Text>
+        <View style={styles.labelRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
+            <FontAwesomeIcon icon={faBook} size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
+            <Text style={[styles.inputHeading, { color: theme.colors.text, marginTop: 0, marginBottom: 0 }]}>Title</Text>
+          </View>
+          <Text style={[styles.charCount, { color: theme.colors.placeholder }]}>{title.length}/100</Text>
         </View>
         <TextInput
           style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}
@@ -262,13 +265,17 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
           placeholderTextColor={theme.colors.placeholder}
           value={title}
           onChangeText={setTitle}
+          maxLength={100}
         />
       </View>
 
       <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-          <FontAwesomeIcon icon={faAlignLeft} size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
-          <Text style={[styles.inputHeading, { color: theme.colors.text, marginTop: 0 }]}>Description</Text>
+        <View style={styles.labelRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
+            <FontAwesomeIcon icon={faAlignLeft} size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
+            <Text style={[styles.inputHeading, { color: theme.colors.text, marginTop: 0, marginBottom: 0 }]}>Description</Text>
+          </View>
+          <Text style={[styles.charCount, { color: theme.colors.placeholder }]}>{description.length}/1000</Text>
         </View>
         <TextInput
           style={[styles.input, styles.descriptionInput, { color: theme.colors.text, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}
@@ -277,6 +284,7 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
           value={description}
           onChangeText={setDescription}
           multiline
+          maxLength={1000}
         />
       </View>
 
@@ -379,6 +387,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
     marginTop: 10,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  charCount: {
+    fontSize: 12,
+    marginBottom: 8,
   },
   inputDescription: {
     fontSize: 12,

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faPlus, faMinus, faQuestionCircle, faListOl, faCalendar, faArrowLeft, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import { Calendar } from 'react-native-calendars';
@@ -13,6 +14,7 @@ export default function CreatePollScreen({ navigation, route }) {
   const { fromDashboard } = route.params || {};
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
+  const { showToast } = useToast();
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '']);
   const [endDate, setEndDate] = useState('');
@@ -39,12 +41,12 @@ export default function CreatePollScreen({ navigation, route }) {
 
   const handleCreatePoll = async () => {
     if (!question.trim() || options.some(opt => !opt.trim())) {
-      Alert.alert('Error', 'Please fill out the question and all options.');
+      showToast('Please fill out the question and all options.', 'error');
       return;
     }
 
     if (!endDate) {
-      Alert.alert('Error', 'Please select an end date for the poll.');
+      showToast('Please select an end date for the poll.', 'error');
       return;
     }
 
@@ -102,11 +104,11 @@ export default function CreatePollScreen({ navigation, route }) {
 
 
       awardXP('content_creation', 15);
-      Alert.alert('Success', 'Poll created successfully! +15 XP');
+      showToast('Poll created successfully! +15 XP', 'success');
       navigation.goBack();
     } catch (error) {
       console.error('Error creating poll:', error);
-      Alert.alert('Error', 'Failed to create poll. Please try again.');
+      showToast('Failed to create poll. Please try again.', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -133,7 +135,10 @@ export default function CreatePollScreen({ navigation, route }) {
         <View style={styles.inputContainer}>
           <FontAwesomeIcon icon={faQuestionCircle} size={20} color={theme.colors.primary} style={styles.icon} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>Question</Text>
+            <View style={styles.labelRow}>
+              <Text style={[styles.label, { color: theme.colors.text, marginBottom: 0 }]}>Question</Text>
+              <Text style={[styles.charCount, { color: theme.colors.placeholder }]}>{question.length}/200</Text>
+            </View>
             <TextInput
               style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}
               placeholder="What would you like to ask?"
@@ -141,6 +146,7 @@ export default function CreatePollScreen({ navigation, route }) {
               value={question}
               onChangeText={setQuestion}
               multiline
+              maxLength={200}
             />
           </View>
         </View>
@@ -153,19 +159,23 @@ export default function CreatePollScreen({ navigation, route }) {
         </View>
 
         {options.map((option, index) => (
-          <View key={index} style={styles.optionContainer}>
-            <TextInput
-              style={[styles.optionInput, { color: theme.colors.text, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}
-              placeholder={`Option ${index + 1}`}
-              placeholderTextColor={theme.colors.placeholder}
-              value={option}
-              onChangeText={(text) => handleOptionChange(text, index)}
-            />
-            {options.length > 2 && (
-              <TouchableOpacity onPress={() => removeOption(index)} style={[styles.removeOptionButton, { backgroundColor: theme.colors.error }]}>
-                <FontAwesomeIcon icon={faMinus} size={12} color="#fff" />
-              </TouchableOpacity>
-            )}
+          <View key={index} style={styles.optionWrapper}>
+            <View style={styles.optionContainer}>
+              <TextInput
+                style={[styles.optionInput, { color: theme.colors.text, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}
+                placeholder={`Option ${index + 1}`}
+                placeholderTextColor={theme.colors.placeholder}
+                value={option}
+                onChangeText={(text) => handleOptionChange(text, index)}
+                maxLength={50}
+              />
+              {options.length > 2 && (
+                <TouchableOpacity onPress={() => removeOption(index)} style={[styles.removeOptionButton, { backgroundColor: theme.colors.error }]}>
+                  <FontAwesomeIcon icon={faMinus} size={12} color="#fff" />
+                </TouchableOpacity>
+              )}
+            </View>
+            <Text style={[styles.optionCharCount, { color: theme.colors.placeholder }]}>{option.length}/50</Text>
           </View>
         ))}
 
@@ -282,10 +292,26 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 8,
   },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  charCount: {
+    fontSize: 12,
+  },
+  optionWrapper: {
+    marginBottom: 12,
+  },
   optionContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+  },
+  optionCharCount: {
+    fontSize: 10,
+    textAlign: 'right',
+    marginTop: 2,
+    marginRight: 12,
   },
   optionInput: {
     flex: 1,

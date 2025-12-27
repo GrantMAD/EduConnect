@@ -41,6 +41,7 @@ const Tab = createMaterialTopTabNavigator();
 const HomeworkList = () => {
   const [homework, setHomework] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedHomework, setSelectedHomework] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -64,7 +65,7 @@ const HomeworkList = () => {
   };
 
   const fetchHomework = async () => {
-    setLoading(true);
+    if (!refreshing) setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -111,11 +112,13 @@ const HomeworkList = () => {
           } else {
             setHomework([]);
             setLoading(false);
+            setRefreshing(false);
             return;
           }
         } else {
           setHomework([]);
           setLoading(false);
+          setRefreshing(false);
           return;
         }
       } else if (profile?.school_id) {
@@ -128,8 +131,14 @@ const HomeworkList = () => {
       console.error('Error fetching homework:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchHomework();
+  }, []);
 
   const formatDate = (date) =>
     new Date(date).toLocaleDateString('en-GB', {
@@ -245,6 +254,8 @@ const HomeworkList = () => {
       <FlatList
         data={loading ? [1, 2, 3] : homework}
         keyExtractor={(item, index) => loading ? index.toString() : item.id}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         renderItem={({ item }) =>
           loading ? <CardSkeleton /> : (
             <HomeworkCard
@@ -285,6 +296,7 @@ const HomeworkList = () => {
 const AssignmentsList = () => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [manageModalVisible, setManageModalVisible] = useState(false);
   const [currentTrackItem, setCurrentTrackItem] = useState(null);
 
@@ -296,7 +308,7 @@ const AssignmentsList = () => {
   }, [isFocused]);
 
   const fetchAssignments = async () => {
-    setLoading(true);
+    if (!refreshing) setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -343,11 +355,13 @@ const AssignmentsList = () => {
           } else {
             setAssignments([]);
             setLoading(false);
+            setRefreshing(false);
             return;
           }
         } else {
           setAssignments([]);
           setLoading(false);
+          setRefreshing(false);
           return;
         }
       }
@@ -358,14 +372,22 @@ const AssignmentsList = () => {
       console.error('Error fetching assignments:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchAssignments();
+  }, []);
 
   return (
     <View style={[styles.listContainer, { backgroundColor: theme.colors.background }]}>
       <FlatList
         data={loading ? [1, 2, 3] : assignments}
         keyExtractor={(item, index) => loading ? index.toString() : item.id}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         renderItem={({ item }) =>
           loading ? <CardSkeleton /> : (
             <AssignmentCard
