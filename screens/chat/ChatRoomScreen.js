@@ -269,6 +269,11 @@ export default function ChatRoomScreen({ route, navigation }) {
                 contentContainerStyle={styles.listContent}
                 inverted
                 onEndReached={() => hasMoreMessages && fetchOlderMessages(channelId)}
+                onEndReachedThreshold={0.5}
+                removeClippedSubviews={Platform.OS === 'android'} // Often causes issues on iOS with inverted lists, test carefully or restrict to Android
+                initialNumToRender={15}
+                maxToRenderPerBatch={10}
+                windowSize={10}
             />
 
             {/* Sticker Picker */}

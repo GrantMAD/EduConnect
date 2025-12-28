@@ -193,6 +193,10 @@ export default function ChatListScreen({ navigation }) {
                         </View>
                     )
                 }
+                removeClippedSubviews={true}
+                initialNumToRender={10}
+                maxToRenderPerBatch={5}
+                windowSize={5}
             />
 
             <TouchableOpacity

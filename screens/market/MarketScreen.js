@@ -319,6 +319,10 @@ export default function MarketScreen({ navigation }) {
           )}
           contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 80 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          removeClippedSubviews={true}
+          initialNumToRender={8}
+          maxToRenderPerBatch={6}
+          windowSize={5}
         />
       ) : (
         /* SECTION LIST MODE — FULLY FIXED */

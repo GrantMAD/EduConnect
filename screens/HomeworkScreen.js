@@ -256,6 +256,10 @@ const HomeworkList = () => {
         keyExtractor={(item, index) => loading ? index.toString() : item.id}
         refreshing={refreshing}
         onRefresh={onRefresh}
+        removeClippedSubviews={true}
+        initialNumToRender={10}
+        maxToRenderPerBatch={5}
+        windowSize={5}
         renderItem={({ item }) =>
           loading ? <CardSkeleton /> : (
             <HomeworkCard
@@ -388,6 +392,10 @@ const AssignmentsList = () => {
         keyExtractor={(item, index) => loading ? index.toString() : item.id}
         refreshing={refreshing}
         onRefresh={onRefresh}
+        removeClippedSubviews={true}
+        initialNumToRender={10}
+        maxToRenderPerBatch={5}
+        windowSize={5}
         renderItem={({ item }) =>
           loading ? <CardSkeleton /> : (
             <AssignmentCard

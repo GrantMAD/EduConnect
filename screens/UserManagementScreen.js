@@ -140,6 +140,13 @@ export default function UserManagementScreen({ navigation, route }) {
         }}
         onEndReachedThreshold={0.3}
         ListFooterComponent={renderFooter}
+        removeClippedSubviews={true}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={10}
+        getItemLayout={(data, index) => (
+          { length: 86, offset: 86 * index, index }
+        )}
         renderItem={({ item }) => loading ? (
           <UserItemSkeleton />
         ) : (

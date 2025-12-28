@@ -288,6 +288,10 @@ export default function AnnouncementsScreen({ navigation }) {
         }}
         onEndReachedThreshold={0.3}
         ListFooterComponent={renderFooter}
+        removeClippedSubviews={true}
+        initialNumToRender={5}
+        maxToRenderPerBatch={5}
+        windowSize={5}
         ListHeaderComponent={() => (
           <>
             {/* Welcome Area */}

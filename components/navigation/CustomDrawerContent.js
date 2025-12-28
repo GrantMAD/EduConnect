@@ -168,15 +168,25 @@ const CustomDrawerContent = (props) => {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-                <SectionHeader title="Search" />
-                <DrawerItem
-                    icon={faSearch}
-                    label="Search"
-                    description="Find anything in the school"
-                    routeName="Search"
-                    active={activeMainStackRouteName === 'Search'}
-                    onPress={() => props.navigation.navigate('MainStack', { screen: 'Search' })}
-                />
+                {/* Search Bar Button */}
+                <View style={{ paddingHorizontal: 16, marginTop: 16, marginBottom: 4 }}>
+                    <TouchableOpacity
+                        onPress={() => props.navigation.navigate('MainStack', { screen: 'Search' })}
+                        style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            backgroundColor: theme.colors.inputBackground || '#F0F0F0',
+                            paddingVertical: 12,
+                            paddingHorizontal: 16,
+                            borderRadius: 12,
+                            borderWidth: 1,
+                            borderColor: theme.colors.cardBorder || 'transparent',
+                        }}
+                    >
+                        <FontAwesomeIcon icon={faSearch} size={16} color={theme.colors.placeholder} style={{ marginRight: 10 }} />
+                        <Text style={{ color: theme.colors.placeholder, fontSize: 15 }}>Search anything...</Text>
+                    </TouchableOpacity>
+                </View>
 
                 <SectionHeader title="General" />
                 <DrawerItem

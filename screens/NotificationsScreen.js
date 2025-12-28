@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, ScrollView, Linking } from 'react-native';
+import { View, Text, SectionList, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, ScrollView, Linking } from 'react-native';
 import { supabase } from '../lib/supabase';
 import NotificationCardSkeleton, { SkeletonPiece } from '../components/skeletons/NotificationCardSkeleton';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -357,10 +357,12 @@ export default function NotificationsScreen({ route, navigation }) {
       }
     });
 
-    return Object.entries(groups).filter(([_, items]) => items.length > 0);
+    return Object.entries(groups)
+      .filter(([_, items]) => items.length > 0)
+      .map(([title, data]) => ({ title, data }));
   };
 
-  const groupedNotifications = groupNotifications(notifications);
+  const sections = groupNotifications(notifications);
 
   const renderNotification = ({ item }) => {
     const isUnread = !item.is_read;
@@ -499,21 +501,23 @@ export default function NotificationsScreen({ route, navigation }) {
           {[1, 2, 3, 4, 5].map(i => <NotificationCardSkeleton key={i} />)}
         </ScrollView>
       ) : (
-        <FlatList
-          data={groupedNotifications}
-          keyExtractor={(item) => item[0]}
-          renderItem={({ item }) => (
-            <View>
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{item[0]}</Text>
-                <View style={[styles.sectionLine, { backgroundColor: theme.colors.cardBorder }]} />
-              </View>
-              {item[1].map(n => renderNotification({ item: n }))}
+        <SectionList
+          sections={sections}
+          keyExtractor={(item) => item.id}
+          renderItem={renderNotification}
+          renderSectionHeader={({ section: { title } }) => (
+            <View style={[styles.sectionHeader, { backgroundColor: theme.colors.background }]}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{title}</Text>
+              <View style={[styles.sectionLine, { backgroundColor: theme.colors.cardBorder }]} />
             </View>
           )}
           contentContainerStyle={{ paddingBottom: 20 }}
           refreshing={refreshing}
           onRefresh={onRefresh}
+          stickySectionHeadersEnabled={false}
+          removeClippedSubviews={true}
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <FontAwesome5 name="bell-slash" size={60} color={theme.colors.placeholder} />

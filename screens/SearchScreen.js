@@ -334,6 +334,9 @@ export default function SearchScreen({ navigation }) {
             </View>
           }
           contentContainerStyle={{ paddingBottom: 20 }}
+          removeClippedSubviews={true}
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
         />
       )}
     </View>

@@ -137,6 +137,10 @@ export default function LeaderboardScreen() {
                     renderItem={renderUser}
                     keyExtractor={item => item.user_id}
                     contentContainerStyle={styles.listContent}
+                    removeClippedSubviews={true}
+                    initialNumToRender={10}
+                    maxToRenderPerBatch={10}
+                    windowSize={5}
                 />
             )}
         </View>
