@@ -8,7 +8,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faBullhorn, faCalendar, faUsers, faTimes, faWifi } from '@fortawesome/free-solid-svg-icons';
 import AnnouncementDetailModal from '../components/AnnouncementDetailModal';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
-import { useSupabaseQuery } from '../hooks/useSupabaseQuery';
+import { useSupabaseInfiniteQuery } from '../hooks/useSupabaseInfiniteQuery';
 
 const placeholderImage = require('../assets/user.png'); // Using existing asset as placeholder
 
@@ -49,41 +49,49 @@ export default function AnnouncementsScreen({ navigation }) {
   const { theme } = useTheme(); // Use the theme hook
 
   // Prepare query function for the hook
-  const fetchAnnouncementsQuery = React.useCallback(async () => {
-    if (!schoolId) return [];
+  const fetchAnnouncementsQuery = React.useCallback(({ from, to }) => {
+    if (!schoolId) return Promise.resolve({ data: [], error: null });
 
-    let query = supabase.from('announcements').select('*, author:users(full_name), class:classes(name)').eq('school_id', schoolId).order('created_at', { ascending: false }).limit(50);
-
-    const { data, error } = await query;
-    if (error) throw error;
+    let query = supabase.from('announcements')
+      .select('*, author:users(full_name), class:classes(name)')
+      .eq('school_id', schoolId)
+      .order('created_at', { ascending: false })
+      .range(from, to);
 
     if (userRole === 'admin') {
-      return data;
-    } else if (userRole === 'teacher' || userRole === 'student' || userRole === 'parent') {
-      return data.filter(announcement => {
-        // Always show general announcements
-        if (!announcement.class_id) {
-          return true;
-        }
-        // Show class-specific announcements if the user is in that class
-        return userClasses.includes(announcement.class_id);
-      });
+      // Admin sees all
+    } else if (['teacher', 'student', 'parent'].includes(userRole)) {
+      if (userClasses.length > 0) {
+        // Show general announcements (class_id is null) OR class-specific ones
+        query = query.or(`class_id.is.null,class_id.in.(${userClasses.join(',')})`);
+      } else {
+        query = query.is('class_id', null);
+      }
     } else {
-      return data.filter(announcement => !announcement.class_id);
+      // Default fallback
+      query = query.is('class_id', null);
     }
+    
+    return query;
   }, [schoolId, userRole, userClasses]);
 
   // Use the hook
   const { 
     data: announcementsData, 
     loading: announcementsLoading, 
+    loadingMore,
     refreshing: announcementsRefreshing, 
     isOffline, 
-    refetch 
-  } = useSupabaseQuery(
+    hasMore,
+    refetch,
+    loadMore
+  } = useSupabaseInfiniteQuery(
     `announcements_${schoolId}_${userRole}`, // Unique cache key
     fetchAnnouncementsQuery,
-    [schoolId, userRole, userClasses.length] // Dependencies
+    {
+      pageSize: 15,
+      dependencies: [schoolId, userRole, userClasses.length]
+    }
   );
 
   const announcements = announcementsData || [];
@@ -251,6 +259,15 @@ export default function AnnouncementsScreen({ navigation }) {
     );
   };
 
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    return (
+      <View style={{ paddingVertical: 20 }}>
+        <ActivityIndicator size="small" color={theme.colors.primary} />
+      </View>
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {isOffline && (
@@ -264,6 +281,13 @@ export default function AnnouncementsScreen({ navigation }) {
         keyExtractor={(item, index) => isLoading ? index.toString() : item.id.toString()}
         onRefresh={onRefresh}
         refreshing={announcementsRefreshing}
+        onEndReached={() => {
+          if (hasMore && !loadingMore && !isLoading) {
+            loadMore();
+          }
+        }}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={renderFooter}
         ListHeaderComponent={() => (
           <>
             {/* Welcome Area */}
@@ -288,7 +312,7 @@ export default function AnnouncementsScreen({ navigation }) {
               )}
             </View>
             <Text style={[styles.announcementCount, { color: theme.colors.placeholder }]}>
-              {isLoading ? '--' : announcements.length} announcements
+              {isLoading ? '--' : announcements.length} loaded
             </Text>
           </>
         )}

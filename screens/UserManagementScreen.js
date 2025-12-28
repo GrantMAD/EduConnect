@@ -6,70 +6,63 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import UserManagementScreenSkeleton, { UserItemSkeleton } from '../components/skeletons/UserManagementScreenSkeleton';
 import { faTimes, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../context/ToastContext';
+import { useSchool } from '../context/SchoolContext';
+import { useSupabaseInfiniteQuery } from '../hooks/useSupabaseInfiniteQuery';
 
 const defaultUserImage = require('../assets/user.png');
 
 export default function UserManagementScreen({ navigation, route }) {
   const { fromDashboard } = route?.params || {};
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const { schoolId } = useSchool();
+  const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const { showToast } = useToast();
 
-  const fetchUsers = async () => {
-    if (!refreshing) setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: currentUserData, error: currentUserError } = await supabase
-          .from('users')
-          .select('school_id')
-          .eq('id', user.id)
-          .single();
+  const fetchUsersQuery = React.useCallback(({ from, to }) => {
+    if (!schoolId) return Promise.resolve({ data: [], error: null });
 
-        if (currentUserError) {
-          console.error('Error fetching current user data:', currentUserError);
-          setLoading(false);
-          setRefreshing(false);
-          return;
-        }
+    let query = supabase
+      .from('users')
+      .select('*')
+      .eq('school_id', schoolId);
 
-        const { data: usersData, error: usersError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('school_id', currentUserData.school_id);
-
-        if (usersError) {
-          console.error('Error fetching users:', usersError);
-        } else {
-          const sortedUsers = usersData.sort((a, b) => {
-            if (a.role === 'admin' && b.role !== 'admin') return -1;
-            if (a.role !== 'admin' && b.role === 'admin') return 1;
-            return 0;
-          });
-          setUsers(sortedUsers);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    if (searchQuery) {
+      query = query.ilike('full_name', `%${searchQuery}%`);
     }
-  };
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+    // Sort by role (admin first) then name
+    // Roles: admin, parent, student, teacher (alphabetical order works for admin first)
+    query = query
+      .order('role', { ascending: true })
+      .order('full_name', { ascending: true })
+      .range(from, to);
+
+    return query;
+  }, [schoolId, searchQuery]);
+
+  const {
+    data: users,
+    setData: setUsers,
+    loading,
+    loadingMore,
+    refreshing,
+    hasMore,
+    refetch,
+    loadMore
+  } = useSupabaseInfiniteQuery(
+    `users_${schoolId}_${searchQuery}`,
+    fetchUsersQuery,
+    {
+      pageSize: 20,
+      dependencies: [schoolId, searchQuery] // Re-fetch when schoolId or searchQuery changes
+    }
+  );
 
   const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    fetchUsers();
-  }, []);
+    refetch();
+  }, [refetch]);
 
   const openModal = (user) => {
     setSelectedUser(user);
@@ -83,25 +76,40 @@ export default function UserManagementScreen({ navigation, route }) {
 
   const handleRoleChange = async (newRole) => {
     if (!selectedUser) return;
+    if (selectedUser.role === newRole) return;
 
-    const { error } = await supabase
-      .from('users')
-      .update({ role: newRole })
-      .eq('id', selectedUser.id);
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .update({ role: newRole })
+        .eq('id', selectedUser.id)
+        .select();
 
-    if (error) {
-      showToast('Failed to update user role.', 'error');
-    } else {
-      showToast('User role updated successfully.', 'success');
-      // Update the local state to reflect the change immediately
-      setUsers(users.map(u => u.id === selectedUser.id ? { ...u, role: newRole } : u));
-      setSelectedUser({ ...selectedUser, role: newRole });
+      if (error) {
+        showToast('Failed to update user role.', 'error');
+      } else if (!data || data.length === 0) {
+        showToast('Update failed: No permissions.', 'error');
+      } else {
+        showToast('User role updated successfully.', 'success');
+        
+        setUsers(prevUsers => 
+          prevUsers.map(u => u.id === selectedUser.id ? { ...u, role: newRole } : u)
+        );
+        setSelectedUser({ ...selectedUser, role: newRole });
+      }
+    } catch (err) {
+      showToast('An unexpected error occurred.', 'error');
     }
   };
 
-  const filteredUsers = users.filter(user =>
-    user.full_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    return (
+      <View style={{ paddingVertical: 20 }}>
+        <ActivityIndicator size="small" color="#007AFF" />
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -116,15 +124,22 @@ export default function UserManagementScreen({ navigation, route }) {
         placeholder="Search by name..."
         placeholderTextColor="#666"
         value={searchQuery}
-        onChangeText={setSearchQuery}
+        onChangeText={setSearchQuery} // Updates state -> triggers dependency -> re-fetches
         onFocus={() => setIsSearchFocused(true)}
         onBlur={() => setIsSearchFocused(false)}
       />
       <FlatList
-        data={loading ? [1, 2, 3, 4, 5] : filteredUsers}
+        data={loading ? [1, 2, 3, 4, 5] : users}
         keyExtractor={(item, index) => loading ? index.toString() : item.id}
         refreshing={refreshing}
         onRefresh={onRefresh}
+        onEndReached={() => {
+          if (hasMore && !loadingMore && !loading) {
+            loadMore();
+          }
+        }}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={renderFooter}
         renderItem={({ item }) => loading ? (
           <UserItemSkeleton />
         ) : (
@@ -141,6 +156,7 @@ export default function UserManagementScreen({ navigation, route }) {
             </View>
           </TouchableOpacity>
         )}
+        ListEmptyComponent={!loading && <Text style={{ textAlign: 'center', marginTop: 20, color: '#666' }}>No users found.</Text>}
       />
       {selectedUser && (
         <Modal

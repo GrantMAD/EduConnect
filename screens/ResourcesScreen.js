@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl, Dimensions } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faBook, faPlus, faFileAlt, faThumbsUp, faThumbsDown, faBookmark, faSortAmountDown, faFilter, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
+import { 
+  faBook, faPlus, faFileAlt, faThumbsUp, faThumbsDown, faBookmark, 
+  faSortAmountDown, faFilter, faInfoCircle, faFolder, faFolderOpen,
+  faFilePdf, faFileImage, faFileWord, faFileExcel, faArrowLeft
+} from '@fortawesome/free-solid-svg-icons';
 import CreateResourceModal from '../components/CreateResourceModal';
 import ResourceDetailModal from '../components/ResourceDetailModal';
 import StandardBottomModal from '../components/StandardBottomModal';
@@ -14,6 +18,8 @@ import FileViewer from 'react-native-file-viewer';
 import { useGamification } from '../context/GamificationContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ResourcesScreenSkeleton, { SkeletonPiece, ResourceCardSkeleton } from '../components/skeletons/ResourcesScreenSkeleton';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function ResourcesScreen() {
   const { schoolId } = useSchool();
@@ -37,6 +43,9 @@ export default function ResourcesScreen() {
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('public'); // 'public' or 'personal'
   const [editingResource, setEditingResource] = useState(null);
+  
+  // Folder State
+  const [currentFolder, setCurrentFolder] = useState(null);
 
   useEffect(() => {
     fetchUserRole();
@@ -180,6 +189,16 @@ export default function ResourcesScreen() {
     setRefreshing(false);
   }, [schoolId, activeTab]);
 
+  const getFileIcon = (fileUrl) => {
+    if (!fileUrl) return faFileAlt;
+    const lowerUrl = fileUrl.toLowerCase();
+    if (lowerUrl.endsWith('.pdf')) return faFilePdf;
+    if (lowerUrl.match(/\.(jpg|jpeg|png|gif|webp)$/)) return faFileImage;
+    if (lowerUrl.match(/\.(doc|docx)$/)) return faFileWord;
+    if (lowerUrl.match(/\.(xls|xlsx)$/)) return faFileExcel;
+    return faFileAlt;
+  };
+
   // Filter and Sort resources
   const processResources = () => {
     let processed = [...resources];
@@ -197,7 +216,12 @@ export default function ResourcesScreen() {
       processed = processed.filter(r => bookmarkedIds.has(r.id));
     }
 
-    // 3. Sort
+    // 3. Filter by Current Folder (if not searching and folder selected)
+    if (!searchTerm && currentFolder) {
+      processed = processed.filter(r => (r.category || 'General') === currentFolder);
+    }
+
+    // 4. Sort
     processed.sort((a, b) => {
       if (sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at);
       if (sortBy === 'oldest') return new Date(a.created_at) - new Date(b.created_at);
@@ -205,23 +229,66 @@ export default function ResourcesScreen() {
       return 0;
     });
 
-    // 4. Group by Category
-    return processed.reduce((acc, resource) => {
-      const category = resource.category || 'General';
-      if (!acc[category]) acc[category] = [];
-      acc[category].push(resource);
-      return acc;
-    }, {});
+    return processed;
+  };
+
+  const getCategories = () => {
+    const cats = new Set(resources.map(r => r.category || 'General'));
+    return Array.from(cats).sort();
   };
 
   const filteredResources = processResources();
+  const categories = getCategories();
+
+  const renderResourceItem = (item) => (
+    <View key={item.id.toString()} style={styles.resourceItemContainer}>
+      <TouchableOpacity
+        onPress={() => {
+          setSelectedResource(item);
+          setDetailModalVisible(true);
+        }}
+      >
+        <View style={[styles.card, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
+          <FontAwesomeIcon icon={getFileIcon(item.file_url)} size={28} color={theme.colors.primary} style={{ marginRight: 15 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.title, { color: theme.colors.text }]}>{item.title}</Text>
+            <Text style={[styles.description, { color: theme.colors.textSecondary }]} numberOfLines={2} ellipsizeMode="tail">
+              {item.description}
+            </Text>
+            <Text style={[styles.uploader, { color: theme.colors.placeholder }]}>
+              Uploaded by: {item.users?.full_name ?? item.users?.email ?? "Unknown"}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+      <View style={[styles.voteSummaryContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+        <FontAwesomeIcon icon={faThumbsUp} size={14} color="#28A745" />
+        <Text style={[styles.voteCount, { color: theme.colors.text }]}>{item.upvotes}</Text>
+        <FontAwesomeIcon icon={faThumbsDown} size={14} color="#FF3B30" style={{ marginLeft: 10 }} />
+        <Text style={[styles.voteCount, { color: theme.colors.text }]}>{item.downvotes}</Text>
+      </View>
+
+      <TouchableOpacity
+        style={styles.bookmarkButton}
+        onPress={() => toggleBookmark(item.id)}
+      >
+        <FontAwesomeIcon
+          icon={faBookmark}
+          size={20}
+          color={bookmarkedIds.has(item.id) ? "#FFC107" : "#ccc"}
+        />
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.headerContainer}>
         <View style={styles.headerLeft}>
-          <FontAwesomeIcon icon={faBook} size={24} color="#007AFF" style={styles.headerIcon} />
-          <Text style={[styles.header, { color: theme.colors.text }]}>Resources</Text>
+          <FontAwesomeIcon icon={faBook} size={24} color={theme.colors.primary} style={styles.headerIcon} />
+          <Text style={[styles.header, { color: theme.colors.text }]}>
+            {currentFolder && !searchTerm ? currentFolder : 'Resources'}
+          </Text>
         </View>
         {loading ? (
           <SkeletonPiece style={{ width: 100, height: 35, borderRadius: 10 }} />
@@ -233,69 +300,93 @@ export default function ResourcesScreen() {
         )}
       </View>
 
-      {(userRole === 'teacher' || userRole === 'admin') && (
+      {/* Tabs - Only show when at root and not searching */}
+      {(!currentFolder && !searchTerm) && (userRole === 'teacher' || userRole === 'admin') && (
         <View style={styles.tabContainer}>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'public' && styles.activeTab]}
-            onPress={() => setActiveTab('public')}
+            onPress={() => {
+              setActiveTab('public');
+              setCurrentFolder(null);
+            }}
           >
             <Text style={[styles.tabText, activeTab === 'public' && styles.activeTabText]}>Public Resources</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'personal' && styles.activeTab]}
-            onPress={() => setActiveTab('personal')}
+            onPress={() => {
+              setActiveTab('personal');
+              setCurrentFolder(null);
+            }}
           >
             <Text style={[styles.tabText, activeTab === 'personal' && styles.activeTabText]}>Personal Resources</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      <View style={styles.descriptionContainer}>
-        <Text style={[styles.descriptionText, { color: theme.colors.text }]}>
-          {activeTab === 'public' 
-            ? "Access and manage all your educational resources here."
-            : "Keep your private study materials and notes here. Only you can see these."}
-        </Text>
-        <TouchableOpacity onPress={() => setInfoModalVisible(true)} style={styles.infoButton}>
-          <FontAwesomeIcon icon={faInfoCircle} size={18} color="#007AFF" />
+      {/* Breadcrumb / Back Navigation */}
+      {(currentFolder && !searchTerm) && (
+        <TouchableOpacity style={styles.backButton} onPress={() => setCurrentFolder(null)}>
+          <FontAwesomeIcon icon={faArrowLeft} size={16} color={theme.colors.primary} />
+          <Text style={[styles.backButtonText, { color: theme.colors.primary }]}>Back to Folders</Text>
         </TouchableOpacity>
-      </View>
+      )}
+
+      {/* Search & Description - Hide description inside folders to save space */}
+      {(!currentFolder) && (
+        <View style={styles.descriptionContainer}>
+          <Text style={[styles.descriptionText, { color: theme.colors.text }]}>
+            {activeTab === 'public' 
+              ? "Access and manage all your educational resources here."
+              : "Keep your private study materials and notes here. Only you can see these."}
+          </Text>
+          <TouchableOpacity onPress={() => setInfoModalVisible(true)} style={styles.infoButton}>
+            <FontAwesomeIcon icon={faInfoCircle} size={18} color={theme.colors.primary} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {loading ? (
         <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8, marginBottom: 20 }} />
       ) : (
         <TextInput
-          style={[styles.searchInput, { color: theme.colors.text, borderColor: theme.colors.cardBorder }]}
-          placeholder="Search by title..."
+          style={[styles.searchInput, { color: theme.colors.text, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.inputBackground }]}
+          placeholder="Search resources..."
           placeholderTextColor={theme.colors.placeholder}
           value={searchTerm}
-          onChangeText={setSearchTerm}
+          onChangeText={(text) => {
+            setSearchTerm(text);
+            if (text) setCurrentFolder(null); // Reset folder when searching
+          }}
         />
       )}
 
-      <View style={styles.controlsContainer}>
-        <TouchableOpacity
-          style={[styles.controlButton, { backgroundColor: theme.colors.inputBackground }]}
-          onPress={() => {
-            if (sortBy === 'newest') setSortBy('popular');
-            else if (sortBy === 'popular') setSortBy('oldest');
-            else setSortBy('newest');
-          }}
-        >
-          <FontAwesomeIcon icon={faSortAmountDown} size={14} color={theme.colors.placeholder} />
-          <Text style={[styles.controlText, { color: theme.colors.text }]}>
-            Sort: {sortBy === 'newest' ? 'Newest' : sortBy === 'popular' ? 'Popular' : 'Oldest'}
-          </Text>
-        </TouchableOpacity>
+      {/* Controls - Only show in file list view (search or inside folder) */}
+      {(searchTerm || currentFolder) && (
+        <View style={styles.controlsContainer}>
+          <TouchableOpacity
+            style={[styles.controlButton, { backgroundColor: theme.colors.inputBackground }]}
+            onPress={() => {
+              if (sortBy === 'newest') setSortBy('popular');
+              else if (sortBy === 'popular') setSortBy('oldest');
+              else setSortBy('newest');
+            }}
+          >
+            <FontAwesomeIcon icon={faSortAmountDown} size={14} color={theme.colors.placeholder} />
+            <Text style={[styles.controlText, { color: theme.colors.text }]}>
+              Sort: {sortBy === 'newest' ? 'Newest' : sortBy === 'popular' ? 'Popular' : 'Oldest'}
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.controlButton, showBookmarkedOnly ? styles.controlButtonActive : { backgroundColor: theme.colors.inputBackground }]}
-          onPress={() => setShowBookmarkedOnly(!showBookmarkedOnly)}
-        >
-          <FontAwesomeIcon icon={faBookmark} size={14} color={showBookmarkedOnly ? "#fff" : theme.colors.placeholder} />
-          <Text style={[styles.controlText, showBookmarkedOnly ? { color: '#fff' } : { color: theme.colors.text }]}>My Bookmarks</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={[styles.controlButton, showBookmarkedOnly ? styles.controlButtonActive : { backgroundColor: theme.colors.inputBackground }]}
+            onPress={() => setShowBookmarkedOnly(!showBookmarkedOnly)}
+          >
+            <FontAwesomeIcon icon={faBookmark} size={14} color={showBookmarkedOnly ? "#fff" : theme.colors.placeholder} />
+            <Text style={[styles.controlText, showBookmarkedOnly ? { color: '#fff' } : { color: theme.colors.text }]}>My Bookmarks</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView 
         style={styles.scrollView} 
@@ -306,54 +397,42 @@ export default function ResourcesScreen() {
       >
         {loading ? (
           [1, 2, 3].map(i => <ResourceCardSkeleton key={i} />)
-        ) : Object.keys(filteredResources).length === 0 ? (
-          <Text style={[styles.noResourcesText, { color: theme.colors.placeholder }]}>No resources available yet.</Text>
         ) : (
-          Object.keys(filteredResources).map((category) => (
-            <View key={category} style={styles.categoryContainer}>
-              <Text style={[styles.categoryHeader, { color: theme.colors.text }]}>{category}</Text>
-              {filteredResources[category].map((item) => (
-                <View key={item.id.toString()} style={styles.resourceItemContainer}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setSelectedResource(item);
-                      setDetailModalVisible(true);
-                    }}
-                  >
-                    <View style={[styles.card, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
-                      <FontAwesomeIcon icon={faFileAlt} size={24} color="#007AFF" style={{ marginRight: 10 }} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.title, { color: theme.colors.text }]}>{item.title}</Text>
-                        <Text style={[styles.description, { color: theme.colors.textSecondary }]} numberOfLines={2} ellipsizeMode="tail">
-                          {item.description}
-                        </Text>
-                        <Text style={[styles.uploader, { color: theme.colors.placeholder }]}>
-                          Uploaded by: {item.users?.full_name ?? item.users?.email ?? "Unknown"}
-                        </Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                  <View style={[styles.voteSummaryContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={faThumbsUp} size={16} color="#28A745" />
-                    <Text style={[styles.voteCount, { color: theme.colors.text }]}>{item.upvotes}</Text>
-                    <FontAwesomeIcon icon={faThumbsDown} size={16} color="#FF3B30" style={{ marginLeft: 12 }} />
-                    <Text style={[styles.voteCount, { color: theme.colors.text }]}>{item.downvotes}</Text>
-                  </View>
+          <>
+            {/* View: Folder Grid */}
+            {!currentFolder && !searchTerm && (
+              <View style={styles.folderGrid}>
+                {categories.length === 0 ? (
+                  <Text style={[styles.noResourcesText, { color: theme.colors.placeholder }]}>No resources available.</Text>
+                ) : (
+                  categories.map((cat, index) => (
+                    <TouchableOpacity 
+                      key={index} 
+                      style={[styles.folderCard, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}
+                      onPress={() => setCurrentFolder(cat)}
+                    >
+                      <FontAwesomeIcon icon={faFolder} size={40} color="#FFC107" />
+                      <Text style={[styles.folderName, { color: theme.colors.text }]} numberOfLines={1}>{cat}</Text>
+                      <Text style={[styles.folderCount, { color: theme.colors.placeholder }]}>
+                        {resources.filter(r => (r.category || 'General') === cat).length} items
+                      </Text>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </View>
+            )}
 
-                  <TouchableOpacity
-                    style={styles.bookmarkButton}
-                    onPress={() => toggleBookmark(item.id)}
-                  >
-                    <FontAwesomeIcon
-                      icon={faBookmark}
-                      size={20}
-                      color={bookmarkedIds.has(item.id) ? "#FFC107" : "#ccc"}
-                    />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          ))
+            {/* View: File List (Inside Folder or Search Results) */}
+            {(currentFolder || searchTerm) && (
+              <View>
+                {filteredResources.length === 0 ? (
+                  <Text style={[styles.noResourcesText, { color: theme.colors.placeholder }]}>No matching resources found.</Text>
+                ) : (
+                  filteredResources.map(renderResourceItem)
+                )}
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
 
@@ -387,7 +466,7 @@ export default function ResourcesScreen() {
           <Text style={styles.modalText}>
             Welcome to the Resources Hub! Here you can:
           </Text>
-          <Text style={styles.bulletPoint}>• Browse educational materials uploaded by teachers.</Text>
+          <Text style={styles.bulletPoint}>• Browse educational materials organized by folders.</Text>
           <Text style={styles.bulletPoint}>• Search for specific topics or titles.</Text>
           <Text style={styles.bulletPoint}>• Bookmark important resources for quick access.</Text>
           <Text style={styles.bulletPoint}>• Vote on resources to help others find the best content.</Text>
@@ -402,10 +481,10 @@ export default function ResourcesScreen() {
 
 const styles = StyleSheet.create({
   headerContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  headerLeft: { flexDirection: 'row', alignItems: 'center' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   headerIcon: { marginRight: 10 },
   descriptionContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  descriptionText: { fontSize: 16, color: '#555', flex: 1 },
+  descriptionText: { fontSize: 14, color: '#555', flex: 1 },
   infoButton: { padding: 5, marginLeft: 5 },
   container: { padding: 16, flex: 1, backgroundColor: '#fff' },
   header: { fontSize: 22, fontWeight: '700' },
@@ -440,24 +519,22 @@ const styles = StyleSheet.create({
   },
   addButton: { flexDirection: 'row', backgroundColor: '#007AFF', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   addButtonText: { color: '#fff', fontWeight: '600', marginLeft: 8 },
-  card: { flexDirection: 'row', backgroundColor: '#f8f8f8', padding: 12, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: '#eee' },
+  card: { flexDirection: 'row', backgroundColor: '#f8f8f8', padding: 15, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#eee' },
   title: { fontSize: 16, fontWeight: '700' },
-  description: { color: '#555', marginVertical: 4 },
-  uploader: { color: '#777', fontSize: 12 },
+  description: { color: '#555', marginVertical: 4, fontSize: 13 },
+  uploader: { color: '#777', fontSize: 11, marginTop: 4 },
   scrollView: { flex: 1 },
-  categoryContainer: { marginBottom: 20 },
-  categoryHeader: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, marginLeft: 5 },
   noResourcesText: { textAlign: 'center', marginTop: 20, fontSize: 16, color: '#777' },
   searchInput: {
-    height: 40,
+    height: 44,
     borderColor: '#DDD',
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    marginBottom: 20,
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    marginBottom: 15,
   },
   resourceItemContainer: {
-    marginBottom: 20,
+    marginBottom: 15,
   },
   voteSummaryContainer: {
     flexDirection: 'row',
@@ -467,8 +544,8 @@ const styles = StyleSheet.create({
     right: 15,
     backgroundColor: '#fff',
     paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    borderRadius: 15,
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -477,7 +554,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#eee',
   },
-  voteCount: { marginLeft: 4, marginRight: 8, fontSize: 14, color: '#555' },
+  voteCount: { marginLeft: 4, marginRight: 8, fontSize: 12, fontWeight: '600', color: '#555' },
   controlsContainer: { flexDirection: 'row', marginBottom: 15 },
   controlButton: {
     flexDirection: 'row',
@@ -490,7 +567,51 @@ const styles = StyleSheet.create({
   },
   controlButtonActive: { backgroundColor: '#007AFF' },
   controlText: { marginLeft: 6, fontSize: 13, fontWeight: '600', color: '#555' },
-  bookmarkButton: { position: 'absolute', top: 10, right: 10, padding: 5, zIndex: 10 },
+  bookmarkButton: { position: 'absolute', top: 10, right: 10, padding: 8, zIndex: 10 },
   modalText: { fontSize: 16, color: '#333', marginBottom: 10 },
   bulletPoint: { fontSize: 15, color: '#555', marginBottom: 8, marginLeft: 10 },
+  
+  // Folder Styles
+  folderGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  folderCard: {
+    width: (SCREEN_WIDTH - 48) / 2, // 2 columns with padding
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#eee',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  folderName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  folderCount: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingVertical: 5,
+  },
+  backButtonText: {
+    fontSize: 16,
+    marginLeft: 8,
+    fontWeight: '500',
+  },
 });

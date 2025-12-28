@@ -311,23 +311,73 @@ export default function NotificationsScreen({ route, navigation }) {
     }
   };
 
+  const handleMarkAllAsRead = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false);
+
+      if (error) throw error;
+
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      showToast('All notifications marked as read.', 'success');
+    } catch (err) {
+      console.error('Error marking all as read:', err);
+      showToast('Could not mark all as read.', 'error');
+    }
+  };
+
+  const groupNotifications = (notifs) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const groups = {
+      Today: [],
+      Yesterday: [],
+      Older: []
+    };
+
+    notifs.forEach(n => {
+      const date = new Date(n.created_at);
+      date.setHours(0, 0, 0, 0);
+
+      if (date.getTime() === today.getTime()) {
+        groups.Today.push(n);
+      } else if (date.getTime() === yesterday.getTime()) {
+        groups.Yesterday.push(n);
+      } else {
+        groups.Older.push(n);
+      }
+    });
+
+    return Object.entries(groups).filter(([_, items]) => items.length > 0);
+  };
+
+  const groupedNotifications = groupNotifications(notifications);
+
   const renderNotification = ({ item }) => {
     const isUnread = !item.is_read;
-    const iconName = item.type === 'school_join_request'
-      ? 'school'
-      : item.type === 'new_general_announcement' || item.type === 'new_class_announcement'
-        ? 'bullhorn'
-        : item.type === 'added_to_class'
-          ? 'user-plus'
-          : item.type === 'added_to_club' || item.type === 'club_join_request' || item.type === 'club_join_accepted'
-            ? 'user-friends'
-            : item.type === 'new_homework' || item.type === 'new_assignment'
-              ? 'clipboard-list'
-              : item.type === 'new_poll'
-                ? 'poll'
-                : item.type === 'new_ptm_booking' || item.type === 'ptm_cancellation'
-                  ? 'handshake'
-                  : 'bell';
+    const typeInfo = {
+      new_general_announcement: { icon: 'bullhorn', color: '#007AFF', label: 'Announcement' },
+      new_class_announcement: { icon: 'bullhorn', color: '#34C759', label: 'Class Update' },
+      new_homework: { icon: 'clipboard-list', color: '#FF9500', label: 'Homework' },
+      new_assignment: { icon: 'file-signature', color: '#AF52DE', label: 'Assignment' },
+      new_poll: { icon: 'poll', color: '#5856D6', label: 'Poll' },
+      new_ptm_booking: { icon: 'handshake', color: '#FF2D55', label: 'PTM' },
+      ptm_cancellation: { icon: 'handshake-slash', color: '#FF3B30', label: 'PTM Cancel' },
+      school_join_request: { icon: 'school', color: '#007AFF', label: 'Join Request' },
+      parent_child_request: { icon: 'user-friends', color: '#5AC8FA', label: 'Association' },
+      added_to_club: { icon: 'users', color: '#AF52DE', label: 'Club' },
+    };
+
+    const info = typeInfo[item.type] || { icon: 'bell', color: theme.colors.primary, label: 'Notification' };
 
     const isPressable = [
       'new_general_announcement',
@@ -342,122 +392,137 @@ export default function NotificationsScreen({ route, navigation }) {
       'club_join_accepted'
     ].includes(item.type);
 
-    const iconColor = isUnread 
-      ? (['added_to_club', 'club_join_request', 'club_join_accepted'].includes(item.type) ? '#AF52DE' : theme.colors.primary) 
-      : theme.colors.placeholder;
-
     return (
-      <TouchableOpacity
-        style={[styles.card, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }, isUnread && { backgroundColor: theme.colors.surface }]}
-        onPress={() => handleNotificationPress(item)}
-        disabled={!isPressable}
+      <View 
+        key={item.id}
+        style={[
+          styles.card, 
+          { 
+            backgroundColor: theme.colors.cardBackground, 
+            shadowColor: theme.colors.text,
+            borderLeftColor: isUnread ? info.color : 'transparent',
+            borderLeftWidth: 4
+          }
+        ]}
       >
-        <FontAwesome5 name={iconName} size={24} color={iconColor} style={styles.icon} />
-        <View style={styles.contentContainer}>
-          <Text style={[styles.title, { color: theme.colors.text }, isUnread && { color: theme.colors.primary }]}>{item.title}</Text>
-          <Text style={[styles.message, { color: theme.colors.text }]}>{item.message}</Text>
-          <Text style={[styles.date, { color: theme.colors.placeholder }]}>{new Date(item.created_at).toLocaleString()}</Text>
-
-          {item.type === 'school_join_request' && isUnread && (
-            <View style={styles.buttonsRow}>
-              <TouchableOpacity
-                style={[styles.button, styles.acceptButton, { backgroundColor: theme.colors.primary }]}
-                onPress={() => handleJoinResponse(item, true)}
-              >
-                <Text style={[styles.buttonText, { color: theme.colors.buttonPrimaryText }]}>Accept</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, styles.declineButton, { backgroundColor: theme.colors.error }]}
-                onPress={() => handleJoinResponse(item, false)}
-              >
-                <Text style={[styles.buttonText, { color: theme.colors.buttonPrimaryText }]}>Decline</Text>
-              </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.cardMain}
+          onPress={() => handleNotificationPress(item)}
+          disabled={!isPressable}
+        >
+          <View style={[styles.iconContainer, { backgroundColor: isUnread ? `${info.color}20` : theme.colors.inputBackground }]}>
+            <FontAwesome5 name={info.icon} size={20} color={isUnread ? info.color : theme.colors.placeholder} />
+          </View>
+          <View style={styles.contentContainer}>
+            <View style={styles.typeHeader}>
+              <Text style={[styles.typeLabel, { color: isUnread ? info.color : theme.colors.placeholder }]}>{info.label}</Text>
+              {isUnread && <View style={[styles.unreadDot, { backgroundColor: info.color }]} />}
             </View>
-          )}
+            <Text style={[styles.title, { color: theme.colors.text }, isUnread && { fontWeight: 'bold' }]}>{item.title}</Text>
+            <Text style={[styles.message, { color: theme.colors.textSecondary }]} numberOfLines={2}>{item.message}</Text>
+            <Text style={[styles.date, { color: theme.colors.placeholder }]}>{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
 
-          {item.type === 'parent_child_request' && isUnread && (
-            <View style={styles.buttonsRow}>
-              <TouchableOpacity
-                style={[styles.button, styles.acceptButton, { backgroundColor: theme.colors.primary }]}
-                onPress={() => handleParentChildResponse(item, true)}
-              >
-                <Text style={[styles.buttonText, { color: theme.colors.buttonPrimaryText }]}>Accept</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, styles.declineButton, { backgroundColor: theme.colors.error }]}
-                onPress={() => handleParentChildResponse(item, false)}
-              >
-                <Text style={[styles.buttonText, { color: theme.colors.buttonPrimaryText }]}>Decline</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+            {/* Specialized Actions for Requests */}
+            {item.type === 'school_join_request' && isUnread && (
+              <View style={styles.buttonsRow}>
+                <TouchableOpacity
+                  style={[styles.button, { backgroundColor: theme.colors.primary }]}
+                  onPress={() => handleJoinResponse(item, true)}
+                >
+                  <Text style={[styles.buttonText, { color: '#fff' }]}>Accept</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.button, { backgroundColor: theme.colors.error }]}
+                  onPress={() => handleJoinResponse(item, false)}
+                >
+                  <Text style={[styles.buttonText, { color: '#fff' }]}>Decline</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
-          {item.is_read && (item.type === 'school_join_request' || item.type === 'parent_child_request') && (
-            <>
-              <View style={[styles.hr, { borderBottomColor: theme.colors.cardBorder }]} />
-              <Text style={[styles.statusText, { color: theme.colors.placeholder }]}>
-                {item.status_text || 'You have read this notification'}
-              </Text>
-            </>
-          )}
+            {item.type === 'parent_child_request' && isUnread && (
+              <View style={styles.buttonsRow}>
+                <TouchableOpacity
+                  style={[styles.button, { backgroundColor: theme.colors.primary }]}
+                  onPress={() => handleParentChildResponse(item, true)}
+                >
+                  <Text style={[styles.buttonText, { color: '#fff' }]}>Accept</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.button, { backgroundColor: theme.colors.error }]}
+                  onPress={() => handleParentChildResponse(item, false)}
+                >
+                  <Text style={[styles.buttonText, { color: '#fff' }]}>Decline</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
 
-          {item.is_read && item.type !== 'school_join_request' && item.type !== 'parent_child_request' && (
-            <>
-              <View style={[styles.hr, { borderBottomColor: theme.colors.cardBorder }]} />
-              <Text style={[styles.statusText, { color: theme.colors.placeholder }]}>
-                You have read this notification
-              </Text>
-            </>
-          )}
-        </View>
         <View style={styles.actionsContainer}>
           {isUnread && (
             <TouchableOpacity onPress={() => handleMarkAsRead(item.id)} style={styles.actionButton}>
-              <FontAwesome5 name="eye" size={20} color={theme.colors.primary} />
+              <FontAwesome5 name="check-circle" size={18} color={theme.colors.success} />
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.actionButton}>
-            <FontAwesome5 name="trash" size={20} color={theme.colors.error} />
+            <FontAwesome5 name="trash-alt" size={18} color={theme.colors.error} />
           </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text style={[styles.header, { color: theme.colors.text }]}>Notifications</Text>
-      <Text style={[styles.description, { color: theme.colors.placeholder }]}>
-        Stay updated with your latest school activities
-      </Text>
-      <View style={styles.subHeaderContainer}>
-        <View style={styles.countContainer}>
-          <FontAwesome5 name="bell" solid size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
-          {loading ? (
-            <SkeletonPiece style={{ width: 150, height: 14, borderRadius: 4 }} />
-          ) : (
-            <Text style={[styles.notificationCount, { color: theme.colors.placeholder }]}>You have {notifications.length} notifications</Text>
-          )}
+      <View style={styles.headerRow}>
+        <View>
+          <Text style={[styles.header, { color: theme.colors.text }]}>Notifications</Text>
+          <Text style={[styles.description, { color: theme.colors.placeholder }]}>
+            {notifications.filter(n => !n.is_read).length} unread updates
+          </Text>
         </View>
         {!loading && notifications.length > 0 && (
-          <TouchableOpacity onPress={handleClearAll}>
-            <Text style={[styles.clearAllButtonText, { color: theme.colors.error }]}>Clear All</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row' }}>
+            <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.headerActionButton}>
+              <FontAwesome5 name="check-double" size={16} color={theme.colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleClearAll} style={styles.headerActionButton}>
+              <FontAwesome5 name="broom" size={16} color={theme.colors.error} />
+            </TouchableOpacity>
+          </View>
         )}
       </View>
-      <View style={[styles.hr, { borderBottomColor: theme.colors.cardBorder, marginBottom: 15 }]} />
-      
-      <FlatList
-        data={loading ? [1, 2, 3, 4, 5] : notifications}
-        keyExtractor={(item, index) => loading ? index.toString() : item.id}
-        renderItem={loading ? () => <NotificationCardSkeleton /> : renderNotification}
-        contentContainerStyle={{ paddingBottom: 20 }}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        ListEmptyComponent={
-          !loading && <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No notifications</Text>
-        }
-      />
+
+      {loading ? (
+        <ScrollView>
+          {[1, 2, 3, 4, 5].map(i => <NotificationCardSkeleton key={i} />)}
+        </ScrollView>
+      ) : (
+        <FlatList
+          data={groupedNotifications}
+          keyExtractor={(item) => item[0]}
+          renderItem={({ item }) => (
+            <View>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{item[0]}</Text>
+                <View style={[styles.sectionLine, { backgroundColor: theme.colors.cardBorder }]} />
+              </View>
+              {item[1].map(n => renderNotification({ item: n }))}
+            </View>
+          )}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <FontAwesome5 name="bell-slash" size={60} color={theme.colors.placeholder} />
+              <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>All caught up!</Text>
+              <Text style={[styles.emptySubText, { color: theme.colors.placeholder }]}>No new notifications for you right now.</Text>
+            </View>
+          }
+        />
+      )}
 
       <Modal
         transparent={true}
@@ -524,54 +589,120 @@ export default function NotificationsScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { fontSize: 28, fontWeight: 'bold', marginBottom: 5, textAlign: 'center' },
-  description: { fontSize: 14, textAlign: 'center', marginBottom: 20 },
-  subHeaderContainer: {
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 8, // Added for some spacing
+    marginBottom: 24,
+    marginTop: 10,
   },
-  countContainer: {
+  header: { fontSize: 28, fontWeight: 'bold' },
+  description: { fontSize: 14, marginTop: 2 },
+  headerActionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 12,
   },
-  notificationCount: {
-    fontSize: 14,
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginRight: 10,
   },
-  clearAllButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+  sectionLine: {
+    flex: 1,
+    height: 1,
   },
-  emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16 },
   card: {
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
     marginBottom: 12,
     flexDirection: 'row',
-    alignItems: 'flex-start',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+    overflow: 'hidden',
   },
-  unreadCard: {},
-  icon: { marginRight: 16, marginTop: 4 },
+  cardMain: {
+    flex: 1,
+    flexDirection: 'row',
+    padding: 16,
+    alignItems: 'flex-start',
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
   contentContainer: { flex: 1 },
-  title: { fontSize: 17, fontWeight: '600', marginBottom: 4 },
-  unreadTitle: { fontWeight: 'bold' },
-  message: { fontSize: 15, marginBottom: 8 },
-  date: { fontSize: 12, textAlign: 'left' },
+  typeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  typeLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  title: { fontSize: 16, marginBottom: 4 },
+  message: { fontSize: 14, lineHeight: 20, marginBottom: 6 },
+  date: { fontSize: 12, fontWeight: '500' },
   buttonsRow: { flexDirection: 'row', marginTop: 12 },
-  button: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, marginRight: 10 },
-  acceptButton: {},
-  declineButton: {},
-  buttonText: { fontWeight: 'bold' },
-  statusText: { marginTop: 8, fontStyle: 'italic', fontSize: 14 },
-  actionsContainer: { flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', marginLeft: 16 },
-  actionButton: { padding: 8 },
+  button: { 
+    paddingVertical: 8, 
+    paddingHorizontal: 16, 
+    borderRadius: 10, 
+    marginRight: 10 
+  },
+  buttonText: { fontWeight: '700', fontSize: 13 },
+  actionsContainer: { 
+    width: 50, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(0,0,0,0.05)',
+    paddingVertical: 10,
+  },
+  actionButton: { 
+    padding: 10,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 100,
+  },
+  emptyText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 20,
+  },
+  emptySubText: {
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
   hr: {
     borderBottomWidth: 1,
     marginVertical: 12,
@@ -585,14 +716,13 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '90%',
-    maxHeight: '80%', // Limit height to make it scrollable
+    maxHeight: '80%',
     borderRadius: 15,
     padding: 20,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
-    marginVertical: 50, // Added vertical margin for gap
   },
   modalTitleContainer: {
     flexDirection: 'row',
@@ -612,7 +742,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   modalMessageScrollView: {
-    maxHeight: '70%', // Adjust as needed
+    maxHeight: '70%',
   },
   modalMessage: {
     fontSize: 16,
