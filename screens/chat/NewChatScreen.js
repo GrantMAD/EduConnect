@@ -36,9 +36,20 @@ export default function NewChatScreen({ navigation }) {
         try {
             const { data: { user: currentUser } } = await supabase.auth.getUser();
 
+            // Fetch current user's school_id
+            const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('school_id')
+                .eq('id', currentUser.id)
+                .single();
+            
+            if (userError) throw userError;
+            const schoolId = userData.school_id;
+
             let query = supabase
                 .from('users')
                 .select('id, full_name, email, avatar_url, role')
+                .eq('school_id', schoolId) // Filter by school_id
                 .neq('id', currentUser.id) // Don't show self
                 .limit(50);
 
