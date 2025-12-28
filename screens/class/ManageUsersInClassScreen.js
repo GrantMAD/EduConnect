@@ -33,6 +33,7 @@ import {
   faTag,
   faGraduationCap,
   faCheckCircle,
+  faComment,
 } from "@fortawesome/free-solid-svg-icons";
 import { useToast } from "../../context/ToastContext";
 import { Calendar } from "react-native-calendars";
@@ -466,211 +467,126 @@ export default function ManageUsersInClassScreen() {
   );
 
   const renderStudent = ({ item }) => {
-
     const student = item.users;
-
     const isPresent = item.attendance?.[selectedScheduleDate] ?? false;
-
     const isExpanded = expandedStudents[student.id];
 
-
-
     const toggleExpand = () => {
-
       setExpandedStudents(prev => ({
-
         ...prev,
-
         [student.id]: !prev[student.id],
-
       }));
-
       if (!isExpanded && !studentMarks[student.id]) {
-
         fetchStudentMarks(student.id, classId);
-
       }
-
     };
 
-
-
     return (
-
       <View style={styles.card}>
-
         <TouchableOpacity onPress={toggleExpand}>
-
           <View style={styles.cardRow}>
-
             <Image source={student.avatar_url ? { uri: student.avatar_url } : defaultUserImage} style={styles.avatar} />
-
             <View style={{ flex: 1 }}>
-
               <Text style={styles.cardTitle}>{student.full_name}</Text>
-
               <Text style={styles.cardSub}>{student.email}</Text>
-
             </View>
-
             <View style={styles.attendanceContainer}>
-
               <Text style={styles.attendanceLabel}>Present</Text>
-
               <Switch
-
                 trackColor={{ false: "#767577", true: "#81b0ff" }}
-
                 thumbColor={isPresent ? "#007AFF" : "#f4f3f4"}
-
                 ios_backgroundColor="#3e3e3e"
-
                 onValueChange={(value) => handleAttendanceChange(item, value)}
-
                 value={isPresent}
-
               />
-
             </View>
-
             <TouchableOpacity
-
               onPress={() => removeStudentFromClass(student.id)}
-
               disabled={saving}
-
               style={styles.removeButton}
-
             >
-
               <FontAwesomeIcon icon={faMinusCircle} size={20} color="#dc3545" />
-
             </TouchableOpacity>
-
           </View>
-
         </TouchableOpacity>
-
         {isExpanded && (
-
           <View style={styles.expandedContent}>
-
             {studentMarks[student.id] ? (
-
               studentMarks[student.id].length > 0 ? (
-
                 <>
-
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-
                     <FontAwesomeIcon icon={faFileAlt} size={16} color="#007AFF" style={{ marginRight: 5 }} />
-
                     <Text style={styles.marksHeader}>Tests</Text>
-
                   </View>
-
                   {studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('test:')).length > 0 ? (
-
                     studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('test:')).map((mark, index) => (
-
-                      <View key={mark.id || index} style={styles.markItem}>
-
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-
-                          <FontAwesomeIcon icon={faTag} size={14} color="#888" style={{ marginRight: 5 }} />
-
-                          <Text style={styles.markAssessmentName}>{mark.assessment_name.replace(/test: /i, '')}</Text>
-
+                      <View key={mark.id || index} style={styles.markContainerWithFeedback}>
+                        <View style={styles.markItem}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <FontAwesomeIcon icon={faTag} size={14} color="#888" style={{ marginRight: 5 }} />
+                            <Text style={styles.markAssessmentName}>{mark.assessment_name.replace(/test: /i, '')}</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <FontAwesomeIcon icon={faGraduationCap} size={14} color="#888" style={{ marginRight: 5 }} />
+                            <Text style={styles.markValue}>{mark.mark}</Text>
+                          </View>
                         </View>
-
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-
-                          <FontAwesomeIcon icon={faGraduationCap} size={14} color="#888" style={{ marginRight: 5 }} />
-
-                          <Text style={styles.markValue}>{mark.mark}</Text>
-
-                        </View>
-
+                        {mark.teacher_feedback && (
+                          <View style={styles.feedbackContainer}>
+                            <FontAwesomeIcon icon={faComment} size={12} color="#007AFF" style={{ marginRight: 5, marginTop: 2 }} />
+                            <Text style={styles.feedbackText}>{mark.teacher_feedback}</Text>
+                          </View>
+                        )}
                       </View>
-
                     ))
-
                   ) : (
-
                     <Text style={styles.emptyText}>No tests recorded.</Text>
-
                   )}
-
-
 
                   <View style={styles.horizontalRule} />
 
-
-
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 5 }}>
-
                     <FontAwesomeIcon icon={faClipboardList} size={16} color="#007AFF" style={{ marginRight: 5 }} />
-
                     <Text style={styles.marksHeader}>Assignments</Text>
-
                   </View>
-
                   {studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).length > 0 ? (
-
                     studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).map((mark, index) => (
-
-                      <View key={mark.id || index} style={styles.markItem}>
-
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-
-                          <FontAwesomeIcon icon={faTag} size={14} color="#888" style={{ marginRight: 5 }} />
-
-                          <Text style={styles.markAssessmentName}>{mark.assessment_name.replace(/assignment: /i, '')}</Text>
-
+                      <View key={mark.id || index} style={styles.markContainerWithFeedback}>
+                        <View style={styles.markItem}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <FontAwesomeIcon icon={faTag} size={14} color="#888" style={{ marginRight: 5 }} />
+                            <Text style={styles.markAssessmentName}>{mark.assessment_name.replace(/assignment: /i, '')}</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <FontAwesomeIcon icon={faGraduationCap} size={14} color="#888" style={{ marginRight: 5 }} />
+                            <Text style={styles.markValue}>{mark.mark}</Text>
+                          </View>
                         </View>
-
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-
-                          <FontAwesomeIcon icon={faGraduationCap} size={14} color="#888" style={{ marginRight: 5 }} />
-
-                          <Text style={styles.markValue}>{mark.mark}</Text>
-
-                        </View>
-
+                        {mark.teacher_feedback && (
+                          <View style={styles.feedbackContainer}>
+                            <FontAwesomeIcon icon={faComment} size={12} color="#007AFF" style={{ marginRight: 5, marginTop: 2 }} />
+                            <Text style={styles.feedbackText}>{mark.teacher_feedback}</Text>
+                          </View>
+                        )}
                       </View>
-
                     ))
-
                   ) : (
-
                     <Text style={styles.emptyText}>No assignments recorded.</Text>
-
                   )}
                   <TouchableOpacity style={styles.manageMarksButton} onPress={() => handleOpenManageMarksModal(item)}>
                     <Text style={styles.manageMarksButtonText}>Manage Marks</Text>
                   </TouchableOpacity>
                 </>
-
               ) : (
-
                 <Text style={styles.emptyText}>No marks recorded for this student.</Text>
-
               )
-
             ) : (
-
               <ActivityIndicator size="small" color="#007AFF" />
-
             )}
-
           </View>
-
         )}
-
       </View>
-
     );
-
   };
 
   const renderAddStudent = ({ item }) => (
@@ -1156,5 +1072,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#fff',
+  },
+  markContainerWithFeedback: {
+    marginBottom: 10,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+  },
+  feedbackContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#f0f7ff',
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 2,
+  },
+  feedbackText: {
+    fontSize: 12,
+    color: '#007AFF',
+    fontStyle: 'italic',
+    flex: 1,
   },
 });

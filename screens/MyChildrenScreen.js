@@ -33,7 +33,9 @@ import {
   faEnvelope,
   faUserPlus,
   faCircleInfo,
-  faClock
+  faClock,
+  faComment,
+  faQuoteLeft
 } from '@fortawesome/free-solid-svg-icons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -66,18 +68,28 @@ const AttendancePill = ({ status, date, theme }) => {
 };
 
 const MarkRow = ({ mark, theme }) => (
-  <View style={[styles.markRow, { borderBottomColor: theme.colors.cardBorder }]}>
-    <View style={{ flex: 1 }}>
-      <Text style={[styles.markAssessment, { color: theme.colors.text }]} numberOfLines={1}>
-        {mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[1].trim() : mark.assessment_name}
-      </Text>
-      <Text style={[styles.markType, { color: theme.colors.primary }]}>
-        {mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[0] : 'Assessment'}
-      </Text>
+  <View style={{ marginBottom: 12 }}>
+    <View style={[styles.markRow, { borderBottomColor: theme.colors.cardBorder }]}>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.markAssessment, { color: theme.colors.text }]} numberOfLines={1}>
+          {mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[1].trim() : mark.assessment_name}
+        </Text>
+        <Text style={[styles.markType, { color: theme.colors.primary }]}>
+          {mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[0] : 'Assessment'}
+        </Text>
+      </View>
+      <View style={[styles.markBadge, { backgroundColor: theme.colors.cardBorder + '40' }]}>
+        <Text style={[styles.markValue, { color: theme.colors.text }]}>{mark.mark}</Text>
+      </View>
     </View>
-    <View style={[styles.markBadge, { backgroundColor: theme.colors.cardBorder + '40' }]}>
-      <Text style={[styles.markValue, { color: theme.colors.text }]}>{mark.mark}</Text>
-    </View>
+    {mark.teacher_feedback && (
+      <View style={styles.feedbackContainer}>
+        <FontAwesomeIcon icon={faComment} size={10} color={theme.colors.primary} style={{ marginRight: 6, marginTop: 2 }} />
+        <Text style={[styles.feedbackText, { color: theme.colors.placeholder }]}>
+          {mark.teacher_feedback}
+        </Text>
+      </View>
+    )}
   </View>
 );
 
@@ -187,7 +199,7 @@ const StudentDashboard = ({ student, theme, refreshTrigger }) => {
 
           const { data: marks } = await supabase
             .from('student_marks')
-            .select('assessment_name, mark')
+            .select('assessment_name, mark, teacher_feedback')
             .eq('student_id', student.id)
             .eq('class_id', member.class_id)
             .order('created_at', { ascending: false });
@@ -598,5 +610,20 @@ const styles = StyleSheet.create({
   adminChildName: { fontSize: 16, fontWeight: '800' },
   adminChildEmail: { fontSize: 13 },
   emptyContainer: { padding: 80, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { textAlign: 'center', marginTop: 12, fontSize: 14 }
+  emptyText: { textAlign: 'center', marginTop: 12, fontSize: 14 },
+  feedbackContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#007AFF08',
+    padding: 10,
+    borderRadius: 10,
+    marginTop: 4,
+    marginLeft: 4,
+  },
+  feedbackText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    lineHeight: 16,
+    flex: 1,
+  },
 });

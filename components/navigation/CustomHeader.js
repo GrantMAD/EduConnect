@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, TouchableOpacity, Text, Animated, Alert, ScrollView, Image, AppState } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faBars, faBell, faComments } from '@fortawesome/free-solid-svg-icons';
+import { faBars, faBell, faComments, faSearch } from '@fortawesome/free-solid-svg-icons';
 import Modal from 'react-native-modal';
 import { supabase } from '../../lib/supabase';
 import { useChat } from '../../context/ChatContext';

@@ -26,7 +26,7 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
       const studentMarks = prevMarks[studentId] || [];
       return {
         ...prevMarks,
-        [studentId]: [...studentMarks, { assessmentType: 'test', assessmentName: '', mark: '' }],
+        [studentId]: [...studentMarks, { assessmentType: 'test', assessmentName: '', mark: '', feedback: '' }],
       };
     });
   };
@@ -67,6 +67,7 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
               teacher_id: user.id,
               mark: markData.mark,
               assessment_name: `${markData.assessmentType}: ${markData.assessmentName}`,
+              teacher_feedback: markData.feedback || null,
             });
           }
         }
@@ -154,6 +155,16 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
                 onChangeText={(text) => handleMarkChange(student.users.id, index, 'mark', text)}
               />
             </View>
+          </View>
+          <View style={{ paddingHorizontal: 10, paddingBottom: 10 }}>
+            <TextInput
+              style={[styles.markInput, { color: theme.colors.text, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.inputBackground, height: 60, textAlignVertical: 'top' }]}
+              placeholder="Add feedback/comments (optional)..."
+              placeholderTextColor={theme.colors.placeholder}
+              multiline
+              value={mark.feedback}
+              onChangeText={(text) => handleMarkChange(student.users.id, index, 'feedback', text)}
+            />
           </View>
         </View>
       ))}

@@ -8,6 +8,7 @@ import { faTrash, faSave, faTimes } from '@fortawesome/free-solid-svg-icons';
 const MarkItem = ({ item, onUpdate, onDelete }) => {
     const [currentMark, setCurrentMark] = useState(item.mark);
     const [currentAssessmentName, setCurrentAssessmentName] = useState(item.assessment_name);
+    const [currentFeedback, setCurrentFeedback] = useState(item.teacher_feedback || '');
   
     return (
       <View style={styles.markItemContainer}>
@@ -24,8 +25,15 @@ const MarkItem = ({ item, onUpdate, onDelete }) => {
           placeholder="Mark"
           keyboardType="numeric"
         />
+        <TextInput
+          style={[styles.input, { height: 60, textAlignVertical: 'top' }]}
+          value={currentFeedback}
+          onChangeText={setCurrentFeedback}
+          placeholder="Teacher Feedback"
+          multiline
+        />
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.actionButton} onPress={() => onUpdate(item.id, currentMark, currentAssessmentName)}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => onUpdate(item.id, currentMark, currentAssessmentName, currentFeedback)}>
             <FontAwesomeIcon icon={faSave} size={20} color="#007AFF" />
             <Text style={styles.actionButtonText}>Save</Text>
           </TouchableOpacity>
@@ -73,11 +81,15 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
     }
   };
 
-  const handleUpdateMark = async (markId, newMark, newAssessmentName) => {
+  const handleUpdateMark = async (markId, newMark, newAssessmentName, newFeedback) => {
     try {
       const { error } = await supabase
         .from('student_marks')
-        .update({ mark: newMark, assessment_name: newAssessmentName })
+        .update({ 
+          mark: newMark, 
+          assessment_name: newAssessmentName,
+          teacher_feedback: newFeedback 
+        })
         .eq('id', markId);
       if (error) throw error;
       showToast('Mark updated successfully.', 'success');

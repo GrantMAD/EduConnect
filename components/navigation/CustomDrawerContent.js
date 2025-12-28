@@ -12,7 +12,8 @@ import {
     faChartLine,
     faStore,
     faHandshake,
-    faFootballBall
+    faFootballBall,
+    faSearch
 } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
@@ -167,6 +168,16 @@ const CustomDrawerContent = (props) => {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+                <SectionHeader title="Search" />
+                <DrawerItem
+                    icon={faSearch}
+                    label="Search"
+                    description="Find anything in the school"
+                    routeName="Search"
+                    active={activeMainStackRouteName === 'Search'}
+                    onPress={() => props.navigation.navigate('MainStack', { screen: 'Search' })}
+                />
+
                 <SectionHeader title="General" />
                 <DrawerItem
                     icon={faHome}

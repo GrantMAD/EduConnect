@@ -46,6 +46,7 @@ import ShopScreen from '../screens/gamification/ShopScreen';
 import ChatListScreen from '../screens/chat/ChatListScreen';
 import ChatRoomScreen from '../screens/chat/ChatRoomScreen';
 import NewChatScreen from '../screens/chat/NewChatScreen';
+import SearchScreen from '../screens/SearchScreen';
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -58,6 +59,7 @@ const MainStackNavigator = () => (
     }}
   >
     <Stack.Screen name="HomeTabs" component={HomeTabs} />
+    <Stack.Screen name="Search" component={SearchScreen} options={{ headerShown: false }} />
     <Stack.Screen name="Profile" component={ProfileScreen} />
     <Stack.Screen name="MyChildren" component={MyChildrenScreen} />
     <Stack.Screen name="Settings" component={SettingsScreen} />
