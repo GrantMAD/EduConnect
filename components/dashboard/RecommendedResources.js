@@ -9,9 +9,9 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
-import LinearGradient from 'react-native-linear-gradient';
+import WalkthroughTarget from '../WalkthroughTarget';
 
-export default function RecommendedResources({ schoolId, userId, role }) {
+export default function RecommendedResources({ id, schoolId, userId, role }) {
     const navigation = useNavigation();
     const { theme } = useTheme();
     const [recommendations, setRecommendations] = useState([]);
@@ -86,6 +86,8 @@ export default function RecommendedResources({ schoolId, userId, role }) {
                     .slice(0, 3);
 
                 setRecommendations(topResources);
+            } else {
+                setRecommendations([]); // Ensure it's empty array
             }
         } catch (err) {
             console.error('Error fetching recommendations:', err);
@@ -108,67 +110,85 @@ export default function RecommendedResources({ schoolId, userId, role }) {
 
     if (loading) {
         return (
-            <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-            </View>
+            <WalkthroughTarget id={id}>
+                <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+                    <ActivityIndicator size="small" color={theme.colors.primary} />
+                </View>
+            </WalkthroughTarget>
         );
     }
 
-    if (recommendations.length === 0) return null;
+    if (recommendations.length === 0) {
+        return (
+            <WalkthroughTarget id={id}>
+                <View style={[styles.container, { backgroundColor: theme.colors.card, alignItems: 'center', justifyContent: 'center', paddingVertical: 30 }]}>
+                    <View style={[styles.iconContainer, { backgroundColor: theme.colors.surface, marginBottom: 12 }]}>
+                        <FontAwesomeIcon icon={faLightbulb} color={theme.colors.placeholder} size={20} />
+                    </View>
+                    <Text style={[styles.title, { color: theme.colors.textSecondary, fontSize: 14 }]}>No recommendations yet</Text>
+                    <Text style={[styles.subtitle, { color: theme.colors.placeholder, textAlign: 'center', marginTop: 4 }]}>
+                        Join classes to see recommended learning materials here.
+                    </Text>
+                </View>
+            </WalkthroughTarget>
+        );
+    }
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.colors.card }]}>
-            <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
-                        <FontAwesomeIcon icon={faLightbulb} color="#F59E0B" size={16} />
-                    </View>
-                    <View>
-                        <Text style={[styles.title, { color: theme.colors.text }]}>Recommended for You</Text>
-                        <Text style={[styles.subtitle, { color: theme.colors.placeholder }]}>Top materials in your subjects</Text>
-                    </View>
-                </View>
-                <TouchableOpacity onPress={() => navigation.navigate('Resources')}>
-                    <Text style={[styles.viewAll, { color: theme.colors.primary }]}>View All</Text>
-                </TouchableOpacity>
-            </View>
-
-            <View style={styles.list}>
-                {recommendations.map((resource) => (
-                    <TouchableOpacity 
-                        key={resource.id}
-                        style={[styles.item, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}
-                        onPress={() => navigation.navigate('Resources', { openResourceId: resource.id })}
-                    >
-                        <View style={[styles.itemIcon, { backgroundColor: theme.colors.card }]}>
-                            <FontAwesomeIcon icon={getResourceIcon(resource.file_url, !!resource.url)} color={theme.colors.primary} size={18} />
+        <WalkthroughTarget id={id}>
+            <View style={[styles.container, { backgroundColor: theme.colors.card }]}>
+                <View style={styles.header}>
+                    <View style={styles.headerLeft}>
+                        <View style={[styles.iconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                            <FontAwesomeIcon icon={faLightbulb} color="#F59E0B" size={16} />
                         </View>
-                        <View style={styles.itemContent}>
-                            <View style={styles.itemHeader}>
-                                <Text style={[styles.itemName, { color: theme.colors.text }]} numberOfLines={1}>
-                                    {resource.title}
-                                </Text>
-                                {resource.score > 5 && (
-                                    <View style={styles.trendingBadge}>
-                                        <FontAwesomeIcon icon={faStar} color="#F59E0B" size={8} style={{ marginRight: 2 }} />
-                                        <Text style={styles.trendingText}>Trending</Text>
-                                    </View>
-                                )}
+                        <View>
+                            <Text style={[styles.title, { color: theme.colors.text }]}>Recommended for You</Text>
+                            <Text style={[styles.subtitle, { color: theme.colors.placeholder }]}>Top materials in your subjects</Text>
+                        </View>
+                    </View>
+                    <TouchableOpacity onPress={() => navigation.navigate('Resources')}>
+                        <Text style={[styles.viewAll, { color: theme.colors.primary }]}>View All</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.list}>
+                    {recommendations.map((resource) => (
+                        <TouchableOpacity 
+                            key={resource.id}
+                            style={[styles.item, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}
+                            onPress={() => navigation.navigate('Resources', { openResourceId: resource.id })}
+                        >
+                            <View style={[styles.itemIcon, { backgroundColor: theme.colors.card }]}>
+                                <FontAwesomeIcon icon={getResourceIcon(resource.file_url, !!resource.url)} color={theme.colors.primary} size={18} />
                             </View>
-                            <View style={styles.itemFooter}>
-                                <Text style={[styles.category, { color: theme.colors.primary }]}>{resource.category || 'General'}</Text>
-                                <Text style={styles.dot}>•</Text>
-                                <View style={styles.voteContainer}>
-                                    <FontAwesomeIcon icon={faThumbsUp} color={theme.colors.placeholder} size={10} style={{ marginRight: 4 }} />
-                                    <Text style={[styles.votes, { color: theme.colors.placeholder }]}>{resource.score} Votes</Text>
+                            <View style={styles.itemContent}>
+                                <View style={styles.itemHeader}>
+                                    <Text style={[styles.itemName, { color: theme.colors.text }]} numberOfLines={1}>
+                                        {resource.title}
+                                    </Text>
+                                    {resource.score > 5 && (
+                                        <View style={styles.trendingBadge}>
+                                            <FontAwesomeIcon icon={faStar} color="#F59E0B" size={8} style={{ marginRight: 2 }} />
+                                            <Text style={styles.trendingText}>Trending</Text>
+                                        </View>
+                                    )}
+                                </View>
+                                <View style={styles.itemFooter}>
+                                    <Text style={[styles.category, { color: theme.colors.primary }]}>{resource.category || 'General'}</Text>
+                                    <Text style={styles.dot}>•</Text>
+                                    <View style={styles.voteContainer}>
+                                        <FontAwesomeIcon icon={faThumbsUp} color={theme.colors.placeholder} size={10} style={{ marginRight: 4 }} />
+                                        <Text style={[styles.votes, { color: theme.colors.placeholder }]}>{resource.score} Votes</Text>
+                                    </View>
                                 </View>
                             </View>
-                        </View>
-                        <FontAwesomeIcon icon={faChevronRight} color={theme.colors.border} size={12} />
-                    </TouchableOpacity>
-                ))}
+                            <FontAwesomeIcon icon={faChevronRight} color={theme.colors.border} size={12} />
+                        </TouchableOpacity>
+                    ))}
+                </View>
             </View>
-        </View>
+        </WalkthroughTarget>
     );
 }
 
