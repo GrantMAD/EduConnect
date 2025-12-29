@@ -33,13 +33,13 @@ const StatCard = ({ icon, title, value, color, onPress, style, loading }) => {
 const styles = StyleSheet.create({
     statCard: {
         width: '48%',
-        margin: '1%',
         padding: 16,
         borderRadius: 12,
         borderWidth: 1,
         alignItems: 'center',
         minHeight: 120,
         justifyContent: 'center',
+        marginBottom: 12,
     },
     iconContainer: {
         width: 48,

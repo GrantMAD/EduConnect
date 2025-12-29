@@ -23,7 +23,7 @@ const DailyOverview = ({ loading, todaySessions, navigation }) => {
             ));
         }
 
-        if (todaySessions.length === 0) return (
+        if (!todaySessions || todaySessions.length === 0) return (
             <View style={[styles.emptyWidget, { backgroundColor: theme.colors.card }]}>
                 <FontAwesomeIcon icon={faInfoCircle} size={24} color={theme.colors.placeholder} />
                 <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No classes scheduled for today.</Text>

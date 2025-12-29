@@ -24,6 +24,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../../context/ThemeContext';
 import StandardBottomModal from '../StandardBottomModal';
+import MeetingAgendaBrief from './MeetingAgendaBrief';
 
 const defaultUserImage = require('../../assets/user.png');
 
@@ -93,6 +94,11 @@ export default function MeetingDetailModal({ isOpen, onClose, booking, isTeacher
             <Text style={[styles.personRole, { color: theme.colors.placeholder }]}>STUDENT</Text>
             <Text style={[styles.personName, { color: theme.colors.text }]}>{booking.student?.full_name}</Text>
           </View>
+        </View>
+
+        {/* Discussion Brief */}
+        <View style={{ marginBottom: 24 }}>
+            <MeetingAgendaBrief studentId={booking.student_id} isTeacher={isTeacher} />
         </View>
 
         {/* Location */}

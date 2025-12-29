@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faUsers, faSchool, faBullhorn, faStore, faCog, faArrowLeft, faHandshake } from '@fortawesome/free-solid-svg-icons';
+import { faUsers, faSchool, faBullhorn, faStore, faCog, faArrowLeft, faHandshake, faChartLine } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import SettingsScreenSkeleton, { SkeletonPiece } from '../components/skeletons/SettingsScreenSkeleton';
 
@@ -164,6 +164,13 @@ export default function ManagementScreen({ navigation }) {
                                 description="Update school-wide information and branding"
                                 onPress={() => navigation.navigate('SchoolData')}
                                 color="#34C759"
+                            />
+                            <ManagementButton
+                                icon={faChartLine}
+                                title="Engagement Audit"
+                                description="Track teacher activity and adoption"
+                                onPress={() => navigation.navigate('EngagementInsights')}
+                                color="#6366F1"
                             />
                         </View>
                     )}

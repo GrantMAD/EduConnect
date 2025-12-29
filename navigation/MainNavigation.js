@@ -21,6 +21,7 @@ import ClubListScreen from '../screens/class/ClubListScreen';
 import CreateClubScreen from '../screens/class/CreateClubScreen';
 import ClubDetailScreen from '../screens/class/ClubDetailScreen';
 import SchoolDataScreen from '../screens/SchoolDataScreen';
+import EngagementInsightsScreen from '../screens/EngagementInsightsScreen';
 import ManageAnnouncementsScreen from '../screens/ManageAnnouncementsScreen';
 import ManageMarketDataScreen from '../screens/market/ManageMarketDataScreen';
 
@@ -76,6 +77,7 @@ const MainStackNavigator = () => (
     <Stack.Screen name="CreateClub" component={CreateClubScreen} options={{ title: 'Manage Club' }} />
     <Stack.Screen name="ClubDetail" component={ClubDetailScreen} options={{ headerShown: false }} />
     <Stack.Screen name="SchoolData" component={SchoolDataScreen} />
+    <Stack.Screen name="EngagementInsights" component={EngagementInsightsScreen} />
     <Stack.Screen name="ManageAnnouncements" component={ManageAnnouncementsScreen} />
     <Stack.Screen name="CreateHomework" component={CreateHomeworkScreen} />
     <Stack.Screen name="CreateAssignment" component={CreateAssignmentScreen} />

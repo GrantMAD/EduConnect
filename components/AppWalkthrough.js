@@ -23,7 +23,7 @@ export default function AppWalkthrough() {
     // const { user, setProfile } = useAuth(); // Removed
     const [dontShowAgain, setDontShowAgain] = useState(false);
 
-    if (!isOpen || !currentStep) return null;
+    if (!isOpen || !currentStep || totalSteps === 0) return null;
 
     const target = targets[currentStep.target];
 

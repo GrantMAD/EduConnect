@@ -9,7 +9,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { SkeletonPiece } from '../skeletons/DashboardScreenSkeleton';
 import WalkthroughTarget from '../WalkthroughTarget';
 
-const UpcomingTasks = ({ loading, upcomingTasks, navigation }) => {
+const UpcomingTasks = ({ loading, upcomingTasks, navigation, style }) => {
     const { theme } = useTheme();
 
     const renderUpcomingTasks = () => {
@@ -21,7 +21,7 @@ const UpcomingTasks = ({ loading, upcomingTasks, navigation }) => {
             ));
         }
 
-        if (upcomingTasks.length === 0) return (
+        if (!upcomingTasks || upcomingTasks.length === 0) return (
             <View style={[styles.emptyWidget, { backgroundColor: theme.colors.card }]}>
                 <FontAwesomeIcon icon={faClipboardList} size={24} color={theme.colors.placeholder} />
                 <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>All caught up! No tasks due soon.</Text>
@@ -58,7 +58,7 @@ const UpcomingTasks = ({ loading, upcomingTasks, navigation }) => {
     };
 
     return (
-        <View style={styles.section}>
+        <View style={[styles.section, style]}>
             <WalkthroughTarget id="dashboard-tasks">
                 <View style={styles.sectionHeaderRow}>
                     <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Due Soon</Text>

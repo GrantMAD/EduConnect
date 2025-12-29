@@ -1,263 +1,263 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, findNodeHandle } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, Dimensions } from 'react-native';
+import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
-    faBullhorn,
-    faChartLine,
-    faFire,
-    faCoins,
-    faWifi
+    faUsers, faUserTie, faChalkboardTeacher, faUserGraduate, faChild,
+    faBookOpen, faClipboardList, faPoll, faUserFriends, faChevronRight,
+    faChartLine
 } from '@fortawesome/free-solid-svg-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { supabase } from '../lib/supabase';
+import StatCard from '../components/dashboard/StatCard';
+import UpcomingTasks from '../components/dashboard/UpcomingTasks';
+import DailyOverview from '../components/dashboard/DailyOverview';
+import QuickActions from '../components/dashboard/QuickActions';
+import GamificationHub from '../components/dashboard/GamificationHub';
+import RecommendedResources from '../components/dashboard/RecommendedResources';
 import { useTheme } from '../context/ThemeContext';
-import { useSupabaseQuery } from '../hooks/useSupabaseQuery';
 import { useSchool } from '../context/SchoolContext';
 import { useToast } from '../context/ToastContext';
-import { useChat } from '../context/ChatContext';
-import { useGamification } from '../context/GamificationContext';
-import UserListModal from '../components/UserListModal';
-import UserProfileModal from '../components/UserProfileModal';
-import ClassListModal from '../components/ClassListModal';
-import ContentListModal from '../components/ContentListModal';
-import { SkeletonPiece } from '../components/skeletons/DashboardScreenSkeleton';
-import RecentActivity from '../components/RecentActivity';
-import ChildProgressSnapshot from '../components/ChildProgressSnapshot';
 import { useWalkthrough } from '../context/WalkthroughContext';
-import WalkthroughTarget from '../components/WalkthroughTarget';
-import DashboardStats from '../components/dashboard/DashboardStats';
-import DailyOverview from '../components/dashboard/DailyOverview';
-import UpcomingTasks from '../components/dashboard/UpcomingTasks';
-import QuickActions from '../components/dashboard/QuickActions';
-import StatCard from '../components/dashboard/StatCard';
+import UserListModal from '../components/UserListModal';
+import DashboardSkeleton from '../components/skeletons/DashboardScreenSkeleton';
+import ChildProgressSnapshot from '../components/ChildProgressSnapshot';
+import { useGamification } from '../context/GamificationContext';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function DashboardScreen({ navigation }) {
     const { theme } = useTheme();
-    const { schoolId, schoolData, loadingSchool } = useSchool();
+    const { schoolId, schoolLogo } = useSchool();
     const { showToast } = useToast();
-    const { createChannel, channels, user: currentUser } = useChat();
-    const gamification = useGamification();
-    const [userRole, setUserRole] = useState(null);
+    const { startWalkthrough } = useWalkthrough();
+    const { awardXP } = useGamification();
+
+    const [userRole, setUserRole] = useState('');
     const [userProfile, setUserProfile] = useState(null);
-    const insets = useSafeAreaInsets();
-
-    const { startWalkthrough, currentStep, targets, targetRefs, reMeasureTarget, isOpen } = useWalkthrough();
-    const scrollViewRef = React.useRef(null);
-    const scrollYRef = React.useRef(0);
-
-    // Initial state for stats (fallback)
-    const initialStats = {
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [upcomingTasks, setUpcomingTasks] = useState([]);
+    const [todaySessions, setTodaySessions] = useState([]);
+    const [stats, setStats] = useState({
         totalUsers: 0,
         adminCount: 0,
         teacherCount: 0,
         studentCount: 0,
         parentCount: 0,
-        totalClasses: 0,
-        totalClubs: 0,
-        totalAnnouncements: 0,
-        totalHomework: 0,
-        totalAssignments: 0,
-        totalPolls: 0,
-        activePolls: 0,
-        totalMarketItems: 0,
-        unreadNotifications: 0,
+        classCount: 0,
+        assignmentCount: 0,
+        pollCount: 0,
+        clubCount: 0,
+        parentChildLinkCount: 0
+    });
+
+    // Modal state for user lists
+    const [showUserModal, setShowUserModal] = useState(false);
+    const [userListData, setUserListData] = useState([]);
+    const [selectedUserCategory, setSelectedUserCategory] = useState('');
+
+    useEffect(() => {
+        if (schoolId) {
+            fetchDashboardData();
+        } else {
+            setLoading(false);
+        }
+        checkUserAccessAndWalkthrough();
+        handleDailyCheckIn();
+    }, [schoolId]);
+
+    const handleDailyCheckIn = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const today = new Date().toISOString().split('T')[0];
+
+            const { data, error } = await supabase
+                .from('daily_check_ins')
+                .upsert({
+                    user_id: user.id,
+                    check_in_date: today,
+                    xp_awarded: true
+                }, { onConflict: 'user_id, check_in_date', ignoreDuplicates: true })
+                .select();
+
+            if (!error && data && data.length > 0) {
+                awardXP('daily_check_in', 5);
+            }
+        } catch (e) {}
     };
 
-    // Helper functions for fetching specific data parts (moved from component body or kept as helpers)
-    const getUpcomingTasks = async (profile) => {
+    const fetchDashboardData = async () => {
+        if (!schoolId) return;
+
+        setLoading(true);
         try {
-            const isStudent = profile.role === 'student';
-            const isParent = profile.role === 'parent';
-            const today = new Date().toISOString();
+            // 1. Fetch Stats
+            const { data: statsData, error: statsError } = await supabase.rpc('get_dashboard_stats', { target_school_id: schoolId });
+            if (statsError) throw statsError;
 
-            let childIds = [];
-            if (isParent) {
-                const { data: rels } = await supabase
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
+            
+            let linkCount = 0;
+            if (profile?.role === 'admin') {
+                const { count } = await supabase
                     .from('parent_child_relationships')
-                    .select('child_id')
-                    .eq('parent_id', profile.id);
-                childIds = rels?.map(r => r.child_id) || [];
+                    .select('*, parent:users!parent_id!inner(school_id)', { count: 'exact', head: true })
+                    .eq('parent.school_id', schoolId);
+                linkCount = count || 0;
             }
 
-            const targetUsers = isStudent ? [profile.id] : childIds;
+            const { count: clubs } = await supabase
+                .from('classes')
+                .select('*', { count: 'exact', head: true })
+                .eq('school_id', schoolId)
+                .eq('subject', 'Extracurricular');
 
-            let hwQuery = supabase.from('homework').select('*, student_completions(student_id)').gte('due_date', today).order('due_date', { ascending: true });
-            let assignQuery = supabase.from('assignments').select('*, student_completions(student_id)').gte('due_date', today).order('due_date', { ascending: true });
-
-            if (isStudent || isParent) {
-                const { data: members } = await supabase.from('class_members').select('class_id').in('user_id', targetUsers);
-                const classIds = members?.map(m => m.class_id) || [];
-
-                if (classIds.length > 0) {
-                    hwQuery = hwQuery.in('class_id', classIds);
-                    assignQuery = assignQuery.in('class_id', classIds);
-                } else {
-                    return [];
-                }
-            } else if (profile.school_id) {
-                hwQuery = hwQuery.eq('school_id', profile.school_id);
-                assignQuery = assignQuery.eq('school_id', profile.school_id);
-            }
-
-            const [{ data: homework }, { data: assignments }] = await Promise.all([hwQuery, assignQuery]);
-
-            let combined = [
-                ...(homework?.map(h => ({ ...h, type: 'homework' })) || []),
-                ...(assignments?.map(a => ({ ...a, type: 'assignment' })) || [])
-            ];
-
-            if (isStudent || isParent) {
-                combined = combined.filter(task => {
-                    const studentCompletions = task.student_completions || [];
-                    if (isStudent) {
-                        return !studentCompletions.some(c => c.student_id === profile.id);
-                    } else {
-                        const completedBy = studentCompletions.map(c => c.student_id);
-                        return childIds.some(id => !completedBy.includes(id));
-                    }
+            if (statsData) {
+                setStats({
+                    totalUsers: statsData.totalUsers || 0,
+                    adminCount: statsData.adminCount || 0,
+                    teacherCount: statsData.teacherCount || 0,
+                    studentCount: statsData.studentCount || 0,
+                    parentCount: statsData.parentCount || 0,
+                    classCount: (statsData.classCount || 0) - (clubs || 0),
+                    clubCount: clubs || 0,
+                    assignmentCount: statsData.assignmentCount || 0,
+                    pollCount: statsData.pollCount || 0,
+                    parentChildLinkCount: linkCount
                 });
             }
-            return combined.sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).slice(0, 5);
-        } catch (e) {
-            console.error('Error fetching upcoming tasks:', e);
-            return [];
+
+            // 2. Fetch Data
+            await Promise.all([
+                fetchUpcomingTasks(user.id, profile?.role),
+                fetchTodaySessions(user.id, profile?.role)
+            ]);
+
+        } catch (error) {
+            console.error('Error fetching dashboard data:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const getTodayEvents = async (profile) => {
+    const fetchUpcomingTasks = async (userId, role) => {
+        try {
+            let homeworkQuery = supabase.from('homework').select('*');
+            let assignmentQuery = supabase.from('assignments').select('*');
+
+            if (role === 'student' || role === 'parent') {
+                let targetIds = [userId];
+                if (role === 'parent') {
+                    const { data: rels } = await supabase.from('parent_child_relationships').select('child_id').eq('parent_id', userId);
+                    targetIds = rels?.map(r => r.child_id) || [];
+                }
+
+                if (targetIds.length > 0) {
+                    const { data: members } = await supabase.from('class_members').select('class_id').in('user_id', targetIds);
+                    const classIds = members?.map(m => m.class_id) || [];
+                    if (classIds.length > 0) {
+                        homeworkQuery = homeworkQuery.in('class_id', classIds);
+                        assignmentQuery = assignmentQuery.in('class_id', classIds);
+                    } else {
+                        setUpcomingTasks([]);
+                        return;
+                    }
+                } else {
+                    setUpcomingTasks([]);
+                    return;
+                }
+            } else {
+                homeworkQuery = homeworkQuery.eq('school_id', schoolId);
+                if (role === 'teacher') {
+                    assignmentQuery = assignmentQuery.eq('assigned_by', userId);
+                }
+            }
+
+            const [hw, assign] = await Promise.all([
+                homeworkQuery.order('due_date', { ascending: true }).limit(5),
+                assignmentQuery.order('due_date', { ascending: true }).limit(5)
+            ]);
+
+            const combined = [
+                ...(hw.data || []).map(i => ({ ...i, type: 'homework' })),
+                ...(assign.data || []).map(i => ({ ...i, type: 'assignment' }))
+            ].sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).slice(0, 5);
+
+            setUpcomingTasks(combined);
+        } catch (e) {}
+    };
+
+    const fetchTodaySessions = async (userId, role) => {
         try {
             const today = new Date();
             const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
             const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
-            const allTodayEvents = [];
 
-            const { data: classMembers } = await supabase.from('class_members').select('class_id').eq('user_id', profile.id);
-            let classIds = classMembers?.map(m => m.class_id) || [];
+            // 1. Fetch Class Schedules
+            let scheduleQuery = supabase
+                .from('class_schedules')
+                .select('*, class:classes(*)')
+                .gte('start_time', startOfDay)
+                .lte('start_time', endOfDay);
 
-            if (['admin', 'teacher'].includes(profile.role)) {
-                const { data: teacherClasses } = await supabase.from('classes').select('id').eq('school_id', profile.school_id);
-                classIds = [...new Set([...classIds, ...(teacherClasses?.map(c => c.id) || [])])];
+            if (role === 'student' || role === 'parent') {
+                let targetIds = [userId];
+                if (role === 'parent') {
+                    const { data: rels } = await supabase.from('parent_child_relationships').select('child_id').eq('parent_id', userId);
+                    targetIds = rels?.map(r => r.child_id) || [];
+                }
+                const { data: members } = await supabase.from('class_members').select('class_id').in('user_id', targetIds);
+                const classIds = members?.map(m => m.class_id) || [];
+                if (classIds.length > 0) {
+                    scheduleQuery = scheduleQuery.in('class_id', classIds);
+                } else {
+                    scheduleQuery = null;
+                }
+            } else if (role === 'teacher') {
+                scheduleQuery = scheduleQuery.eq('class.teacher_id', userId);
             }
 
-            if (classIds.length > 0) {
-                const { data: sessions } = await supabase.from('class_schedules').select('*, class:classes(id, name, subject)')
-                    .in('class_id', classIds).gte('start_time', startOfDay).lte('start_time', endOfDay).order('start_time', { ascending: true });
-                if (sessions) allTodayEvents.push(...sessions.map(s => ({ ...s, eventType: 'class' })));
+            // 2. Fetch PTM Bookings
+            let ptmQuery = supabase
+                .from('ptm_bookings')
+                .select('*, slot:ptm_slots(*)')
+                .gte('slot.start_time', startOfDay)
+                .lte('slot.start_time', endOfDay);
+
+            if (role === 'parent') {
+                ptmQuery = ptmQuery.eq('parent_id', userId);
+            } else if (role === 'teacher') {
+                ptmQuery = ptmQuery.eq('slot.teacher_id', userId);
+            } else {
+                ptmQuery = null;
             }
 
-            const isParent = profile.role === 'parent';
-            let ptmQuery = supabase.from('ptm_bookings').select(`*, slot:ptm_slots!inner(*, teacher:users!teacher_id(full_name)), parent:users!parent_id(full_name), student:users!student_id(full_name)`);
-            if (isParent) ptmQuery = ptmQuery.eq('parent_id', profile.id);
-            else ptmQuery = ptmQuery.eq('ptm_slots.teacher_id', profile.id);
+            const results = await Promise.all([
+                scheduleQuery ? scheduleQuery : Promise.resolve({ data: [] }),
+                ptmQuery ? ptmQuery : Promise.resolve({ data: [] })
+            ]);
 
-            const { data: ptmData } = await ptmQuery;
-            if (ptmData) {
-                const todayPtms = ptmData.filter(b => {
-                    const d = new Date(b.slot.start_time);
-                    return d.toDateString() === new Date().toDateString();
-                });
-                allTodayEvents.push(...todayPtms.map(b => ({
-                    id: b.id, start_time: b.slot.start_time, end_time: b.slot.end_time,
-                    title: `PTM: ${isParent ? b.slot.teacher.full_name : b.parent.full_name}`, eventType: 'meeting', class: { name: `Meeting: ${b.student.full_name}` }
-                })));
-            }
-            return allTodayEvents.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
-        } catch (e) {
-            console.error('Error fetching today events:', e);
-            return [];
-        }
+            const schedules = results[0].data || [];
+            const ptms = results[1].data || [];
+
+            const combined = [
+                ...schedules.map(s => ({ ...s, eventType: 'class' })),
+                ...ptms.map(p => ({ 
+                    id: p.id, 
+                    start_time: p.slot.start_time, 
+                    end_time: p.slot.end_time, 
+                    title: `Meeting: ${p.notes || 'PTM'}`, 
+                    eventType: 'meeting' 
+                }))
+            ].sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+
+            setTodaySessions(combined);
+        } catch (e) {}
     };
 
-    const getDashboardStats = async (profile) => {
-        try {
-            const targetSchoolId = profile?.school_id || schoolId;
-            if (!targetSchoolId) return initialStats;
-
-            const { data, error } = await supabase.rpc('get_dashboard_stats', { target_school_id: targetSchoolId });
-            if (error) throw error;
-
-            const statsData = Array.isArray(data) ? data[0] : data || {};
-            const { count: clubCount } = await supabase.from('classes').select('*', { count: 'exact', head: true }).eq('school_id', targetSchoolId).eq('subject', 'Extracurricular');
-            const { count: unreadNotifications } = await supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', profile.id).eq('is_read', false);
-            const { count: totalAnnouncements } = await supabase.from('announcements').select('*', { count: 'exact', head: true }).eq('school_id', targetSchoolId);
-            const { count: totalHomework } = await supabase.from('homework').select('*', { count: 'exact', head: true }).eq('school_id', targetSchoolId);
-            const { count: totalMarketItems } = await supabase.from('marketplace_items').select('*', { count: 'exact', head: true }).eq('school_id', targetSchoolId);
-
-            return {
-                totalUsers: statsData.totalUsers || 0,
-                adminCount: statsData.adminCount || 0,
-                teacherCount: statsData.teacherCount || 0,
-                studentCount: statsData.studentCount || 0,
-                parentCount: statsData.parentCount || 0,
-                totalClasses: (statsData.classCount || 0) - (clubCount || 0),
-                totalClubs: clubCount || 0,
-                totalAssignments: statsData.assignmentCount || 0,
-                activePolls: statsData.pollCount || 0,
-                totalAnnouncements: totalAnnouncements || 0,
-                totalHomework: totalHomework || 0,
-                totalPolls: statsData.pollCount || 0,
-                totalMarketItems: totalMarketItems || 0,
-                unreadNotifications: unreadNotifications || 0,
-            };
-        } catch (error) {
-            console.error('Error fetching dashboard data:', error);
-            return initialStats;
-        }
-    };
-
-    // Consolidated Query Function
-    const fetchDashboardDataQuery = React.useCallback(async () => {
-        if (!userProfile) return { stats: initialStats, todaySessions: [], upcomingTasks: [] };
-        
-        const [statsResult, sessionsResult, tasksResult] = await Promise.all([
-            getDashboardStats(userProfile),
-            getTodayEvents(userProfile),
-            getUpcomingTasks(userProfile)
-        ]);
-
-        return {
-            stats: statsResult,
-            todaySessions: sessionsResult,
-            upcomingTasks: tasksResult
-        };
-    }, [userProfile, schoolId]);
-
-    // Use the Hook
-    const { 
-        data: dashboardData, 
-        loading: dashboardLoading, 
-        refreshing: dashboardRefreshing, 
-        isOffline, 
-        refetch 
-    } = useSupabaseQuery(
-        `dashboard_${schoolId}_${userProfile?.id}`,
-        fetchDashboardDataQuery,
-        [schoolId, userProfile]
-    );
-
-    const stats = dashboardData?.stats || initialStats;
-    const todaySessions = dashboardData?.todaySessions || [];
-    const upcomingTasks = dashboardData?.upcomingTasks || [];
-    const loading = dashboardLoading; // Map hook loading to local loading for compatibility
-
-    // User List Modal State
-    const [showUserModal, setShowUserModal] = useState(false);
-    const [selectedUserCategory, setSelectedUserCategory] = useState(null);
-    const [userListData, setUserListData] = useState([]);
-    const [selectedUser, setSelectedUser] = useState(null);
-    const [showProfileModal, setShowProfileModal] = useState(false);
-
-    // Content Modals State
-    const [showClassModal, setShowClassModal] = useState(false);
-    const [showContentModal, setShowContentModal] = useState(false);
-    const [contentModalType, setContentModalType] = useState(null);
-    const [contentModalData, setContentModalData] = useState([]);
-
-    useEffect(() => {
-        checkAccess();
-    }, []);
-
-    const checkAccess = async () => {
+    const checkUserAccessAndWalkthrough = async () => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
@@ -273,12 +273,11 @@ export default function DashboardScreen({ navigation }) {
             setUserRole(userData.role);
             setUserProfile(userData);
             
-            // Trigger Walkthrough if needed
             if (userData && !userData.has_seen_walkthrough) {
                 const baseSteps = [
                     {
                         target: 'dashboard-welcome',
-                        title: 'Welcome to EduLink',
+                        title: 'Welcome to ClassConnect',
                         content: 'This is your main dashboard on mobile. Access everything you need on the go.'
                     },
                     {
@@ -296,20 +295,23 @@ export default function DashboardScreen({ navigation }) {
                     });
                 } else if (userData.role === 'student' || userData.role === 'parent') {
                     baseSteps.push({
+                        target: 'dashboard-recommendations',
+                        title: 'Recommendations',
+                        content: 'Discover top learning materials tailored to your specific subjects.'
+                    });
+                    baseSteps.push({
                         target: 'dashboard-tasks',
                         title: 'Upcoming Tasks',
                         content: 'Stay on top of your homework and assignments here.'
                     });
                 }
 
-                // Add recent activity for everyone
                 baseSteps.push({
                     target: 'dashboard-recent',
                     title: 'Recent Activity',
                     content: 'Catch up on the latest announcements and messages.'
                 });
 
-                // Small delay to ensure layout is measured
                 setTimeout(() => {
                     startWalkthrough(baseSteps);
                 }, 1500);
@@ -321,10 +323,10 @@ export default function DashboardScreen({ navigation }) {
         }
     };
 
-    // Removed original fetchUpcomingTasks, fetchTodayEvents, fetchDashboardData definitions as they are now helpers
-    // Updated onRefresh to use refetch
     const onRefresh = async () => {
-        refetch();
+        setRefreshing(true);
+        await Promise.all([fetchDashboardData(), checkUserAccessAndWalkthrough()]);
+        setRefreshing(false);
     };
 
     const fetchUsersByCategory = async (category) => {
@@ -351,234 +353,9 @@ export default function DashboardScreen({ navigation }) {
         }
     };
 
-    const fetchClubs = async () => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            const { data: profile } = await supabase
-                .from('users')
-                .select('role')
-                .eq('id', user.id)
-                .single();
-
-            const role = profile?.role;
-            let targetUsers = [user.id];
-
-            if (role === 'parent') {
-                const { data: rels } = await supabase
-                    .from('parent_child_relationships')
-                    .select('child_id')
-                    .eq('parent_id', user.id);
-                targetUsers = rels?.map(r => r.child_id) || [];
-            }
-
-            let query = supabase
-                .from('classes')
-                .select(`
-                    id, 
-                    name,
-                    class_schedules (
-                        id,
-                        title,
-                        description,
-                        class_info,
-                        start_time,
-                        end_time
-                    )
-                `)
-                .eq('school_id', schoolId)
-                .eq('subject', 'Extracurricular');
-
-            if (role === 'student' || role === 'parent') {
-                if (targetUsers.length > 0) {
-                    const { data: memberships } = await supabase
-                        .from('class_members')
-                        .select('class_id')
-                        .in('user_id', targetUsers);
-                    const classIds = memberships?.map(m => m.class_id) || [];
-                    query = query.in('id', classIds);
-                } else {
-                    setContentModalData([]);
-                    setShowClassModal(true);
-                    return;
-                }
-            }
-
-            const { data, error } = await query.order('name', { ascending: true });
-
-            if (error) throw error;
-
-            const clubsWithSchedules = (data || []).map(cls => ({
-                id: cls.id,
-                name: cls.name,
-                schedules: cls.class_schedules || [],
-            }));
-
-            setContentModalData(clubsWithSchedules);
-            setShowClassModal(true);
-        } catch (error) {
-            console.error('Error fetching clubs:', error);
-            showToast('Failed to load clubs', 'error');
-        }
-    };
-
-    const fetchClasses = async () => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            const { data: profile } = await supabase
-                .from('users')
-                .select('role')
-                .eq('id', user.id)
-                .single();
-
-            const role = profile?.role;
-            let targetUsers = [user.id];
-
-            if (role === 'parent') {
-                const { data: rels } = await supabase
-                    .from('parent_child_relationships')
-                    .select('child_id')
-                    .eq('parent_id', user.id);
-                targetUsers = rels?.map(r => r.child_id) || [];
-            }
-
-            let query = supabase
-                .from('classes')
-                .select(`
-                    id, 
-                    name,
-                    class_schedules (
-                        id,
-                        title,
-                        description,
-                        class_info,
-                        start_time,
-                        end_time
-                    )
-                `)
-                .eq('school_id', schoolId)
-                .neq('subject', 'Extracurricular');
-
-            if (role === 'student' || role === 'parent') {
-                if (targetUsers.length > 0) {
-                    const { data: memberships } = await supabase
-                        .from('class_members')
-                        .select('class_id')
-                        .in('user_id', targetUsers);
-                    const classIds = memberships?.map(m => m.class_id) || [];
-                    query = query.in('id', classIds);
-                } else {
-                    setContentModalData([]);
-                    setShowClassModal(true);
-                    return;
-                }
-            }
-
-            const { data, error } = await query.order('name', { ascending: true });
-
-            if (error) throw error;
-
-            const classesWithSchedules = (data || []).map(cls => ({
-                id: cls.id,
-                name: cls.name,
-                schedules: cls.class_schedules || [],
-            }));
-
-            setContentModalData(classesWithSchedules);
-            setShowClassModal(true);
-        } catch (error) {
-            console.error('Error fetching classes:', error);
-            showToast('Failed to load classes', 'error');
-        }
-    };
-
-    const fetchContentByType = async (type) => {
-        try {
-            let query;
-            let orderBy = 'created_at';
-
-            switch (type) {
-                case 'announcements':
-                    query = supabase
-                        .from('announcements')
-                        .select('id, title, message, type, created_at')
-                        .eq('school_id', schoolId);
-                    break;
-                case 'homework':
-                    query = supabase
-                        .from('homework')
-                        .select('id, subject, description, due_date, created_at');
-                    orderBy = 'due_date';
-                    break;
-                case 'assignments':
-                    query = supabase
-                        .from('assignments')
-                        .select('id, title, description, due_date, created_at');
-                    orderBy = 'due_date';
-                    break;
-                case 'polls':
-                    query = supabase
-                        .from('polls')
-                        .select('id, question, options, target_roles, end_date, created_at')
-                        .eq('school_id', schoolId);
-                    orderBy = 'end_date';
-                    break;
-                case 'market':
-                    query = supabase
-                        .from('marketplace_items')
-                        .select('id, title, description, price, created_at, image_url')
-                        .eq('school_id', schoolId);
-                    break;
-                default:
-                    return;
-            }
-
-            const { data, error } = await query.order(orderBy, { ascending: false });
-
-            if (error) throw error;
-
-            setContentModalData(data || []);
-            setContentModalType(type);
-            setShowContentModal(true);
-        } catch (error) {
-            console.error(`Error fetching ${type}:`, error);
-            showToast(`Failed to load ${type}`, 'error');
-        }
-    };
-
-    const handleMessageUser = async (userToMessage) => {
-        if (!currentUser) {
-            showToast('You must be logged in to message users', 'error');
-            return;
-        }
-
-        if (userToMessage.id === currentUser.id) {
-            showToast('You cannot message yourself', 'error');
-            return;
-        }
-
-        try {
-            // Check if a direct chat already exists
-            const existingChannel = channels.find(channel =>
-                channel.type === 'direct' &&
-                channel.channel_members.some(member => member.user_id === userToMessage.id)
-            );
-
-            if (existingChannel) {
-                navigation.navigate('ChatRoom', { channelId: existingChannel.id, name: userToMessage.full_name });
-            } else {
-                // Create new channel
-                const newChannel = await createChannel(userToMessage.full_name, 'direct', [userToMessage.id]);
-                navigation.navigate('ChatRoom', { channelId: newChannel.id, name: userToMessage.full_name });
-            }
-        } catch (error) {
-            console.error('Error starting chat:', error);
-            showToast('Failed to start chat', 'error');
-        }
-    };
+    if (loading && !refreshing) {
+        return <DashboardSkeleton />;
+    }
 
     const getGreeting = () => {
         const hour = new Date().getHours();
@@ -589,364 +366,197 @@ export default function DashboardScreen({ navigation }) {
 
     return (
         <ScrollView
-            ref={scrollViewRef}
             style={[styles.container, { backgroundColor: theme.colors.background }]}
-            contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
             refreshControl={
-                <RefreshControl refreshing={dashboardRefreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} tintColor={theme.colors.primary} />
             }
-            onScroll={(e) => {
-                scrollYRef.current = e.nativeEvent.contentOffset.y;
-            }}
-            scrollEventThrottle={16}
         >
-            {isOffline && (
-                <View style={[styles.offlineBanner, { backgroundColor: theme.colors.error }]}>
-                    <FontAwesomeIcon icon={faWifi} size={14} color="#fff" style={{ marginRight: 8 }} />
-                    <Text style={styles.offlineText}>You are offline. Showing cached data.</Text>
-                </View>
-            )}
-            <View style={styles.header}>
-                <WalkthroughTarget id="dashboard-header">
+            <View style={styles.content}>
+                {/* Header */}
+                <View id="dashboard-header" style={styles.header}>
                     <View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <FontAwesomeIcon icon={faChartLine} size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
-                            <Text style={[styles.greetingText, { color: theme.colors.text }]}>
-                                {getGreeting()}, <Text style={{ color: theme.colors.primary }}>
-                                    {loading && !userProfile ? (
-                                        <SkeletonPiece style={{ width: 80, height: 24, borderRadius: 4 }} />
-                                    ) : (
-                                        userProfile?.full_name?.split(' ')[0] || 'there'
-                                    )}
-                                </Text>
-                            </Text>
-                        </View>
-                        <Text style={[styles.headerDate, { color: theme.colors.placeholder }]}>
-                            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                        <Text style={[styles.greeting, { color: theme.colors.text }]}>
+                            {getGreeting()},
+                        </Text>
+                        <Text style={[styles.userName, { color: theme.colors.primary }]}>
+                            {userProfile?.full_name?.split(' ')[0] || 'there'}
                         </Text>
                     </View>
-                </WalkthroughTarget>
-            </View>
+                    <View style={[styles.dateBadge, { backgroundColor: theme.colors.card }]}>
+                        <Text style={[styles.dateText, { color: theme.colors.textSecondary }]}>
+                            {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </Text>
+                    </View>
+                </View>
 
-            {/* Welcome Banner - Visible to all */}
-            <WalkthroughTarget id="dashboard-welcome">
-                <View style={[styles.welcomeBanner, { backgroundColor: theme.colors.primary }]}>
+                {/* School Logo/Banner */}
+                {schoolLogo && (
+                    <View style={styles.bannerContainer}>
+                        <Image source={{ uri: schoolLogo }} style={styles.bannerImage} resizeMode="cover" />
+                    </View>
+                )}
+
+                {/* Welcome Card */}
+                <View id="dashboard-welcome" style={[styles.welcomeCard, { backgroundColor: theme.colors.primary }]}>
                     <View style={styles.welcomeContent}>
-                        <Text style={styles.welcomeTitle}>Welcome to EduLink</Text>
-                        <Text style={styles.welcomeText}>We're glad to have you here. Explore your school's portal and track your progress.</Text>
-                    </View>
-                    {/* Decorative circles or background shapes can be added here with absolute positioning if needed */}
-                </View>
-            </WalkthroughTarget>
-
-            {/* Gamification Hub */}
-            <View style={[styles.gamificationCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Your Progress</Text>
-                <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Track your experience, level up, and earn rewards.</Text>
-
-                <View style={styles.gamificationTop}>
-                    <View>
-                        {loading ? (
-                            <View>
-                                <SkeletonPiece style={{ width: 80, height: 18, borderRadius: 4, marginBottom: 6 }} />
-                                <SkeletonPiece style={{ width: 60, height: 12, borderRadius: 4 }} />
-                            </View>
-                        ) : (
-                            <>
-                                <Text style={[styles.levelText, { color: theme.colors.primary }]}>Level {gamification?.current_level}</Text>
-                                <Text style={[styles.xpText, { color: theme.colors.placeholder }]}>
-                                    {gamification?.current_xp % 1000} / 1000 XP
-                                </Text>
-                            </>
-                        )}
-                    </View>
-                    <View style={styles.streakBadge}>
-                        <FontAwesomeIcon icon={faFire} color="#FF9500" size={16} />
-                        {loading ? (
-                            <SkeletonPiece style={{ width: 20, height: 16, borderRadius: 4, marginLeft: 4 }} />
-                        ) : (
-                            <Text style={styles.streakText}>{gamification?.streak?.current_streak || 0}</Text>
-                        )}
+                        <Text style={styles.welcomeTitle}>Welcome to ClassConnect</Text>
+                        <Text style={styles.welcomeSubtitle}>Your school's complete digital companion.</Text>
                     </View>
                 </View>
-                <View style={[styles.progressBarBg, { backgroundColor: theme.colors.background }]}>
-                    <View
-                        style={[
-                            styles.progressBarFill,
-                            {
-                                backgroundColor: theme.colors.primary,
-                                width: loading ? '0%' : `${(gamification?.current_xp % 1000) / 10}%`
-                            }
-                        ]}
+
+                {/* Gamification Hub */}
+                <GamificationHub id="dashboard-gamification" />
+
+                {/* Recommended Resources (Student/Parent only) */}
+                {['student', 'parent'].includes(userRole) && (
+                    <RecommendedResources 
+                        id="dashboard-recommendations"
+                        schoolId={schoolId} 
+                        userId={userProfile?.id}
+                        role={userRole}
+                    />
+                )}
+
+                {/* Role Specific Widgets */}
+                {userRole === 'parent' && (
+                    <ChildProgressSnapshot id="dashboard-parent-child" />
+                )}
+
+                {['admin', 'teacher'].includes(userRole) && (
+                    <QuickActions id="dashboard-quick-actions" />
+                )}
+
+                {/* Tasks & Events */}
+                <View style={styles.row}>
+                    <UpcomingTasks 
+                        id="dashboard-tasks" 
+                        loading={loading} 
+                        upcomingTasks={upcomingTasks} 
+                        navigation={navigation} 
+                        style={styles.fullWidth} 
                     />
                 </View>
-                <View style={styles.gamificationBottom}>
-                    <View style={styles.coinContainer}>
-                        <FontAwesomeIcon icon={faCoins} color="#FFD700" size={16} />
-                        {loading ? (
-                            <SkeletonPiece style={{ width: 40, height: 16, borderRadius: 4, marginLeft: 6 }} />
-                        ) : (
-                            <Text style={[styles.coinText, { color: theme.colors.text }]}>{gamification?.coins}</Text>
-                        )}
-                    </View>
-                    {loading ? (
-                        <SkeletonPiece style={{ width: 90, height: 16, borderRadius: 4 }} />
-                    ) : (
-                        gamification?.nextBadge && (
-                            <View style={styles.nextBadgeContainer}>
-                                <Text style={[styles.nextBadgeLabel, { color: theme.colors.placeholder }]}>Next: </Text>
-                                <Text style={[styles.nextBadgeName, { color: theme.colors.text }]}>{gamification.nextBadge.name}</Text>
-                            </View>
-                        )
-                    )}
-                </View>
-            </View>
 
-            {/* Recent Activity & Role Specific Widgets */}
-            <View style={styles.section}>
-                <WalkthroughTarget id="dashboard-recent">
-                    <RecentActivity />
-                </WalkthroughTarget>
+                <DailyOverview 
+                    id="dashboard-recent" 
+                    loading={loading}
+                    todaySessions={todaySessions}
+                    navigation={navigation}
+                />
 
-                {/* Parent: Child Progress Snapshot */}
-                {/* Show Classes and Announcements for Everyone */}
-                {(userRole === 'student' || userRole === 'parent') && (
-                    <View style={[styles.statsGrid, { marginTop: -10, marginBottom: 24 }]}>
-                        <StatCard
-                            icon={faBullhorn}
-                            title="Announcements"
-                            value={stats.totalAnnouncements}
-                            onPress={() => fetchContentByType('announcements')}
-                            color="#FF9500"
-                            style={{ width: '100%' }}
-                        />
+                {/* Admin/Teacher Stats */}
+                {['admin', 'teacher'].includes(userRole) && (
+                    <View id="dashboard-stats" style={styles.statsSection}>
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>School Statistics</Text>
+                        
+                        <View style={styles.statsGrid}>
+                            <StatCard 
+                                icon={faUsers} 
+                                title="Total Users" 
+                                value={stats.totalUsers} 
+                                color="#007AFF" 
+                                onPress={() => fetchUsersByCategory('total')} 
+                            />
+                            <StatCard 
+                                icon={faUserTie} 
+                                title="Admins" 
+                                value={stats.adminCount} 
+                                color="#FF3B30" 
+                                onPress={() => fetchUsersByCategory('admin')} 
+                            />
+                            <StatCard 
+                                icon={faChalkboardTeacher} 
+                                title="Teachers" 
+                                value={stats.teacherCount} 
+                                color="#34C759" 
+                                onPress={() => fetchUsersByCategory('teacher')} 
+                            />
+                            <StatCard 
+                                icon={faUserGraduate} 
+                                title="Students" 
+                                value={stats.studentCount} 
+                                color="#5856D6" 
+                                onPress={() => fetchUsersByCategory('student')} 
+                            />
+                            <StatCard 
+                                icon={faChild} 
+                                title="Parents" 
+                                value={stats.parentCount} 
+                                color="#FF9500" 
+                                onPress={() => fetchUsersByCategory('parent')} 
+                            />
+                            {userRole === 'admin' && (
+                                <StatCard 
+                                    icon={faUserFriends} 
+                                    title="Family Links" 
+                                    value={stats.parentChildLinkCount} 
+                                    color="#AF52DE" 
+                                    onPress={() => navigation.navigate('My Children')} 
+                                />
+                            )}
+                        </View>
+
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text, marginTop: 24 }]}>Content & Activity</Text>
+                        <View style={styles.statsGrid}>
+                            <StatCard 
+                                icon={faBookOpen} 
+                                title="Classes" 
+                                value={stats.classCount} 
+                                color="#007AFF" 
+                                onPress={() => navigation.navigate('Classes')} 
+                            />
+                            <StatCard 
+                                icon={faUserFriends} 
+                                title="Clubs" 
+                                value={stats.clubCount} 
+                                color="#FF9500" 
+                                onPress={() => navigation.navigate('Clubs')} 
+                            />
+                            <StatCard 
+                                icon={faClipboardList} 
+                                title="Assignments" 
+                                value={stats.assignmentCount} 
+                                color="#5856D6" 
+                                onPress={() => navigation.navigate('Homework')} 
+                            />
+                            <StatCard 
+                                icon={faPoll} 
+                                title="Active Polls" 
+                                value={stats.pollCount} 
+                                color="#FF9500" 
+                                onPress={() => navigation.navigate('Polls')} 
+                            />
+                        </View>
                     </View>
                 )}
-
-                {userRole === 'admin' && (
-                    <ChildProgressSnapshot />
-                )}
             </View>
 
-            <DailyOverview 
-                loading={loading}
-                todaySessions={todaySessions}
-                navigation={navigation}
-            />
-
-            <UpcomingTasks
-                loading={loading}
-                upcomingTasks={upcomingTasks}
-                navigation={navigation}
-            />
-
-            <DashboardStats
-                loading={loading}
-                userRole={userRole}
-                stats={stats}
-                fetchUsersByCategory={fetchUsersByCategory}
-                fetchClasses={fetchClasses}
-                fetchClubs={fetchClubs}
-                fetchContentByType={fetchContentByType}
-            />
-
-            <QuickActions
-                navigation={navigation}
-                userRole={userRole}
-            />
             <UserListModal
                 visible={showUserModal}
+                onClose={() => setShowUserModal(false)}
                 users={userListData}
                 category={selectedUserCategory}
-                onClose={() => setShowUserModal(false)}
-                onUserPress={(user) => {
-                    setSelectedUser(user);
-                    setShowProfileModal(true);
-                }}
             />
-
-            <UserProfileModal
-                visible={showProfileModal}
-                user={selectedUser}
-                onClose={() => setShowProfileModal(false)}
-                onMessageUser={handleMessageUser}
-            />
-
-            {/* Class List Modal */}
-            <ClassListModal
-                visible={showClassModal}
-                classes={contentModalData}
-                onClose={() => setShowClassModal(false)}
-            />
-
-            {/* Content List Modal */}
-            <ContentListModal
-                visible={showContentModal}
-                items={contentModalData}
-                type={contentModalType}
-                onClose={() => setShowContentModal(false)}
-            />
-        </ScrollView >
+        </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 16,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 20,
-    },
-    greetingText: {
-        fontSize: 24,
-        fontWeight: '800',
-    },
-    headerDate: {
-        fontSize: 14,
-        fontWeight: '600',
-        marginTop: 2,
-    },
-    schoolImageContainer: {
-        width: '100%',
-        height: 150,
-        borderRadius: 16,
-        overflow: 'hidden',
-        borderWidth: 1,
-        marginBottom: 24,
-    },
-    schoolImage: {
-        width: '100%',
-        height: '100%',
-    },
-    schoolPlaceholder: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-    },
-    schoolPlaceholderText: {
-        marginTop: 10,
-        fontSize: 14,
-        fontWeight: 'bold',
-        opacity: 0.6,
-    },
-    gamificationCard: {
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
-        marginBottom: 24,
-    },
-    gamificationTop: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    levelText: {
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    xpText: {
-        fontSize: 12,
-    },
-    streakBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#FF950020',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    streakText: {
-        marginLeft: 4,
-        fontWeight: 'bold',
-        color: '#FF9500',
-    },
-    progressBarBg: {
-        height: 8,
-        borderRadius: 4,
-        width: '100%',
-        marginBottom: 12,
-        overflow: 'hidden',
-    },
-    progressBarFill: {
-        height: '100%',
-        borderRadius: 4,
-    },
-    gamificationBottom: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    coinContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    coinText: {
-        marginLeft: 6,
-        fontWeight: 'bold',
-    },
-    nextBadgeContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    nextBadgeLabel: {
-        fontSize: 11,
-    },
-    nextBadgeName: {
-        fontSize: 11,
-        fontWeight: 'bold',
-    },
-    section: {
-        marginBottom: 32,
-    },
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: '600',
-        marginBottom: 4,
-    },
-    sectionDescription: {
-        fontSize: 14,
-        marginBottom: 16,
-    },
-    statsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        marginHorizontal: -6,
-    },
-    welcomeBanner: {
-        borderRadius: 16,
-        padding: 24,
-        marginBottom: 24,
-        overflow: 'hidden',
-        position: 'relative',
-    },
-    welcomeTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: 'white',
-        marginBottom: 8,
-    },
-    welcomeText: {
-        color: 'rgba(255, 255, 255, 0.9)',
-        fontSize: 14,
-        lineHeight: 20,
-    },
-    offlineBanner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 8,
-        marginBottom: 16,
-        borderRadius: 8,
-    },
-    offlineText: {
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: 'bold',
-    },
+    container: { flex: 1 },
+    content: { padding: 20 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+    greeting: { fontSize: 16, fontWeight: '600' },
+    userName: { fontSize: 24, fontWeight: '900' },
+    dateBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+    dateText: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
+    bannerContainer: { width: '100%', height: 120, borderRadius: 20, overflow: 'hidden', marginBottom: 20 },
+    bannerImage: { width: '100%', height: '100%' },
+    welcomeCard: { padding: 24, borderRadius: 24, marginBottom: 20, overflow: 'hidden' },
+    welcomeTitle: { color: '#fff', fontSize: 20, fontWeight: '900', marginBottom: 4 },
+    welcomeSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: '600' },
+    row: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+    fullWidth: { flex: 1 },
+    statsSection: { marginTop: 10 },
+    sectionTitle: { fontSize: 18, fontWeight: '900', marginBottom: 16 },
+    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
 });

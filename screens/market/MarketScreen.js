@@ -1,4 +1,4 @@
-// FULL UPDATED MARKET SCREEN WITH FIXED HORIZONTAL SCROLLING
+// FULL UPDATED MARKET SCREEN WITH FIXED HORIZONTAL SCROLLING AND ANALYTICS
 
 import React, { useEffect, useState, useCallback } from 'react';
 import {
@@ -35,6 +35,7 @@ import { supabase } from '../../lib/supabase';
 import MarketplaceItemCard from '../../components/MarketplaceItemCard';
 import SellerProfileModal from '../../components/SellerProfileModal';
 import MarketplaceItemDetailModal from '../../components/MarketplaceItemDetailModal';
+import MarketplaceAnalytics from '../../components/market/MarketplaceAnalytics';
 import { useTheme } from '../../context/ThemeContext';
 import { useChat } from '../../context/ChatContext';
 import { useToast } from '../../context/ToastContext';
@@ -50,6 +51,7 @@ export default function MarketScreen({ navigation }) {
   const [itemDetailModalVisible, setItemDetailModalVisible] = useState(false);
   const [selectedSeller, setSelectedSeller] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [userRole, setUserRole] = useState('');
 
   const [viewMode, setViewMode] = useState('horizontal');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -61,6 +63,7 @@ export default function MarketScreen({ navigation }) {
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
+      fetchUserRole();
       fetchItems();
     });
     return unsubscribe;
@@ -70,12 +73,21 @@ export default function MarketScreen({ navigation }) {
     applyFiltersAndSort();
   }, [allItems, searchQuery, selectedCategory, sortBy, viewMode]);
 
+  const fetchUserRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from('users').select('role').eq('id', user.id).single();
+      setUserRole(data?.role || '');
+    } catch (e) {}
+  };
+
   const fetchItems = async () => {
     const { data, error } = await supabase
       .from('marketplace_items')
-      .select('id, created_at, title, description, price, image_url, category, seller_id, seller:users!seller_id(id, full_name, email, avatar_url)')
+      .select('id, created_at, title, description, price, image_url, category, seller_id, seller:users!seller_id(id, full_name, email, avatar_url, role)')
       .order('created_at', { ascending: false })
-      .limit(100);  // Pagination: Load first 100 items
+      .limit(100);
 
     if (!error) setAllItems(data || []);
     setLoading(false);
@@ -156,7 +168,6 @@ export default function MarketScreen({ navigation }) {
     Furniture: 'Desks, chairs and more.',
     Clothing: 'Uniforms & apparel.',
     Other: 'Misc. items.',
-    Other: 'Misc. items.',
   };
 
   const handleMessageSeller = async (seller) => {
@@ -171,7 +182,6 @@ export default function MarketScreen({ navigation }) {
     }
 
     try {
-      // Check if a direct chat already exists with this seller
       const existingChannel = channels.find(channel =>
         channel.type === 'direct' &&
         channel.channel_members.some(member => member.user_id === seller.id)
@@ -180,7 +190,6 @@ export default function MarketScreen({ navigation }) {
       if (existingChannel) {
         navigation.navigate('ChatRoom', { channelId: existingChannel.id, name: seller.full_name });
       } else {
-        // Create new channel
         const newChannel = await createChannel(seller.full_name, 'direct', [seller.id]);
         navigation.navigate('ChatRoom', { channelId: newChannel.id, name: seller.full_name });
       }
@@ -190,17 +199,21 @@ export default function MarketScreen({ navigation }) {
     }
   };
 
-  return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-
+  const ListHeader = () => (
+    <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
       {/* Header */}
       <View style={styles.mainHeaderContainer}>
         <FontAwesomeIcon icon={faStore} size={24} color={theme.colors.primary} style={styles.mainHeaderIcon} />
         <Text style={[styles.header, { color: theme.colors.text }]}>Marketplace</Text>
       </View>
       <Text style={[styles.subHeader, { color: theme.colors.placeholder }]}>
-        Items are advertised here only. Transactions are handled directly between buyers and sellers.
+        Items are advertised here only. ClassConnect does not process payments.
       </Text>
+
+      {/* Admin Analytics */}
+      {!loading && userRole === 'admin' && (
+        <MarketplaceAnalytics items={allItems} />
+      )}
 
       {/* Search */}
       <View style={styles.searchContainerWrapper}>
@@ -223,7 +236,7 @@ export default function MarketScreen({ navigation }) {
       {/* CATEGORY FILTER — FIXED HORIZONTAL SCROLL */}
       <View style={styles.filterContainer}>
         {loading ? (
-          <View style={{ paddingHorizontal: 16, flexDirection: 'row' }}>
+          <View style={{ flexDirection: 'row' }}>
             {[1, 2, 3, 4].map(i => (
               <SkeletonPiece key={i} style={{ width: 80, height: 35, borderRadius: 20, marginRight: 8 }} />
             ))}
@@ -232,9 +245,7 @@ export default function MarketScreen({ navigation }) {
           <FlatList
             data={categories}
             horizontal
-            nestedScrollEnabled
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryScroll}
             keyExtractor={(item) => item}
             renderItem={({ item }) => (
               <TouchableOpacity
@@ -287,22 +298,29 @@ export default function MarketScreen({ navigation }) {
           </View>
         </View>
       )}
+    </View>
+  );
 
-      {/* GRID MODE */}
+  return (
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {loading ? (
-        <FlatList
-          data={[1, 2, 3, 4]}
-          keyExtractor={(item) => item.toString()}
-          numColumns={2}
-          renderItem={() => (
-            <View style={{ flex: 0.5, paddingHorizontal: 8 }}>
-              <MarketplaceItemCardSkeleton />
-            </View>
-          )}
-          contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 80 }}
-        />
+        <View style={{ padding: 16 }}>
+            <ListHeader />
+            <FlatList
+                data={[1, 2, 3, 4]}
+                keyExtractor={(item) => item.toString()}
+                numColumns={2}
+                renderItem={() => (
+                    <View style={{ flex: 0.5, paddingHorizontal: 8 }}>
+                    <MarketplaceItemCardSkeleton />
+                    </View>
+                )}
+                contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 80 }}
+            />
+        </View>
       ) : viewMode === 'grid' ? (
         <FlatList
+          ListHeaderComponent={ListHeader}
           data={filteredItems}
           keyExtractor={(item) => item.id.toString()}
           numColumns={2}
@@ -325,8 +343,8 @@ export default function MarketScreen({ navigation }) {
           windowSize={5}
         />
       ) : (
-        /* SECTION LIST MODE — FULLY FIXED */
         <SectionList
+          ListHeaderComponent={ListHeader}
           sections={sections}
           keyExtractor={(item, index) => index.toString()}
           contentContainerStyle={{ paddingBottom: 80 }}
@@ -401,22 +419,17 @@ const styles = StyleSheet.create({
   mainHeaderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    marginBottom: 4, // Reduced bottom margin to bring subheader closer
+    marginBottom: 4,
   },
 
   subHeader: {
     fontSize: 14,
-    paddingHorizontal: 16,
     marginBottom: 16,
   },
 
   mainHeaderIcon: { marginRight: 16 },
   searchContainerWrapper: {
     marginBottom: 12,
-    paddingHorizontal: 16,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -429,7 +442,7 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, height: 40 },
 
   filterContainer: { marginBottom: 10 },
-  categoryScroll: { paddingHorizontal: 16 },
+  categoryScroll: { },
 
   categoryChip: {
     paddingHorizontal: 16,
@@ -445,7 +458,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 15,
-    paddingHorizontal: 16
   },
 
   controlButton: { flexDirection: 'row', alignItems: 'center' },
