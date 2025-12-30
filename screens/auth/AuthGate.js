@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useNavigation } from '@react-navigation/native';
 import { usePushNotification } from '../../context/PushNotificationContext';
@@ -34,6 +34,21 @@ const AuthGate = () => {
         }
 
         if (userProfile) {
+          // Block Server Admins from Mobile App
+          if (userProfile.role === 'server_admin') {
+            Alert.alert(
+              "Access Restricted",
+              "Server Administrator access is only available on the Web Application. Please log in there to manage the system.",
+              [
+                { 
+                  text: "OK", 
+                  onPress: async () => await supabase.auth.signOut() 
+                }
+              ]
+            );
+            return;
+          }
+
           if (userProfile.school_id) {
             // Register for push notifications before navigating to main app
             await registerForPushNotificationsAsync();

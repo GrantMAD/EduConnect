@@ -27,7 +27,16 @@ export default function SignInScreen({ navigation }) {
     if (error) {
       showToast(error.message, 'error');
     } else if (data.session) {
-      showToast('Signed in successfully!', 'success');
+      // Quick check for server_admin to avoid success toast
+      const { data: profile } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', data.session.user.id)
+        .single();
+      
+      if (profile?.role !== 'server_admin') {
+        showToast('Signed in successfully!', 'success');
+      }
     }
   };
 
