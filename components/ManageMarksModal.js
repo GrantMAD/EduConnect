@@ -2,14 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Alert } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTrash, faSave, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
 
 const MarkItem = ({ item, onUpdate, onDelete }) => {
-    const [currentMark, setCurrentMark] = useState(item.mark);
     const [currentAssessmentName, setCurrentAssessmentName] = useState(item.assessment_name);
+    const [currentScore, setCurrentScore] = useState(item.score?.toString() || '');
+    const [currentTotal, setCurrentTotal] = useState(item.total_possible?.toString() || '100');
     const [currentFeedback, setCurrentFeedback] = useState(item.teacher_feedback || '');
   
+    const percentage = (currentScore && currentTotal) 
+        ? ((parseFloat(currentScore) / parseFloat(currentTotal)) * 100).toFixed(1) 
+        : null;
+
+    const isOverLimit = parseFloat(currentScore) > parseFloat(currentTotal);
+
     return (
       <View style={styles.markItemContainer}>
         <TextInput
@@ -18,12 +26,41 @@ const MarkItem = ({ item, onUpdate, onDelete }) => {
           onChangeText={setCurrentAssessmentName}
           placeholder="Assessment Name"
         />
-        <TextInput
-          style={styles.input}
-          value={currentMark}
-          onChangeText={setCurrentMark}
-          placeholder="Mark"
-        />
+        <View style={styles.scoreRow}>
+            <View style={styles.scoreInputContainer}>
+                <Text style={styles.inputLabel}>Score</Text>
+                <TextInput
+                    style={[styles.input, styles.scoreInput, isOverLimit && styles.inputError]}
+                    value={currentScore}
+                    onChangeText={setCurrentScore}
+                    placeholder="Score"
+                    keyboardType="numeric"
+                />
+                {isOverLimit && <Text style={styles.errorText}>Exceeds total!</Text>}
+            </View>
+            <Text style={styles.divider}>/</Text>
+            <View style={styles.scoreInputContainer}>
+                <Text style={styles.inputLabel}>Total</Text>
+                <TextInput
+                    style={[styles.input, styles.scoreInput]}
+                    value={currentTotal}
+                    onChangeText={setCurrentTotal}
+                    placeholder="Total"
+                    keyboardType="numeric"
+                />
+            </View>
+            {percentage !== null && !isNaN(percentage) && (
+                <View style={[styles.percentageBadge, 
+                    parseFloat(percentage) >= 80 ? styles.badgeSuccess : 
+                    parseFloat(percentage) >= 60 ? styles.badgeWarning : styles.badgeDanger
+                ]}>
+                    <Text style={[styles.percentageText,
+                        parseFloat(percentage) >= 80 ? styles.textSuccess : 
+                        parseFloat(percentage) >= 60 ? styles.textWarning : styles.textDanger
+                    ]}>{percentage}%</Text>
+                </View>
+            )}
+        </View>
         <TextInput
           style={[styles.input, { height: 60, textAlignVertical: 'top' }]}
           value={currentFeedback}
@@ -32,7 +69,7 @@ const MarkItem = ({ item, onUpdate, onDelete }) => {
           multiline
         />
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.actionButton} onPress={() => onUpdate(item.id, currentMark, currentAssessmentName, currentFeedback)}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => onUpdate(item.id, currentScore, currentTotal, currentAssessmentName, currentFeedback)}>
             <FontAwesomeIcon icon={faSave} size={20} color="#007AFF" />
             <Text style={styles.actionButtonText}>Save</Text>
           </TouchableOpacity>
@@ -47,6 +84,7 @@ const MarkItem = ({ item, onUpdate, onDelete }) => {
 
 const ManageMarksModal = ({ visible, onClose, student, classId }) => {
   const { showToast } = useToast();
+  const { user } = useAuth();
   const [marks, setMarks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [marksChanged, setMarksChanged] = useState(false);
@@ -54,7 +92,8 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
   // New Mark State
   const [addingNew, setAddingNew] = useState(false);
   const [newMarkName, setNewMarkName] = useState('');
-  const [newMarkValue, setNewMarkValue] = useState('');
+  const [newMarkScore, setNewMarkScore] = useState('');
+  const [newMarkTotal, setNewMarkTotal] = useState('100');
   const [newFeedback, setNewFeedback] = useState('');
   const [assessmentType, setAssessmentType] = useState('Test');
 
@@ -69,7 +108,8 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
 
   const resetNewMarkForm = () => {
     setNewMarkName('');
-    setNewMarkValue('');
+    setNewMarkScore('');
+    setNewMarkTotal('100');
     setNewFeedback('');
     setAssessmentType('Test');
   };
@@ -98,19 +138,27 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
   };
 
   const handleAddMark = async () => {
-    if (!newMarkName.trim() || !newMarkValue.trim()) {
-        showToast('Please fill in both name and mark.', 'error');
+    if (!newMarkName.trim() || !newMarkScore.trim() || !newMarkTotal.trim()) {
+        showToast('Please fill in name, score and total.', 'error');
         return;
     }
+
+    const score = parseFloat(newMarkScore);
+    const total = parseFloat(newMarkTotal);
+    const percentage = ((score / total) * 100).toFixed(1);
+    const formattedMark = `${score}/${total} (${percentage}%)`;
 
     try {
         const { error } = await supabase
             .from('student_marks')
             .insert({
                 student_id: student.users.id,
+                teacher_id: user.id,
                 class_id: classId,
                 assessment_name: `${assessmentType}: ${newMarkName}`,
-                mark: newMarkValue,
+                mark: formattedMark,
+                score: score,
+                total_possible: total,
                 teacher_feedback: newFeedback
             });
 
@@ -127,12 +175,20 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
     }
   };
 
-  const handleUpdateMark = async (markId, newMark, newAssessmentName, newFeedback) => {
+  const handleUpdateMark = async (markId, newScore, newTotal, newAssessmentName, newFeedback) => {
+    const score = parseFloat(newScore);
+    const total = parseFloat(newTotal);
+    const percentage = ((score / total) * 100).toFixed(1);
+    const formattedMark = `${score}/${total} (${percentage}%)`;
+
     try {
       const { error } = await supabase
         .from('student_marks')
         .update({ 
-          mark: newMark, 
+          mark: formattedMark,
+          score: score,
+          total_possible: total,
+          teacher_id: user.id,
           assessment_name: newAssessmentName,
           teacher_feedback: newFeedback 
         })
@@ -174,63 +230,102 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
     );
   };
 
-  const renderHeader = () => (
-    <View style={styles.headerContainer}>
-        {addingNew ? (
-            <View style={styles.addForm}>
-                <Text style={styles.formTitle}>Add New Mark</Text>
-                
-                <View style={styles.typeSelector}>
-                    {['Test', 'Assignment'].map((type) => (
-                        <TouchableOpacity 
-                            key={type}
-                            style={[styles.typeButton, assessmentType === type && styles.typeButtonActive]}
-                            onPress={() => setAssessmentType(type)}
-                        >
-                            <Text style={[styles.typeText, assessmentType === type && styles.typeTextActive]}>{type}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
+  const renderHeader = () => {
+    const previewPercentage = (newMarkScore && newMarkTotal) 
+        ? ((parseFloat(newMarkScore) / parseFloat(newMarkTotal)) * 100).toFixed(1) 
+        : null;
+    
+    const isNewOverLimit = parseFloat(newMarkScore) > parseFloat(newMarkTotal);
 
-                <TextInput
-                    style={styles.input}
-                    value={newMarkName}
-                    onChangeText={setNewMarkName}
-                    placeholder="Assessment Name (e.g. Midterm)"
-                />
-                <TextInput
-                    style={styles.input}
-                    value={newMarkValue}
-                    onChangeText={setNewMarkValue}
-                    placeholder="Grade (e.g. 85%)"
-                />
-                <TextInput
-                    style={[styles.input, { height: 60, textAlignVertical: 'top' }]}
-                    value={newFeedback}
-                    onChangeText={setNewFeedback}
-                    placeholder="Optional Feedback"
-                    multiline
-                />
-                
-                <View style={styles.formButtons}>
-                    <TouchableOpacity style={styles.cancelButton} onPress={() => setAddingNew(false)}>
-                        <Text style={styles.cancelButtonText}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.saveButton} onPress={handleAddMark}>
-                        <FontAwesomeIcon icon={faPlus} color="white" size={14} style={{ marginRight: 5 }} />
-                        <Text style={styles.saveButtonText}>Add Mark</Text>
-                    </TouchableOpacity>
+    return (
+        <View style={styles.headerContainer}>
+            {addingNew ? (
+                <View style={styles.addForm}>
+                    <Text style={styles.formTitle}>Add New Mark</Text>
+                    
+                    <View style={styles.typeSelector}>
+                        {['Test', 'Assignment'].map((type) => (
+                            <TouchableOpacity 
+                                key={type}
+                                style={[styles.typeButton, assessmentType === type && styles.typeButtonActive]}
+                                onPress={() => setAssessmentType(type)}
+                            >
+                                <Text style={[styles.typeText, assessmentType === type && styles.typeTextActive]}>{type}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+
+                    <TextInput
+                        style={styles.input}
+                        value={newMarkName}
+                        onChangeText={setNewMarkName}
+                        placeholder="Assessment Name (e.g. Midterm)"
+                    />
+                    
+                    <View style={styles.scoreRow}>
+                        <View style={styles.scoreInputContainer}>
+                            <Text style={styles.inputLabel}>Score</Text>
+                            <TextInput
+                                style={[styles.input, styles.scoreInput, isNewOverLimit && styles.inputError]}
+                                value={newMarkScore}
+                                onChangeText={setNewMarkScore}
+                                placeholder="85"
+                                keyboardType="numeric"
+                            />
+                            {isNewOverLimit && <Text style={styles.errorText}>Exceeds total!</Text>}
+                        </View>
+                        <Text style={styles.divider}>/</Text>
+                        <View style={styles.scoreInputContainer}>
+                            <Text style={styles.inputLabel}>Total</Text>
+                            <TextInput
+                                style={[styles.input, styles.scoreInput]}
+                                value={newMarkTotal}
+                                onChangeText={setNewMarkTotal}
+                                placeholder="100"
+                                keyboardType="numeric"
+                            />
+                        </View>
+                        {previewPercentage !== null && !isNaN(previewPercentage) && (
+                            <View style={[styles.percentageBadge, 
+                                parseFloat(previewPercentage) >= 80 ? styles.badgeSuccess : 
+                                parseFloat(previewPercentage) >= 60 ? styles.badgeWarning : styles.badgeDanger
+                            ]}>
+                                <Text style={[styles.percentageText,
+                                    parseFloat(previewPercentage) >= 80 ? styles.textSuccess : 
+                                    parseFloat(previewPercentage) >= 60 ? styles.textWarning : styles.textDanger
+                                ]}>{previewPercentage}%</Text>
+                            </View>
+                        )}
+                    </View>
+
+                    <TextInput
+                        style={[styles.input, { height: 60, textAlignVertical: 'top' }]}
+                        value={newFeedback}
+                        onChangeText={setNewFeedback}
+                        placeholder="Optional Feedback"
+                        multiline
+                    />
+                    
+                    <View style={styles.formButtons}>
+                        <TouchableOpacity style={styles.cancelButton} onPress={() => setAddingNew(false)}>
+                            <Text style={styles.cancelButtonText}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.saveButton} onPress={handleAddMark}>
+                            <FontAwesomeIcon icon={faPlus} color="white" size={14} style={{ marginRight: 5 }} />
+                            <Text style={styles.saveButtonText}>Add Mark</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </View>
-        ) : (
-            <TouchableOpacity style={styles.addButton} onPress={() => setAddingNew(true)}>
-                <FontAwesomeIcon icon={faPlus} color="#007AFF" style={{ marginRight: 10 }} />
-                <Text style={styles.addButtonText}>Add New Assessment</Text>
-            </TouchableOpacity>
-        )}
-        <Text style={styles.sectionTitle}>Recorded Marks</Text>
-    </View>
-  );
+            ) : (
+                <TouchableOpacity style={styles.addButton} onPress={() => setAddingNew(true)}>
+                    <FontAwesomeIcon icon={faPlus} color="#007AFF" style={{ marginRight: 10 }} />
+                    <Text style={styles.addButtonText}>Add New Assessment</Text>
+                </TouchableOpacity>
+            )}
+            <Text style={styles.sectionTitle}>Recorded Marks</Text>
+        </View>
+    );
+  };
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
@@ -350,6 +445,62 @@ const styles = StyleSheet.create({
       typeTextActive: {
         color: 'white',
       },
+      scoreRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 12,
+      },
+      scoreInputContainer: {
+        flex: 1,
+      },
+      inputLabel: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#999',
+        marginBottom: 4,
+        textTransform: 'uppercase',
+      },
+      scoreInput: {
+        textAlign: 'center',
+        marginBottom: 0,
+      },
+      divider: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#ddd',
+        paddingTop: 15,
+      },
+      percentageBadge: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+        minWidth: 60,
+        alignItems: 'center',
+        marginTop: 15,
+      },
+      badgeSuccess: {
+        backgroundColor: '#e6f4ea',
+      },
+      badgeWarning: {
+        backgroundColor: '#fff7e6',
+      },
+      badgeDanger: {
+        backgroundColor: '#fce8e6',
+      },
+      percentageText: {
+        fontSize: 12,
+        fontWeight: 'bold',
+      },
+      textSuccess: {
+        color: '#1e7e34',
+      },
+      textWarning: {
+        color: '#d39e00',
+      },
+      textDanger: {
+        color: '#c82333',
+      },
       formButtons: {
         flexDirection: 'row',
         justifyContent: 'flex-end',
@@ -398,6 +549,19 @@ const styles = StyleSheet.create({
         width: '100%',
         backgroundColor: 'white',
         fontSize: 14,
+      },
+      inputError: {
+        borderColor: '#FF3B30',
+        backgroundColor: '#FFF5F5',
+        color: '#FF3B30'
+      },
+      errorText: {
+        color: '#FF3B30',
+        fontSize: 10,
+        fontWeight: 'bold',
+        marginTop: -8,
+        marginBottom: 8,
+        textAlign: 'center'
       },
       buttonContainer: {
         flexDirection: 'row',

@@ -67,31 +67,47 @@ const AttendancePill = ({ status, date, theme }) => {
   );
 };
 
-const MarkRow = ({ mark, theme }) => (
-  <View style={{ marginBottom: 12 }}>
-    <View style={[styles.markRow, { borderBottomColor: theme.colors.cardBorder }]}>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.markAssessment, { color: theme.colors.text }]} numberOfLines={1}>
-          {mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[1].trim() : mark.assessment_name}
-        </Text>
-        <Text style={[styles.markType, { color: theme.colors.primary }]}>
-          {mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[0] : 'Assessment'}
-        </Text>
+const MarkRow = ({ mark, theme }) => {
+  let displayValue = mark.mark;
+  
+  if (mark.score !== null && mark.total_possible !== null && mark.total_possible > 0) {
+    displayValue = Math.round((mark.score / mark.total_possible) * 100) + '%';
+  } else if (mark.mark && mark.mark.length > 5) {
+    const parsed = parseFloat(mark.mark);
+    if (!isNaN(parsed)) displayValue = Math.round(parsed) + '%';
+  }
+
+  return (
+    <View style={{ marginBottom: 12 }}>
+      <View style={[styles.markRow, { borderBottomColor: theme.colors.cardBorder }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.markAssessment, { color: theme.colors.text }]} numberOfLines={1}>
+            {mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[1].trim() : mark.assessment_name}
+          </Text>
+          <Text style={[styles.markType, { color: theme.colors.primary }]}>
+            {mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[0] : 'Assessment'}
+          </Text>
+          {(mark.score !== null && mark.total_possible !== null) && (
+            <Text style={{ fontSize: 11, color: theme.colors.placeholder, marginTop: 2, fontWeight: '500' }}>
+              Score: {mark.score}/{mark.total_possible}
+            </Text>
+          )}
+        </View>
+        <View style={[styles.markBadge, { backgroundColor: theme.colors.cardBorder + '40', width: 'auto', minWidth: 44, paddingHorizontal: 8 }]}>
+          <Text style={[styles.markValue, { color: theme.colors.text, fontSize: 13 }]}>{displayValue}</Text>
+        </View>
       </View>
-      <View style={[styles.markBadge, { backgroundColor: theme.colors.cardBorder + '40' }]}>
-        <Text style={[styles.markValue, { color: theme.colors.text }]}>{mark.mark}</Text>
-      </View>
+      {mark.teacher_feedback && (
+        <View style={styles.feedbackContainer}>
+          <FontAwesomeIcon icon={faComment} size={10} color={theme.colors.primary} style={{ marginRight: 6, marginTop: 2 }} />
+          <Text style={[styles.feedbackText, { color: theme.colors.placeholder }]}>
+            {mark.teacher_feedback}
+          </Text>
+        </View>
+      )}
     </View>
-    {mark.teacher_feedback && (
-      <View style={styles.feedbackContainer}>
-        <FontAwesomeIcon icon={faComment} size={10} color={theme.colors.primary} style={{ marginRight: 6, marginTop: 2 }} />
-        <Text style={[styles.feedbackText, { color: theme.colors.placeholder }]}>
-          {mark.teacher_feedback}
-        </Text>
-      </View>
-    )}
-  </View>
-);
+  );
+};
 
 const ClassCard = ({ classInfo, theme }) => {
   const [expanded, setExpanded] = useState(false);
@@ -108,8 +124,25 @@ const ClassCard = ({ classInfo, theme }) => {
 
   const averageMark = useMemo(() => {
     if (!classInfo.marks?.length) return null;
-    const sum = classInfo.marks.reduce((acc, curr) => acc + (parseFloat(curr.mark) || 0), 0);
-    return Math.round(sum / classInfo.marks.length);
+    
+    const validMarks = classInfo.marks.filter(m => 
+      (m.score !== null && m.total_possible !== null && m.total_possible > 0) || 
+      !isNaN(parseFloat(m.mark))
+    );
+
+    if (validMarks.length === 0) return null;
+
+    const sum = validMarks.reduce((acc, curr) => {
+      let pct = 0;
+      if (curr.score !== null && curr.total_possible !== null && curr.total_possible > 0) {
+        pct = (curr.score / curr.total_possible) * 100;
+      } else {
+        pct = parseFloat(curr.mark) || 0;
+      }
+      return acc + pct;
+    }, 0);
+
+    return Math.round(sum / validMarks.length);
   }, [classInfo.marks]);
 
   return (
@@ -199,7 +232,7 @@ const StudentDashboard = ({ student, theme, refreshTrigger }) => {
 
           const { data: marks } = await supabase
             .from('student_marks')
-            .select('assessment_name, mark, teacher_feedback')
+            .select('assessment_name, mark, teacher_feedback, score, total_possible')
             .eq('student_id', student.id)
             .eq('class_id', member.class_id)
             .order('created_at', { ascending: false });
