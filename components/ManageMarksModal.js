@@ -3,7 +3,7 @@ import { Modal, View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, A
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTrash, faSave, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faTrash, faSave, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
 
 const MarkItem = ({ item, onUpdate, onDelete }) => {
     const [currentMark, setCurrentMark] = useState(item.mark);
@@ -23,7 +23,6 @@ const MarkItem = ({ item, onUpdate, onDelete }) => {
           value={currentMark}
           onChangeText={setCurrentMark}
           placeholder="Mark"
-          keyboardType="numeric"
         />
         <TextInput
           style={[styles.input, { height: 60, textAlignVertical: 'top' }]}
@@ -52,12 +51,28 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
   const [loading, setLoading] = useState(false);
   const [marksChanged, setMarksChanged] = useState(false);
 
+  // New Mark State
+  const [addingNew, setAddingNew] = useState(false);
+  const [newMarkName, setNewMarkName] = useState('');
+  const [newMarkValue, setNewMarkValue] = useState('');
+  const [newFeedback, setNewFeedback] = useState('');
+  const [assessmentType, setAssessmentType] = useState('Test');
+
   useEffect(() => {
     if (student) {
       fetchMarks();
+      setAddingNew(false);
+      resetNewMarkForm();
     }
     setMarksChanged(false);
   }, [student]);
+
+  const resetNewMarkForm = () => {
+    setNewMarkName('');
+    setNewMarkValue('');
+    setNewFeedback('');
+    setAssessmentType('Test');
+  };
 
   const handleClose = () => {
     onClose(marksChanged);
@@ -71,13 +86,44 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
         .from('student_marks')
         .select('*')
         .eq('student_id', student.users.id)
-        .eq('class_id', classId);
+        .eq('class_id', classId)
+        .order('created_at', { ascending: false });
       if (error) throw error;
       setMarks(data);
     } catch (error) {
       showToast('Failed to fetch marks.', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddMark = async () => {
+    if (!newMarkName.trim() || !newMarkValue.trim()) {
+        showToast('Please fill in both name and mark.', 'error');
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('student_marks')
+            .insert({
+                student_id: student.users.id,
+                class_id: classId,
+                assessment_name: `${assessmentType}: ${newMarkName}`,
+                mark: newMarkValue,
+                teacher_feedback: newFeedback
+            });
+
+        if (error) throw error;
+
+        showToast('Mark added successfully.', 'success');
+        setMarksChanged(true);
+        setAddingNew(false);
+        resetNewMarkForm();
+        fetchMarks();
+    } catch (error) {
+        console.error(error);
+        showToast('Failed to add mark.', 'error');
     }
   };
 
@@ -128,6 +174,64 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
     );
   };
 
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
+        {addingNew ? (
+            <View style={styles.addForm}>
+                <Text style={styles.formTitle}>Add New Mark</Text>
+                
+                <View style={styles.typeSelector}>
+                    {['Test', 'Assignment'].map((type) => (
+                        <TouchableOpacity 
+                            key={type}
+                            style={[styles.typeButton, assessmentType === type && styles.typeButtonActive]}
+                            onPress={() => setAssessmentType(type)}
+                        >
+                            <Text style={[styles.typeText, assessmentType === type && styles.typeTextActive]}>{type}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+
+                <TextInput
+                    style={styles.input}
+                    value={newMarkName}
+                    onChangeText={setNewMarkName}
+                    placeholder="Assessment Name (e.g. Midterm)"
+                />
+                <TextInput
+                    style={styles.input}
+                    value={newMarkValue}
+                    onChangeText={setNewMarkValue}
+                    placeholder="Grade (e.g. 85%)"
+                />
+                <TextInput
+                    style={[styles.input, { height: 60, textAlignVertical: 'top' }]}
+                    value={newFeedback}
+                    onChangeText={setNewFeedback}
+                    placeholder="Optional Feedback"
+                    multiline
+                />
+                
+                <View style={styles.formButtons}>
+                    <TouchableOpacity style={styles.cancelButton} onPress={() => setAddingNew(false)}>
+                        <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.saveButton} onPress={handleAddMark}>
+                        <FontAwesomeIcon icon={faPlus} color="white" size={14} style={{ marginRight: 5 }} />
+                        <Text style={styles.saveButtonText}>Add Mark</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        ) : (
+            <TouchableOpacity style={styles.addButton} onPress={() => setAddingNew(true)}>
+                <FontAwesomeIcon icon={faPlus} color="#007AFF" style={{ marginRight: 10 }} />
+                <Text style={styles.addButtonText}>Add New Assessment</Text>
+            </TouchableOpacity>
+        )}
+        <Text style={styles.sectionTitle}>Recorded Marks</Text>
+    </View>
+  );
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <View style={styles.modalContainer}>
@@ -143,9 +247,10 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
           ) : (
             <FlatList
               data={marks}
+              ListHeaderComponent={renderHeader}
               renderItem={({item}) => <MarkItem item={item} onUpdate={handleUpdateMark} onDelete={handleDeleteMark} />}
               keyExtractor={(item) => item.id.toString()}
-              ListEmptyComponent={<Text>No marks found for this student.</Text>}
+              ListEmptyComponent={<Text style={styles.emptyText}>No marks found for this student.</Text>}
             />
           )}
         </View>
@@ -162,11 +267,11 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
       },
       modalContent: {
-        width: '90%',
+        width: '95%',
         backgroundColor: 'white',
-        borderRadius: 10,
+        borderRadius: 20,
         padding: 20,
-        maxHeight: '80%',
+        maxHeight: '90%',
       },
       header: {
         flexDirection: 'row',
@@ -174,48 +279,157 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 20,
       },
+      headerContainer: {
+        marginBottom: 10,
+      },
       title: {
         fontSize: 18,
+        fontWeight: 'bold',
+        flex: 1,
+      },
+      sectionTitle: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: '#999',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginTop: 20,
+        marginBottom: 10,
+      },
+      addButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 15,
+        borderWidth: 2,
+        borderColor: '#007AFF',
+        borderStyle: 'dashed',
+        borderRadius: 12,
+        backgroundColor: '#f0f7ff',
+      },
+      addButtonText: {
+        color: '#007AFF',
+        fontWeight: 'bold',
+      },
+      addForm: {
+        backgroundColor: '#f8f9fa',
+        padding: 15,
+        borderRadius: 15,
+        borderWidth: 1,
+        borderColor: '#e9ecef',
+      },
+      formTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 15,
+        color: '#333',
+      },
+      typeSelector: {
+        flexDirection: 'row',
+        marginBottom: 15,
+        gap: 10,
+      },
+      typeButton: {
+        flex: 1,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        alignItems: 'center',
+        backgroundColor: 'white',
+      },
+      typeButtonActive: {
+        backgroundColor: '#007AFF',
+        borderColor: '#007AFF',
+      },
+      typeText: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: '#666',
+      },
+      typeTextActive: {
+        color: 'white',
+      },
+      formButtons: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 10,
+        marginTop: 5,
+      },
+      cancelButton: {
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+      },
+      cancelButtonText: {
+        color: '#666',
+        fontWeight: 'bold',
+      },
+      saveButton: {
+        backgroundColor: '#007AFF',
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+      },
+      saveButtonText: {
+        color: 'white',
         fontWeight: 'bold',
       },
       markItemContainer: {
         marginBottom: 15,
-        padding: 10,
-        backgroundColor: '#f9f9f9',
-        borderRadius: 8,
+        padding: 15,
+        backgroundColor: '#fff',
+        borderRadius: 12,
         borderWidth: 1,
         borderColor: '#eee',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+        elevation: 2,
       },
       input: {
         borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 5,
-        padding: 10,
-        marginBottom: 10,
+        borderColor: '#e1e1e1',
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 12,
         width: '100%',
+        backgroundColor: 'white',
+        fontSize: 14,
       },
       buttonContainer: {
         flexDirection: 'row',
-        justifyContent: 'space-around',
-        marginTop: 10,
+        justifyContent: 'flex-end',
+        gap: 10,
+        marginTop: 5,
       },
       actionButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 8,
-        borderRadius: 5,
-        backgroundColor: '#e0f2fe',
+        paddingVertical: 8,
+        paddingHorizontal: 15,
+        borderRadius: 8,
+        backgroundColor: '#f0f7ff',
       },
       actionButtonText: {
         marginLeft: 5,
         color: '#007AFF',
         fontWeight: 'bold',
+        fontSize: 12,
       },
       deleteButton: {
-        backgroundColor: '#ffe0e0',
+        backgroundColor: '#fff5f5',
       },
       deleteButtonText: {
         color: '#dc3545',
+      },
+      emptyText: {
+        textAlign: 'center',
+        color: '#999',
+        marginTop: 30,
+        fontStyle: 'italic',
       },
 });
 

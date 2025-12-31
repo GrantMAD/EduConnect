@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Modal from 'react-native-modal';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faExclamationTriangle, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
@@ -69,7 +69,6 @@ export default function ConfirmationModal({
                     </TouchableOpacity>
                 </View>
             </View>
-            </div>
         </Modal>
     );
 }
