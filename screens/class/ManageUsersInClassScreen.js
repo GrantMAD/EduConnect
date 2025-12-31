@@ -52,7 +52,7 @@ const getDateString = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-export default function ManageUsersInClassScreen() {
+export default function ManageUsersInClassScreen({ navigation }) {
   const route = useRoute();
   const { classId, className } = route.params;
 
@@ -653,6 +653,10 @@ export default function ManageUsersInClassScreen() {
     if (loading && !selectedScheduleDate) {
         return (
             <>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <FontAwesomeIcon icon={faArrowLeft} size={16} color="#007AFF" />
+                <Text style={styles.backButtonText}>Back to Classes</Text>
+              </TouchableOpacity>
               <Text style={[styles.header, { textAlign: 'center' }]}>Manage {className}</Text>
               <Text style={[styles.description, { textAlign: 'center' }]}>Select a class session below to manage attendance.</Text>
               <View style={{ marginBottom: 25 }}>
@@ -676,6 +680,10 @@ export default function ManageUsersInClassScreen() {
     if (!selectedScheduleDate) {
       return (
         <>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <FontAwesomeIcon icon={faArrowLeft} size={16} color="#007AFF" />
+            <Text style={styles.backButtonText}>Back to Classes</Text>
+          </TouchableOpacity>
           <Text style={[styles.header, { textAlign: 'center' }]}>Manage {className}</Text>
           <Text style={[styles.description, { textAlign: 'center' }]}>Select a class session below to manage attendance.</Text>
           <View style={{ marginBottom: 25 }}>

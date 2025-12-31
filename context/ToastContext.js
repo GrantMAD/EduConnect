@@ -15,7 +15,7 @@ export const ToastProvider = ({ children }) => {
   }, []);
 
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={{ showToast, toast, hideToast }}>
       {children}
       {toast && (
         <Toast
@@ -35,4 +35,12 @@ export const useToast = () => {
     throw new Error('useToast must be used within a ToastProvider');
   }
   return context;
+};
+
+export const useToastState = () => {
+  const context = useContext(ToastContext);
+  if (!context) {
+    throw new Error('useToastState must be used within a ToastProvider');
+  }
+  return { toast: context.toast, hideToast: context.hideToast };
 };

@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Alert } from 'react-native';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Alert, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { useToast } from '../context/ToastContext';
+import { useToast, useToastState } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTrash, faSave, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faTrash, faSave, faTimes, faPlus, faPencilAlt } from '@fortawesome/free-solid-svg-icons';
+import { useTheme } from '../context/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Toast from './Toast';
 
 const MarkItem = ({ item, onUpdate, onDelete }) => {
+    const { theme } = useTheme();
     const [currentAssessmentName, setCurrentAssessmentName] = useState(item.assessment_name);
     const [currentScore, setCurrentScore] = useState(item.score?.toString() || '');
     const [currentTotal, setCurrentTotal] = useState(item.total_possible?.toString() || '100');
@@ -19,63 +23,71 @@ const MarkItem = ({ item, onUpdate, onDelete }) => {
     const isOverLimit = parseFloat(currentScore) > parseFloat(currentTotal);
 
     return (
-      <View style={styles.markItemContainer}>
-        <TextInput
-          style={styles.input}
-          value={currentAssessmentName}
-          onChangeText={setCurrentAssessmentName}
-          placeholder="Assessment Name"
-        />
+      <View style={[styles.markItemContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+        <View style={styles.inputSection}>
+            <Text style={[styles.labelSmall, { color: theme.colors.textSecondary }]}>ASSESSMENT NAME</Text>
+            <TextInput
+                style={[styles.input, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
+                value={currentAssessmentName}
+                onChangeText={setCurrentAssessmentName}
+                placeholder="e.g. Term 1 Test"
+                placeholderTextColor={theme.colors.placeholder}
+            />
+        </View>
+
         <View style={styles.scoreRow}>
             <View style={styles.scoreInputContainer}>
-                <Text style={styles.inputLabel}>Score</Text>
+                <Text style={[styles.labelSmall, { color: theme.colors.textSecondary }]}>SCORE</Text>
                 <TextInput
-                    style={[styles.input, styles.scoreInput, isOverLimit && styles.inputError]}
+                    style={[styles.input, styles.scoreInput, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, color: theme.colors.text }, isOverLimit && styles.inputError]}
                     value={currentScore}
                     onChangeText={setCurrentScore}
-                    placeholder="Score"
+                    placeholder="85"
+                    placeholderTextColor={theme.colors.placeholder}
                     keyboardType="numeric"
                 />
-                {isOverLimit && <Text style={styles.errorText}>Exceeds total!</Text>}
             </View>
-            <Text style={styles.divider}>/</Text>
+            <Text style={[styles.divider, { color: theme.colors.cardBorder }]}>/</Text>
             <View style={styles.scoreInputContainer}>
-                <Text style={styles.inputLabel}>Total</Text>
+                <Text style={[styles.labelSmall, { color: theme.colors.textSecondary }]}>TOTAL</Text>
                 <TextInput
-                    style={[styles.input, styles.scoreInput]}
+                    style={[styles.input, styles.scoreInput, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
                     value={currentTotal}
                     onChangeText={setCurrentTotal}
-                    placeholder="Total"
+                    placeholder="100"
+                    placeholderTextColor={theme.colors.placeholder}
                     keyboardType="numeric"
                 />
             </View>
             {percentage !== null && !isNaN(percentage) && (
-                <View style={[styles.percentageBadge, 
-                    parseFloat(percentage) >= 80 ? styles.badgeSuccess : 
-                    parseFloat(percentage) >= 60 ? styles.badgeWarning : styles.badgeDanger
-                ]}>
-                    <Text style={[styles.percentageText,
-                        parseFloat(percentage) >= 80 ? styles.textSuccess : 
-                        parseFloat(percentage) >= 60 ? styles.textWarning : styles.textDanger
-                    ]}>{percentage}%</Text>
+                <View style={[styles.percentageBadge, { backgroundColor: parseFloat(percentage) >= 80 ? '#ecfdf5' : parseFloat(percentage) >= 60 ? '#fffbeb' : '#fff1f2' }]}>
+                    <Text style={[styles.percentageText, { color: parseFloat(percentage) >= 80 ? '#059669' : parseFloat(percentage) >= 60 ? '#b45309' : '#e11d48' }]}>
+                        {percentage}%
+                    </Text>
                 </View>
             )}
         </View>
-        <TextInput
-          style={[styles.input, { height: 60, textAlignVertical: 'top' }]}
-          value={currentFeedback}
-          onChangeText={setCurrentFeedback}
-          placeholder="Teacher Feedback"
-          multiline
-        />
+
+        <View style={styles.inputSection}>
+            <Text style={[styles.labelSmall, { color: theme.colors.textSecondary }]}>FEEDBACK (OPTIONAL)</Text>
+            <TextInput
+                style={[styles.textArea, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
+                value={currentFeedback}
+                onChangeText={setCurrentFeedback}
+                placeholder="Observations or notes..."
+                placeholderTextColor={theme.colors.placeholder}
+                multiline
+            />
+        </View>
+
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.actionButton} onPress={() => onUpdate(item.id, currentScore, currentTotal, currentAssessmentName, currentFeedback)}>
-            <FontAwesomeIcon icon={faSave} size={20} color="#007AFF" />
-            <Text style={styles.actionButtonText}>Save</Text>
+          <TouchableOpacity activeOpacity={0.7} style={[styles.actionButton, { backgroundColor: theme.colors.primary }]} onPress={() => onUpdate(item.id, currentScore, currentTotal, currentAssessmentName, currentFeedback)}>
+            <FontAwesomeIcon icon={faSave} size={14} color="#fff" />
+            <Text style={styles.actionButtonText}>SAVE</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={() => onDelete(item.id)}>
-            <FontAwesomeIcon icon={faTrash} size={20} color="#dc3545" />
-            <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Delete</Text>
+          <TouchableOpacity activeOpacity={0.7} style={[styles.actionButton, { backgroundColor: '#fff1f2' }]} onPress={() => onDelete(item.id)}>
+            <FontAwesomeIcon icon={faTrash} size={14} color="#e11d48" />
+            <Text style={[styles.actionButtonText, { color: '#e11d48' }]}>DELETE</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -84,7 +96,10 @@ const MarkItem = ({ item, onUpdate, onDelete }) => {
 
 const ManageMarksModal = ({ visible, onClose, student, classId }) => {
   const { showToast } = useToast();
+  const { toast, hideToast } = useToastState();
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const [marks, setMarks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [marksChanged, setMarksChanged] = useState(false);
@@ -131,7 +146,7 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
       if (error) throw error;
       setMarks(data);
     } catch (error) {
-      showToast('Failed to fetch marks.', 'error');
+      showToast('Error loading marks.', 'error');
     } finally {
       setLoading(false);
     }
@@ -139,7 +154,7 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
 
   const handleAddMark = async () => {
     if (!newMarkName.trim() || !newMarkScore.trim() || !newMarkTotal.trim()) {
-        showToast('Please fill in name, score and total.', 'error');
+        showToast('Required fields missing.', 'error');
         return;
     }
 
@@ -164,14 +179,13 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
 
         if (error) throw error;
 
-        showToast('Mark added successfully.', 'success');
+        showToast('Entry added.', 'success');
         setMarksChanged(true);
         setAddingNew(false);
         resetNewMarkForm();
         fetchMarks();
     } catch (error) {
-        console.error(error);
-        showToast('Failed to add mark.', 'error');
+        showToast('Action failed.', 'error');
     }
   };
 
@@ -204,8 +218,8 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
 
   const handleDeleteMark = async (markId) => {
     Alert.alert(
-      'Delete Mark',
-      'Are you sure you want to delete this mark?',
+      'Delete Entry',
+      'This record will be permanently removed.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -213,10 +227,7 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { error } = await supabase
-                .from('student_marks')
-                .delete()
-                .eq('id', markId);
+              const { error } = await supabase.from('student_marks').delete().eq('id', markId);
               if (error) throw error;
               showToast('Mark deleted successfully.', 'success');
               setMarksChanged(true);
@@ -235,94 +246,95 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
         ? ((parseFloat(newMarkScore) / parseFloat(newMarkTotal)) * 100).toFixed(1) 
         : null;
     
-    const isNewOverLimit = parseFloat(newMarkScore) > parseFloat(newMarkTotal);
-
     return (
         <View style={styles.headerContainer}>
             {addingNew ? (
-                <View style={styles.addForm}>
-                    <Text style={styles.formTitle}>Add New Mark</Text>
+                <View style={[styles.addForm, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder }]}>
+                    <Text style={[styles.formTitle, { color: theme.colors.text }]}>New Entry</Text>
                     
                     <View style={styles.typeSelector}>
                         {['Test', 'Assignment'].map((type) => (
                             <TouchableOpacity 
+                                activeOpacity={0.8}
                                 key={type}
-                                style={[styles.typeButton, assessmentType === type && styles.typeButtonActive]}
+                                style={[styles.typeButton, { borderColor: theme.colors.cardBorder }, assessmentType === type && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
                                 onPress={() => setAssessmentType(type)}
                             >
-                                <Text style={[styles.typeText, assessmentType === type && styles.typeTextActive]}>{type}</Text>
+                                <Text style={[styles.typeText, { color: theme.colors.textSecondary }, assessmentType === type && { color: '#fff' }]}>{type.toUpperCase()}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
 
-                    <TextInput
-                        style={styles.input}
-                        value={newMarkName}
-                        onChangeText={setNewMarkName}
-                        placeholder="Assessment Name (e.g. Midterm)"
-                    />
+                    <View style={styles.inputSection}>
+                        <Text style={[styles.labelSmall, { color: theme.colors.textSecondary }]}>ASSESSMENT NAME</Text>
+                        <TextInput
+                            style={[styles.input, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
+                            value={newMarkName}
+                            onChangeText={setNewMarkName}
+                            placeholder="e.g. Quiz 1"
+                            placeholderTextColor={theme.colors.placeholder}
+                        />
+                    </View>
                     
                     <View style={styles.scoreRow}>
                         <View style={styles.scoreInputContainer}>
-                            <Text style={styles.inputLabel}>Score</Text>
+                            <Text style={[styles.labelSmall, { color: theme.colors.textSecondary }]}>SCORE</Text>
                             <TextInput
-                                style={[styles.input, styles.scoreInput, isNewOverLimit && styles.inputError]}
+                                style={[styles.input, styles.scoreInput, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
                                 value={newMarkScore}
                                 onChangeText={setNewMarkScore}
                                 placeholder="85"
+                                placeholderTextColor={theme.colors.placeholder}
                                 keyboardType="numeric"
                             />
-                            {isNewOverLimit && <Text style={styles.errorText}>Exceeds total!</Text>}
                         </View>
-                        <Text style={styles.divider}>/</Text>
+                        <Text style={[styles.divider, { color: theme.colors.cardBorder }]}>/</Text>
                         <View style={styles.scoreInputContainer}>
-                            <Text style={styles.inputLabel}>Total</Text>
+                            <Text style={[styles.labelSmall, { color: theme.colors.textSecondary }]}>TOTAL</Text>
                             <TextInput
-                                style={[styles.input, styles.scoreInput]}
+                                style={[styles.input, styles.scoreInput, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
                                 value={newMarkTotal}
                                 onChangeText={setNewMarkTotal}
                                 placeholder="100"
+                                placeholderTextColor={theme.colors.placeholder}
                                 keyboardType="numeric"
                             />
                         </View>
                         {previewPercentage !== null && !isNaN(previewPercentage) && (
-                            <View style={[styles.percentageBadge, 
-                                parseFloat(previewPercentage) >= 80 ? styles.badgeSuccess : 
-                                parseFloat(previewPercentage) >= 60 ? styles.badgeWarning : styles.badgeDanger
-                            ]}>
-                                <Text style={[styles.percentageText,
-                                    parseFloat(previewPercentage) >= 80 ? styles.textSuccess : 
-                                    parseFloat(previewPercentage) >= 60 ? styles.textWarning : styles.textDanger
-                                ]}>{previewPercentage}%</Text>
+                            <View style={[styles.percentageBadge, { backgroundColor: theme.colors.primary + '10' }]}>
+                                <Text style={[styles.percentageText, { color: theme.colors.primary }]}>{previewPercentage}%</Text>
                             </View>
                         )}
                     </View>
 
-                    <TextInput
-                        style={[styles.input, { height: 60, textAlignVertical: 'top' }]}
-                        value={newFeedback}
-                        onChangeText={setNewFeedback}
-                        placeholder="Optional Feedback"
-                        multiline
-                    />
+                    <View style={styles.inputSection}>
+                        <Text style={[styles.labelSmall, { color: theme.colors.textSecondary }]}>NOTES</Text>
+                        <TextInput
+                            style={[styles.textArea, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
+                            value={newFeedback}
+                            onChangeText={setNewFeedback}
+                            placeholder="Add notes..."
+                            placeholderTextColor={theme.colors.placeholder}
+                            multiline
+                        />
+                    </View>
                     
                     <View style={styles.formButtons}>
-                        <TouchableOpacity style={styles.cancelButton} onPress={() => setAddingNew(false)}>
-                            <Text style={styles.cancelButtonText}>Cancel</Text>
+                        <TouchableOpacity activeOpacity={0.7} style={styles.cancelButton} onPress={() => setAddingNew(false)}>
+                            <Text style={[styles.cancelButtonText, { color: theme.colors.textSecondary }]}>CANCEL</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.saveButton} onPress={handleAddMark}>
-                            <FontAwesomeIcon icon={faPlus} color="white" size={14} style={{ marginRight: 5 }} />
-                            <Text style={styles.saveButtonText}>Add Mark</Text>
+                        <TouchableOpacity activeOpacity={0.8} style={[styles.saveButton, { backgroundColor: theme.colors.primary }]} onPress={handleAddMark}>
+                            <Text style={styles.saveButtonText}>ADD ENTRY</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
             ) : (
-                <TouchableOpacity style={styles.addButton} onPress={() => setAddingNew(true)}>
-                    <FontAwesomeIcon icon={faPlus} color="#007AFF" style={{ marginRight: 10 }} />
-                    <Text style={styles.addButtonText}>Add New Assessment</Text>
+                <TouchableOpacity activeOpacity={0.8} style={[styles.addButton, { borderColor: theme.colors.primary, backgroundColor: theme.colors.primary + '05' }]} onPress={() => setAddingNew(true)}>
+                    <FontAwesomeIcon icon={faPlus} color={theme.colors.primary} size={14} style={{ marginRight: 10 }} />
+                    <Text style={[styles.addButtonText, { color: theme.colors.primary }]}>NEW ASSESSMENT RECORD</Text>
                 </TouchableOpacity>
             )}
-            <Text style={styles.sectionTitle}>Recorded Marks</Text>
+            <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>HISTORY</Text>
         </View>
     );
   };
@@ -330,25 +342,45 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Manage Marks for {student?.users.full_name}</Text>
-            <TouchableOpacity onPress={handleClose}>
-              <FontAwesomeIcon icon={faTimes} size={24} color="#333" />
+        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 24) }]}>
+          <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
+            <View style={styles.headerTitleRow}>
+                <View style={[styles.iconBoxHeader, { backgroundColor: theme.colors.primary + '10' }]}>
+                    <FontAwesomeIcon icon={faPencilAlt} size={18} color={theme.colors.primary} />
+                </View>
+                <View>
+                    <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Marks</Text>
+                    <Text style={[styles.modalSub, { color: theme.colors.textSecondary }]}>{student?.users.full_name.toUpperCase()}</Text>
+                </View>
+            </View>
+            <TouchableOpacity onPress={handleClose} style={[styles.closeBtn, { backgroundColor: theme.colors.background }]}>
+              <FontAwesomeIcon icon={faTimes} size={16} color={theme.colors.textSecondary} />
             </TouchableOpacity>
           </View>
           {loading ? (
-            <Text>Loading marks...</Text>
+            <View style={styles.center}>
+                <ActivityIndicator color={theme.colors.primary} size="large" />
+            </View>
           ) : (
             <FlatList
               data={marks}
               ListHeaderComponent={renderHeader}
               renderItem={({item}) => <MarkItem item={item} onUpdate={handleUpdateMark} onDelete={handleDeleteMark} />}
               keyExtractor={(item) => item.id.toString()}
-              ListEmptyComponent={<Text style={styles.emptyText}>No marks found for this student.</Text>}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 40 }}
+              ListEmptyComponent={<Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No academic records found.</Text>}
             />
           )}
         </View>
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            duration={toast.duration}
+            onHide={hideToast}
+          />
+        )}
       </View>
     </Modal>
   );
@@ -357,244 +389,78 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
 const styles = StyleSheet.create({
     modalContainer: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
       },
       modalContent: {
-        width: '95%',
-        backgroundColor: 'white',
-        borderRadius: 20,
-        padding: 20,
+        width: '100%',
+        borderTopLeftRadius: 40,
+        borderTopRightRadius: 40,
+        paddingHorizontal: 24,
+        paddingTop: 24,
         maxHeight: '90%',
+        elevation: 20,
       },
       header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        paddingBottom: 20,
+        borderBottomWidth: 1,
         marginBottom: 20,
       },
-      headerContainer: {
-        marginBottom: 10,
-      },
-      title: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        flex: 1,
-      },
-      sectionTitle: {
-        fontSize: 14,
-        fontWeight: '800',
-        color: '#999',
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-        marginTop: 20,
-        marginBottom: 10,
-      },
+      headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+      iconBoxHeader: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+      modalTitle: { fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
+      modalSub: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+      closeBtn: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+
+      headerContainer: { marginBottom: 10 },
+      sectionTitle: { fontSize: 10, fontWeight: '900', letterSpacing: 1.5, marginTop: 32, marginBottom: 16 },
+      
       addButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 15,
+        padding: 18,
         borderWidth: 2,
-        borderColor: '#007AFF',
         borderStyle: 'dashed',
-        borderRadius: 12,
-        backgroundColor: '#f0f7ff',
-      },
-      addButtonText: {
-        color: '#007AFF',
-        fontWeight: 'bold',
-      },
-      addForm: {
-        backgroundColor: '#f8f9fa',
-        padding: 15,
-        borderRadius: 15,
-        borderWidth: 1,
-        borderColor: '#e9ecef',
-      },
-      formTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginBottom: 15,
-        color: '#333',
-      },
-      typeSelector: {
-        flexDirection: 'row',
-        marginBottom: 15,
-        gap: 10,
-      },
-      typeButton: {
-        flex: 1,
-        paddingVertical: 8,
         borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#ddd',
-        alignItems: 'center',
-        backgroundColor: 'white',
       },
-      typeButtonActive: {
-        backgroundColor: '#007AFF',
-        borderColor: '#007AFF',
-      },
-      typeText: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#666',
-      },
-      typeTextActive: {
-        color: 'white',
-      },
-      scoreRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        marginBottom: 12,
-      },
-      scoreInputContainer: {
-        flex: 1,
-      },
-      inputLabel: {
-        fontSize: 10,
-        fontWeight: 'bold',
-        color: '#999',
-        marginBottom: 4,
-        textTransform: 'uppercase',
-      },
-      scoreInput: {
-        textAlign: 'center',
-        marginBottom: 0,
-      },
-      divider: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#ddd',
-        paddingTop: 15,
-      },
-      percentageBadge: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 8,
-        minWidth: 60,
-        alignItems: 'center',
-        marginTop: 15,
-      },
-      badgeSuccess: {
-        backgroundColor: '#e6f4ea',
-      },
-      badgeWarning: {
-        backgroundColor: '#fff7e6',
-      },
-      badgeDanger: {
-        backgroundColor: '#fce8e6',
-      },
-      percentageText: {
-        fontSize: 12,
-        fontWeight: 'bold',
-      },
-      textSuccess: {
-        color: '#1e7e34',
-      },
-      textWarning: {
-        color: '#d39e00',
-      },
-      textDanger: {
-        color: '#c82333',
-      },
-      formButtons: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        gap: 10,
-        marginTop: 5,
-      },
-      cancelButton: {
-        paddingVertical: 10,
-        paddingHorizontal: 15,
-      },
-      cancelButtonText: {
-        color: '#666',
-        fontWeight: 'bold',
-      },
-      saveButton: {
-        backgroundColor: '#007AFF',
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 10,
-        flexDirection: 'row',
-        alignItems: 'center',
-      },
-      saveButtonText: {
-        color: 'white',
-        fontWeight: 'bold',
-      },
-      markItemContainer: {
-        marginBottom: 15,
-        padding: 15,
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#eee',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 2,
-      },
-      input: {
-        borderWidth: 1,
-        borderColor: '#e1e1e1',
-        borderRadius: 8,
-        padding: 12,
-        marginBottom: 12,
-        width: '100%',
-        backgroundColor: 'white',
-        fontSize: 14,
-      },
-      inputError: {
-        borderColor: '#FF3B30',
-        backgroundColor: '#FFF5F5',
-        color: '#FF3B30'
-      },
-      errorText: {
-        color: '#FF3B30',
-        fontSize: 10,
-        fontWeight: 'bold',
-        marginTop: -8,
-        marginBottom: 8,
-        textAlign: 'center'
-      },
-      buttonContainer: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        gap: 10,
-        marginTop: 5,
-      },
-      actionButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 8,
-        paddingHorizontal: 15,
-        borderRadius: 8,
-        backgroundColor: '#f0f7ff',
-      },
-      actionButtonText: {
-        marginLeft: 5,
-        color: '#007AFF',
-        fontWeight: 'bold',
-        fontSize: 12,
-      },
-      deleteButton: {
-        backgroundColor: '#fff5f5',
-      },
-      deleteButtonText: {
-        color: '#dc3545',
-      },
-      emptyText: {
-        textAlign: 'center',
-        color: '#999',
-        marginTop: 30,
-        fontStyle: 'italic',
-      },
+      addButtonText: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+      
+      addForm: { padding: 20, borderRadius: 24, borderWidth: 1, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10 },
+      formTitle: { fontSize: 18, fontWeight: '900', letterSpacing: -0.3, marginBottom: 20 },
+      
+      typeSelector: { flexDirection: 'row', marginBottom: 20, gap: 10 },
+      typeButton: { flex: 1, paddingVertical: 10, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+      typeText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+      
+      formButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 16 },
+      cancelButton: { paddingVertical: 12, paddingHorizontal: 16, justifyContent: 'center' },
+      cancelButtonText: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+      saveButton: { paddingVertical: 12, paddingHorizontal: 24, borderRadius: 14, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+      saveButtonText: { color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+
+      markItemContainer: { padding: 20, borderRadius: 24, borderWidth: 1, marginBottom: 12, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4 },
+      inputSection: { gap: 8, marginBottom: 16 },
+      labelSmall: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+      input: { height: 52, borderRadius: 16, borderWidth: 1, paddingHorizontal: 16, fontSize: 14, fontWeight: '600' },
+      textArea: { height: 80, borderRadius: 16, borderWidth: 1, padding: 16, fontSize: 14, fontWeight: '500', textAlignVertical: 'top' },
+      
+      scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+      scoreInputContainer: { flex: 1 },
+      scoreInput: { textAlign: 'center' },
+      divider: { fontSize: 24, fontWeight: '300', marginTop: 12 },
+      percentageBadge: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, marginTop: 16 },
+      percentageText: { fontSize: 13, fontWeight: '900' },
+      
+      buttonContainer: { flexDirection: 'row', gap: 10, marginTop: 8 },
+      actionButton: { flex: 1, height: 48, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, elevation: 2 },
+      actionButtonText: { color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+      
+      center: { padding: 40, alignItems: 'center' },
+      emptyText: { textAlign: 'center', marginTop: 40, fontSize: 14, fontWeight: '600' },
 });
 
 export default ManageMarksModal;

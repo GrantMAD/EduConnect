@@ -12,6 +12,7 @@ import { NotificationPreferencesProvider } from './context/NotificationPreferenc
 import { ChatProvider } from './context/ChatContext';
 import { PushNotificationProvider } from './context/PushNotificationContext';
 import { WalkthroughProvider } from './context/WalkthroughContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import AppWalkthrough from './components/AppWalkthrough';
 import { supabase } from './lib/supabase';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -41,29 +42,8 @@ const AppStack = () => (
   </RootStack.Navigator>
 );
 
-export default function App() {
-  const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const getSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (!error) {
-        setSession(data.session);
-      }
-      setLoading(false);
-    };
-
-    getSession();
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => {
-      listener.subscription.unsubscribe();
-    };
-  }, []);
+const AppContent = () => {
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -72,6 +52,8 @@ export default function App() {
       </View>
     );
   }
+
+  const session = user ? { user } : null;
 
   return (
     <ThemeProvider session={session}>
@@ -85,7 +67,7 @@ export default function App() {
                   <SchoolProvider>
                     <GamificationProvider session={session}>
                       <ChatProvider session={session}>
-                        {session ? <AppStack /> : <AuthStack />}
+                        {user ? <AppStack /> : <AuthStack />}
                         <AppWalkthrough />
                       </ChatProvider>
                     </GamificationProvider>
@@ -97,5 +79,13 @@ export default function App() {
         </ToastProvider>
       </PushNotificationProvider>
     </ThemeProvider>
+  );
+};
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
