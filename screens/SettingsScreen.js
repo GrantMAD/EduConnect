@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking, Alert } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
   faCog, faMoon, faSun, faBell, faInfoCircle, faFileContract,
   faShieldAlt, faQuestionCircle, faBullhorn, faBookOpen, faPoll,
-  faCalendar, faStore, faTrophy, faUser, faLock
+  faCalendar, faStore, faTrophy, faUser, faLock, faDoorOpen
 } from '@fortawesome/free-solid-svg-icons';
 import { Switch } from 'react-native-paper';
 import * as Notifications from 'expo-notifications';
 import { useTheme } from '../context/ThemeContext';
 import { useNotificationPreferences } from '../context/NotificationPreferencesContext';
+import { useToast } from '../context/ToastContext';
 import SettingsScreenSkeleton, { SkeletonPiece } from '../components/skeletons/SettingsScreenSkeleton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppInfoModal from '../components/AppInfoModal';
@@ -19,6 +20,7 @@ import TermsOfServiceModal from '../components/TermsOfServiceModal';
 import PrivacyPolicyModal from '../components/PrivacyPolicyModal';
 import EditProfileModal from '../components/EditProfileModal';
 import ChangePasswordModal from '../components/ChangePasswordModal';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 export default function SettingsScreen({ navigation }) {
   const [user, setUser] = useState(null);
@@ -30,10 +32,13 @@ export default function SettingsScreen({ navigation }) {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showLeaveSchoolConfirm, setShowLeaveSchoolConfirm] = useState(false);
+  const [isProcessingLeave, setIsProcessingLeave] = useState(false);
   const [notificationPermissions, setNotificationPermissions] = useState(null);
 
   const { isDarkTheme, toggleTheme, theme } = useTheme();
   const { preferences, updatePreference } = useNotificationPreferences();
+  const { showToast } = useToast();
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -70,6 +75,107 @@ export default function SettingsScreen({ navigation }) {
       setNotificationPermissions(status);
     })();
   }, []);
+
+  const handleLeaveSchool = async () => {
+    if (!fullUser || !fullUser.school_id) return;
+
+    setIsProcessingLeave(true);
+    try {
+      const schoolId = fullUser.school_id;
+      const userId = fullUser.id;
+
+      // 1. Remove from schools.users array
+      const { data: schoolData, error: schoolFetchError } = await supabase
+        .from('schools')
+        .select('users, created_by, name')
+        .eq('id', schoolId)
+        .single();
+
+      if (schoolFetchError) throw schoolFetchError;
+
+      if (schoolData?.users) {
+        const updatedUsers = schoolData.users.filter(id => id !== userId);
+        const { error: updateSchoolError } = await supabase
+          .from('schools')
+          .update({ users: updatedUsers })
+          .eq('id', schoolId);
+
+        if (updateSchoolError) throw updateSchoolError;
+      }
+
+      // 2. Remove from class_members
+      const { error: deleteMembersError } = await supabase
+        .from('class_members')
+        .delete()
+        .eq('user_id', userId);
+
+      if (deleteMembersError) throw deleteMembersError;
+
+      // 3. If teacher/admin, unassign classes
+      if (fullUser.role === 'teacher' || fullUser.role === 'admin') {
+        const { error: updateClassesError } = await supabase
+          .from('classes')
+          .update({ teacher_id: null })
+          .eq('teacher_id', userId)
+          .eq('school_id', schoolId);
+
+        if (updateClassesError) throw updateClassesError;
+      }
+
+      // 4. Content Cleanup
+      const { error: mkpError } = await supabase
+          .from('marketplace_items')
+          .delete()
+          .eq('seller_id', userId);
+      if (mkpError) throw mkpError;
+
+      const { error: pollsError } = await supabase
+          .from('polls')
+          .delete()
+          .eq('created_by', userId);
+      if (pollsError) throw pollsError;
+
+      const { error: annError } = await supabase
+          .from('announcements')
+          .delete()
+          .eq('posted_by', userId);
+      if (annError) throw annError;
+
+      // 4.5 Notification
+      if (schoolData?.created_by && schoolData.created_by !== userId) {
+          try {
+              await supabase.from('notifications').insert({
+                  user_id: schoolData.created_by,
+                  type: 'school_leave',
+                  title: 'User Left School',
+                  message: `${fullUser.full_name || 'A user'} has left ${schoolData.name || 'your school'}.`,
+                  is_read: false
+              });
+          } catch (notifyError) {
+              console.error('Failed to send notification:', notifyError);
+          }
+      }
+
+      // 5. Update user profile
+      const { error: updateUserError } = await supabase
+        .from('users')
+        .update({ school_id: null })
+        .eq('id', userId);
+
+      if (updateUserError) throw updateUserError;
+
+      showToast('You have successfully left the school.', 'success');
+      setFullUser(prev => ({ ...prev, school_id: null }));
+      setShowLeaveSchoolConfirm(false);
+      setIsProcessingLeave(false);
+      navigation.navigate('RoleSelection');
+
+    } catch (error) {
+      console.error('Error leaving school:', error);
+      Alert.alert("Error", "Failed to leave school: " + error.message);
+      setIsProcessingLeave(false);
+    }
+  };
 
   const SettingRow = ({ icon, label, value, onValueChange, color }) => (
     <View style={styles.settingRow}>
@@ -139,6 +245,14 @@ export default function SettingsScreen({ navigation }) {
           onPress={() => setShowChangePassword(true)}
           color="#FF9500"
         />
+        {fullUser && fullUser.school_id && (
+          <LinkButton
+            icon={faDoorOpen}
+            title="Leave School"
+            onPress={() => setShowLeaveSchoolConfirm(true)}
+            color="#FF3B30"
+          />
+        )}
       </View>
 
       {/* Notification Preferences */}
@@ -319,6 +433,21 @@ export default function SettingsScreen({ navigation }) {
         currentUser={fullUser}
       />
       <ChangePasswordModal visible={showChangePassword} onClose={() => setShowChangePassword(false)} />
+      <ConfirmationModal
+        visible={showLeaveSchoolConfirm}
+        onClose={() => {
+          setShowLeaveSchoolConfirm(false);
+          setIsProcessingLeave(false);
+        }}
+        onConfirm={handleLeaveSchool}
+        isLoading={isProcessingLeave}
+        title="Leave School"
+        message={`Are you sure you want to leave this school? This action cannot be undone.
+
+WARNING: You will lose access to all classes and school data. Your marketplace items, polls, and announcements will be deleted. Your shared resources will remain available to the school.`}
+        confirmText="Leave School"
+        type="danger"
+      />
     </ScrollView>
   );
 }

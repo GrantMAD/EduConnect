@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesome5 } from '@expo/vector-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const RoleCard = ({ role, description, icon, onPress, loading }) => (
@@ -17,6 +19,7 @@ const RoleCard = ({ role, description, icon, onPress, loading }) => (
 
 export default function RoleSelectionScreen({ navigation }) {
   const [loadingRole, setLoadingRole] = useState(null);
+  const [signingOut, setSigningOut] = useState(false);
   const insets = useSafeAreaInsets();
 
   const updateUserRole = async (role) => {
@@ -35,6 +38,16 @@ export default function RoleSelectionScreen({ navigation }) {
       }
     }
     setLoadingRole(null);
+  };
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      Alert.alert('Error', error.message);
+      setSigningOut(false);
+    }
+    // Auth state listener in App.js usually handles redirection to Login
   };
 
   return (
@@ -70,6 +83,21 @@ export default function RoleSelectionScreen({ navigation }) {
         onPress={() => updateUserRole('admin')}
         loading={loadingRole === 'admin'}
       />
+
+      <TouchableOpacity 
+        style={styles.signOutButton} 
+        onPress={handleSignOut}
+        disabled={signingOut}
+      >
+        {signingOut ? (
+          <ActivityIndicator color="#FF3B30" />
+        ) : (
+          <>
+            <FontAwesomeIcon icon={faSignOutAlt} size={18} color="#FF3B30" style={{ marginRight: 8 }} />
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </>
+        )}
+      </TouchableOpacity>
     </View>
   );
 }
@@ -126,5 +154,16 @@ const styles = StyleSheet.create({
   },
   cardSpinner: {
     marginLeft: 'auto',
+  },
+  signOutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    padding: 10,
+  },
+  signOutText: {
+    color: '#FF3B30',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
