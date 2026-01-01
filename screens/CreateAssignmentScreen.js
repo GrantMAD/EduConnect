@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
   ScrollView,
   TouchableOpacity,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { supabase } from '../lib/supabase';
@@ -14,9 +16,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Calendar } from 'react-native-calendars';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import { useToast } from '../context/ToastContext';
+import { useSchool } from '../context/SchoolContext';
 import { useGamification } from '../context/GamificationContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faArrowLeft, faChevronLeft, faCloudUploadAlt, faFileAlt, faSave, faCalendarAlt, faBook, faAlignLeft } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faChevronLeft, faCloudUploadAlt, faFileAlt, faSave, faCalendarAlt, faBook, faAlignLeft, faFolderOpen, faTrash, faTimes } from '@fortawesome/free-solid-svg-icons';
 import CreateAssignmentScreenSkeleton from '../components/skeletons/CreateAssignmentScreenSkeleton';
 import { useTheme } from '../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,10 +36,14 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
   const [user, setUser] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
   const { showToast } = useToast();
+  const { schoolId } = useSchool();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const [templates, setTemplates] = useState([]);
+  const [isTemplatesModalVisible, setIsTemplatesModalVisible] = useState(false);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -60,7 +67,82 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
     };
 
     fetchData();
+    fetchTemplates();
   }, []);
+
+  const fetchTemplates = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('templates')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('type', 'assignment')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setTemplates(data || []);
+    } catch (error) {
+      console.error('Error fetching templates:', error);
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!title || !description) {
+      showToast('Title and description are required for a template.', 'error');
+      return;
+    }
+
+    setIsSavingTemplate(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user logged in');
+
+      const { error } = await supabase.from('templates').insert([
+        {
+          user_id: user.id,
+          school_id: schoolId,
+          type: 'assignment',
+          title: title,
+          description: description
+        }
+      ]);
+
+      if (error) throw error;
+      showToast('Template saved!', 'success');
+      fetchTemplates();
+    } catch (error) {
+      console.error('Error saving template:', error);
+      showToast('Failed to save template.', 'error');
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
+  const applyTemplate = (template) => {
+    setTitle(template.title || '');
+    setDescription(template.description || '');
+    setIsTemplatesModalVisible(false);
+    showToast('Template applied!', 'success');
+  };
+
+  const deleteTemplate = async (templateId) => {
+    try {
+      const { error } = await supabase
+        .from('templates')
+        .delete()
+        .eq('id', templateId);
+
+      if (error) throw error;
+      setTemplates(templates.filter(t => t.id !== templateId));
+      showToast('Template deleted.', 'success');
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      showToast('Failed to delete template.', 'error');
+    }
+  };
 
   const handleCreate = async () => {
     if (!selectedClass || !title || !description || !dueDate) {
@@ -228,6 +310,13 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
 
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.colors.text }]}>New Assignment</Text>
+        <TouchableOpacity
+          style={[styles.templatesButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}
+          onPress={() => setIsTemplatesModalVisible(true)}
+        >
+          <FontAwesomeIcon icon={faFolderOpen} size={16} color={theme.colors.primary} />
+          <Text style={[styles.templatesButtonText, { color: theme.colors.text }]}>Templates ({templates.length})</Text>
+        </TouchableOpacity>
       </View>
 
       <Text style={[styles.screenDescription, { color: theme.colors.placeholder }]}>
@@ -342,6 +431,62 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
           </View>
         )}
       </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.templateActionBtn, { borderColor: theme.colors.primary, marginTop: 15 }]}
+        onPress={handleSaveTemplate}
+        disabled={isSavingTemplate}
+      >
+        {isSavingTemplate ? (
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+        ) : (
+          <>
+            <FontAwesomeIcon icon={faSave} size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
+            <Text style={[styles.templateActionText, { color: theme.colors.primary }]}>Save as Template</Text>
+          </>
+        )}
+      </TouchableOpacity>
+
+      <Modal
+        visible={isTemplatesModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsTemplatesModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Your Templates</Text>
+              <TouchableOpacity onPress={() => setIsTemplatesModalVisible(false)}>
+                <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              data={templates}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <View style={[styles.templateItem, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+                  <TouchableOpacity style={{ flex: 1 }} onPress={() => applyTemplate(item)}>
+                    <Text style={[styles.templateTitle, { color: theme.colors.text }]}>{item.title}</Text>
+                    <Text style={[styles.templateDescription, { color: theme.colors.placeholder }]} numberOfLines={2}>
+                      {item.description || 'No description provided'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => deleteTemplate(item.id)} style={styles.deleteBtn}>
+                    <FontAwesomeIcon icon={faTrash} size={16} color="#FF3B30" />
+                  </TouchableOpacity>
+                </View>
+              )}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No templates saved yet.</Text>
+                </View>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -461,7 +606,80 @@ const styles = StyleSheet.create({
   calendar: {
     marginBottom: 10,
   },
-
+  templatesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginTop: 10,
+  },
+  templatesButtonText: {
+    marginLeft: 6,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  templateActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  templateActionText: {
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  templateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  templateTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  templateDescription: {
+    fontSize: 13,
+  },
+  deleteBtn: {
+    padding: 10,
+  },
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+  },
 });
 
 export default CreateAssignmentScreen;

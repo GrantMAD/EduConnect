@@ -18,6 +18,11 @@ export default function CreateAnnouncementScreen({ route }) {
   const [isClassSpecific, setIsClassSpecific] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
   const [classes, setClasses] = useState([]);
+  const [targetRoles, setTargetRoles] = useState({
+    teacher: true,
+    student: true,
+    parent: true,
+  });
 
   const navigation = useNavigation();
   const { schoolId } = useSchool();
@@ -82,9 +87,17 @@ export default function CreateAnnouncementScreen({ route }) {
 
         if (!usersError) {
           const newAnnouncementData = newAnnouncements[0];
+
+          const rolesToInclude = [];
+          if (targetRoles.teacher) rolesToInclude.push('teacher', 'admin');
+          if (targetRoles.student) rolesToInclude.push('student');
+          if (targetRoles.parent) rolesToInclude.push('parent');
+
           const recipients = users.filter(u => {
             // Exclude the creator
             if (u.id === user.id) return false;
+            // Filter by role
+            if (!rolesToInclude.includes(u.role)) return false;
             // Check notification preferences
             const prefs = u.notification_preferences;
             return !prefs || prefs.announcements !== false;
@@ -95,7 +108,9 @@ export default function CreateAnnouncementScreen({ route }) {
             type: 'new_general_announcement',
             title: 'New School Announcement',
             message: `A new announcement has been posted: "${newAnnouncementData.title}"`,
-            data: { announcement_id: newAnnouncementData.id }
+            data: { announcement_id: newAnnouncementData.id },
+            created_by: user.id,
+            is_read: false
           }));
 
           if (notifications.length > 0) {
@@ -173,7 +188,7 @@ export default function CreateAnnouncementScreen({ route }) {
 
       <Text style={[styles.headerTitle, { color: theme.colors.text }]}>New Announcement</Text>
       <Text style={{ fontSize: 14, color: theme.colors.textSecondary || theme.colors.placeholder, marginBottom: 20, marginTop: -15 }}>
-        Create a new announcement for the school or a specific class.
+        Create a new announcement for the school or a specific class. Use target audience chips to broadcast only to specific groups.
       </Text>
 
       <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
@@ -238,6 +253,31 @@ export default function CreateAnnouncementScreen({ route }) {
           </View>
         )}
       </View>
+
+      {!isClassSpecific && (
+        <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+          <Text style={[styles.label, { color: theme.colors.text }]}>Target Audience</Text>
+          <View style={styles.rolesRow}>
+            {Object.keys(targetRoles).map((role) => (
+              <TouchableOpacity
+                key={role}
+                style={[
+                  styles.roleChip,
+                  targetRoles[role] ? { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary } : { borderColor: theme.colors.cardBorder }
+                ]}
+                onPress={() => setTargetRoles(prev => ({ ...prev, [role]: !prev[role] }))}
+              >
+                <Text style={[
+                  styles.roleChipText,
+                  targetRoles[role] ? { color: theme.colors.buttonPrimaryText } : { color: theme.colors.text }
+                ]}>
+                  {role.charAt(0).toUpperCase() + role.slice(1)}s
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
 
       <TouchableOpacity
         style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
@@ -332,6 +372,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
     overflow: 'hidden',
+  },
+  rolesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  roleChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  roleChipText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   createButton: {
     padding: 16,

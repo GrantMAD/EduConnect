@@ -69,7 +69,7 @@ const AttendancePill = ({ status, date, theme }) => {
 
 const MarkRow = ({ mark, theme }) => {
   let displayValue = mark.mark;
-  
+
   if (mark.score !== null && mark.total_possible !== null && mark.total_possible > 0) {
     displayValue = Math.round((mark.score / mark.total_possible) * 100) + '%';
   } else if (mark.mark && mark.mark.length > 5) {
@@ -124,9 +124,9 @@ const ClassCard = ({ classInfo, theme }) => {
 
   const averageMark = useMemo(() => {
     if (!classInfo.marks?.length) return null;
-    
-    const validMarks = classInfo.marks.filter(m => 
-      (m.score !== null && m.total_possible !== null && m.total_possible > 0) || 
+
+    const validMarks = classInfo.marks.filter(m =>
+      (m.score !== null && m.total_possible !== null && m.total_possible > 0) ||
       !isNaN(parseFloat(m.mark))
     );
 
@@ -215,29 +215,42 @@ const StudentDashboard = ({ student, theme, refreshTrigger }) => {
     const fetchClassData = async () => {
       setLoading(true);
       try {
-        const { data: classMembersData, error } = await supabase
+        // 1. Get all class memberships for this student
+        const { data: memberships, error: memError } = await supabase
           .from('class_members')
           .select('id, attendance, class_id, classes (id, name, teacher:users(full_name))')
           .eq('user_id', student.id);
 
-        if (error) throw error;
+        if (memError) throw memError;
+        if (!memberships || memberships.length === 0) {
+          setClasses([]);
+          return;
+        }
 
-        const processed = await Promise.all(classMembersData.map(async (member) => {
-          const { data: schedules } = await supabase
-            .from('class_schedules')
-            .select('start_time')
-            .eq('class_id', member.class_id)
-            .lte('start_time', new Date().toISOString())
-            .order('start_time', { ascending: true });
+        const classIds = memberships.map(m => m.class_id);
 
-          const { data: marks } = await supabase
-            .from('student_marks')
-            .select('assessment_name, mark, teacher_feedback, score, total_possible')
-            .eq('student_id', student.id)
-            .eq('class_id', member.class_id)
-            .order('created_at', { ascending: false });
+        // 2. Batch fetch ALL relevant schedules for these classes
+        const { data: allSchedules } = await supabase
+          .from('class_schedules')
+          .select('class_id, start_time')
+          .in('class_id', classIds)
+          .lte('start_time', new Date().toISOString())
+          .order('start_time', { ascending: true });
 
-          const fullAttendance = (schedules || []).map(sch => {
+        // 3. Batch fetch ALL marks for this student across these classes
+        const { data: allMarks } = await supabase
+          .from('student_marks')
+          .select('class_id, assessment_name, mark, teacher_feedback, score, total_possible')
+          .eq('student_id', student.id)
+          .in('class_id', classIds)
+          .order('created_at', { ascending: false });
+
+        // 4. Process and combine data locally
+        const processed = memberships.map(member => {
+          const classSchedules = (allSchedules || []).filter(s => s.class_id === member.class_id);
+          const classMarks = (allMarks || []).filter(m => m.class_id === member.class_id);
+
+          const fullAttendance = classSchedules.map(sch => {
             const date = sch.start_time.split('T')[0];
             const status = member.attendance?.[date];
             return {
@@ -246,8 +259,12 @@ const StudentDashboard = ({ student, theme, refreshTrigger }) => {
             };
           });
 
-          return { ...member, fullAttendance, marks: marks || [] };
-        }));
+          return {
+            ...member,
+            fullAttendance,
+            marks: classMarks
+          };
+        });
 
         setClasses(processed);
       } catch (err) {
@@ -513,8 +530,8 @@ export default function MyChildrenScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
+      <ScrollView
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} tintColor={theme.colors.primary} />

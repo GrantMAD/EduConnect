@@ -23,6 +23,13 @@ import {
   faFilter,
   faArrowLeft,
   faCalendarAlt,
+  faHome,
+  faBell,
+  faComments,
+  faTrophy,
+  faStore,
+  faCog,
+  faChalkboardTeacher,
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useSchool } from '../context/SchoolContext';
@@ -31,6 +38,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const RECENT_SEARCHES_KEY = 'recent_searches';
+
+const STATIC_PAGES = [
+  { id: 'dashboard', title: 'Dashboard', screen: 'Dashboard', icon: faHome, description: 'School overview and quick stats' },
+  { id: 'notifications', title: 'Notifications', screen: 'Notifications', icon: faBell, description: 'View your alerts and updates' },
+  { id: 'chat', title: 'Messages', screen: 'ChatList', icon: faComments, description: 'Chat with teachers and parents' },
+  { id: 'calendar', title: 'Calendar', screen: 'Calendar', icon: faCalendarAlt, description: 'School events and schedules' },
+  { id: 'homework', title: 'Homework', screen: 'Homework', icon: faBookOpen, description: 'View pending and completed homework' },
+  { id: 'polls', title: 'Polls', screen: 'Polls', icon: faBullhorn, description: 'Participate in school surveys' },
+  { id: 'leaderboard', title: 'Leaderboard', screen: 'Leaderboard', icon: faTrophy, description: 'See student rankings and XP' },
+  { id: 'shop', title: 'Shop', screen: 'Shop', icon: faStore, description: 'Redeem rewards and items' },
+  { id: 'profile', title: 'My Profile', screen: 'Profile', icon: faUser, description: 'Manage your personal info' },
+  { id: 'settings', title: 'Settings', screen: 'Settings', icon: faCog, description: 'App preferences and account' },
+];
 
 export default function SearchScreen({ navigation }) {
   const { theme } = useTheme();
@@ -46,6 +66,11 @@ export default function SearchScreen({ navigation }) {
 
   useEffect(() => {
     loadRecentSearches();
+    const initialQuery = navigation.getState()?.routes[navigation.getState().index]?.params?.initialQuery;
+    if (initialQuery) {
+      setSearchQuery(initialQuery);
+      handleSearch(initialQuery);
+    }
   }, []);
 
   const loadRecentSearches = async () => {
@@ -75,7 +100,7 @@ export default function SearchScreen({ navigation }) {
 
   const handleSearch = async (query = searchQuery) => {
     if (!query.trim() || !schoolId) return;
-    
+
     Keyboard.dismiss();
     setLoading(true);
     setIsSearching(true);
@@ -150,6 +175,28 @@ export default function SearchScreen({ navigation }) {
         );
       }
 
+      // 6. Classes
+      if (activeFilter === 'all' || activeFilter === 'classes') {
+        searchTasks.push(
+          supabase
+            .from('classes')
+            .select('id, name')
+            .eq('school_id', schoolId)
+            .ilike('name', term)
+            .limit(10)
+            .then(res => (res.data || []).map(item => ({ ...item, type: 'class', title: item.name, icon: faChalkboardTeacher })))
+        );
+      }
+
+      // 7. Pages (Static)
+      if (activeFilter === 'all' || activeFilter === 'pages') {
+        const filteredPages = STATIC_PAGES.filter(p =>
+          p.title.toLowerCase().includes(query.toLowerCase()) ||
+          p.description.toLowerCase().includes(query.toLowerCase())
+        ).map(p => ({ ...p, type: 'page' }));
+        searchTasks.push(Promise.resolve(filteredPages));
+      }
+
       const allResults = await Promise.all(searchTasks);
       const merged = allResults.flat().sort((a, b) => {
         // Sort by relevance (not perfect but simple)
@@ -178,13 +225,15 @@ export default function SearchScreen({ navigation }) {
     await AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
   };
 
-  const getResultIcon = (type) => {
+  const getResultIcon = (type, item) => {
     switch (type) {
       case 'announcement': return faBullhorn;
       case 'homework': return faBookOpen;
       case 'assignment': return faFileSignature;
       case 'resource': return faFileAlt;
       case 'user': return faUser;
+      case 'page': return item.icon || faSearch;
+      case 'class': return faChalkboardTeacher;
       default: return faSearch;
     }
   };
@@ -208,6 +257,12 @@ export default function SearchScreen({ navigation }) {
         // If admin, go to user management
         navigation.navigate('UserManagement');
         break;
+      case 'page':
+        navigation.navigate(item.screen);
+        break;
+      case 'class':
+        navigation.navigate('ManageUsersInClass', { classId: item.id, className: item.title });
+        break;
     }
   };
 
@@ -217,7 +272,7 @@ export default function SearchScreen({ navigation }) {
       onPress={() => navigateToResult(item)}
     >
       <View style={[styles.iconBox, { backgroundColor: theme.colors.inputBackground }]}>
-        <FontAwesomeIcon icon={getResultIcon(item.type)} color={theme.colors.primary} size={16} />
+        <FontAwesomeIcon icon={getResultIcon(item.type, item)} color={theme.colors.primary} size={16} />
       </View>
       <View style={styles.resultText}>
         <Text style={[styles.resultTitle, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
@@ -230,6 +285,8 @@ export default function SearchScreen({ navigation }) {
 
   const filters = [
     { id: 'all', label: 'All' },
+    { id: 'pages', label: 'Pages' },
+    { id: 'classes', label: 'Classes' },
     { id: 'announcements', label: 'Announcements' },
     { id: 'homework', label: 'Homework' },
     { id: 'assignments', label: 'Assignments' },

@@ -33,9 +33,12 @@ import {
   faTag,
   faGraduationCap,
   faCheckCircle,
+  faTimesCircle,
+  faQuestionCircle,
   faComment,
 } from "@fortawesome/free-solid-svg-icons";
 import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
 import { Calendar } from "react-native-calendars";
 import MarksModal from '../../components/MarksModal';
 import ManageMarksModal from '../../components/ManageMarksModal';
@@ -58,6 +61,7 @@ export default function ManageUsersInClassScreen({ navigation }) {
 
   const { schoolId } = useSchool();
   const { showToast } = useToast();
+  const { user } = useAuth();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
   const insets = useSafeAreaInsets();
@@ -264,9 +268,9 @@ export default function ManageUsersInClassScreen({ navigation }) {
   };
 
   // Attendance
-  const handleAttendanceChange = async (member, isPresent) => {
+  const handleAttendanceChange = async (member, status) => {
     if (!selectedScheduleDate) return;
-    const { id: memberId, attendance } = member;
+    const { id: memberId, attendance, users: student } = member;
 
     // Optimistically update UI
     const updatedMembers = classMembers.map((m) =>
@@ -275,7 +279,7 @@ export default function ManageUsersInClassScreen({ navigation }) {
           ...m,
           attendance: {
             ...m.attendance,
-            [selectedScheduleDate]: isPresent,
+            [selectedScheduleDate]: status,
           },
         }
         : m
@@ -283,16 +287,74 @@ export default function ManageUsersInClassScreen({ navigation }) {
     setClassMembers(updatedMembers);
 
     // Update database
-    const newAttendance = { ...attendance, [selectedScheduleDate]: isPresent };
+    const newAttendance = { ...attendance, [selectedScheduleDate]: status };
     try {
       const { error } = await supabase
         .from("class_members")
         .update({ attendance: newAttendance })
         .eq("id", memberId);
+
       if (error) {
         showToast("Failed to save attendance.", 'error');
         setClassMembers(classMembers); // Revert UI on error
         throw error;
+      }
+
+      // Handle Absence Notifications
+      if (status === false) {
+        try {
+          const studentName = student?.full_name || 'Your child';
+          const studentId = student?.id;
+          const sessionDate = selectedScheduleDate;
+
+          // 1. Get Parents (using RPC as primary, manual query as fallback)
+          let parentIds = [];
+
+          try {
+            const { data: rpcParents, error: rpcError } = await supabase
+              .rpc('get_parents_of_students', { p_student_ids: [studentId] });
+
+            if (!rpcError && rpcParents) {
+              parentIds = rpcParents.map(rp => rp.parent_id);
+              console.log(`Found ${parentIds.length} parents via RPC for ${studentName}`);
+            } else {
+              if (rpcError) console.warn('RPC get_parents_of_students failed or missing:', rpcError);
+
+              const { data: relationships, error: relError } = await supabase
+                .from('parent_child_relationships')
+                .select('parent_id')
+                .eq('child_id', studentId);
+
+              if (relError) {
+                console.error('Relationship manual fetch error:', relError);
+              } else if (relationships) {
+                parentIds = relationships.map(r => r.parent_id);
+                console.log(`Found ${parentIds.length} parents via manual query for ${studentName}`);
+              }
+            }
+          } catch (err) {
+            console.error('Error in parent retrieval flow:', err);
+          }
+
+          if (parentIds.length > 0) {
+            const notifications = parentIds.map(pid => ({
+              user_id: pid,
+              type: 'student_absence',
+              title: 'Attendance Alert',
+              message: `${studentName} was marked absent from ${className} today (${sessionDate}).`,
+              data: { student_id: studentId, class_id: classId, date: sessionDate },
+              related_user_id: user.id,
+              created_by: user.id,
+              is_read: false
+            }));
+
+            const { error: notifError } = await supabase.from('notifications').insert(notifications);
+            if (notifError) throw notifError;
+            console.log(`Sent ${notifications.length} absence notifications for ${studentName}`);
+          }
+        } catch (notifErr) {
+          console.error('Failed to send absence notification:', notifErr);
+        }
       }
     } catch (error) {
       console.error("Error updating attendance:", error);
@@ -468,7 +530,7 @@ export default function ManageUsersInClassScreen({ navigation }) {
 
   const renderStudent = ({ item }) => {
     const student = item.users;
-    const isPresent = item.attendance?.[selectedScheduleDate] ?? false;
+    const attendanceStatus = item.attendance?.[selectedScheduleDate] ?? null;
     const isExpanded = expandedStudents[student.id];
 
     const toggleExpand = () => {
@@ -490,15 +552,39 @@ export default function ManageUsersInClassScreen({ navigation }) {
               <Text style={styles.cardTitle}>{student.full_name}</Text>
               <Text style={styles.cardSub}>{student.email}</Text>
             </View>
-            <View style={styles.attendanceContainer}>
-              <Text style={styles.attendanceLabel}>Present</Text>
-              <Switch
-                trackColor={{ false: "#767577", true: "#81b0ff" }}
-                thumbColor={isPresent ? "#007AFF" : "#f4f3f4"}
-                ios_backgroundColor="#3e3e3e"
-                onValueChange={(value) => handleAttendanceChange(item, value)}
-                value={isPresent}
-              />
+            <View style={styles.threeStateAttendance}>
+              <TouchableOpacity
+                onPress={() => handleAttendanceChange(item, true)}
+                style={[styles.attIconButton, attendanceStatus === true && styles.attIconActivePresent]}
+              >
+                <FontAwesomeIcon
+                  icon={faCheckCircle}
+                  size={22}
+                  color={attendanceStatus === true ? '#34C759' : '#8E8E9320'}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => handleAttendanceChange(item, false)}
+                style={[styles.attIconButton, attendanceStatus === false && styles.attIconActiveAbsent]}
+              >
+                <FontAwesomeIcon
+                  icon={faTimesCircle}
+                  size={22}
+                  color={attendanceStatus === false ? '#FF3B30' : '#8E8E9320'}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => handleAttendanceChange(item, null)}
+                style={[styles.attIconButton, attendanceStatus === null && styles.attIconActiveUnmarked]}
+              >
+                <FontAwesomeIcon
+                  icon={faQuestionCircle}
+                  size={22}
+                  color={attendanceStatus === null ? '#007AFF' : '#8E8E9320'}
+                />
+              </TouchableOpacity>
             </View>
             <TouchableOpacity
               onPress={() => removeStudentFromClass(student.id)}
@@ -651,30 +737,30 @@ export default function ManageUsersInClassScreen({ navigation }) {
 
   const renderHeader = () => {
     if (loading && !selectedScheduleDate) {
-        return (
-            <>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                <FontAwesomeIcon icon={faArrowLeft} size={16} color="#007AFF" />
-                <Text style={styles.backButtonText}>Back to Classes</Text>
-              </TouchableOpacity>
-              <Text style={[styles.header, { textAlign: 'center' }]}>Manage {className}</Text>
-              <Text style={[styles.description, { textAlign: 'center' }]}>Select a class session below to manage attendance.</Text>
-              <View style={{ marginBottom: 25 }}>
-                <View style={styles.sectionHeaderContainer}>
-                  <View style={styles.sectionHeader}>
-                    <FontAwesomeIcon icon={faCalendarAlt} size={18} color="#007AFF" />
-                    <Text style={styles.sectionTitle}>Class Schedule</Text>
-                  </View>
-                  <SkeletonPiece style={{ width: 120, height: 30, borderRadius: 8 }} />
-                </View>
-                <Text style={styles.sectionDescription}>Tap a session to manage attendance, or use the edit icon to modify its details.</Text>
-                <View style={styles.card}>
-                    <SkeletonPiece style={{ width: '60%', height: 14, borderRadius: 4, marginBottom: 5 }} />
-                    <SkeletonPiece style={{ width: '80%', height: 14, borderRadius: 4 }} />
-                </View>
+      return (
+        <>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <FontAwesomeIcon icon={faArrowLeft} size={16} color="#007AFF" />
+            <Text style={styles.backButtonText}>Back to Classes</Text>
+          </TouchableOpacity>
+          <Text style={[styles.header, { textAlign: 'center' }]}>Manage {className}</Text>
+          <Text style={[styles.description, { textAlign: 'center' }]}>Select a class session below to manage attendance.</Text>
+          <View style={{ marginBottom: 25 }}>
+            <View style={styles.sectionHeaderContainer}>
+              <View style={styles.sectionHeader}>
+                <FontAwesomeIcon icon={faCalendarAlt} size={18} color="#007AFF" />
+                <Text style={styles.sectionTitle}>Class Schedule</Text>
               </View>
-            </>
-        );
+              <SkeletonPiece style={{ width: 120, height: 30, borderRadius: 8 }} />
+            </View>
+            <Text style={styles.sectionDescription}>Tap a session to manage attendance, or use the edit icon to modify its details.</Text>
+            <View style={styles.card}>
+              <SkeletonPiece style={{ width: '60%', height: 14, borderRadius: 4, marginBottom: 5 }} />
+              <SkeletonPiece style={{ width: '80%', height: 14, borderRadius: 4 }} />
+            </View>
+          </View>
+        </>
+      );
     }
 
     if (!selectedScheduleDate) {
@@ -1099,5 +1185,25 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontStyle: 'italic',
     flex: 1,
+  },
+  threeStateAttendance: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginRight: 40,
+  },
+  attIconButton: {
+    padding: 6,
+    borderRadius: 12,
+    backgroundColor: '#f1f1f1',
+  },
+  attIconActivePresent: {
+    backgroundColor: '#34C75915',
+  },
+  attIconActiveAbsent: {
+    backgroundColor: '#FF3B3015',
+  },
+  attIconActiveUnmarked: {
+    backgroundColor: '#007AFF15',
   },
 });
