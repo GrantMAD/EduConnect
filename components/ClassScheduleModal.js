@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faClock, faCalendarAlt, faCheck } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 
 export default function ClassScheduleModal({ visible, onClose, selectedDate, onSave }) {
     const { theme } = useTheme();
+    const { showToast } = useToast();
     const [startTime, setStartTime] = useState('');
     const [endTime, setEndTime] = useState('');
     const [info, setInfo] = useState('');
@@ -34,6 +36,10 @@ export default function ClassScheduleModal({ visible, onClose, selectedDate, onS
     };
 
     const handleSave = () => {
+        if (!startTime || !endTime) {
+            Alert.alert('Missing Time', 'Please enter both start and end times to schedule this class.');
+            return;
+        }
         onSave(startTime, endTime, info);
     };
 
@@ -76,7 +82,7 @@ export default function ClassScheduleModal({ visible, onClose, selectedDate, onS
                                 <TextInput
                                     style={[styles.timeInput, { color: theme.colors.text }]}
                                     placeholder="10:00"
-                                    placeholderTextColor={theme.colors.placeholder}
+                                    placeholderTextColor={theme.colors.placeholder + '80'}
                                     keyboardType="numeric"
                                     maxLength={5}
                                     value={startTime}
@@ -93,7 +99,7 @@ export default function ClassScheduleModal({ visible, onClose, selectedDate, onS
                                 <TextInput
                                     style={[styles.timeInput, { color: theme.colors.text }]}
                                     placeholder="11:00"
-                                    placeholderTextColor={theme.colors.placeholder}
+                                    placeholderTextColor={theme.colors.placeholder + '80'}
                                     keyboardType="numeric"
                                     maxLength={5}
                                     value={endTime}

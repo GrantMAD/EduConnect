@@ -6,7 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import CalendarScreenSkeleton, { SkeletonPiece } from '../components/skeletons/CalendarScreenSkeleton';
-import { faTimes, faCalendarAlt, faClock, faChevronDown, faChevronUp, faBook, faHandshake, faChevronRight, faFootballBall } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faCalendarAlt, faClock, faChevronDown, faChevronUp, faBook, faHandshake, faChevronRight, faChevronLeft, faFootballBall } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
 import StandardBottomModal from '../components/StandardBottomModal';
@@ -302,59 +302,109 @@ export default function CalendarScreen({ navigation, route }) {
         <View style={styles.heroContent}>
             <Text style={styles.heroTitle}>Class Calendar</Text>
             <Text style={styles.heroDescription}>
-                View all your scheduled classes and tap on class days for more details.
+                Stay updated with your daily schedule and upcoming school activities.
             </Text>
         </View>
       </LinearGradient>
 
       {loading ? (
-        <View style={{ marginTop: 20 }}>
-          <SkeletonPiece style={{ width: '100%', height: 370, borderRadius: 10, marginBottom: 20 }} />
+        <View style={{ marginTop: -40, paddingHorizontal: 20 }}>
+          <SkeletonPiece style={{ width: '100%', height: 380, borderRadius: 32, marginBottom: 20, elevation: 4 }} />
           <SkeletonPiece style={{ width: '50%', height: 20, borderRadius: 4, marginBottom: 15 }} />
           <SkeletonPiece style={{ width: '100%', height: 80, borderRadius: 12, marginBottom: 10 }} />
-          <SkeletonPiece style={{ width: '100%', height: 80, borderRadius: 12 }} />
         </View>
       ) : (
-        <View style={{ marginTop: 20 }}>
-          <Calendar
-            onDayPress={onDayPress}
-            markedDates={markedDates}
-            markingType="multi-period"
-            theme={{
-              backgroundColor: theme.colors.background,
-              calendarBackground: theme.colors.background,
-              dayTextColor: theme.colors.text,
-              textDisabledColor: theme.colors.placeholder,
-              monthTextColor: theme.colors.text,
-              textSectionTitleColor: theme.colors.text,
-              selectedDayBackgroundColor: theme.colors.primary,
-              selectedDayTextColor: theme.colors.buttonPrimaryText,
-              todayTextColor: theme.colors.primary,
-              arrowColor: theme.colors.primary,
-              dotColor: theme.colors.primary,
-              textDayFontFamily: 'System',
-              textMonthFontFamily: 'System',
-              textDayHeaderFontFamily: 'System',
-              textDayFontWeight: '300',
-              textMonthFontWeight: 'bold',
-              textDayHeaderFontWeight: '500',
-              textDayFontSize: 16,
-              textMonthFontSize: 16,
-              textDayHeaderFontSize: 13,
-            }}
-          />
+        <View style={{ marginTop: -40, paddingHorizontal: 20 }}>
+          <View style={[styles.calendarCard, { backgroundColor: theme.colors.surface, shadowColor: '#000' }]}>
+            <Calendar
+              onDayPress={onDayPress}
+              markedDates={markedDates}
+              markingType="multi-period"
+              hideExtraDays={true}
+              renderArrow={(direction) => (
+                <View style={[styles.arrowBox, { backgroundColor: theme.colors.primary + '10' }]}>
+                  <FontAwesomeIcon 
+                    icon={direction === 'left' ? faChevronLeft : faChevronRight} 
+                    size={14} 
+                    color={theme.colors.primary} 
+                  />
+                </View>
+              )}
+              theme={{
+                backgroundColor: 'transparent',
+                calendarBackground: 'transparent',
+                dayTextColor: theme.colors.text,
+                textDisabledColor: theme.colors.placeholder + '40',
+                monthTextColor: theme.colors.text,
+                textSectionTitleColor: theme.colors.placeholder,
+                selectedDayBackgroundColor: theme.colors.primary,
+                selectedDayTextColor: '#fff',
+                todayTextColor: theme.colors.primary,
+                textDayFontWeight: '600',
+                textMonthFontWeight: '900',
+                textDayHeaderFontWeight: '800',
+                textDayFontSize: 15,
+                textMonthFontSize: 18,
+                textDayHeaderFontSize: 12,
+                'stylesheet.calendar.header': {
+                  header: {
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    paddingLeft: 10,
+                    paddingRight: 10,
+                    marginTop: 6,
+                    alignItems: 'center',
+                    marginBottom: 10,
+                  },
+                  monthText: {
+                    fontSize: 18,
+                    fontWeight: '900',
+                    color: theme.colors.text,
+                    margin: 10,
+                    letterSpacing: -0.5,
+                  },
+                  dayHeader: {
+                    marginTop: 2,
+                    marginBottom: 7,
+                    width: 32,
+                    textAlign: 'center',
+                    fontSize: 11,
+                    fontWeight: '900',
+                    color: theme.colors.placeholder,
+                    textTransform: 'uppercase',
+                    letterSpacing: 1,
+                  },
+                },
+              }}
+            />
+          </View>
 
           {upcomingMeetings.length > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.listHeader, { color: theme.colors.text }]}>Upcoming Meetings</Text>
+              <View style={styles.headerRow}>
+                <Text style={[styles.listHeader, { color: theme.colors.text, marginBottom: 0 }]}>Meetings</Text>
+                <View style={[styles.countBadge, { backgroundColor: theme.colors.warning + '15' }]}>
+                  <Text style={[styles.countText, { color: theme.colors.warning }]}>{upcomingMeetings.length} PENDING</Text>
+                </View>
+              </View>
               {upcomingMeetings.slice(0, 5).map(renderEventCard)}
             </View>
           )}
 
           <View style={styles.section}>
-            <Text style={[styles.listHeader, { color: theme.colors.text }]}>Upcoming Classes</Text>
+            <View style={styles.headerRow}>
+              <Text style={[styles.listHeader, { color: theme.colors.text, marginBottom: 0 }]}>Schedule</Text>
+              {upcomingClasses.length > 0 && (
+                <View style={[styles.countBadge, { backgroundColor: theme.colors.primary + '15' }]}>
+                  <Text style={[styles.countText, { color: theme.colors.primary }]}>{upcomingClasses.length} TOTAL</Text>
+                </View>
+              )}
+            </View>
             {upcomingClasses.length === 0 ? (
-              <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No upcoming classes found.</Text>
+              <View style={[styles.emptyState, { backgroundColor: theme.colors.cardBackground }]}>
+                <FontAwesomeIcon icon={faCalendarAlt} size={32} color={theme.colors.cardBorder} />
+                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No classes scheduled for the coming days.</Text>
+              </View>
             ) : upcomingClasses.slice(0, 5).map(renderEventCard)}
           </View>
 
@@ -451,31 +501,88 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 0, paddingBottom: 40 }, // padding 0 for hero to touch edges
   
   heroContainer: {
-    padding: 20,
-    marginBottom: 0,
+    padding: 24,
+    paddingTop: 40,
+    paddingBottom: 80,
     elevation: 0,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
   heroContent: {
-      marginBottom: 10,
+      marginBottom: 0,
   },
   heroTitle: {
       color: '#fff',
-      fontSize: 24,
-      fontWeight: '800',
-      marginBottom: 6,
+      fontSize: 28,
+      fontWeight: '900',
+      marginBottom: 8,
+      letterSpacing: -1,
   },
   heroDescription: {
       color: '#e0e7ff',
       fontSize: 14,
+      fontWeight: '500',
+      lineHeight: 20,
   },
-
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 5 },
-  descriptionText: { fontSize: 14, marginBottom: 20 },
-  listHeader: { fontSize: 18, fontWeight: 'bold', marginTop: 24, marginBottom: 12, marginLeft: 20 }, // Adjusted margin
-  section: { marginBottom: 8, paddingHorizontal: 16 }, // Added paddingHorizontal for cards
+  calendarCard: {
+    borderRadius: 32,
+    padding: 16,
+    paddingBottom: 24,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  arrowBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  section: { 
+    marginTop: 24,
+    paddingHorizontal: 0, 
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  listHeader: { 
+    fontSize: 10, 
+    fontWeight: '900', 
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: '#94a3b8',
+  },
+  countBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  countText: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  emptyState: {
+    padding: 40,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.02)',
+  },
+  emptyText: { 
+    textAlign: 'center', 
+    marginTop: 12, 
+    fontSize: 13, 
+    fontWeight: '600',
+    lineHeight: 20,
+  },
 
   eventCard: {
     flexDirection: 'row',

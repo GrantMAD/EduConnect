@@ -295,6 +295,7 @@ export default function CreateClubScreen({ navigation, route }) {
             <Text style={styles.cardSectionLabel}>MEETING SCHEDULE</Text>
             <Calendar 
                 onDayPress={handleDayPress} 
+                hideExtraDays={true}
                 markedDates={schedules.reduce((acc, s) => ({...acc, [s.date]: {marked: true, dotColor: '#9333ea'}}), {})}
                 theme={{
                     backgroundColor: theme.colors.card,

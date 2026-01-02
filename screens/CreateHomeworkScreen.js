@@ -366,6 +366,7 @@ export default function CreateHomeworkScreen({ route }) {
                 <Text style={styles.inputLabel}>SELECT DEADLINE</Text>
                 <Calendar
                     onDayPress={(day) => setDueDate(day.dateString)}
+                    hideExtraDays={true}
                     markedDates={{
                         [dueDate]: { selected: true, marked: true, selectedColor: theme.colors.primary },
                     }}

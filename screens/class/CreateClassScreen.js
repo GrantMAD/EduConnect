@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useSchool } from '../../context/SchoolContext';
 import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faPlusCircle, faMinusCircle, faUser, faClock, faArrowLeft, faChevronLeft, faChalkboardTeacher, faBookOpen, faSearch, faSave } from '@fortawesome/free-solid-svg-icons';
+import { faPlusCircle, faMinusCircle, faUser, faClock, faArrowLeft, faChevronLeft, faChalkboardTeacher, faBookOpen, faSearch, faSave, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { Calendar } from 'react-native-calendars';
 import { useToast } from '../../context/ToastContext';
 const defaultUserImage = require('../../assets/user.png');
@@ -291,6 +291,7 @@ export default function CreateClassScreen({ navigation, route }) {
             <Text style={styles.cardSectionLabel}>TIME SLOTS</Text>
             <Calendar 
                 onDayPress={handleDayPress} 
+                hideExtraDays={true}
                 markedDates={markedDates}
                 theme={{
                     backgroundColor: theme.colors.card,

@@ -192,6 +192,7 @@ export default function CreatePollScreen({ navigation, route }) {
             <Text style={styles.cardSectionLabel}>POLL DURATION</Text>
             <Calendar
                 onDayPress={(day) => setEndDate(day.dateString)}
+                hideExtraDays={true}
                 markedDates={{
                     [endDate]: { selected: true, marked: true, selectedColor: theme.colors.primary },
                 }}

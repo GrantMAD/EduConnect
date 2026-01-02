@@ -782,7 +782,12 @@ export default function ManageUsersInClassScreen({ navigation }) {
         <Pressable style={styles.modalOverlay} onPress={() => setAddModalVisible(false)}>
           <View style={[styles.modalBoxLarge, { backgroundColor: theme.colors.surface }]}>
             <Text style={[styles.modalTitle, { color: theme.colors.text }]}>New Session</Text>
-            <Calendar onDayPress={handleDayPress} markedDates={{ [newScheduleDate]: { selected: true, selectedColor: theme.colors.primary } }} theme={{ calendarBackground: theme.colors.surface, dayTextColor: theme.colors.text, monthTextColor: theme.colors.text }} />
+            <Calendar 
+              onDayPress={handleDayPress} 
+              hideExtraDays={true}
+              markedDates={{ [newScheduleDate]: { selected: true, selectedColor: theme.colors.primary } }} 
+              theme={{ calendarBackground: theme.colors.surface, dayTextColor: theme.colors.text, monthTextColor: theme.colors.text }} 
+            />
             {newScheduleDate && (
               <View style={{ marginTop: 20 }}>
                 <View style={styles.timePickerRow}>

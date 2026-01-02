@@ -54,12 +54,13 @@ export default function AnnouncementDetailModal({ visible, onClose, announcement
       onBackdropPress={onClose}
       onSwipeComplete={onClose}
       swipeDirection={['down']}
+      propagateSwipe={true}
       animationIn="slideInUp"
       animationOut="slideOutDown"
       backdropOpacity={0.4}
       style={{ justifyContent: 'flex-end', margin: 0 }}
     >
-      <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 20) }]}>
+      <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
         <View style={styles.swipeIndicator} />
         
         <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
@@ -80,7 +81,13 @@ export default function AnnouncementDetailModal({ visible, onClose, announcement
           </View>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 24 }}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={{ 
+            paddingTop: 24, 
+            paddingBottom: Math.max(insets.bottom, 24) 
+          }}
+        >
           <View style={styles.messageWrapper}>
             <Text style={[styles.descriptionText, { color: theme.colors.text }]}>{announcement.message}</Text>
           </View>
