@@ -14,6 +14,7 @@ import StandardBottomModal from '../components/StandardBottomModal';
 import { useGamification } from '../context/GamificationContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
+import { useApi } from '../hooks/useApi';
 
 export default function PollsScreen({ navigation, route }) {
   const [polls, setPolls] = useState([]);
@@ -23,7 +24,7 @@ export default function PollsScreen({ navigation, route }) {
   const [userId, setUserId] = useState(null);
   const [selectedPoll, setSelectedPoll] = useState(null);
   const [isVoteModalVisible, setIsVoteModalVisible] = useState(false);
-  const [votingLoading, setVotingLoading] = useState(false);
+  const { execute: executeVote, loading: votingLoading } = useApi();
   const [activeTab, setActiveTab] = useState('active');
   const [infoModalVisible, setInfoModalVisible] = useState(false);
 
@@ -110,8 +111,7 @@ export default function PollsScreen({ navigation, route }) {
   );
 
   const handleVote = async (pollId, option) => {
-    setVotingLoading(true);
-    try {
+    await executeVote(async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
@@ -122,19 +122,19 @@ export default function PollsScreen({ navigation, route }) {
       if (error) throw error;
 
       awardXP('poll_vote', 5);
-      showToast('Vote cast successfully! +5 XP', 'success');
       setIsVoteModalVisible(false);
       initializeScreen();
-    } catch (error) {
-      console.error('Error voting:', error);
-      if (error.code === '23505') {
-        showToast('You have already voted on this poll', 'info');
-      } else {
-        alert('Failed to vote. Please try again.');
-      }
-    } finally {
-      setVotingLoading(false);
-    }
+    }, {
+      successMessage: 'Vote cast successfully! +5 XP',
+      onError: (err) => {
+        if (err.code === '23505') {
+          showToast('You have already voted on this poll', 'info');
+          return true;
+        }
+        return false;
+      },
+      errorMessage: 'Failed to vote. Please try again.'
+    });
   };
 
   const getFilteredPolls = () => {
@@ -173,7 +173,7 @@ export default function PollsScreen({ navigation, route }) {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <LinearGradient
-        colors={['#4f46e5', '#4338ca']}
+        colors={[theme.colors.heroGradientStart, theme.colors.heroGradientEnd]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.heroContainer}
@@ -195,7 +195,7 @@ export default function PollsScreen({ navigation, route }) {
               style={styles.createButton}
               onPress={() => navigation.navigate('CreatePoll')}
             >
-              <FontAwesomeIcon icon={faPlus} size={14} color="#4f46e5" />
+              <FontAwesomeIcon icon={faPlus} size={14} color={theme.colors.primary} />
               <Text style={styles.createButtonText}>New</Text>
             </TouchableOpacity>
           )}
@@ -278,7 +278,7 @@ export default function PollsScreen({ navigation, route }) {
   );
 }
 
-function PollCard({ item, userId, theme, onVotePress, isExpired }) {
+const PollCard = React.memo(function PollCard({ item, userId, theme, onVotePress, isExpired }) {
   const [votes, setVotes] = useState([]);
   const [loadingVotes, setLoadingVotes] = useState(true);
 
@@ -405,7 +405,7 @@ function PollCard({ item, userId, theme, onVotePress, isExpired }) {
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

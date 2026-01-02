@@ -4,14 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ThemeProvider } from './context/ThemeContext';
-import { ToastProvider } from './context/ToastContext';
-import { SchoolProvider } from './context/SchoolContext';
-import { GamificationProvider } from './context/GamificationContext';
-import { NotificationPreferencesProvider } from './context/NotificationPreferencesContext';
-import { ChatProvider } from './context/ChatContext';
-import { PushNotificationProvider } from './context/PushNotificationContext';
-import { WalkthroughProvider } from './context/WalkthroughContext';
+
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AppWalkthrough from './components/AppWalkthrough';
 import { supabase } from './lib/supabase';
@@ -42,6 +35,8 @@ const AppStack = () => (
   </RootStack.Navigator>
 );
 
+import AppProviders from './components/AppProviders';
+
 const AppContent = () => {
   const { user, loading } = useAuth();
 
@@ -56,29 +51,15 @@ const AppContent = () => {
   const session = user ? { user } : null;
 
   return (
-    <ThemeProvider session={session}>
-      <PushNotificationProvider>
-        <ToastProvider>
-          <NotificationPreferencesProvider>
-            <WalkthroughProvider>
-              <ErrorBoundary>
-                <NavigationContainer>
-                  <StatusBar style="auto" />
-                  <SchoolProvider>
-                    <GamificationProvider session={session}>
-                      <ChatProvider session={session}>
-                        {user ? <AppStack /> : <AuthStack />}
-                        <AppWalkthrough />
-                      </ChatProvider>
-                    </GamificationProvider>
-                  </SchoolProvider>
-                </NavigationContainer>
-              </ErrorBoundary>
-            </WalkthroughProvider>
-          </NotificationPreferencesProvider>
-        </ToastProvider>
-      </PushNotificationProvider>
-    </ThemeProvider>
+    <AppProviders session={session}>
+      <ErrorBoundary>
+        <NavigationContainer>
+          <StatusBar style="auto" />
+          {user ? <AppStack /> : <AuthStack />}
+          <AppWalkthrough />
+        </NavigationContainer>
+      </ErrorBoundary>
+    </AppProviders>
   );
 };
 

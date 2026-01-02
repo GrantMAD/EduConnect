@@ -255,7 +255,7 @@ export default function ChatRoomScreen({ route, navigation }) {
                         <View style={{ marginLeft: 12, flex: 1 }}>
                             <Text style={[styles.chatHeaderTitle, { color: theme.colors.text }]} numberOfLines={1}>{name}</Text>
                             {Object.keys(typingUsers).length > 0 && (
-                                <Text style={{ fontSize: 10, color: '#10b981', fontWeight: 'bold' }}>typing...</Text>
+                                <Text style={{ fontSize: 10, color: theme.colors.typingIndicator, fontWeight: 'bold' }}>typing...</Text>
                             )}
                         </View>
                     </View>
@@ -349,19 +349,19 @@ export default function ChatRoomScreen({ route, navigation }) {
                     />
                     <View style={[styles.attachMenu, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                         <TouchableOpacity onPress={handlePickImage} style={styles.attachMenuItem}>
-                            <View style={[styles.attachIconBox, { backgroundColor: '#10b981' }]}>
+                            <View style={[styles.attachIconBox, { backgroundColor: theme.colors.attachmentGallery }]}>
                                 <FontAwesomeIcon icon={faImage} size={22} color="#fff" />
                             </View>
                             <Text style={[styles.attachLabel, { color: theme.colors.text }]}>Gallery</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={handlePickDocument} style={styles.attachMenuItem}>
-                            <View style={[styles.attachIconBox, { backgroundColor: '#3b82f6' }]}>
+                            <View style={[styles.attachIconBox, { backgroundColor: theme.colors.attachmentFile }]}>
                                 <FontAwesomeIcon icon={faPaperclip} size={22} color="#fff" />
                             </View>
                             <Text style={[styles.attachLabel, { color: theme.colors.text }]}>File</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => { setShowStickerPicker(true); setShowAttachMenu(false); }} style={styles.attachMenuItem}>
-                            <View style={[styles.attachIconBox, { backgroundColor: '#f59e0b' }]}>
+                            <View style={[styles.attachIconBox, { backgroundColor: theme.colors.attachmentSticker }]}>
                                 <Text style={{ fontSize: 22 }}>✨</Text>
                             </View>
                             <Text style={[styles.attachLabel, { color: theme.colors.text }]}>Stickers</Text>
@@ -417,7 +417,7 @@ export default function ChatRoomScreen({ route, navigation }) {
     );
 }
 
-const MessageBubble = ({ message, theme, currentUser, recipientLastReadAt, allStickers, onReaction }) => {
+const MessageBubble = React.memo(({ message, theme, currentUser, recipientLastReadAt, allStickers, onReaction }) => {
     if (message.is_system_message) return null;
 
     const isMe = currentUser?.id === message.sender_id;
@@ -549,7 +549,7 @@ const MessageBubble = ({ message, theme, currentUser, recipientLastReadAt, allSt
             </Text>
         </View>
     );
-};
+});
 
 const styles = StyleSheet.create({
     container: { flex: 1 },

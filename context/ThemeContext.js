@@ -32,6 +32,17 @@ const CustomDefaultTheme = {
     error: '#dc3545',
     success: '#28a745',
     warning: '#ffc107',
+    // Semantic Colors for Apps
+    heroGradientStart: '#4f46e5',
+    heroGradientEnd: '#4338ca',
+    upvote: '#28A745',
+    downvote: '#FF3B30',
+    bookmarkActive: '#FFC107',
+    bookmarkInactive: '#ccc',
+    attachmentGallery: '#10b981',
+    attachmentFile: '#3b82f6',
+    attachmentSticker: '#f59e0b',
+    typingIndicator: '#10b981',
   },
 };
 
@@ -61,6 +72,17 @@ const CustomDarkTheme = {
     error: '#dc3545',
     success: '#28a745',
     warning: '#ffc107',
+    // Semantic Colors for Apps
+    heroGradientStart: '#4f46e5',
+    heroGradientEnd: '#4338ca',
+    upvote: '#28A745',
+    downvote: '#FF3B30',
+    bookmarkActive: '#FFC107',
+    bookmarkInactive: '#555555',
+    attachmentGallery: '#10b981',
+    attachmentFile: '#3b82f6',
+    attachmentSticker: '#f59e0b',
+    typingIndicator: '#10b981',
   },
 };
 
