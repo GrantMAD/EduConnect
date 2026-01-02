@@ -18,6 +18,7 @@ import { useSchool } from '../context/SchoolContext';
 import { useToast } from '../context/ToastContext';
 import { useWalkthrough } from '../context/WalkthroughContext';
 import UserListModal from '../components/UserListModal';
+import FamilyLinksModal from '../components/FamilyLinksModal';
 import DashboardSkeleton from '../components/skeletons/DashboardScreenSkeleton';
 import ChildProgressSnapshot from '../components/ChildProgressSnapshot';
 import { useGamification } from '../context/GamificationContext';
@@ -56,6 +57,7 @@ export default function DashboardScreen({ navigation }) {
     const [showUserModal, setShowUserModal] = useState(false);
     const [userListData, setUserListData] = useState([]);
     const [selectedUserCategory, setSelectedUserCategory] = useState('');
+    const [showFamilyLinksModal, setShowFamilyLinksModal] = useState(false);
 
     useEffect(() => {
         if (schoolId) {
@@ -86,7 +88,7 @@ export default function DashboardScreen({ navigation }) {
             if (!error && data && data.length > 0) {
                 awardXP('daily_check_in', 5);
             }
-        } catch (e) {}
+        } catch (e) { }
     };
 
     const fetchDashboardData = async () => {
@@ -100,7 +102,7 @@ export default function DashboardScreen({ navigation }) {
 
             const { data: { user } } = await supabase.auth.getUser();
             const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
-            
+
             let linkCount = 0;
             if (profile?.role === 'admin') {
                 const { count } = await supabase
@@ -188,7 +190,7 @@ export default function DashboardScreen({ navigation }) {
             ].sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).slice(0, 5);
 
             setUpcomingTasks(combined);
-        } catch (e) {}
+        } catch (e) { }
     };
 
     const fetchTodaySessions = async (userId, role) => {
@@ -246,17 +248,17 @@ export default function DashboardScreen({ navigation }) {
 
             const combined = [
                 ...schedules.map(s => ({ ...s, eventType: 'class' })),
-                ...ptms.map(p => ({ 
-                    id: p.id, 
-                    start_time: p.slot.start_time, 
-                    end_time: p.slot.end_time, 
-                    title: `Meeting: ${p.notes || 'PTM'}`, 
-                    eventType: 'meeting' 
+                ...ptms.map(p => ({
+                    id: p.id,
+                    start_time: p.slot.start_time,
+                    end_time: p.slot.end_time,
+                    title: `Meeting: ${p.notes || 'PTM'}`,
+                    eventType: 'meeting'
                 }))
             ].sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 
             setTodaySessions(combined);
-        } catch (e) {}
+        } catch (e) { }
     };
 
     const checkUserAccessAndWalkthrough = async () => {
@@ -274,7 +276,7 @@ export default function DashboardScreen({ navigation }) {
 
             setUserRole(userData.role);
             setUserProfile(userData);
-            
+
             if (userData && !userData.has_seen_walkthrough) {
                 const baseSteps = [
                     {
@@ -400,15 +402,15 @@ export default function DashboardScreen({ navigation }) {
 
                 {/* Welcome Card - Modern Gradient */}
                 <WalkthroughTarget id="dashboard-welcome">
-                     <LinearGradient
-                        colors={['#4f46e5', '#4338ca']} 
+                    <LinearGradient
+                        colors={['#4f46e5', '#4338ca']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={styles.welcomeCard}
                     >
                         {/* Decorative Circle */}
                         <View style={styles.decorativeCircle} />
-                        
+
                         <View style={styles.welcomeContent}>
                             <Text style={styles.welcomeTitle}>Welcome to ClassConnect</Text>
                             <Text style={styles.welcomeSubtitle}>Your school's complete digital companion.</Text>
@@ -421,9 +423,9 @@ export default function DashboardScreen({ navigation }) {
 
                 {/* Recommended Resources (Student/Parent only) */}
                 {['student', 'parent'].includes(userRole) && (
-                    <RecommendedResources 
+                    <RecommendedResources
                         id="dashboard-recommendations"
-                        schoolId={schoolId} 
+                        schoolId={schoolId}
                         userId={userProfile?.id}
                         role={userRole}
                     />
@@ -440,17 +442,17 @@ export default function DashboardScreen({ navigation }) {
 
                 {/* Tasks & Events */}
                 <View style={styles.row}>
-                    <UpcomingTasks 
-                        id="dashboard-tasks" 
-                        loading={loading} 
-                        upcomingTasks={upcomingTasks} 
-                        navigation={navigation} 
-                        style={styles.fullWidth} 
+                    <UpcomingTasks
+                        id="dashboard-tasks"
+                        loading={loading}
+                        upcomingTasks={upcomingTasks}
+                        navigation={navigation}
+                        style={styles.fullWidth}
                     />
                 </View>
 
-                <DailyOverview 
-                    id="dashboard-recent" 
+                <DailyOverview
+                    id="dashboard-recent"
                     loading={loading}
                     todaySessions={todaySessions}
                     navigation={navigation}
@@ -460,83 +462,83 @@ export default function DashboardScreen({ navigation }) {
                 {['admin', 'teacher'].includes(userRole) && (
                     <View id="dashboard-stats" style={styles.statsSection}>
                         <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>School Statistics</Text>
-                        
+
                         <View style={styles.statsGrid}>
-                            <StatCard 
-                                icon={faUsers} 
-                                title="Total Users" 
-                                value={stats.totalUsers} 
-                                color="#007AFF" 
-                                onPress={() => fetchUsersByCategory('total')} 
+                            <StatCard
+                                icon={faUsers}
+                                title="Total Users"
+                                value={stats.totalUsers}
+                                color="#007AFF"
+                                onPress={() => fetchUsersByCategory('total')}
                             />
-                            <StatCard 
-                                icon={faUserTie} 
-                                title="Admins" 
-                                value={stats.adminCount} 
-                                color="#FF3B30" 
-                                onPress={() => fetchUsersByCategory('admin')} 
+                            <StatCard
+                                icon={faUserTie}
+                                title="Admins"
+                                value={stats.adminCount}
+                                color="#FF3B30"
+                                onPress={() => fetchUsersByCategory('admin')}
                             />
-                            <StatCard 
-                                icon={faChalkboardTeacher} 
-                                title="Teachers" 
-                                value={stats.teacherCount} 
-                                color="#34C759" 
-                                onPress={() => fetchUsersByCategory('teacher')} 
+                            <StatCard
+                                icon={faChalkboardTeacher}
+                                title="Teachers"
+                                value={stats.teacherCount}
+                                color="#34C759"
+                                onPress={() => fetchUsersByCategory('teacher')}
                             />
-                            <StatCard 
-                                icon={faUserGraduate} 
-                                title="Students" 
-                                value={stats.studentCount} 
-                                color="#5856D6" 
-                                onPress={() => fetchUsersByCategory('student')} 
+                            <StatCard
+                                icon={faUserGraduate}
+                                title="Students"
+                                value={stats.studentCount}
+                                color="#5856D6"
+                                onPress={() => fetchUsersByCategory('student')}
                             />
-                            <StatCard 
-                                icon={faChild} 
-                                title="Parents" 
-                                value={stats.parentCount} 
-                                color="#FF9500" 
-                                onPress={() => fetchUsersByCategory('parent')} 
+                            <StatCard
+                                icon={faChild}
+                                title="Parents"
+                                value={stats.parentCount}
+                                color="#FF9500"
+                                onPress={() => fetchUsersByCategory('parent')}
                             />
                             {userRole === 'admin' && (
-                                <StatCard 
-                                    icon={faUserFriends} 
-                                    title="Family Links" 
-                                    value={stats.parentChildLinkCount} 
-                                    color="#AF52DE" 
-                                    onPress={() => navigation.navigate('My Children')} 
+                                <StatCard
+                                    icon={faUserFriends}
+                                    title="Family Links"
+                                    value={stats.parentChildLinkCount}
+                                    color="#AF52DE"
+                                    onPress={() => setShowFamilyLinksModal(true)}
                                 />
                             )}
                         </View>
 
                         <Text style={[styles.sectionTitle, { color: theme.colors.text, marginTop: 24 }]}>Content & Activity</Text>
                         <View style={styles.statsGrid}>
-                            <StatCard 
-                                icon={faBookOpen} 
-                                title="Classes" 
-                                value={stats.classCount} 
-                                color="#007AFF" 
-                                onPress={() => navigation.navigate('Classes')} 
+                            <StatCard
+                                icon={faBookOpen}
+                                title="Classes"
+                                value={stats.classCount}
+                                color="#007AFF"
+                                onPress={() => navigation.navigate('ManageClasses')}
                             />
-                            <StatCard 
-                                icon={faUserFriends} 
-                                title="Clubs" 
-                                value={stats.clubCount} 
-                                color="#FF9500" 
-                                onPress={() => navigation.navigate('Clubs')} 
+                            <StatCard
+                                icon={faUserFriends}
+                                title="Clubs"
+                                value={stats.clubCount}
+                                color="#FF9500"
+                                onPress={() => navigation.navigate('ClubList')}
                             />
-                            <StatCard 
-                                icon={faClipboardList} 
-                                title="Assignments" 
-                                value={stats.assignmentCount} 
-                                color="#5856D6" 
-                                onPress={() => navigation.navigate('Homework')} 
+                            <StatCard
+                                icon={faClipboardList}
+                                title="Assignments"
+                                value={stats.assignmentCount}
+                                color="#5856D6"
+                                onPress={() => navigation.navigate('Homework')}
                             />
-                            <StatCard 
-                                icon={faPoll} 
-                                title="Active Polls" 
-                                value={stats.pollCount} 
-                                color="#FF9500" 
-                                onPress={() => navigation.navigate('Polls')} 
+                            <StatCard
+                                icon={faPoll}
+                                title="Active Polls"
+                                value={stats.pollCount}
+                                color="#FF9500"
+                                onPress={() => navigation.navigate('Polls')}
                             />
                         </View>
                     </View>
@@ -548,6 +550,11 @@ export default function DashboardScreen({ navigation }) {
                 onClose={() => setShowUserModal(false)}
                 users={userListData}
                 category={selectedUserCategory}
+            />
+
+            <FamilyLinksModal
+                visible={showFamilyLinksModal}
+                onClose={() => setShowFamilyLinksModal(false)}
             />
         </ScrollView>
     );
@@ -563,10 +570,10 @@ const styles = StyleSheet.create({
     dateText: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
     bannerContainer: { width: '100%', height: 120, borderRadius: 20, overflow: 'hidden', marginBottom: 20 },
     bannerImage: { width: '100%', height: '100%' },
-    welcomeCard: { 
-        padding: 24, 
-        borderRadius: 20, 
-        marginBottom: 20, 
+    welcomeCard: {
+        padding: 24,
+        borderRadius: 20,
+        marginBottom: 20,
         overflow: 'hidden',
         position: 'relative',
         elevation: 0 // Explicitly 0
