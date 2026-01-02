@@ -42,18 +42,17 @@ const WelcomeScreen = ({ navigation }) => {
                 {/* Action Section */}
                 <View style={styles.actionSection}>
                     <TouchableOpacity
-                        style={[styles.primaryButton, { backgroundColor: '#fff' }]}
+                        style={styles.primaryButton}
                         onPress={() => navigation.navigate('SignIn')}
-                        activeOpacity={0.9}
+                        activeOpacity={0.8}
                     >
-                        <Text style={[styles.primaryButtonText, { color: '#4f46e5' }]}>Sign In</Text>
-                        <FontAwesomeIcon icon={faChevronRight} size={14} color="#4f46e5" />
+                        <Text style={styles.primaryButtonText}>Sign In</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        style={[styles.secondaryButton, { borderColor: 'rgba(255,255,255,0.3)', borderWidth: 1 }]}
+                        style={styles.secondaryButton}
                         onPress={() => navigation.navigate('SignUp')}
-                        activeOpacity={0.7}
+                        activeOpacity={0.8}
                     >
                         <Text style={styles.secondaryButtonText}>Create Account</Text>
                     </TouchableOpacity>
@@ -148,36 +147,39 @@ const styles = StyleSheet.create({
     },
     actionSection: {
         width: '100%',
-        gap: 12,
+        gap: 16,
         marginBottom: 40,
     },
     primaryButton: {
+        backgroundColor: '#fff',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        height: 64,
-        borderRadius: 20,
-        gap: 12,
+        height: 60,
+        borderRadius: 18,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
+        elevation: 10,
     },
     primaryButtonText: {
+        color: '#4f46e5',
         fontSize: 18,
-        fontWeight: '900',
+        fontWeight: '800',
     },
     secondaryButton: {
+        height: 60,
+        borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
-        height: 64,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: 'rgba(255, 255, 255, 0.12)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.25)',
     },
     secondaryButtonText: {
         color: '#fff',
-        fontSize: 16,
+        fontSize: 17,
         fontWeight: '700',
     },
     statsRow: {

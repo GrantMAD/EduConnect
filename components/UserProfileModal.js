@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Linking, ScrollView, ActivityIndicator } from 'react-native';
 import Modal from 'react-native-modal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faEnvelope, faPhone, faUserCircle, faIdBadge, faComment, faStar, faCoins } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -10,6 +11,7 @@ import { BORDER_STYLES } from '../constants/GamificationStyles';
 
 export default function UserProfileModal({ visible, user, onClose, onMessageUser, equippedItem: propEquippedItem }) {
     const { theme } = useTheme();
+    const insets = useSafeAreaInsets();
     const [loading, setLoading] = useState(false);
     const [gamificationStats, setGamificationStats] = useState({ xp: 0, coins: 0 });
     const [statsLoading, setStatsLoading] = useState(false);
@@ -62,13 +64,15 @@ export default function UserProfileModal({ visible, user, onClose, onMessageUser
                 .from('user_inventory')
                 .select('shop_items(*)')
                 .eq('user_id', user.id)
-                .eq('is_equipped', true)
-                .maybeSingle();
+                .eq('is_equipped', true);
 
             if (error) throw error;
 
-            if (data?.shop_items) {
-                setFetchedEquippedItem(data.shop_items);
+            if (data && data.length > 0) {
+                // Find the border item or default to the first equipped item
+                const items = data.map(d => Array.isArray(d.shop_items) ? d.shop_items[0] : d.shop_items);
+                const borderItem = items.find(i => i?.category === 'avatar_border' || i?.category === 'border' || !i?.category);
+                setFetchedEquippedItem(borderItem || items[0]);
             }
         } catch (error) {
             console.error('Error fetching equipped item:', error);

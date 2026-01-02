@@ -1,54 +1,94 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { useSchool } from '../../context/SchoolContext';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTrophy, faMedal } from '@fortawesome/free-solid-svg-icons';
+import { faTrophy, faMedal, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { BORDER_STYLES, NAME_COLOR_STYLES, TITLE_STYLES } from '../../constants/GamificationStyles';
 import LeaderboardSkeleton from '../../components/skeletons/LeaderboardSkeleton';
 import LinearGradient from 'react-native-linear-gradient';
+import UserProfileModal from '../../components/UserProfileModal';
+import { useChat } from '../../context/ChatContext';
 
 const defaultUserImage = require('../../assets/user.png');
 
-export default function LeaderboardScreen() {
+export default function LeaderboardScreen({ navigation }) {
     const { theme } = useTheme();
+    const { schoolId } = useSchool();
+    const { createChannel } = useChat();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    // Modal state
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [isModalVisible, setIsModalVisible] = useState(false);
+
     useEffect(() => {
-        fetchLeaderboard();
-    }, []);
+        if (schoolId) {
+            fetchLeaderboard();
+        }
+    }, [schoolId]);
+
+    const handleUserPress = (user) => {
+        setSelectedUser(user);
+        setIsModalVisible(true);
+    };
+
+    const handleMessageUser = async (user) => {
+        try {
+            const channel = await createChannel(user.full_name, 'direct', [user.id]);
+            navigation.navigate('Chat', { channelId: channel.id, channelName: user.full_name });
+        } catch (error) {
+            console.error('Error creating chat channel:', error);
+        }
+    };
 
     const fetchLeaderboard = async () => {
+        if (!schoolId) return;
         setLoading(true);
         try {
+            // 1. Get all user IDs for this school first to bypass the missing join
+            const { data: schoolUsers, error: schoolError } = await supabase
+                .from('users')
+                .select('id, full_name, avatar_url, email, role, number')
+                .eq('school_id', schoolId);
+
+            if (schoolError) throw schoolError;
+
+            if (!schoolUsers || schoolUsers.length === 0) {
+                setUsers([]);
+                setLoading(false);
+                return;
+            }
+
+            const schoolUserIds = schoolUsers.map(u => u.id);
+
+            // 2. Get top 50 scores for these specific user IDs
             const { data: scores, error: scoresError } = await supabase
                 .from('user_gamification')
                 .select('user_id, current_xp, current_level')
+                .in('user_id', schoolUserIds)
                 .order('current_xp', { ascending: false })
                 .limit(50);
 
             if (scoresError) throw scoresError;
 
             if (scores && scores.length > 0) {
-                const userIds = scores.map(s => s.user_id);
+                const topScorerIds = scores.map(s => s.user_id);
 
-                const { data: userDetails } = await supabase
-                    .from('users')
-                    .select('id, full_name, avatar_url')
-                    .in('id', userIds);
-
+                // 3. Get equipped items separately
                 const { data: inventoryData } = await supabase
                     .from('user_inventory')
                     .select('user_id, shop_items(*)')
-                    .in('user_id', userIds)
+                    .in('user_id', topScorerIds)
                     .eq('is_equipped', true);
 
                 const resolveItem = (item) => Array.isArray(item) ? item[0] : item;
 
                 const leaderboardData = scores.map(score => {
-                    const user = userDetails?.find(u => u.id === score.user_id);
+                    const user = schoolUsers.find(u => u.id === score.user_id);
                     const userEquipped = inventoryData?.filter(i => i.user_id === score.user_id).map(i => resolveItem(i.shop_items)) || [];
 
                     const equippedBorder = userEquipped.find(i => i?.category === 'avatar_border' || i?.category === 'border' || !i?.category);
@@ -65,6 +105,8 @@ export default function LeaderboardScreen() {
                 });
 
                 setUsers(leaderboardData);
+            } else {
+                setUsers([]);
             }
         } catch (error) {
             console.error('Error fetching leaderboard:', error);
@@ -79,7 +121,11 @@ export default function LeaderboardScreen() {
         const isTop3 = index < 3;
 
         return (
-            <View style={[styles.userCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }, isTop3 && { backgroundColor: theme.colors.primary + '05' }]}>
+            <TouchableOpacity 
+                activeOpacity={0.7}
+                onPress={() => handleUserPress(item.user)}
+                style={[styles.userCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }, isTop3 && { backgroundColor: theme.colors.primary + '05' }]}
+            >
                 <View style={styles.rankContainer}>
                     <View style={[
                         styles.rankBadge,
@@ -124,7 +170,7 @@ export default function LeaderboardScreen() {
                     <Text style={[styles.pointsText, { color: theme.colors.primary }]}>{item.current_xp.toLocaleString()}</Text>
                     <Text style={styles.pointsLabel}>XP</Text>
                 </View>
-            </View>
+            </TouchableOpacity>
         );
     };
 
@@ -136,6 +182,14 @@ export default function LeaderboardScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.heroContainer}
             >
+                <TouchableOpacity 
+                    onPress={() => navigation.goBack()} 
+                    style={styles.backButton}
+                    activeOpacity={0.7}
+                >
+                    <FontAwesomeIcon icon={faArrowLeft} size={20} color="#fff" />
+                </TouchableOpacity>
+
                 <View style={styles.heroContent}>
                     <View style={styles.heroTextContainer}>
                         <Text style={styles.heroTitle}>School Leaderboard</Text>
@@ -167,6 +221,13 @@ export default function LeaderboardScreen() {
                     windowSize={5}
                 />
             )}
+
+            <UserProfileModal
+                visible={isModalVisible}
+                user={selectedUser}
+                onClose={() => setIsModalVisible(false)}
+                onMessageUser={handleMessageUser}
+            />
         </View>
     );
 }
@@ -179,6 +240,15 @@ const styles = StyleSheet.create({
         elevation: 0,
         borderBottomLeftRadius: 16,
         borderBottomRightRadius: 16,
+    },
+    backButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 16,
     },
     heroContent: {
         flexDirection: 'row',

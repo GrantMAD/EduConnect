@@ -17,6 +17,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { useGamification } from '../../context/GamificationContext';
 import { usePushNotification } from '../../context/PushNotificationContext';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
@@ -27,11 +28,7 @@ const defaultUserImage = require('../../assets/user.png');
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const CustomDrawerContent = (props) => {
-    const [userAvatar, setUserAvatar] = useState(null);
-    const [userName, setUserName] = useState(null);
-    const [userEmail, setUserEmail] = useState(null);
-    const [userRole, setUserRole] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const { profile, loading: authLoading } = useAuth();
     const [profileCompletion, setProfileCompletion] = useState(0);
     const [signingOut, setSigningOut] = useState(false);
     const { theme } = useTheme();
@@ -40,13 +37,13 @@ const CustomDrawerContent = (props) => {
 
     const insets = useSafeAreaInsets();
 
-    const calculateProfileCompletion = (profile) => {
+    const calculateProfileCompletion = (p) => {
         let completed = 0;
         const fields = [
-            profile?.full_name,
-            profile?.avatar_url,
-            profile?.number,
-            profile?.school_id
+            p?.full_name,
+            p?.avatar_url,
+            p?.number,
+            p?.school_id
         ];
         fields.forEach(field => {
             if (field) completed += 25;
@@ -58,39 +55,12 @@ const CustomDrawerContent = (props) => {
     const activeMainStackRouteName = mainStackState?.routes[mainStackState.index]?.name;
 
     useEffect(() => {
-        const fetchUserData = async () => {
-            setLoading(true);
-            try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    const { data: profile } = await supabase
-                        .from('users')
-                        .select('full_name, avatar_url, role')
-                        .eq('id', user.id)
-                        .single();
+        if (profile) {
+            setProfileCompletion(calculateProfileCompletion(profile));
+        }
+    }, [profile]);
 
-                    if (profile) {
-                        setUserAvatar(profile.avatar_url);
-                        setUserName(profile.full_name || user.email);
-                        setUserRole(profile.role);
-                        setProfileCompletion(calculateProfileCompletion(profile));
-                    } else {
-                        setUserName(user.email);
-                        setProfileCompletion(0);
-                    }
-                    setUserEmail(user.email);
-                }
-            } catch (error) {
-                console.error("Error fetching user data for drawer:", error);
-                setUserName("Guest");
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchUserData();
-    }, []);
-
-    if (loading) {
+    if (authLoading && !profile) {
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 70, backgroundColor: theme.colors.background }}>
                 <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -98,7 +68,12 @@ const CustomDrawerContent = (props) => {
         );
     }
 
-    const DrawerItem = ({ icon, label, description, routeName, onPress, active }) => (
+    const userName = profile?.full_name || 'Member';
+    const userEmail = profile?.email || '';
+    const userRole = profile?.role || 'GUEST';
+    const userAvatar = profile?.avatar_url;
+
+    const DrawerItem = ({ icon, label, description, routeName, onPress, active, color = theme.colors.primary }) => (
         <TouchableOpacity
             onPress={onPress}
             style={{
@@ -108,18 +83,18 @@ const CustomDrawerContent = (props) => {
                 paddingHorizontal: 16,
                 marginHorizontal: 12,
                 marginBottom: 8,
-                backgroundColor: active ? theme.colors.primary + '10' : 'transparent',
+                backgroundColor: active ? color + '15' : 'transparent',
                 borderRadius: 16,
                 borderWidth: 1,
-                borderColor: active ? theme.colors.primary + '30' : 'transparent',
+                borderColor: active ? color + '30' : 'transparent',
             }}
             activeOpacity={0.7}
         >
-            <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: active ? theme.colors.primary + '15' : 'transparent', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                <FontAwesomeIcon icon={icon} size={16} color={active ? theme.colors.primary : theme.colors.placeholder} />
+            <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: active ? color + '15' : color + '08', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <FontAwesomeIcon icon={icon} size={16} color={active ? color : color + 'bb'} />
             </View>
             <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, color: active ? theme.colors.primary : theme.colors.text, fontWeight: active ? '900' : '700' }}>{label}</Text>
+                <Text style={{ fontSize: 14, color: active ? color : theme.colors.text, fontWeight: active ? '900' : '700' }}>{label}</Text>
                 {description && <Text style={{ fontSize: 10, color: theme.colors.placeholder, fontWeight: '600', marginTop: 2 }}>{description.toUpperCase()}</Text>}
             </View>
         </TouchableOpacity>
@@ -197,6 +172,7 @@ const CustomDrawerContent = (props) => {
                     routeName="HomeTabs"
                     active={activeMainStackRouteName === 'HomeTabs'}
                     onPress={() => props.navigation.navigate('MainStack', { screen: 'HomeTabs' })}
+                    color="#4f46e5"
                 />
                 <DrawerItem
                     icon={faUser}
@@ -205,6 +181,7 @@ const CustomDrawerContent = (props) => {
                     routeName="Profile"
                     active={activeMainStackRouteName === 'Profile'}
                     onPress={() => props.navigation.navigate('MainStack', { screen: 'Profile' })}
+                    color="#06b6d4"
                 />
 
                 {(userRole === 'parent' || userRole === 'student' || ['admin', 'teacher'].includes(userRole)) && (
@@ -218,6 +195,7 @@ const CustomDrawerContent = (props) => {
                                 routeName="MyChildren"
                                 active={activeMainStackRouteName === 'MyChildren'}
                                 onPress={() => props.navigation.navigate('MainStack', { screen: 'MyChildren' })}
+                                color="#f59e0b"
                             />
                         )}
                         <DrawerItem
@@ -227,6 +205,7 @@ const CustomDrawerContent = (props) => {
                             routeName="Meetings"
                             active={activeMainStackRouteName === 'Meetings'}
                             onPress={() => props.navigation.navigate('MainStack', { screen: 'Meetings' })}
+                            color="#10b981"
                         />
                         {['admin', 'teacher'].includes(userRole) && (
                             <DrawerItem
@@ -236,6 +215,7 @@ const CustomDrawerContent = (props) => {
                                 routeName="ManageClasses"
                                 active={activeMainStackRouteName === 'ManageClasses'}
                                 onPress={() => props.navigation.navigate('MainStack', { screen: 'ManageClasses' })}
+                                color="#8b5cf6"
                             />
                         )}
                     </>
@@ -249,6 +229,7 @@ const CustomDrawerContent = (props) => {
                     routeName="ClubList"
                     active={activeMainStackRouteName === 'ClubList'}
                     onPress={() => props.navigation.navigate('MainStack', { screen: 'ClubList' })}
+                    color="#e11d48"
                 />
                 <DrawerItem
                     icon={faStore}
@@ -257,6 +238,7 @@ const CustomDrawerContent = (props) => {
                     routeName="Market"
                     active={activeMainStackRouteName === 'Market'}
                     onPress={() => props.navigation.navigate('MainStack', { screen: 'Market' })}
+                    color="#db2777"
                 />
                 <DrawerItem
                     icon={faBookOpen}
@@ -265,6 +247,7 @@ const CustomDrawerContent = (props) => {
                     routeName="Resources"
                     active={activeMainStackRouteName === 'Resources'}
                     onPress={() => props.navigation.navigate('MainStack', { screen: 'Resources' })}
+                    color="#2563eb"
                 />
                 <DrawerItem
                     icon={faPoll}
@@ -273,6 +256,7 @@ const CustomDrawerContent = (props) => {
                     routeName="Polls"
                     active={activeMainStackRouteName === 'Polls'}
                     onPress={() => props.navigation.navigate('MainStack', { screen: 'Polls' })}
+                    color="#f59e0b"
                 />
 
                 <SectionHeader title="System" />
@@ -283,6 +267,7 @@ const CustomDrawerContent = (props) => {
                     routeName="Settings"
                     active={activeMainStackRouteName === 'Settings'}
                     onPress={() => props.navigation.navigate('MainStack', { screen: 'Settings' })}
+                    color="#64748b"
                 />
             </ScrollView>
 

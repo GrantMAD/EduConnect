@@ -15,7 +15,7 @@ export default function AnnouncementCard({ announcement }) {
         </View>
         <Text style={[styles.title, { color: theme.colors.text }]}>{announcement.title}</Text>
       </View>
-      <Text style={[styles.content, { color: theme.colors.placeholder }]} numberOfLines={3}>
+      <Text style={[styles.content, { color: theme.colors.text }]} numberOfLines={3}>
         {announcement.message || announcement.content}
       </Text>
       <View style={styles.footer}>

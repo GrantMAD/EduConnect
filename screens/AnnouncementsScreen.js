@@ -210,11 +210,11 @@ export default function AnnouncementsScreen({ navigation }) {
     return (
       <TouchableOpacity 
         onPress={() => handleCardPress(item)} 
-        style={[styles.cardContainer, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.border }]}
+        style={[styles.cardContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
         activeOpacity={0.9}
       >
         <LinearGradient
-          colors={['#6366f1', '#9333ea']} // Indigo-500 to Purple-600
+          colors={['#4f46e5', '#7c3aed']}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={styles.leftAccent}
@@ -222,61 +222,46 @@ export default function AnnouncementsScreen({ navigation }) {
         
         <View style={styles.cardContent}>
           <View style={styles.cardHeader}>
-            <View style={styles.dateContainer}>
-                {isNew && (
-                  <LinearGradient
-                    colors={['#ef4444', '#ec4899']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.newBadge}
-                  >
-                    <Text style={styles.newBadgeText}>NEW</Text>
-                  </LinearGradient>
-                )}
-                <View style={styles.dateWrapper}>
-                  <FontAwesomeIcon icon={faCalendarAlt} size={10} color={theme.colors.placeholder} style={{ marginRight: 4 }} />
-                  <Text style={[styles.dateText, { color: theme.colors.placeholder }]}>
-                    {new Date(item.created_at).toLocaleDateString()}
-                  </Text>
-                </View>
+            <View style={[styles.datePill, { backgroundColor: theme.colors.background }]}>
+              <FontAwesomeIcon icon={faCalendarAlt} size={10} color={theme.colors.primary} style={{ marginRight: 6 }} />
+              <Text style={[styles.datePillText, { color: theme.colors.text }]}>
+                {new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+              </Text>
             </View>
+            {isNew && (
+              <LinearGradient
+                colors={['#ef4444', '#f97316']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.newBadge}
+              >
+                <Text style={styles.newBadgeText}>NEW</Text>
+              </LinearGradient>
+            )}
           </View>
 
           <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={2}>{item.title}</Text>
           
-          <Text style={[styles.messagePreview, { color: theme.colors.subtext }]} numberOfLines={3}>
-            {item.message}
-          </Text>
-
-          {item.class?.name && (
-             <View style={[styles.classBadge, { backgroundColor: theme.colors.background }]}>
-                <FontAwesomeIcon icon={faUsers} size={10} color={theme.colors.primary} />
-                <Text style={[styles.classBadgeText, { color: theme.colors.primary }]}>
+          <View style={styles.cardBottomRow}>
+            {item.class?.name ? (
+              <View style={[styles.classBadgeNew, { backgroundColor: theme.colors.primary + '10' }]}>
+                <Text style={[styles.classBadgeTextNew, { color: theme.colors.primary }]}>
                   {item.class.name}
                 </Text>
               </View>
-          )}
-
-          <View style={[styles.separator, { backgroundColor: theme.colors.border }]} />
-
-          <View style={styles.cardFooter}>
-            <View style={styles.authorContainer}>
-              <LinearGradient
-                colors={['#818cf8', '#a78bfa']}
-                style={styles.avatar}
-              >
-                 <Text style={styles.avatarText}>
-                    {item.author?.full_name?.charAt(0) || 'A'}
-                 </Text>
-              </LinearGradient>
-              <Text style={[styles.authorName, { color: theme.colors.text }]} numberOfLines={1}>
-                {item.author?.full_name?.split(' ')[0] || 'Admin'}
+            ) : (
+              <View style={[styles.classBadgeNew, { backgroundColor: '#64748b10' }]}>
+                <Text style={[styles.classBadgeTextNew, { color: '#64748b' }]}>General</Text>
+              </View>
+            )}
+            
+            <View style={styles.authorBadge}>
+              <View style={[styles.authorAvatarSmall, { backgroundColor: theme.colors.primary }]}>
+                <Text style={styles.authorInitial}>{item.author?.full_name?.charAt(0) || 'A'}</Text>
+              </View>
+              <Text style={[styles.authorNameSmall, { color: theme.colors.placeholder }]} numberOfLines={1}>
+                {item.author?.full_name || 'Admin'}
               </Text>
-            </View>
-
-            <View style={styles.detailsButton}>
-              <Text style={[styles.detailsText, { color: theme.colors.primary }]}>DETAILS</Text>
-              <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.primary} />
             </View>
           </View>
         </View>
@@ -461,103 +446,77 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  dateContainer: {
+  datePill: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  datePillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   newBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginRight: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   newBadgeText: {
     color: '#fff',
     fontSize: 9,
     fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  dateWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dateText: {
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   title: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 6,
-    lineHeight: 22,
+    fontSize: 18,
+    fontWeight: '900',
+    marginBottom: 16,
+    lineHeight: 24,
+    letterSpacing: -0.3,
   },
-  messagePreview: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  classBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  classBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  separator: {
-    height: 1,
-    width: '100%',
-    marginBottom: 12,
-    opacity: 0.5,
-  },
-  cardFooter: {
+  cardBottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
   },
-  authorContainer: {
+  classBadgeNew: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  classBadgeTextNew: {
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  authorBadge: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  avatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  authorAvatarSmall: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
+    marginRight: 6,
   },
-  avatarText: {
+  authorInitial: {
     color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  authorName: {
-    fontSize: 12,
-    fontWeight: '600',
-    maxWidth: 100,
-  },
-  detailsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  detailsText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginRight: 4,
+  },
+  authorNameSmall: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   offlineBanner: {
     flexDirection: 'row',

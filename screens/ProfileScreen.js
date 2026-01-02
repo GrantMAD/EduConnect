@@ -7,6 +7,7 @@ import { faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone, faTrop
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
 import GamificationInfoModal from '../components/GamificationInfoModal';
 import EditProfileModal from '../components/EditProfileModal';
@@ -19,6 +20,7 @@ const { width } = Dimensions.get('window');
 
 export default function ProfileScreen({ navigation }) {
   const defaultUserImage = require('../assets/user.png');
+  const { refreshProfile } = useAuth();
   const { 
     current_level = 1, current_xp = 0, coins = 0, streak = {}, badges = [], 
     equippedBorder, equippedBanner, equippedNameColor, equippedTitle,
@@ -290,6 +292,7 @@ export default function ProfileScreen({ navigation }) {
             setShowEditProfile(false);
             if (updated) {
               fetchUserData();
+              refreshProfile();
               if (refreshGamificationState) refreshGamificationState();
             }
           }}

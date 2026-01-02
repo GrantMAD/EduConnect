@@ -10,8 +10,12 @@ const StatCard = ({ icon, title, value, color, onPress, style, loading }) => {
     return (
         <TouchableOpacity
             style={[
-                styles.statCard, 
-                { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }, 
+                styles.statCard,
+                {
+                    backgroundColor: theme.colors.card,
+                    borderWidth: 1,
+                    borderColor: color + '30',
+                },
                 style
             ]}
             onPress={onPress}
@@ -32,13 +36,13 @@ const StatCard = ({ icon, title, value, color, onPress, style, loading }) => {
 
 const styles = StyleSheet.create({
     statCard: {
-        width: '48%',
+        width: '47%',
         padding: 20,
         borderRadius: 24,
         alignItems: 'center',
         minHeight: 140,
         justifyContent: 'center',
-        marginBottom: 12,
+        marginBottom: 16,
     },
     iconContainer: {
         width: 44,

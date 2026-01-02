@@ -376,18 +376,20 @@ export default function DashboardScreen({ navigation }) {
             }
         >
             <View style={styles.content}>
-                {/* Header */}
-                <View id="dashboard-header" style={styles.header}>
-                    <View>
-                        <Text style={[styles.greeting, { color: theme.colors.text }]}>
-                            {getGreeting()},
-                        </Text>
-                        <Text style={[styles.userName, { color: theme.colors.primary }]}>
-                            {userProfile?.full_name?.split(' ')[0] || 'there'}
+                {/* Header Badge */}
+                <View id="dashboard-header" style={styles.headerBadge}>
+                    <View style={styles.headerLeft}>
+                        <View style={[styles.greetingBadge, { backgroundColor: theme.colors.primary + '15' }]}>
+                            <Text style={[styles.greetingText, { color: theme.colors.primary }]}>
+                                {getGreeting()}
+                            </Text>
+                        </View>
+                        <Text style={[styles.userNameLarge, { color: theme.colors.text }]}>
+                            {userProfile?.full_name?.split(' ')[0] || 'User'}
                         </Text>
                     </View>
-                    <View style={[styles.dateBadge, { backgroundColor: theme.colors.card }]}>
-                        <Text style={[styles.dateText, { color: theme.colors.textSecondary }]}>
+                    <View style={[styles.dateBadgeFull, { backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '20', borderWidth: 1 }]}>
+                        <Text style={[styles.dateTextFull, { color: theme.colors.primary }]}>
                             {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                         </Text>
                     </View>
@@ -462,6 +464,9 @@ export default function DashboardScreen({ navigation }) {
                 {['admin', 'teacher'].includes(userRole) && (
                     <View id="dashboard-stats" style={styles.statsSection}>
                         <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>School Statistics</Text>
+                        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder, marginTop: -12, marginBottom: 16 }]}>
+                            A comprehensive overview of your school's community and reach.
+                        </Text>
 
                         <View style={styles.statsGrid}>
                             <StatCard
@@ -511,6 +516,9 @@ export default function DashboardScreen({ navigation }) {
                         </View>
 
                         <Text style={[styles.sectionTitle, { color: theme.colors.text, marginTop: 24 }]}>Content & Activity</Text>
+                        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder, marginTop: -12, marginBottom: 16 }]}>
+                            Monitor educational materials and engagement across the platform.
+                        </Text>
                         <View style={styles.statsGrid}>
                             <StatCard
                                 icon={faBookOpen}
@@ -563,11 +571,47 @@ export default function DashboardScreen({ navigation }) {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     content: { padding: 20 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-    greeting: { fontSize: 16, fontWeight: '600' },
-    userName: { fontSize: 24, fontWeight: '900' },
-    dateBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
-    dateText: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
+    headerBadge: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 28,
+        paddingTop: 8,
+    },
+    headerLeft: {
+        flex: 1,
+    },
+    greetingBadge: {
+        alignSelf: 'flex-start',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+        marginBottom: 6,
+    },
+    greetingText: {
+        fontSize: 11,
+        fontWeight: '900',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    userNameLarge: {
+        fontSize: 28,
+        fontWeight: '900',
+        letterSpacing: -0.5,
+        marginLeft: 4,
+    },
+    dateBadgeFull: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    dateTextFull: {
+        fontSize: 12,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+    },
     bannerContainer: { width: '100%', height: 120, borderRadius: 20, overflow: 'hidden', marginBottom: 20 },
     bannerImage: { width: '100%', height: '100%' },
     welcomeCard: {
@@ -593,5 +637,6 @@ const styles = StyleSheet.create({
     fullWidth: { flex: 1 },
     statsSection: { marginTop: 10 },
     sectionTitle: { fontSize: 18, fontWeight: '900', marginBottom: 16 },
+    sectionDescription: { fontSize: 12, fontWeight: '600' },
     statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
 });

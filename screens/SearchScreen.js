@@ -31,6 +31,7 @@ import {
   faStore,
   faCog,
   faChalkboardTeacher,
+  faChartLine,
   faChevronRight
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -43,16 +44,38 @@ import LinearGradient from 'react-native-linear-gradient';
 const RECENT_SEARCHES_KEY = 'recent_searches';
 
 const STATIC_PAGES = [
+  // Core
   { id: 'dashboard', title: 'Dashboard', screen: 'Dashboard', icon: faHome, description: 'School overview and quick stats' },
   { id: 'notifications', title: 'Notifications', screen: 'Notifications', icon: faBell, description: 'View your alerts and updates' },
   { id: 'chat', title: 'Messages', screen: 'ChatList', icon: faComments, description: 'Chat with teachers and parents' },
-  { id: 'calendar', title: 'Calendar', screen: 'Calendar', icon: faCalendarAlt, description: 'School events and schedules' },
-  { id: 'homework', title: 'Homework', screen: 'Homework', icon: faBookOpen, description: 'View pending and completed homework' },
-  { id: 'polls', title: 'Polls', screen: 'Polls', icon: faBullhorn, description: 'Participate in school surveys' },
-  { id: 'leaderboard', title: 'Leaderboard', screen: 'Leaderboard', icon: faTrophy, description: 'See student rankings and XP' },
-  { id: 'shop', title: 'Shop', screen: 'Shop', icon: faStore, description: 'Redeem rewards and items' },
   { id: 'profile', title: 'My Profile', screen: 'Profile', icon: faUser, description: 'Manage your personal info' },
   { id: 'settings', title: 'Settings', screen: 'Settings', icon: faCog, description: 'App preferences and account' },
+
+  // Academic
+  { id: 'classes', title: 'Manage Classes', screen: 'ManageClasses', icon: faChalkboardTeacher, description: 'View and manage academic classes' },
+  { id: 'calendar', title: 'Calendar & Schedule', screen: 'Calendar', icon: faCalendarAlt, description: 'School events and schedules' },
+  { id: 'homework', title: 'Homework', screen: 'Homework', icon: faBookOpen, description: 'View pending and completed homework' },
+  { id: 'resources', title: 'Academic Resources', screen: 'Resources', icon: faFileAlt, description: 'Download study materials and documents' },
+  { id: 'my-children', title: 'My Children', screen: 'MyChildren', icon: faUser, description: 'Performance tracking for parents' },
+
+  // Community
+  { id: 'clubs', title: 'Clubs & Teams', screen: 'ClubList', icon: faChalkboardTeacher, description: 'Explore extra-curricular activities' },
+  { id: 'market', title: 'Marketplace', screen: 'Market', icon: faStore, description: 'Trade school supplies and items' },
+  { id: 'polls', title: 'School Polls', screen: 'Polls', icon: faBullhorn, description: 'Participate in school surveys' },
+  { id: 'leaderboard', title: 'Leaderboard', screen: 'Leaderboard', icon: faTrophy, description: 'See student rankings and XP' },
+  { id: 'shop', title: 'Gamification Shop', screen: 'Shop', icon: faStore, description: 'Redeem rewards and items' },
+  { id: 'meetings', title: 'Parent-Teacher Meetings', screen: 'Meetings', icon: faComments, description: 'Schedule and manage appointments' },
+
+  // Administrative
+  { id: 'user-management', title: 'User Management', screen: 'UserManagement', icon: faFilter, description: 'Manage school users and roles' },
+  { id: 'school-data', title: 'School Data', screen: 'SchoolData', icon: faChartLine, description: 'System-wide data and records' },
+  { id: 'engagement', title: 'Engagement Insights', screen: 'EngagementInsights', icon: faChartLine, description: 'Analytics and participation reports' },
+  { id: 'manage-announcements', title: 'Manage Announcements', screen: 'ManageAnnouncements', icon: faBullhorn, description: 'Create and edit school news' },
+  { id: 'manage-market', title: 'Manage Market Data', screen: 'ManageMarketData', icon: faStore, description: 'Administrative market control' },
+  { id: 'create-class', title: 'Create New Class', screen: 'CreateClass', icon: faChalkboardTeacher, description: 'Set up a new academic session' },
+  { id: 'create-homework', title: 'Assign Homework', screen: 'CreateHomework', icon: faBookOpen, description: 'Create new homework for students' },
+  { id: 'create-assignment', title: 'Create Assignment', screen: 'CreateAssignment', icon: faFileSignature, description: 'Post new graded assignments' },
+  { id: 'create-poll', title: 'Create New Poll', screen: 'CreatePoll', icon: faBullhorn, description: 'Start a new school survey' },
 ];
 
 export default function SearchScreen({ navigation }) {
@@ -69,12 +92,25 @@ export default function SearchScreen({ navigation }) {
 
   useEffect(() => {
     loadRecentSearches();
-    const initialQuery = navigation.getState()?.routes[navigation.getState().index]?.params?.initialQuery;
-    if (initialQuery) {
-      setSearchQuery(initialQuery);
-      handleSearch(initialQuery);
+    const params = navigation.getState()?.routes[navigation.getState().index]?.params;
+    if (params?.initialQuery) {
+      setSearchQuery(params.initialQuery);
     }
   }, []);
+
+  // Automatic search with debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        if (searchQuery.trim().length > 0) {
+            handleSearch(searchQuery);
+        } else {
+            setResults([]);
+            setIsSearching(false);
+        }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, activeFilter]);
 
   const loadRecentSearches = async () => {
     try {
@@ -102,101 +138,113 @@ export default function SearchScreen({ navigation }) {
   };
 
   const handleSearch = async (query = searchQuery) => {
-    if (!query.trim() || !schoolId) return;
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+        setResults([]);
+        setIsSearching(false);
+        return;
+    }
 
-    Keyboard.dismiss();
     setLoading(true);
     setIsSearching(true);
-    saveSearch(query);
 
     try {
       const searchTasks = [];
-      const term = `%${query}%`;
+      const term = `%${trimmedQuery}%`;
 
-      if (activeFilter === 'all' || activeFilter === 'announcements') {
-        searchTasks.push(
-          supabase
-            .from('announcements')
-            .select('id, title, message, created_at')
-            .eq('school_id', schoolId)
-            .ilike('title', term)
-            .limit(10)
-            .then(res => (res.data || []).map(item => ({ ...item, type: 'announcement' })))
-        );
-      }
-
-      if (activeFilter === 'all' || activeFilter === 'homework') {
-        searchTasks.push(
-          supabase
-            .from('homework')
-            .select('id, subject, description, due_date')
-            .eq('school_id', schoolId)
-            .ilike('subject', term)
-            .limit(10)
-            .then(res => (res.data || []).map(item => ({ ...item, type: 'homework', title: item.subject })))
-        );
-      }
-
-      if (activeFilter === 'all' || activeFilter === 'assignments') {
-        searchTasks.push(
-          supabase
-            .from('assignments')
-            .select('id, title, description, due_date')
-            .eq('school_id', schoolId)
-            .ilike('title', term)
-            .limit(10)
-            .then(res => (res.data || []).map(item => ({ ...item, type: 'assignment' })))
-        );
-      }
-
-      if (activeFilter === 'all' || activeFilter === 'resources') {
-        searchTasks.push(
-          supabase
-            .from('resources')
-            .select('id, title, description, category')
-            .eq('school_id', schoolId)
-            .ilike('title', term)
-            .limit(10)
-            .then(res => (res.data || []).map(item => ({ ...item, type: 'resource' })))
-        );
-      }
-
-      if (activeFilter === 'all' || activeFilter === 'users') {
-        searchTasks.push(
-          supabase
-            .from('users')
-            .select('id, full_name, email, role, avatar_url')
-            .eq('school_id', schoolId)
-            .ilike('full_name', term)
-            .limit(10)
-            .then(res => (res.data || []).map(item => ({ ...item, type: 'user', title: item.full_name })))
-        );
-      }
-
-      if (activeFilter === 'all' || activeFilter === 'classes') {
-        searchTasks.push(
-          supabase
-            .from('classes')
-            .select('id, name')
-            .eq('school_id', schoolId)
-            .ilike('name', term)
-            .limit(10)
-            .then(res => (res.data || []).map(item => ({ ...item, type: 'class', title: item.name, icon: faChalkboardTeacher })))
-        );
-      }
-
+      // Always allow searching static pages
       if (activeFilter === 'all' || activeFilter === 'pages') {
         const filteredPages = STATIC_PAGES.filter(p =>
-          p.title.toLowerCase().includes(query.toLowerCase()) ||
-          p.description.toLowerCase().includes(query.toLowerCase())
+          p.title.toLowerCase().includes(trimmedQuery.toLowerCase()) ||
+          p.description.toLowerCase().includes(trimmedQuery.toLowerCase())
         ).map(p => ({ ...p, type: 'page' }));
         searchTasks.push(Promise.resolve(filteredPages));
       }
 
+      if (schoolId) {
+          if (activeFilter === 'all' || activeFilter === 'announcements') {
+            searchTasks.push(
+              supabase
+                .from('announcements')
+                .select('id, title, message, created_at')
+                .eq('school_id', schoolId)
+                .ilike('title', term)
+                .limit(10)
+                .then(res => (res.data || []).map(item => ({ ...item, type: 'announcement' })))
+            );
+          }
+
+          if (activeFilter === 'all' || activeFilter === 'homework') {
+            searchTasks.push(
+              supabase
+                .from('homework')
+                .select('id, subject, description, due_date')
+                .eq('school_id', schoolId)
+                .ilike('subject', term)
+                .limit(10)
+                .then(res => (res.data || []).map(item => ({ ...item, type: 'homework', title: item.subject })))
+            );
+          }
+
+          if (activeFilter === 'all' || activeFilter === 'assignments') {
+            searchTasks.push(
+              supabase
+                .from('assignments')
+                .select('id, title, description, due_date')
+                .eq('school_id', schoolId)
+                .ilike('title', term)
+                .limit(10)
+                .then(res => (res.data || []).map(item => ({ ...item, type: 'assignment' })))
+            );
+          }
+
+          if (activeFilter === 'all' || activeFilter === 'resources') {
+            searchTasks.push(
+              supabase
+                .from('resources')
+                .select('id, title, description, category')
+                .eq('school_id', schoolId)
+                .ilike('title', term)
+                .limit(10)
+                .then(res => (res.data || []).map(item => ({ ...item, type: 'resource' })))
+            );
+          }
+
+          if (activeFilter === 'all' || activeFilter === 'users') {
+            searchTasks.push(
+              supabase
+                .from('users')
+                .select('id, full_name, email, role, avatar_url')
+                .eq('school_id', schoolId)
+                .ilike('full_name', term)
+                .limit(10)
+                .then(res => (res.data || []).map(item => ({ ...item, type: 'user', title: item.full_name })))
+            );
+          }
+
+          if (activeFilter === 'all' || activeFilter === 'classes') {
+            searchTasks.push(
+              supabase
+                .from('classes')
+                .select('id, name')
+                .eq('school_id', schoolId)
+                .ilike('name', term)
+                .limit(10)
+                .then(res => (res.data || []).map(item => ({ ...item, type: 'class', title: item.name, icon: faChalkboardTeacher })))
+            );
+          }
+      }
+
       const allResults = await Promise.all(searchTasks);
       const merged = allResults.flat().sort((a, b) => {
-        if (a.title.toLowerCase() === query.toLowerCase()) return -1;
-        if (b.title.toLowerCase() === query.toLowerCase()) return 1;
+        const aTitle = (a.title || '').toLowerCase();
+        const bTitle = (b.title || '').toLowerCase();
+        const q = trimmedQuery.toLowerCase();
+        
+        if (aTitle === q) return -1;
+        if (bTitle === q) return 1;
+        if (aTitle.startsWith(q) && !bTitle.startsWith(q)) return -1;
+        if (!aTitle.startsWith(q) && bTitle.startsWith(q)) return 1;
         return 0;
       });
 
@@ -259,24 +307,40 @@ export default function SearchScreen({ navigation }) {
     }
   };
 
-  const renderResultItem = ({ item }) => (
-    <TouchableOpacity
-      style={[styles.resultItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-      onPress={() => navigateToResult(item)}
-      activeOpacity={0.7}
-    >
-      <View style={[styles.resultIconBox, { backgroundColor: theme.colors.primary + '10' }]}>
-        <FontAwesomeIcon icon={getResultIcon(item.type, item)} color={theme.colors.primary} size={16} />
-      </View>
-      <View style={styles.resultText}>
-        <Text style={[styles.resultTitle, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
-        <Text style={[styles.resultSub, { color: theme.colors.placeholder }]} numberOfLines={1}>
-          {item.type.toUpperCase()} • {item.description || item.message || item.role || ''}
-        </Text>
-      </View>
-      <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.cardBorder} />
-    </TouchableOpacity>
-  );
+  const getResultColor = (type, item) => {
+    switch (type) {
+      case 'announcement': return '#e11d48'; // Rose
+      case 'homework': return '#10b981';     // Emerald
+      case 'assignment': return '#4f46e5';   // Indigo
+      case 'resource': return '#2563eb';     // Blue
+      case 'user': return '#06b6d4';         // Cyan
+      case 'page': return '#8b5cf6';         // Violet
+      case 'class': return '#f59e0b';        // Amber
+      default: return theme.colors.primary;
+    }
+  };
+
+  const renderResultItem = ({ item }) => {
+    const itemColor = getResultColor(item.type, item);
+    return (
+      <TouchableOpacity
+        style={[styles.resultItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+        onPress={() => navigateToResult(item)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.resultIconBox, { backgroundColor: itemColor + '15' }]}>
+          <FontAwesomeIcon icon={getResultIcon(item.type, item)} color={itemColor} size={16} />
+        </View>
+        <View style={styles.resultText}>
+          <Text style={[styles.resultTitle, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
+          <Text style={[styles.resultSub, { color: theme.colors.placeholder }]} numberOfLines={1}>
+            <Text style={{ color: itemColor, fontWeight: '800' }}>{item.type.toUpperCase()}</Text> • {item.description || item.message || item.role || ''}
+          </Text>
+        </View>
+        <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.cardBorder} />
+      </TouchableOpacity>
+    );
+  };
 
   const filters = [
     { id: 'all', label: 'All' },
@@ -290,17 +354,22 @@ export default function SearchScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Modern Search Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      {/* Modern Search Header with Gradient background */}
+      <LinearGradient
+        colors={['#4f46e5', '#4338ca']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[styles.header, { paddingTop: insets.top + 10 }]}
+      >
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <FontAwesomeIcon icon={faArrowLeft} size={20} color={theme.colors.text} />
+          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#fff" />
         </TouchableOpacity>
-        <View style={[styles.searchBar, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-          <FontAwesomeIcon icon={faSearch} color={theme.colors.placeholder} size={16} style={styles.searchIcon} />
+        <View style={[styles.searchBar, { backgroundColor: 'rgba(255,255,255,0.2)', borderColor: 'rgba(255,255,255,0.3)', borderWidth: 1 }]}>
+          <FontAwesomeIcon icon={faSearch} color="#fff" size={16} style={styles.searchIcon} />
           <TextInput
-            style={[styles.input, { color: theme.colors.text }]}
+            style={[styles.input, { color: '#fff' }]}
             placeholder="Search everything..."
-            placeholderTextColor={theme.colors.placeholder}
+            placeholderTextColor="rgba(255,255,255,0.7)"
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={() => handleSearch()}
@@ -308,35 +377,17 @@ export default function SearchScreen({ navigation }) {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={clearSearch}>
-              <FontAwesomeIcon icon={faTimes} color={theme.colors.placeholder} size={16} style={styles.clearIcon} />
+              <FontAwesomeIcon icon={faTimes} color="#fff" size={16} style={styles.clearIcon} />
             </TouchableOpacity>
           )}
         </View>
-      </View>
+      </LinearGradient>
 
-      {/* Filters Scroll */}
-      <View style={styles.filterContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
-          {filters.map((f) => (
-            <TouchableOpacity
-              key={f.id}
-              style={[
-                styles.filterBtn,
-                { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 },
-                activeFilter === f.id && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }
-              ]}
-              onPress={() => {
-                setActiveFilter(f.id);
-                if (isSearching) handleSearch();
-              }}
-            >
-              <Text style={[
-                styles.filterText,
-                { color: activeFilter === f.id ? '#fff' : theme.colors.placeholder }
-              ]}>{f.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+      {/* Search Description */}
+      <View style={[styles.descriptionContainer, { backgroundColor: '#4f46e5' + '08' }]}>
+        <Text style={[styles.descriptionText, { color: '#4f46e5' }]}>
+          Find classes, people, announcements, resources, and app pages instantly.
+        </Text>
       </View>
 
       {loading ? (
@@ -398,7 +449,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 20,
   },
   backBtn: {
     marginRight: 12,
@@ -410,7 +461,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 16,
     paddingHorizontal: 16,
-    height: 54,
+    height: 52,
   },
   searchIcon: { marginRight: 12 },
   clearIcon: { marginLeft: 12 },
@@ -418,24 +469,19 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     height: '100%',
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  filterContainer: {
-    paddingVertical: 12,
+  descriptionContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.05)',
   },
-  filterBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    marginRight: 8,
-  },
-  filterText: {
+  descriptionText: {
     fontSize: 12,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    lineHeight: 18,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   content: {
     flex: 1,

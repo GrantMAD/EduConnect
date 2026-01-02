@@ -80,9 +80,9 @@ const DailyOverview = ({ loading, todaySessions, navigation }) => {
     };
 
     return (
-        <View style={styles.rowWidgets}>
+        <View style={styles.container}>
             {/* Today's Schedule */}
-            <View style={styles.halfSection}>
+            <View style={styles.fullSection}>
                 <View style={styles.sectionHeaderRow}>
                     <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Schedule</Text>
                     <TouchableOpacity onPress={() => navigation.navigate('Calendar')} activeOpacity={0.7}>
@@ -94,41 +94,16 @@ const DailyOverview = ({ loading, todaySessions, navigation }) => {
                 <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>TODAY'S CLASSES</Text>
                 {renderTodaySchedule()}
             </View>
-
-            {/* Clubs Widget */}
-            <View style={styles.halfSection}>
-                <View style={styles.sectionHeaderRow}>
-                    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Societies</Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('ClubList')} activeOpacity={0.7}>
-                        <View style={[styles.viewAllBtn, { backgroundColor: '#7c3aed' + '10' }]}>
-                            <FontAwesomeIcon icon={faChevronRight} size={10} color="#7c3aed" />
-                        </View>
-                    </TouchableOpacity>
-                </View>
-                <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>GROUPS & TEAMS</Text>
-                <TouchableOpacity
-                    style={[styles.clubActionBtn, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-                    onPress={() => navigation.navigate('ClubList')}
-                    activeOpacity={0.7}
-                >
-                    <View style={[styles.clubIconBox, { backgroundColor: '#7c3aed' + '15' }]}>
-                        <FontAwesomeIcon icon={faFootballBall} size={16} color="#7c3aed" />
-                    </View>
-                    <Text style={[styles.clubBtnText, { color: theme.colors.text }]}>Explore Clubs</Text>
-                </TouchableOpacity>
-            </View>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    rowWidgets: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+    container: {
         marginBottom: 32,
     },
-    halfSection: {
-        width: '48%',
+    fullSection: {
+        width: '100%',
     },
     sectionHeaderRow: {
         flexDirection: 'row',

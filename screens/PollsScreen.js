@@ -6,7 +6,17 @@ import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faPlus, faPoll, faClock, faCheckCircle, faInfoCircle, faTrophy, faGift, faInbox } from '@fortawesome/free-solid-svg-icons';
+import {
+  faPlus,
+  faPoll,
+  faClock,
+  faCheckCircle,
+  faInfoCircle,
+  faTrophy,
+  faGift,
+  faInbox,
+  faChevronRight
+} from '@fortawesome/free-solid-svg-icons';
 import CardListSkeleton, { SkeletonPiece } from '../components/skeletons/CardListSkeleton';
 import CardSkeleton from '../components/skeletons/CardSkeleton';
 import PollVoteModal from '../components/PollVoteModal';
@@ -319,46 +329,30 @@ const PollCard = React.memo(function PollCard({ item, userId, theme, onVotePress
     });
   }
 
+  const canVote = !userVote && !isExpired;
+
   return (
-    <View style={[styles.card, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.border }]}>
-      <View style={styles.cardContent}>
-        <View style={styles.cardHeader}>
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-              <FontAwesomeIcon icon={faPoll} size={16} color={theme.colors.primary} />
-              <Text style={[styles.cardMeta, { color: theme.colors.text, marginLeft: 6 }]}>
-                {new Date(item.created_at).toLocaleDateString()}
-              </Text>
-            </View>
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]} numberOfLines={2}>{item.question}</Text>
-            <Text style={[styles.authorText, { color: theme.colors.placeholder, marginBottom: 4 }]}>by {item.users?.full_name || 'Unknown'}</Text>
-            {item.end_date && (
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <FontAwesomeIcon icon={faClock} size={12} color={isExpired ? theme.colors.error : theme.colors.placeholder} />
-                <Text style={[styles.endDateText, { color: isExpired ? theme.colors.error : theme.colors.placeholder, marginLeft: 4 }]}>
-                  {isExpired ? 'Ended' : 'Ends'} {new Date(item.end_date).toLocaleDateString()}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {!userVote && !isExpired && (
-            <View style={styles.xpBadge}>
-              <FontAwesomeIcon icon={faGift} size={12} color="#fff" />
-              <Text style={styles.xpText}>+5 XP</Text>
-            </View>
-          )}
+    <View style={[styles.pollCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+      <View style={styles.pollCardHeader}>
+        <View style={[styles.pollIconBox, { backgroundColor: '#f59e0b' + '15' }]}>
+          <FontAwesomeIcon icon={faPoll} size={16} color="#f59e0b" />
         </View>
-
-        {userVote && (
-          <View style={[styles.votedCard, { backgroundColor: theme.colors.success + '15', borderColor: theme.colors.success + '40' }]}>
-            <FontAwesomeIcon icon={faCheckCircle} size={16} color={theme.colors.success} />
-            <Text style={[styles.votedText, { color: theme.colors.success }]}>You have already voted</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.pollAuthor, { color: theme.colors.placeholder }]}>
+            {item.users?.full_name || 'System'} • {new Date(item.created_at).toLocaleDateString()}
+          </Text>
+          <Text style={[styles.pollQuestion, { color: theme.colors.text }]}>{item.question}</Text>
+        </View>
+        {canVote && (
+          <View style={styles.pollXPBadge}>
+            <Text style={styles.pollXPText}>+5 XP</Text>
           </View>
         )}
+      </View>
 
+      <View style={styles.pollCardBody}>
         {userVote || isExpired ? (
-          <View style={styles.resultsContainer}>
+          <View style={styles.pollResults}>
             {item.options.map((option, idx) => {
               const optionVotes = votes.filter(v => v.selected_option === option).length;
               const percentage = totalVotes > 0 ? (optionVotes / totalVotes) * 100 : 0;
@@ -366,40 +360,52 @@ const PollCard = React.memo(function PollCard({ item, userId, theme, onVotePress
               const isSelected = userVote?.selected_option === option;
 
               return (
-                <View key={idx} style={styles.resultItem}>
-                  <View style={styles.resultLabelContainer}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={[styles.resultLabel, { color: theme.colors.text, fontWeight: isSelected || isWinner ? 'bold' : 'normal' }]}>
-                        {option}
-                      </Text>
-                      {isWinner && <FontAwesomeIcon icon={faTrophy} size={14} color="#FFD700" style={{ marginLeft: 6 }} />}
-                      {isSelected && <FontAwesomeIcon icon={faCheckCircle} size={14} color={theme.colors.success} style={{ marginLeft: 6 }} />}
-                    </View>
-                    <Text style={[styles.resultPercentage, { color: theme.colors.text }]}>{`${percentage.toFixed(0)}%`}</Text>
+                <View key={idx} style={styles.pollResultItem}>
+                  <View style={styles.pollResultLabelRow}>
+                    <Text style={[styles.pollResultLabel, { color: theme.colors.text, fontWeight: isSelected || isWinner ? '800' : '600' }]} numberOfLines={1}>
+                      {option}
+                    </Text>
+                    <Text style={[styles.pollResultPercent, { color: isSelected ? theme.colors.primary : theme.colors.text }]}>
+                      {percentage.toFixed(0)}%
+                    </Text>
                   </View>
-                  <View style={[styles.progressTrack, { backgroundColor: theme.colors.border }]}>
+                  <View style={[styles.pollProgressTrack, { backgroundColor: theme.colors.background }]}>
                     <View
                       style={[
-                        styles.progressFill,
+                        styles.pollProgressFill,
                         {
                           width: `${percentage}%`,
-                          backgroundColor: isWinner ? '#FFD700' : (isSelected ? theme.colors.success : theme.colors.primary)
+                          backgroundColor: isWinner ? '#f59e0b' : (isSelected ? theme.colors.primary : '#94a3b8')
                         }
                       ]}
                     />
                   </View>
-                  <Text style={styles.voteCountText}>{optionVotes} votes</Text>
+                  <View style={styles.pollVoteCountRow}>
+                    {isSelected && <Text style={[styles.myVoteText, { color: theme.colors.primary }]}>Your Choice</Text>}
+                    <Text style={styles.voteCountSmall}>{optionVotes} votes</Text>
+                  </View>
                 </View>
               );
             })}
-            <Text style={styles.totalVotesText}>{totalVotes} total votes</Text>
+            <View style={styles.pollFooter}>
+              <View style={styles.totalVotesBadge}>
+                <Text style={styles.totalVotesText}>{totalVotes} Total Votes</Text>
+              </View>
+              {isExpired && (
+                <View style={[styles.statusBadge, { backgroundColor: '#ef444415' }]}>
+                  <Text style={[styles.statusText, { color: '#ef4444' }]}>ENDED</Text>
+                </View>
+              )}
+            </View>
           </View>
         ) : (
           <TouchableOpacity
-            style={[styles.voteButton, { backgroundColor: theme.colors.primary }]}
+            style={[styles.pollVoteBtn, { backgroundColor: theme.colors.primary }]}
             onPress={onVotePress}
+            activeOpacity={0.8}
           >
-            <Text style={styles.voteButtonText}>Vote Now</Text>
+            <Text style={styles.pollVoteBtnText}>Cast Your Vote</Text>
+            <FontAwesomeIcon icon={faChevronRight} size={12} color="#fff" style={{ marginLeft: 8 }} />
           </TouchableOpacity>
         )}
       </View>
@@ -473,61 +479,139 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 60 },
   emptyStateText: { marginTop: 16, fontSize: 16, color: '#888' },
 
-  // Card Styles
-  card: {
-    borderRadius: 16,
+  // Redesigned Poll Card Styles
+  pollCard: {
+    borderRadius: 24,
+    padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
-    elevation: 0, // Zero elevation
   },
-  cardContent: { padding: 16 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
-  cardMeta: { fontSize: 12 },
-  endDateText: { fontSize: 12 },
-  cardTitle: { fontSize: 18, fontWeight: 'bold', marginVertical: 4 },
-  authorText: { fontSize: 12 },
-
-  xpBadge: {
+  pollCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  pollIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  pollAuthor: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  pollQuestion: {
+    fontSize: 17,
+    fontWeight: '900',
+    lineHeight: 22,
+  },
+  pollXPBadge: {
+    backgroundColor: '#f59e0b',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  pollXPText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  pollCardBody: {
+  },
+  pollVoteBtn: {
+    height: 52,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFC107',
+    justifyContent: 'center',
+  },
+  pollVoteBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  pollResults: {
+    gap: 16,
+  },
+  pollResultItem: {
+  },
+  pollResultLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  pollResultLabel: {
+    fontSize: 14,
+    flex: 1,
+    paddingRight: 10,
+  },
+  pollResultPercent: {
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  pollProgressTrack: {
+    height: 10,
+    borderRadius: 5,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  pollProgressFill: {
+    height: '100%',
+    borderRadius: 5,
+  },
+  pollVoteCountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  myVoteText: {
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  voteCountSmall: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94a3b8',
+    marginLeft: 'auto',
+  },
+  pollFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  totalVotesBadge: {
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  totalVotesText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12
+    borderRadius: 6,
   },
-  xpText: { color: '#fff', fontWeight: 'bold', fontSize: 12, marginLeft: 4 },
-
-  votedCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 12,
+  statusText: {
+    fontSize: 9,
+    fontWeight: '900',
   },
-  votedText: {
-    fontWeight: '600',
-    marginLeft: 8,
-    fontSize: 14,
-  },
-
-  voteButton: {
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 8
-  },
-  voteButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-
-  resultsContainer: { marginTop: 8 },
-  resultItem: { marginBottom: 12 },
-  resultLabelContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  resultLabel: { fontSize: 14 },
-  resultPercentage: { fontSize: 14, fontWeight: 'bold' },
-  progressTrack: { height: 8, borderRadius: 4, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 4 },
-  voteCountText: { fontSize: 11, color: '#888', marginTop: 2, textAlign: 'right' },
-  totalVotesText: { fontSize: 12, color: '#666', marginTop: 8, textAlign: 'center', fontStyle: 'italic' },
 
   modalText: { fontSize: 16, color: '#333', marginBottom: 10 },
   bulletPoint: { fontSize: 15, color: '#555', marginBottom: 8, marginLeft: 10 },
