@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, ActivityIndicator } from 'react-native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTimes, faTag, faUserCircle, faMoneyBillWave, faEdit, faTrash, faComment } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faTag, faUserCircle, faMoneyBillWave, faEdit, faTrash, faComment, faBox, faBook, faLaptop, faPencilAlt, faChair, faTshirt } from '@fortawesome/free-solid-svg-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 
@@ -15,6 +15,17 @@ export default function MarketplaceItemDetailModal({ visible, item, onClose, onV
     if (!item) return null;
 
     const isManagementMode = !!(onEdit || onDelete);
+
+    const getCategoryIcon = (category) => {
+        switch (category) {
+            case 'Books': return faBook;
+            case 'Electronics': return faLaptop;
+            case 'Stationery': return faPencilAlt;
+            case 'Furniture': return faChair;
+            case 'Clothing': return faTshirt;
+            default: return faBox;
+        }
+    };
 
     return (
         <Modal
@@ -40,16 +51,18 @@ export default function MarketplaceItemDetailModal({ visible, item, onClose, onV
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 24 }}>
-                    <Image
-                        source={
-                            !imageError && item.image_url
-                                ? { uri: item.image_url }
-                                : require('../assets/item_placeholder.png')
-                        }
-                        style={[styles.itemImage, { borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-                        resizeMode="cover"
-                        onError={() => setImageError(true)}
-                    />
+                    {!imageError && item.image_url ? (
+                        <Image
+                            source={{ uri: item.image_url }}
+                            style={[styles.itemImage, { borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                            resizeMode="cover"
+                            onError={() => setImageError(true)}
+                        />
+                    ) : (
+                        <View style={[styles.itemImage, styles.fallbackContainer, { borderColor: theme.colors.cardBorder, borderWidth: 1, backgroundColor: theme.colors.inputBackground }]}>
+                            <FontAwesomeIcon icon={getCategoryIcon(item.category)} size={80} color={theme.colors.placeholder} />
+                        </View>
+                    )}
 
                     <View style={styles.contentContainer}>
                         <View style={styles.titleRow}>
@@ -182,6 +195,10 @@ const styles = StyleSheet.create({
         height: 280,
         borderRadius: 24,
         marginBottom: 24,
+    },
+    fallbackContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     contentContainer: {
         paddingBottom: 20,

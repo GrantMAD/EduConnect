@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faEdit, faTrash, faBox, faBook, faLaptop, faPencilAlt, faChair, faTshirt } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
 
 const MarketplaceItemCard = ({ item, onViewSeller, onEdit, onDelete }) => {
@@ -20,6 +20,17 @@ const MarketplaceItemCard = ({ item, onViewSeller, onEdit, onDelete }) => {
     }
   };
 
+  const getCategoryIcon = (category) => {
+    switch (category) {
+      case 'Books': return faBook;
+      case 'Electronics': return faLaptop;
+      case 'Stationery': return faPencilAlt;
+      case 'Furniture': return faChair;
+      case 'Clothing': return faTshirt;
+      default: return faBox;
+    }
+  };
+
   const [imageError, setImageError] = React.useState(false);
 
   return (
@@ -29,16 +40,18 @@ const MarketplaceItemCard = ({ item, onViewSeller, onEdit, onDelete }) => {
       activeOpacity={0.9}
     >
       <View style={styles.imageContainer}>
-        <Image
-          source={
-            !imageError && item.image_url
-              ? { uri: item.image_url }
-              : require('../assets/item_placeholder.png')
-          }
-          style={styles.image}
-          resizeMode="cover"
-          onError={() => setImageError(true)}
-        />
+        {!imageError && item.image_url ? (
+          <Image
+            source={{ uri: item.image_url }}
+            style={styles.image}
+            resizeMode="cover"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <View style={[styles.image, styles.fallbackContainer, { backgroundColor: theme.colors.inputBackground }]}>
+            <FontAwesomeIcon icon={getCategoryIcon(item.category)} size={48} color={theme.colors.placeholder} />
+          </View>
+        )}
         {item.category && (
           <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(item.category) }]}>
             <Text style={styles.categoryText}>{item.category}</Text>
@@ -90,6 +103,10 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: 180,
+  },
+  fallbackContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   categoryBadge: {
     position: 'absolute',

@@ -27,7 +27,7 @@ const WelcomeScreen = ({ navigation }) => {
 
                     <View style={styles.logoContainer}>
                         <Image
-                            source={require('../assets/splash.png')}
+                            source={require('../assets/Logo.png')}
                             style={styles.logo}
                             resizeMode="contain"
                         />
@@ -60,7 +60,7 @@ const WelcomeScreen = ({ navigation }) => {
                 </View>
 
                 {/* Stats Row */}
-                <View style={styles.statsRow}>
+                {/* <View style={styles.statsRow}>
                     <View style={styles.statItem}>
                         <Text style={styles.statVal}>50k+</Text>
                         <Text style={styles.statLabel}>USERS</Text>
@@ -75,7 +75,7 @@ const WelcomeScreen = ({ navigation }) => {
                         <Text style={styles.statVal}>99%</Text>
                         <Text style={styles.statLabel}>HAPPY</Text>
                     </View>
-                </View>
+                </View> */}
             </ScrollView>
         </LinearGradient>
     );
@@ -121,15 +121,13 @@ const styles = StyleSheet.create({
     logoContainer: {
         width: 180,
         height: 180,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        borderRadius: 40,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 32,
     },
     logo: {
-        width: 140,
-        height: 140,
+        width: 250,
+        height: 250,
     },
     title: {
         fontSize: 36,
