@@ -7,9 +7,9 @@ const DateHeader = ({ date }) => {
 
     return (
         <View style={styles.container}>
-            <View style={[styles.bubble, { backgroundColor: theme.colors.surfaceVariant }]}>
-                <Text style={[styles.text, { color: theme.colors.textSecondary }]}>
-                    {date}
+            <View style={[styles.bubble, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                <Text style={[styles.text, { color: theme.colors.placeholder }]}>
+                    {date?.toUpperCase()}
                 </Text>
             </View>
         </View>
@@ -19,16 +19,17 @@ const DateHeader = ({ date }) => {
 const styles = StyleSheet.create({
     container: {
         alignItems: 'center',
-        marginVertical: 16,
+        marginVertical: 24,
     },
     bubble: {
-        paddingHorizontal: 12,
-        paddingVertical: 4,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
         borderRadius: 12,
     },
     text: {
-        fontSize: 12,
-        fontWeight: '600',
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
 });
 

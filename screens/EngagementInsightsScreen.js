@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { 
     faChartLine, faBullhorn, faBook, faChalkboardTeacher, 
     faSearch, faSort, faSortUp, faSortDown, faSpinner,
-    faFilter, faUserTie, faArrowLeft, faShieldAlt, faChevronRight, faTimes
+    faFilter, faUserTie, faArrowLeft, faShieldAlt, faChevronRight, faTimes, faChevronLeft
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useSchool } from '../context/SchoolContext';
@@ -24,7 +24,6 @@ export default function EngagementInsightsScreen({ navigation }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState({ key: 'total', direction: 'desc' });
     
-    // Modal State
     const [selectedTeacher, setSelectedTeacher] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -117,42 +116,46 @@ export default function EngagementInsightsScreen({ navigation }) {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            <View style={{ height: 10 }} />
-
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <FontAwesomeIcon icon={faArrowLeft} color={theme.colors.text} size={20} />
-                </TouchableOpacity>
-                <View>
-                    <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Engagement Audit</Text>
-                    <Text style={[styles.headerSubtitle, { color: theme.colors.placeholder }]}>Teaching Staff Intelligence</Text>
+            <LinearGradient
+                colors={['#4f46e5', '#7c3aed']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.heroContainer}
+            >
+                <View style={styles.heroContent}>
+                    <View style={styles.heroTextContainer}>
+                        <View style={styles.breadcrumb}>
+                            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                                <FontAwesomeIcon icon={faChevronLeft} size={14} color="#fff" />
+                                <Text style={styles.breadcrumbText}>Management</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.intelBadge}>
+                            <View style={styles.pingDot} />
+                            <Text style={styles.intelBadgeText}>ADMINISTRATIVE INTELLIGENCE</Text>
+                        </View>
+                        <Text style={styles.heroTitle}>Engagement Audit</Text>
+                        <Text style={styles.heroDescription}>
+                            Monitor digital adoption and activity levels across your teaching staff.
+                        </Text>
+                    </View>
+                    <View style={styles.statusBox}>
+                        <View style={styles.statusIconBox}>
+                            <FontAwesomeIcon icon={faChartLine} color="#fff" size={24} />
+                        </View>
+                        <View style={{ marginTop: 8, alignItems: 'center' }}>
+                            <Text style={styles.statusLabel}>LIVE STATUS</Text>
+                            <Text style={styles.statusValue}>{teachers.length}</Text>
+                        </View>
+                    </View>
                 </View>
-            </View>
+            </LinearGradient>
 
             <ScrollView 
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Hero Banner */}
-                <LinearGradient
-                    colors={['#6366F1', '#8B5CF6']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.heroBanner}
-                >
-                    <View style={styles.heroContent}>
-                        <View>
-                            <Text style={styles.heroTitle}>Staff Overview</Text>
-                            <Text style={styles.heroSubtitle}>{teachers.length} Active Educators</Text>
-                        </View>
-                        <View style={styles.heroIconBox}>
-                            <FontAwesomeIcon icon={faChartLine} color="#fff" size={24} />
-                        </View>
-                    </View>
-                </LinearGradient>
-
-                {/* Search Bar - Cleaned up per request */}
-                <View style={[styles.searchContainer, { backgroundColor: theme.colors.card }]}>
+                <View style={[styles.searchContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                     <FontAwesomeIcon icon={faSearch} color={theme.colors.placeholder} size={14} />
                     <TextInput
                         style={[styles.searchInput, { color: theme.colors.text }]}
@@ -166,7 +169,7 @@ export default function EngagementInsightsScreen({ navigation }) {
                 {loading ? (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="small" color={theme.colors.primary} />
-                        <Text style={[styles.loadingText, { color: theme.colors.placeholder }]}>Calculating scores...</Text>
+                        <Text style={[styles.loadingText, { color: theme.colors.placeholder }]}>Calculating staff scores...</Text>
                     </View>
                 ) : (
                     <View style={styles.auditList}>
@@ -184,7 +187,7 @@ export default function EngagementInsightsScreen({ navigation }) {
                         {sortedTeachers.map((teacher) => (
                             <TouchableOpacity 
                                 key={teacher.id} 
-                                style={[styles.teacherListItem, { backgroundColor: theme.colors.card }]}
+                                style={[styles.teacherListItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
                                 onPress={() => handleTeacherPress(teacher)}
                                 activeOpacity={0.7}
                             >
@@ -197,10 +200,10 @@ export default function EngagementInsightsScreen({ navigation }) {
                                     <Text style={[styles.teacherEmailSmall, { color: theme.colors.placeholder }]}>{teacher.email}</Text>
                                 </View>
                                 <View style={styles.listAction}>
-                                    <View style={[styles.badgeSmall, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
-                                        <Text style={styles.badgeTextSmall}>{teacher.total}</Text>
+                                    <View style={[styles.badgeSmall, { backgroundColor: theme.colors.primary + '10' }]}>
+                                        <Text style={[styles.badgeTextSmall, { color: theme.colors.primary }]}>{teacher.total}</Text>
                                     </View>
-                                    <FontAwesomeIcon icon={faChevronRight} color={theme.colors.border} size={12} />
+                                    <FontAwesomeIcon icon={faChevronRight} color={theme.colors.cardBorder} size={12} />
                                 </View>
                             </TouchableOpacity>
                         ))}
@@ -208,7 +211,6 @@ export default function EngagementInsightsScreen({ navigation }) {
                 )}
             </ScrollView>
 
-            {/* Teacher Detail Modal */}
             <StandardBottomModal
                 visible={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
@@ -234,7 +236,7 @@ export default function EngagementInsightsScreen({ navigation }) {
                             <AuditStat icon={faChalkboardTeacher} label="Active Classes" count={selectedTeacher.classes} color="#10B981" />
                         </View>
 
-                        <View style={[styles.totalScoreBox, { backgroundColor: 'rgba(99, 102, 241, 0.05)', borderColor: 'rgba(99, 102, 241, 0.1)' }]}>
+                        <View style={[styles.totalScoreBox, { backgroundColor: theme.colors.primary + '05', borderColor: theme.colors.primary + '10', borderWidth: 1 }]}>
                             <Text style={[styles.scoreLabel, { color: theme.colors.placeholder }]}>OVERALL ENGAGEMENT SCORE</Text>
                             <Text style={[styles.scoreValue, { color: theme.colors.primary }]}>{selectedTeacher.total}</Text>
                             <Text style={[styles.scoreStatus, { color: theme.colors.placeholder }]}>
@@ -251,7 +253,7 @@ export default function EngagementInsightsScreen({ navigation }) {
 function AuditStat({ icon, label, count, color }) {
     const { theme } = useTheme();
     return (
-        <View style={[styles.auditStatItem, { backgroundColor: theme.colors.inputBackground }]}>
+        <View style={[styles.auditStatItem, { backgroundColor: theme.colors.background }]}>
             <View style={[styles.auditStatIcon, { backgroundColor: color + '15' }]}>
                 <FontAwesomeIcon icon={icon} color={color} size={14} />
             </View>
@@ -259,7 +261,7 @@ function AuditStat({ icon, label, count, color }) {
                 <Text style={[styles.auditStatLabel, { color: theme.colors.placeholder }]}>{label.toUpperCase()}</Text>
                 <Text style={[styles.auditStatValue, { color: theme.colors.text }]}>{count}</Text>
             </View>
-            <View style={[styles.miniProgressBg, { backgroundColor: theme.colors.border }]}>
+            <View style={[styles.miniProgressBg, { backgroundColor: theme.colors.cardBorder }]}>
                 <View style={[styles.miniProgressFill, { backgroundColor: color, width: `${Math.min(count * 10, 100)}%` }]} />
             </View>
         </View>
@@ -268,51 +270,127 @@ function AuditStat({ icon, label, count, color }) {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { flexDirection: 'row', alignItems: 'center', padding: 20, gap: 16 },
-    backButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
-    headerSubtitle: { fontSize: 12, fontWeight: '600' },
-    scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
-    
-    heroBanner: { padding: 24, borderRadius: 32, marginBottom: 24, overflow: 'hidden' },
-    heroContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    heroTitle: { color: '#fff', fontSize: 22, fontWeight: '900', trackingTight: -0.5 },
-    heroSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: '700', marginTop: 2 },
-    heroIconBox: { width: 48, height: 48, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-
+    heroContainer: {
+        padding: 24,
+        paddingTop: 40,
+        marginBottom: 0,
+        elevation: 0,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
+    },
+    heroContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    heroTextContainer: {
+        flex: 1,
+        paddingRight: 10,
+    },
+    breadcrumb: {
+        marginBottom: 16,
+    },
+    backBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 20,
+        alignSelf: 'flex-start',
+    },
+    breadcrumbText: {
+        color: '#fff',
+        fontSize: 11,
+        fontWeight: 'bold',
+        marginLeft: 6,
+    },
+    intelBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 20,
+        alignSelf: 'flex-start',
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    pingDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#fff',
+        marginRight: 6,
+    },
+    intelBadgeText: {
+        color: '#fff',
+        fontSize: 8,
+        fontWeight: '900',
+        letterSpacing: 1,
+    },
+    heroTitle: {
+        color: '#fff',
+        fontSize: 28,
+        fontWeight: '900',
+        marginBottom: 8,
+        letterSpacing: -1,
+    },
+    heroDescription: {
+        color: '#e0e7ff',
+        fontSize: 14,
+        fontWeight: '500',
+        lineHeight: 20,
+    },
+    statusBox: {
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        padding: 16,
+        borderRadius: 24,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    statusIconBox: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    statusLabel: {
+        color: 'rgba(255,255,255,0.7)',
+        fontSize: 8,
+        fontWeight: '900',
+        letterSpacing: 1,
+    },
+    statusValue: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: '900',
+    },
+    scrollContent: { padding: 20, paddingBottom: 40 },
     searchContainer: { 
         flexDirection: 'row', 
         alignItems: 'center', 
         paddingHorizontal: 16, 
-        borderRadius: 20, 
+        borderRadius: 16, 
         marginBottom: 24, 
-        shadowColor: '#000', 
-        shadowOffset: { width: 0, height: 4 }, 
-        shadowOpacity: 0.05, 
-        shadowRadius: 8, 
-        elevation: 0 
     },
     searchInput: { flex: 1, paddingVertical: 12, marginLeft: 12, fontSize: 14, fontWeight: '600' },
-    
     loadingContainer: { padding: 40, alignItems: 'center' },
     loadingText: { marginTop: 12, fontSize: 12, fontWeight: '700' },
-    
     auditList: { gap: 10 },
-    sortHeader: { flexDirection: 'row', padding: 12, borderRadius: 16, marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+    sortHeader: { flexDirection: 'row', padding: 12, borderRadius: 12, marginBottom: 8 },
     sortHeaderText: { fontSize: 10, fontWeight: '900', color: '#fff', letterSpacing: 1.5 },
     colTeacher: { flex: 1, flexDirection: 'row', alignItems: 'center' },
     colStat: { width: 80, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
-    
     teacherListItem: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 12,
-        borderRadius: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
-        shadowRadius: 4,
-        elevation: 0
+        borderRadius: 16,
     },
     avatarSmall: { width: 44, height: 44, borderRadius: 14, marginRight: 12 },
     teacherInfoSmall: { flex: 1 },
@@ -320,9 +398,7 @@ const styles = StyleSheet.create({
     teacherEmailSmall: { fontSize: 10, fontWeight: '600', marginTop: 1 },
     listAction: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     badgeSmall: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-    badgeTextSmall: { color: '#6366F1', fontSize: 12, fontWeight: '900' },
-
-    // Modal Styles
+    badgeTextSmall: { fontSize: 12, fontWeight: '900' },
     modalContent: { padding: 4 },
     modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
     modalAvatar: { width: 64, height: 64, borderRadius: 20, marginRight: 16 },
@@ -335,7 +411,7 @@ const styles = StyleSheet.create({
     auditStatValue: { fontSize: 14, fontWeight: '900' },
     miniProgressBg: { width: 60, height: 4, borderRadius: 2, overflow: 'hidden' },
     miniProgressFill: { height: '100%', borderRadius: 2 },
-    totalScoreBox: { padding: 24, borderRadius: 24, borderWIdth: 1, alignItems: 'center' },
+    totalScoreBox: { padding: 24, borderRadius: 24, alignItems: 'center' },
     scoreLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 8 },
     scoreValue: { fontSize: 32, fontWeight: '900', marginBottom: 4 },
     scoreStatus: { fontSize: 11, fontWeight: '700', fontStyle: 'italic' }

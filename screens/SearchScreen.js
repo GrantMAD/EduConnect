@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Keyboard,
+  Dimensions
 } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
@@ -30,12 +31,14 @@ import {
   faStore,
   faCog,
   faChalkboardTeacher,
+  faChevronRight
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useSchool } from '../context/SchoolContext';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 
 const RECENT_SEARCHES_KEY = 'recent_searches';
 
@@ -61,7 +64,7 @@ export default function SearchScreen({ navigation }) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState([]);
-  const [activeFilter, setActiveFilter] = useState('all'); // all, announcements, homework, assignments, resources, users
+  const [activeFilter, setActiveFilter] = useState('all'); 
   const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
@@ -110,7 +113,6 @@ export default function SearchScreen({ navigation }) {
       const searchTasks = [];
       const term = `%${query}%`;
 
-      // 1. Announcements
       if (activeFilter === 'all' || activeFilter === 'announcements') {
         searchTasks.push(
           supabase
@@ -123,7 +125,6 @@ export default function SearchScreen({ navigation }) {
         );
       }
 
-      // 2. Homework
       if (activeFilter === 'all' || activeFilter === 'homework') {
         searchTasks.push(
           supabase
@@ -136,7 +137,6 @@ export default function SearchScreen({ navigation }) {
         );
       }
 
-      // 3. Assignments
       if (activeFilter === 'all' || activeFilter === 'assignments') {
         searchTasks.push(
           supabase
@@ -149,7 +149,6 @@ export default function SearchScreen({ navigation }) {
         );
       }
 
-      // 4. Resources
       if (activeFilter === 'all' || activeFilter === 'resources') {
         searchTasks.push(
           supabase
@@ -162,7 +161,6 @@ export default function SearchScreen({ navigation }) {
         );
       }
 
-      // 5. Users
       if (activeFilter === 'all' || activeFilter === 'users') {
         searchTasks.push(
           supabase
@@ -175,7 +173,6 @@ export default function SearchScreen({ navigation }) {
         );
       }
 
-      // 6. Classes
       if (activeFilter === 'all' || activeFilter === 'classes') {
         searchTasks.push(
           supabase
@@ -188,7 +185,6 @@ export default function SearchScreen({ navigation }) {
         );
       }
 
-      // 7. Pages (Static)
       if (activeFilter === 'all' || activeFilter === 'pages') {
         const filteredPages = STATIC_PAGES.filter(p =>
           p.title.toLowerCase().includes(query.toLowerCase()) ||
@@ -199,7 +195,6 @@ export default function SearchScreen({ navigation }) {
 
       const allResults = await Promise.all(searchTasks);
       const merged = allResults.flat().sort((a, b) => {
-        // Sort by relevance (not perfect but simple)
         if (a.title.toLowerCase() === query.toLowerCase()) return -1;
         if (b.title.toLowerCase() === query.toLowerCase()) return 1;
         return 0;
@@ -241,20 +236,18 @@ export default function SearchScreen({ navigation }) {
   const navigateToResult = (item) => {
     switch (item.type) {
       case 'announcement':
-        // For now just go to general screen, or we could add individual detail logic
         navigation.navigate('HomeTabs', { screen: 'Announcements' });
         break;
       case 'homework':
         navigation.navigate('HomeTabs', { screen: 'Homework' });
         break;
       case 'assignment':
-        navigation.navigate('Homework'); // Assignments usually live here too or nearby
+        navigation.navigate('Homework'); 
         break;
       case 'resource':
         navigation.navigate('Resources');
         break;
       case 'user':
-        // If admin, go to user management
         navigation.navigate('UserManagement');
         break;
       case 'page':
@@ -268,18 +261,20 @@ export default function SearchScreen({ navigation }) {
 
   const renderResultItem = ({ item }) => (
     <TouchableOpacity
-      style={[styles.resultItem, { borderBottomColor: theme.colors.cardBorder }]}
+      style={[styles.resultItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
       onPress={() => navigateToResult(item)}
+      activeOpacity={0.7}
     >
-      <View style={[styles.iconBox, { backgroundColor: theme.colors.inputBackground }]}>
+      <View style={[styles.resultIconBox, { backgroundColor: theme.colors.primary + '10' }]}>
         <FontAwesomeIcon icon={getResultIcon(item.type, item)} color={theme.colors.primary} size={16} />
       </View>
       <View style={styles.resultText}>
         <Text style={[styles.resultTitle, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
         <Text style={[styles.resultSub, { color: theme.colors.placeholder }]} numberOfLines={1}>
-          {item.type.charAt(0).toUpperCase() + item.type.slice(1)} • {item.description || item.message || item.role || ''}
+          {item.type.toUpperCase()} • {item.description || item.message || item.role || ''}
         </Text>
       </View>
+      <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.cardBorder} />
     </TouchableOpacity>
   );
 
@@ -287,22 +282,21 @@ export default function SearchScreen({ navigation }) {
     { id: 'all', label: 'All' },
     { id: 'pages', label: 'Pages' },
     { id: 'classes', label: 'Classes' },
-    { id: 'announcements', label: 'Announcements' },
+    { id: 'announcements', label: 'News' },
     { id: 'homework', label: 'Homework' },
-    { id: 'assignments', label: 'Assignments' },
     { id: 'resources', label: 'Resources' },
-    { id: 'users', label: 'Users' },
+    { id: 'users', label: 'People' },
   ];
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
-      {/* Search Header */}
-      <View style={styles.header}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Modern Search Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <FontAwesomeIcon icon={faArrowLeft} size={20} color={theme.colors.text} />
         </TouchableOpacity>
-        <View style={[styles.searchBar, { backgroundColor: theme.colors.inputBackground }]}>
-          <FontAwesomeIcon icon={faSearch} color={theme.colors.placeholder} style={styles.searchIcon} />
+        <View style={[styles.searchBar, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+          <FontAwesomeIcon icon={faSearch} color={theme.colors.placeholder} size={16} style={styles.searchIcon} />
           <TextInput
             style={[styles.input, { color: theme.colors.text }]}
             placeholder="Search everything..."
@@ -314,13 +308,13 @@ export default function SearchScreen({ navigation }) {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={clearSearch}>
-              <FontAwesomeIcon icon={faTimes} color={theme.colors.placeholder} style={styles.clearIcon} />
+              <FontAwesomeIcon icon={faTimes} color={theme.colors.placeholder} size={16} style={styles.clearIcon} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {/* Filters */}
+      {/* Filters Scroll */}
       <View style={styles.filterContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
           {filters.map((f) => (
@@ -328,7 +322,8 @@ export default function SearchScreen({ navigation }) {
               key={f.id}
               style={[
                 styles.filterBtn,
-                activeFilter === f.id && { backgroundColor: theme.colors.primary }
+                { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 },
+                activeFilter === f.id && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }
               ]}
               onPress={() => {
                 setActiveFilter(f.id);
@@ -349,38 +344,35 @@ export default function SearchScreen({ navigation }) {
           <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
       ) : !isSearching ? (
-        /* Recent Searches */
-        <View style={styles.content}>
+        <ScrollView style={styles.content}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Recent Searches</Text>
             {recentSearches.length > 0 && (
               <TouchableOpacity onPress={async () => { setRecentSearches([]); await AsyncStorage.removeItem(RECENT_SEARCHES_KEY); }}>
-                <Text style={{ color: theme.colors.primary }}>Clear All</Text>
+                <Text style={{ color: theme.colors.primary, fontWeight: '700', fontSize: 12 }}>CLEAR ALL</Text>
               </TouchableOpacity>
             )}
           </View>
           {recentSearches.length === 0 ? (
-            <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No recent searches</Text>
+            <View style={styles.emptyRecent}>
+                <FontAwesomeIcon icon={faHistory} size={40} color={theme.colors.placeholder} style={{ opacity: 0.3, marginBottom: 12 }} />
+                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No recent searches</Text>
+            </View>
           ) : (
-            <FlatList
-              data={recentSearches}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <View style={styles.recentItem}>
+            recentSearches.map((item, idx) => (
+                <View key={idx} style={[styles.recentItem, { borderBottomColor: theme.colors.cardBorder }]}>
                   <TouchableOpacity style={styles.recentItemClick} onPress={() => { setSearchQuery(item); handleSearch(item); }}>
                     <FontAwesomeIcon icon={faHistory} color={theme.colors.placeholder} size={14} />
                     <Text style={[styles.recentText, { color: theme.colors.text }]}>{item}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => removeRecentSearch(item)}>
+                  <TouchableOpacity onPress={() => removeRecentSearch(item)} style={{ padding: 8 }}>
                     <FontAwesomeIcon icon={faTimes} color={theme.colors.placeholder} size={14} />
                   </TouchableOpacity>
                 </View>
-              )}
-            />
+            ))
           )}
-        </View>
+        </ScrollView>
       ) : (
-        /* Search Results */
         <FlatList
           data={results}
           keyExtractor={(item, index) => `${item.type}-${item.id}-${index}`}
@@ -390,7 +382,7 @@ export default function SearchScreen({ navigation }) {
               <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No results found for "{searchQuery}"</Text>
             </View>
           }
-          contentContainerStyle={{ paddingBottom: 20 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
           removeClippedSubviews={true}
           initialNumToRender={15}
           maxToRenderPerBatch={10}
@@ -406,7 +398,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingBottom: 16,
   },
   backBtn: {
     marginRight: 12,
@@ -416,16 +408,17 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 44,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    height: 54,
   },
-  searchIcon: { marginRight: 8 },
-  clearIcon: { marginLeft: 8 },
+  searchIcon: { marginRight: 12 },
+  clearIcon: { marginLeft: 12 },
   input: {
     flex: 1,
     fontSize: 16,
     height: '100%',
+    fontWeight: '500',
   },
   filterContainer: {
     paddingVertical: 12,
@@ -434,34 +427,37 @@ const styles = StyleSheet.create({
   },
   filterBtn: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    paddingVertical: 10,
+    borderRadius: 12,
     marginRight: 8,
   },
   filterText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   content: {
     flex: 1,
-    padding: 16,
+    padding: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
   recentItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
   },
   recentItemClick: {
     flexDirection: 'row',
@@ -469,42 +465,51 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   recentText: {
-    marginLeft: 12,
+    marginLeft: 16,
     fontSize: 16,
+    fontWeight: '500',
+  },
+  emptyRecent: {
+      alignItems: 'center',
+      marginTop: 40,
   },
   resultItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderBottomWidth: 1,
+    borderRadius: 16,
+    marginBottom: 12,
   },
-  iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+  resultIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   resultText: {
     flex: 1,
   },
   resultTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     marginBottom: 2,
   },
   resultSub: {
-    fontSize: 13,
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 50,
+    marginTop: 60,
   },
   emptyText: {
     fontSize: 16,
-    textAlign: 'center',
+    fontWeight: '500',
   },
 });

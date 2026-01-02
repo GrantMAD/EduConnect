@@ -7,6 +7,7 @@ import { faTrophy, faMedal } from '@fortawesome/free-solid-svg-icons';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { BORDER_STYLES, NAME_COLOR_STYLES, TITLE_STYLES } from '../../constants/GamificationStyles';
 import LeaderboardSkeleton from '../../components/skeletons/LeaderboardSkeleton';
+import LinearGradient from 'react-native-linear-gradient';
 
 const defaultUserImage = require('../../assets/user.png');
 
@@ -22,7 +23,6 @@ export default function LeaderboardScreen() {
     const fetchLeaderboard = async () => {
         setLoading(true);
         try {
-            // 1. Get top scores
             const { data: scores, error: scoresError } = await supabase
                 .from('user_gamification')
                 .select('user_id, current_xp, current_level')
@@ -34,23 +34,19 @@ export default function LeaderboardScreen() {
             if (scores && scores.length > 0) {
                 const userIds = scores.map(s => s.user_id);
 
-                // 2. Get user details
                 const { data: userDetails } = await supabase
                     .from('users')
                     .select('id, full_name, avatar_url')
                     .in('id', userIds);
 
-                // 3. Get equipped items for all users
                 const { data: inventoryData } = await supabase
                     .from('user_inventory')
                     .select('user_id, shop_items(*)')
                     .in('user_id', userIds)
                     .eq('is_equipped', true);
 
-                // Helper to resolve shop_items
                 const resolveItem = (item) => Array.isArray(item) ? item[0] : item;
 
-                // 4. Merge data
                 const leaderboardData = scores.map(score => {
                     const user = userDetails?.find(u => u.id === score.user_id);
                     const userEquipped = inventoryData?.filter(i => i.user_id === score.user_id).map(i => resolveItem(i.shop_items)) || [];
@@ -80,14 +76,23 @@ export default function LeaderboardScreen() {
     const renderUser = ({ item, index }) => {
         const nameColorStyle = item.equippedNameColor ? NAME_COLOR_STYLES[item.equippedNameColor.image_url] : null;
         const titleStyle = item.equippedTitle ? TITLE_STYLES[item.equippedTitle.image_url] : null;
+        const isTop3 = index < 3;
 
         return (
-            <View style={[styles.userCard, { backgroundColor: theme.colors.card, borderBottomColor: theme.colors.cardBorder }]}>
+            <View style={[styles.userCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }, isTop3 && { backgroundColor: theme.colors.primary + '05' }]}>
                 <View style={styles.rankContainer}>
-                    {index === 0 && <FontAwesomeIcon icon={faTrophy} size={18} color="#FFD700" />}
-                    {index === 1 && <FontAwesomeIcon icon={faMedal} size={18} color="#C0C0C0" />}
-                    {index === 2 && <FontAwesomeIcon icon={faMedal} size={18} color="#CD7F32" />}
-                    {index > 2 && <Text style={[styles.rankText, { color: theme.colors.placeholder }]}>{index + 1}</Text>}
+                    <View style={[
+                        styles.rankBadge,
+                        index === 0 ? { backgroundColor: '#fef3c7' } : 
+                        index === 1 ? { backgroundColor: '#f3f4f6' } :
+                        index === 2 ? { backgroundColor: '#fff7ed' } :
+                        { backgroundColor: 'transparent' }
+                    ]}>
+                        {index === 0 ? <FontAwesomeIcon icon={faTrophy} size={16} color="#b45309" /> : 
+                         index === 1 ? <FontAwesomeIcon icon={faMedal} size={16} color="#374151" /> : 
+                         index === 2 ? <FontAwesomeIcon icon={faMedal} size={16} color="#9a3412" /> : 
+                         <Text style={[styles.rankText, { color: theme.colors.placeholder }]}>#{index + 1}</Text>}
+                    </View>
                 </View>
 
                 <View style={styles.avatarContainer}>
@@ -116,7 +121,8 @@ export default function LeaderboardScreen() {
                 </View>
 
                 <View style={styles.pointsContainer}>
-                    <Text style={[styles.pointsText, { color: theme.colors.primary }]}>{item.current_xp} XP</Text>
+                    <Text style={[styles.pointsText, { color: theme.colors.primary }]}>{item.current_xp.toLocaleString()}</Text>
+                    <Text style={styles.pointsLabel}>XP</Text>
                 </View>
             </View>
         );
@@ -124,10 +130,28 @@ export default function LeaderboardScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            <View style={styles.header}>
-                <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Global Leaderboard</Text>
-                <Text style={[styles.headerSubtitle, { color: theme.colors.placeholder }]}>The top students in your community</Text>
-            </View>
+            <LinearGradient
+                colors={['#f59e0b', '#ea580c']} 
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.heroContainer}
+            >
+                <View style={styles.heroContent}>
+                    <View style={styles.heroTextContainer}>
+                        <Text style={styles.heroTitle}>School Leaderboard</Text>
+                        <Text style={styles.heroDescription}>
+                            Celebrate the top performers in your school community.
+                        </Text>
+                    </View>
+                    <View style={styles.topScoreBadge}>
+                        <FontAwesomeIcon icon={faTrophy} size={20} color="#fcd34d" />
+                        <View style={{ marginLeft: 8 }}>
+                            <Text style={styles.topScoreLabel}>TOP SCORE</Text>
+                            <Text style={styles.topScoreValue}>{users[0]?.current_xp.toLocaleString() || '0'}</Text>
+                        </View>
+                    </View>
+                </View>
+            </LinearGradient>
 
             {loading ? (
                 <LeaderboardSkeleton />
@@ -149,13 +173,63 @@ export default function LeaderboardScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { padding: 24, paddingTop: 20 },
-    headerTitle: { fontSize: 24, fontWeight: '900' },
-    headerSubtitle: { fontSize: 14, marginTop: 4, fontWeight: '600' },
+    heroContainer: {
+        padding: 20,
+        marginBottom: 16,
+        elevation: 0,
+        borderBottomLeftRadius: 16,
+        borderBottomRightRadius: 16,
+    },
+    heroContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    heroTextContainer: {
+        flex: 1,
+        paddingRight: 10,
+    },
+    heroTitle: {
+        color: '#fff',
+        fontSize: 24,
+        fontWeight: '800',
+        marginBottom: 6,
+    },
+    heroDescription: {
+        color: '#fef3c7',
+        fontSize: 14,
+    },
+    topScoreBadge: {
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    topScoreLabel: {
+        color: 'rgba(255,255,255,0.7)',
+        fontSize: 8,
+        fontWeight: '900',
+    },
+    topScoreValue: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '900',
+    },
     listContent: { paddingHorizontal: 16, paddingBottom: 30 },
-    userCard: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, marginBottom: 10, borderBottomWidth: 1 },
-    rankContainer: { width: 30, alignItems: 'center', marginRight: 10 },
-    rankText: { fontSize: 14, fontWeight: 'bold' },
+    userCard: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, marginBottom: 10 },
+    rankContainer: { width: 40, alignItems: 'center', marginRight: 8 },
+    rankBadge: {
+        width: 32,
+        height: 32,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    rankText: { fontSize: 13, fontWeight: '900' },
     avatarContainer: { marginRight: 12 },
     userInfo: { flex: 1 },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
@@ -163,6 +237,14 @@ const styles = StyleSheet.create({
     userLevel: { fontSize: 11, fontWeight: '700' },
     titleTag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
     titleTagText: { fontSize: 8, fontWeight: '900', textTransform: 'uppercase' },
-    pointsContainer: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: 'rgba(99, 102, 241, 0.1)' },
-    pointsText: { fontSize: 13, fontWeight: '900' }
+    pointsContainer: { 
+        paddingHorizontal: 12, 
+        paddingVertical: 6, 
+        borderRadius: 10, 
+        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+        alignItems: 'center',
+        minWidth: 70
+    },
+    pointsText: { fontSize: 13, fontWeight: '900' },
+    pointsLabel: { fontSize: 8, fontWeight: 'bold', color: 'rgba(99, 102, 241, 0.6)', marginTop: -2 }
 });

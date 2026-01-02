@@ -22,7 +22,6 @@ export default function SchoolDataScreen({ navigation, route }) {
   const [logoLocalUri, setLogoLocalUri] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  // Form State
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [contactEmail, setContactEmail] = useState('');
@@ -32,6 +31,7 @@ export default function SchoolDataScreen({ navigation, route }) {
   const schoolTypes = ['Primary School', 'High School', 'University', 'College', 'Other'];
 
   const { showToast } = useToast();
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (loadingSchool) return;
@@ -156,150 +156,156 @@ export default function SchoolDataScreen({ navigation, route }) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-        <FontAwesomeIcon icon={faArrowLeft} size={20} color="#007AFF" />
-        <Text style={styles.backButtonText}>{fromDashboard ? 'Return to Dashboard' : 'Back to Management'}</Text>
-      </TouchableOpacity>
-      <Text style={styles.title}>School Data</Text>
-      <Text style={styles.description}>
-        Manage your school's data, including the main image displayed on the announcements screen.
-      </Text>
-
-      <View style={styles.section}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-          <FontAwesomeIcon icon={faImage} size={20} color="#007AFF" style={{ marginRight: 10 }} />
-          <Text style={styles.sectionHeader}>School Image</Text>
-        </View>
-        <Text style={styles.sectionDescription}>Select an image of your school to display on the announcements screen.</Text>
-        {loading ? (
-          <SkeletonPiece style={styles.logo} />
-        ) : (
-          <TouchableOpacity onPress={pickImage} activeOpacity={0.7} style={{ marginBottom: 16 }}>
-            {logoLocalUri || schoolData?.logo_url ? (
-              <Image source={{ uri: logoLocalUri || schoolData.logo_url }} style={styles.logo} />
-            ) : (
-              <View style={styles.logoPlaceholder}>
-                <Text style={styles.logoPlaceholderText}>No image selected</Text>
-              </View>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <LinearGradient
+        colors={['#059669', '#0d9488']} 
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroContainer}
+      >
+        <View style={styles.heroContent}>
+            <View style={styles.heroTextContainer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
+                        <FontAwesomeIcon icon={faArrowLeft} size={18} color="#fff" />
+                    </TouchableOpacity>
+                    <Text style={styles.heroTitle}>Institutional Profile</Text>
+                </View>
+                <Text style={styles.heroDescription}>
+                    Manage your school's identity, contact info, and presence.
+                </Text>
+            </View>
+            {!loading && (
+                <TouchableOpacity onPress={copySchoolId} style={styles.copyBadge}>
+                    <FontAwesomeIcon icon={faCopy} size={14} color="#fff" />
+                    <Text style={styles.copyBadgeText}>ID</Text>
+                </TouchableOpacity>
             )}
-            <Text style={{ textAlign: 'center', color: '#007AFF', marginTop: 4 }}>Tap to change photo</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <FontAwesomeIcon icon={faSchool} size={20} color="#007AFF" style={{ marginRight: 10 }} />
-            <Text style={styles.sectionHeader}>School Details</Text>
-          </View>
-          {!loading && (
-            <TouchableOpacity onPress={copySchoolId} style={styles.copyButton}>
-              <Text style={styles.copyButtonText}>Copy ID</Text>
-            </TouchableOpacity>
-          )}
         </View>
-        <Text style={styles.sectionDescription}>Update your school's contact information.</Text>
+      </LinearGradient>
 
-        {/* Name */}
-        <View style={styles.inputContainer}>
-          <View style={styles.inputLabelRow}>
-            <FontAwesomeIcon icon={faBuilding} size={16} color="#007AFF" style={{ marginRight: 8 }} />
-            <Text style={styles.inputLabel}>School Name</Text>
-          </View>
-          {loading ? (
-            <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8 }} />
-          ) : (
-            <TextInput
-              style={[styles.input, { color: '#333' }]}
-              value={name}
-              onChangeText={setName}
-              placeholder="School Name"
-              placeholderTextColor="#666"
-            />
-          )}
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+        {/* Logo Card */}
+        <View style={[styles.formCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+            <Text style={styles.cardSectionLabel}>SCHOOL IMAGE</Text>
+            {loading ? (
+                <SkeletonPiece style={styles.logoImage} />
+            ) : (
+                <TouchableOpacity onPress={pickImage} activeOpacity={0.8} style={styles.logoContainer}>
+                    {logoLocalUri || schoolData?.logo_url ? (
+                        <Image source={{ uri: logoLocalUri || schoolData.logo_url }} style={styles.logoImage} />
+                    ) : (
+                        <View style={[styles.logoPlaceholder, { backgroundColor: theme.colors.background }]}>
+                            <FontAwesomeIcon icon={faSchool} size={40} color={theme.colors.placeholder} />
+                            <Text style={{ color: theme.colors.placeholder, marginTop: 8, fontWeight: '700' }}>No Image</Text>
+                        </View>
+                    )}
+                    <View style={styles.cameraOverlay}>
+                        <FontAwesomeIcon icon={faCamera} size={20} color="#fff" />
+                    </View>
+                </TouchableOpacity>
+            )}
+            <Text style={[styles.imageHint, { color: theme.colors.placeholder }]}>Recommended 16:9 aspect ratio</Text>
         </View>
 
-        {/* Address */}
-        <View style={styles.inputContainer}>
-          <View style={styles.inputLabelRow}>
-            <FontAwesomeIcon icon={faMapMarkerAlt} size={16} color="#007AFF" style={{ marginRight: 8 }} />
-            <Text style={styles.inputLabel}>Address</Text>
-          </View>
-          {loading ? (
-            <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8 }} />
-          ) : (
-            <TextInput
-              style={[styles.input, { color: '#333' }]}
-              value={address}
-              onChangeText={setAddress}
-              placeholder="Address"
-              placeholderTextColor="#666"
-            />
-          )}
+        {/* Details Card */}
+        <View style={[styles.formCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 20 }]}>
+            <Text style={styles.cardSectionLabel}>INSTITUTIONAL DETAILS</Text>
+            
+            <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>SCHOOL NAME</Text>
+                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                    <FontAwesomeIcon icon={faBuilding} size={14} color={theme.colors.primary} />
+                    <TextInput
+                        style={[styles.input, { color: theme.colors.text }]}
+                        value={name}
+                        onChangeText={setName}
+                        placeholder="Enter school name"
+                        placeholderTextColor={theme.colors.placeholder}
+                    />
+                </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>SCHOOL TYPE</Text>
+                <TouchableOpacity
+                    style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                    onPress={() => setShowTypePicker(true)}
+                >
+                    <FontAwesomeIcon icon={faGraduationCap} size={14} color={theme.colors.primary} />
+                    <Text style={[styles.input, { color: theme.colors.text, lineHeight: 20, paddingTop: 12 }]}>{schoolType}</Text>
+                    <FontAwesomeIcon icon={faChevronDown} size={12} color={theme.colors.placeholder} />
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>CONTACT EMAIL</Text>
+                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                    <FontAwesomeIcon icon={faEnvelope} size={14} color={theme.colors.primary} />
+                    <TextInput
+                        style={[styles.input, { color: theme.colors.text }]}
+                        value={contactEmail}
+                        onChangeText={setContactEmail}
+                        placeholder="admin@school.edu"
+                        placeholderTextColor={theme.colors.placeholder}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                    />
+                </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>CONTACT PHONE</Text>
+                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                    <FontAwesomeIcon icon={faPhone} size={14} color={theme.colors.primary} />
+                    <TextInput
+                        style={[styles.input, { color: theme.colors.text }]}
+                        value={contactPhone}
+                        onChangeText={(text) => setContactPhone(text.replace(/[^0-9]/g, ''))}
+                        placeholder="+27..."
+                        placeholderTextColor={theme.colors.placeholder}
+                        keyboardType="phone-pad"
+                    />
+                </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>CAMPUS ADDRESS</Text>
+                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, height: 100, alignItems: 'flex-start', paddingTop: 12 }]}>
+                    <FontAwesomeIcon icon={faMapMarkerAlt} size={14} color={theme.colors.primary} style={{ marginTop: 4 }} />
+                    <TextInput
+                        style={[styles.input, { color: theme.colors.text, height: 80 }]}
+                        value={address}
+                        onChangeText={setAddress}
+                        placeholder="Enter physical address"
+                        placeholderTextColor={theme.colors.placeholder}
+                        multiline
+                        textAlignVertical="top"
+                    />
+                </View>
+            </View>
         </View>
 
-        {/* Email */}
-        <View style={styles.inputContainer}>
-          <View style={styles.inputLabelRow}>
-            <FontAwesomeIcon icon={faEnvelope} size={16} color="#007AFF" style={{ marginRight: 8 }} />
-            <Text style={styles.inputLabel}>Contact Email</Text>
-          </View>
-          {loading ? (
-            <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8 }} />
-          ) : (
-            <TextInput
-              style={[styles.input, { color: '#333' }]}
-              value={contactEmail}
-              onChangeText={setContactEmail}
-              placeholder="Contact Email"
-              placeholderTextColor="#666"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          )}
-        </View>
-
-        {/* Phone */}
-        <View style={styles.inputContainer}>
-          <View style={styles.inputLabelRow}>
-            <FontAwesomeIcon icon={faPhone} size={16} color="#007AFF" style={{ marginRight: 8 }} />
-            <Text style={styles.inputLabel}>Contact Number</Text>
-          </View>
-          {loading ? (
-            <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8 }} />
-          ) : (
-            <TextInput
-              style={[styles.input, { color: '#333' }]}
-              value={contactPhone}
-              onChangeText={(text) => setContactPhone(text.replace(/[^0-9]/g, ''))}
-              placeholder="Contact Number"
-              placeholderTextColor="#666"
-              keyboardType="phone-pad"
-            />
-          )}
-        </View>
-
-        {/* School Type */}
-        <View style={styles.inputContainer}>
-          <View style={styles.inputLabelRow}>
-            <FontAwesomeIcon icon={faGraduationCap} size={16} color="#007AFF" style={{ marginRight: 8 }} />
-            <Text style={styles.inputLabel}>School Type</Text>
-          </View>
-          {loading ? (
-            <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8 }} />
-          ) : (
-            <TouchableOpacity
-              style={styles.dropdownButton}
-              onPress={() => setShowTypePicker(true)}
+        <TouchableOpacity 
+            style={[styles.saveBtnContainer, { marginTop: 30 }]} 
+            onPress={handleSave} 
+            disabled={saving || uploading}
+            activeOpacity={0.8}
+        >
+            <LinearGradient
+                colors={['#059669', '#0d9488']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.saveBtn}
             >
-              <Text style={styles.dropdownButtonText}>{schoolType}</Text>
-              <FontAwesomeIcon icon={faChevronDown} size={16} color="#666" />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+                {saving || uploading ? (
+                    <ActivityIndicator color="#fff" />
+                ) : (
+                    <Text style={styles.saveBtnText}>Save Profile</Text>
+                )}
+            </LinearGradient>
+        </TouchableOpacity>
+      </ScrollView>
 
       <Modal
         isVisible={showTypePicker}
@@ -309,19 +315,19 @@ export default function SchoolDataScreen({ navigation, route }) {
         backdropOpacity={0.5}
         style={{ justifyContent: 'flex-end', margin: 0 }}
       >
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <FontAwesomeIcon icon={faGraduationCap} size={24} color="#007AFF" />
-            <Text style={styles.modalTitle}>Select School Type</Text>
-            <TouchableOpacity onPress={() => setShowTypePicker(false)} style={styles.modalCloseButton}>
-              <FontAwesomeIcon icon={faTimes} size={22} color="#666" />
+        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.cardBorder }]}>
+            <FontAwesomeIcon icon={faGraduationCap} size={20} color={theme.colors.primary} />
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Institution Type</Text>
+            <TouchableOpacity onPress={() => setShowTypePicker(false)}>
+              <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
             </TouchableOpacity>
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>
             {schoolTypes.map((type) => (
               <TouchableOpacity
                 key={type}
-                style={styles.modalItem}
+                style={[styles.modalItem, { borderBottomColor: theme.colors.cardBorder + '30' }]}
                 onPress={() => {
                   setSchoolType(type);
                   setShowTypePicker(false);
@@ -329,24 +335,20 @@ export default function SchoolDataScreen({ navigation, route }) {
               >
                 <Text style={[
                   styles.modalItemText,
-                  schoolType === type && styles.modalItemTextSelected
+                  { color: theme.colors.text },
+                  schoolType === type && { color: theme.colors.primary, fontWeight: '900' }
                 ]}>
                   {type}
                 </Text>
                 {schoolType === type && (
-                  <FontAwesomeIcon icon={faSchool} size={16} color="#007AFF" />
+                  <FontAwesomeIcon icon={faSchool} size={16} color={theme.colors.primary} />
                 )}
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
       </Modal>
-
-
-      <TouchableOpacity style={styles.button} onPress={handleSave} disabled={saving || uploading}>
-        <Text style={styles.buttonText}>{saving || uploading ? "Saving..." : "Save"}</Text>
-      </TouchableOpacity>
-    </ScrollView >
+    </View>
   );
 }
 

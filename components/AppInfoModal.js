@@ -12,68 +12,80 @@ export default function AppInfoModal({ visible, onClose }) {
         <Modal
             isVisible={visible}
             onBackdropPress={onClose}
+            onSwipeComplete={onClose}
+            swipeDirection={['down']}
             animationIn="slideInUp"
             animationOut="slideOutDown"
-            backdropOpacity={0.5}
+            backdropOpacity={0.4}
             style={{ justifyContent: 'flex-end', margin: 0 }}
         >
-            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: 40 }]}>
+                <View style={styles.swipeIndicator} />
                 <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={faGraduationCap} size={24} color={theme.colors.primary} />
-                    <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>About ClassConnect</Text>
+                    <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                        <FontAwesomeIcon icon={faGraduationCap} size={18} color={theme.colors.primary} />
+                    </View>
+                    <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>Platform Information</Text>
                     <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-                        <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
+                        <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
                     </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 24 }}>
                     <View style={styles.contentContainer}>
                         <View style={styles.logoContainer}>
-                            <FontAwesomeIcon icon={faGraduationCap} size={64} color={theme.colors.primary} />
+                            <View style={[styles.logoIconBox, { backgroundColor: theme.colors.primary }]}>
+                                <FontAwesomeIcon icon={faGraduationCap} size={40} color="#fff" />
+                            </View>
                             <Text style={[styles.appName, { color: theme.colors.text }]}>ClassConnect</Text>
-                            <Text style={[styles.version, { color: theme.colors.placeholder }]}>Version 1.0.0</Text>
+                            <View style={[styles.versionBadge, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                                <Text style={[styles.versionText, { color: theme.colors.placeholder }]}>STABLE RELEASE v1.0.0</Text>
+                            </View>
                         </View>
 
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>About</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
+                        <View style={[styles.infoCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>MISSION</Text>
+                            <Text style={[styles.sectionText, { color: theme.colors.text }]}>
                                 ClassConnect is a comprehensive school management platform designed to streamline communication and collaboration between students, teachers, parents, and administrators.
                             </Text>
                         </View>
 
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Features</Text>
-                            <View style={styles.featureItem}>
-                                <FontAwesomeIcon icon={faUsers} size={16} color={theme.colors.primary} />
-                                <Text style={[styles.featureText, { color: theme.colors.placeholder }]}>User Management & Role-Based Access</Text>
-                            </View>
-                            <View style={styles.featureItem}>
-                                <FontAwesomeIcon icon={faGraduationCap} size={16} color={theme.colors.primary} />
-                                <Text style={[styles.featureText, { color: theme.colors.placeholder }]}>Class Schedules & Homework Tracking</Text>
-                            </View>
-                            <View style={styles.featureItem}>
-                                <FontAwesomeIcon icon={faTrophy} size={16} color={theme.colors.primary} />
-                                <Text style={[styles.featureText, { color: theme.colors.placeholder }]}>Gamification & Leaderboards</Text>
-                            </View>
-                            <View style={styles.featureItem}>
-                                <FontAwesomeIcon icon={faStore} size={16} color={theme.colors.primary} />
-                                <Text style={[styles.featureText, { color: theme.colors.placeholder }]}>Marketplace & Rewards System</Text>
+                        <View style={[styles.infoCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>CORE CAPABILITIES</Text>
+                            <View style={styles.featureList}>
+                                <View style={styles.featureItem}>
+                                    <View style={[styles.featureIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                                        <FontAwesomeIcon icon={faUsers} size={10} color={theme.colors.primary} />
+                                    </View>
+                                    <Text style={[styles.featureText, { color: theme.colors.text }]}>Unified User Management</Text>
+                                </View>
+                                <View style={styles.featureItem}>
+                                    <View style={[styles.featureIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                                        <FontAwesomeIcon icon={faGraduationCap} size={10} color={theme.colors.primary} />
+                                    </View>
+                                    <Text style={[styles.featureText, { color: theme.colors.text }]}>Curriculum & Task Tracking</Text>
+                                </View>
+                                <View style={styles.featureItem}>
+                                    <View style={[styles.featureIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                                        <FontAwesomeIcon icon={faTrophy} size={10} color={theme.colors.primary} />
+                                    </View>
+                                    <Text style={[styles.featureText, { color: theme.colors.text }]}>Gamified Learning Progress</Text>
+                                </View>
+                                <View style={styles.featureItem}>
+                                    <View style={[styles.featureIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                                        <FontAwesomeIcon icon={faStore} size={10} color={theme.colors.primary} />
+                                    </View>
+                                    <Text style={[styles.featureText, { color: theme.colors.text }]}>Integrated Marketplace</Text>
+                                </View>
                             </View>
                         </View>
 
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Credits</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                Developed with ❤️ for educational institutions worldwide.
+                        <View style={styles.footerInfo}>
+                            <Text style={[styles.credits, { color: theme.colors.placeholder }]}>
+                                Developed with excellence for global education.
                             </Text>
                             <Text style={[styles.copyright, { color: theme.colors.placeholder }]}>
-                                © 2025 ClassConnect. All rights reserved.
+                                © 2026 CLASSCONNECT. ALL RIGHTS RESERVED.
                             </Text>
                         </View>
                     </View>
@@ -85,75 +97,125 @@ export default function AppInfoModal({ visible, onClose }) {
 
 const styles = StyleSheet.create({
     modalContent: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 30,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
+        paddingHorizontal: 24,
+        paddingTop: 8,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
         maxHeight: '90%',
-        minHeight: '50%',
+    },
+    swipeIndicator: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#cbd5e1',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: 20,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingBottom: 15,
+        paddingBottom: 20,
         borderBottomWidth: 1,
-        marginBottom: 10,
+    },
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
     },
     modalTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        marginLeft: 15,
+        fontSize: 18,
+        fontWeight: '900',
+        letterSpacing: -0.5,
         flex: 1,
     },
     modalCloseButton: {
-        padding: 5,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     contentContainer: {
         paddingBottom: 20,
     },
     logoContainer: {
         alignItems: 'center',
-        marginVertical: 20,
+        marginBottom: 32,
+    },
+    logoIconBox: {
+        width: 80,
+        height: 80,
+        borderRadius: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     appName: {
         fontSize: 28,
-        fontWeight: 'bold',
+        fontWeight: '900',
         marginTop: 16,
+        letterSpacing: -1,
     },
-    version: {
-        fontSize: 14,
-        marginTop: 4,
+    versionBadge: {
+        marginTop: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
     },
-    divider: {
-        height: 1,
-        marginVertical: 15,
+    versionText: {
+        fontSize: 9,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
-    section: {
-        marginBottom: 10,
+    infoCard: {
+        padding: 20,
+        borderRadius: 24,
+        marginBottom: 16,
     },
     sectionTitle: {
-        fontSize: 18,
-        fontWeight: '600',
+        fontSize: 10,
+        fontWeight: '900',
         marginBottom: 12,
+        letterSpacing: 1.5,
+        color: '#94a3b8',
     },
     sectionText: {
-        fontSize: 15,
+        fontSize: 14,
         lineHeight: 22,
+        fontWeight: '600',
+    },
+    featureList: {
+        gap: 12,
     },
     featureItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 12,
+    },
+    featureIcon: {
+        width: 24,
+        height: 24,
+        borderRadius: 6,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
     },
     featureText: {
-        fontSize: 14,
-        marginLeft: 12,
-        flex: 1,
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    footerInfo: {
+        marginTop: 24,
+        alignItems: 'center',
+    },
+    credits: {
+        fontSize: 12,
+        fontWeight: '600',
+        marginBottom: 8,
     },
     copyright: {
-        fontSize: 12,
-        marginTop: 16,
-        textAlign: 'center',
+        fontSize: 9,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
 });

@@ -1,14 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, Dimensions } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useSchool } from '../../context/SchoolContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faUsers, faUsersCog, faPlus, faChevronRight, faFootballBall, faDoorOpen, faSpinner, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faUsers, faUsersCog, faPlus, faChevronRight, faFootballBall, faDoorOpen, faSpinner, faArrowLeft, faChess } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../context/ToastContext';
 import CardSkeleton from '../../components/skeletons/CardSkeleton';
 import { SkeletonPiece } from '../../components/skeletons/DashboardScreenSkeleton';
+import LinearGradient from 'react-native-linear-gradient';
+
+const { width } = Dimensions.get('window');
 
 export default function ClubListScreen({ navigation }) {
   const { theme } = useTheme();
@@ -28,7 +31,6 @@ export default function ClubListScreen({ navigation }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch user profile
       const { data: profile } = await supabase
         .from('users')
         .select('*')
@@ -37,7 +39,6 @@ export default function ClubListScreen({ navigation }) {
       
       setUserProfile(profile);
 
-      // 1. Fetch User's Memberships
       const { data: memberships } = await supabase
         .from('class_members')
         .select('class_id')
@@ -46,7 +47,6 @@ export default function ClubListScreen({ navigation }) {
       const myIds = new Set(memberships?.map(m => m.class_id) || []);
       setUserClubIds(myIds);
 
-      // 2. Fetch All Extracurricular Clubs in the school
       const { data, error } = await supabase
         .from('classes')
         .select('*, teacher:users(email, full_name)')
@@ -108,40 +108,41 @@ export default function ClubListScreen({ navigation }) {
 
   const renderClubCard = ({ item }) => (
     <TouchableOpacity
-      style={[styles.clubCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
+      style={[styles.clubCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
       onPress={() => activeTab === 'my-clubs' ? navigation.navigate('ClubDetail', { clubId: item.id }) : null}
       activeOpacity={activeTab === 'my-clubs' ? 0.7 : 1}
     >
       <View style={styles.cardHeader}>
-        <View style={[styles.iconContainer, { backgroundColor: '#AF52DE20' }]}>
+        <View style={[styles.iconContainer, { backgroundColor: '#AF52DE15' }]}>
           <FontAwesomeIcon icon={faFootballBall} size={20} color="#AF52DE" />
         </View>
         <View style={styles.headerInfo}>
-          <Text style={[styles.clubName, { color: theme.colors.text }]}>{item.name}</Text>
-          <Text style={[styles.coordinatorName, { color: theme.colors.placeholder }]}>
-            Coord: {item.teacher?.full_name || 'Assigning...'}
+          <Text style={[styles.clubName, { color: theme.colors.text }]} numberOfLines={1}>{item.name}</Text>
+          <Text style={[styles.coordinatorName, { color: theme.colors.placeholder }]} numberOfLines={1}>
+            Coordinator: {item.teacher?.full_name || 'Assigning...'}
           </Text>
         </View>
         {activeTab === 'my-clubs' && (
-          <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.placeholder} />
+          <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
         )}
       </View>
 
-      <View style={styles.cardDivider} />
+      <View style={[styles.cardDivider, { backgroundColor: theme.colors.cardBorder, opacity: 0.3 }]} />
 
       {activeTab === 'my-clubs' ? (
         <View style={styles.cardFooter}>
-          <View style={styles.memberBadge}>
-            <FontAwesomeIcon icon={faUsers} size={12} color="#AF52DE" style={{ marginRight: 6 }} />
-            <Text style={[styles.badgeText, { color: '#AF52DE' }]}>Member</Text>
+          <View style={[styles.memberBadge, { backgroundColor: '#AF52DE10' }]}>
+            <FontAwesomeIcon icon={faUsers} size={10} color="#AF52DE" style={{ marginRight: 6 }} />
+            <Text style={[styles.badgeText, { color: '#AF52DE' }]}>ACTIVE MEMBER</Text>
           </View>
-          <Text style={[styles.viewDetails, { color: theme.colors.primary }]}>Enter Hub</Text>
+          <Text style={[styles.viewDetails, { color: '#AF52DE' }]}>ENTER HUB</Text>
         </View>
       ) : (
         <TouchableOpacity
           style={[styles.joinButton, { backgroundColor: '#AF52DE' }]}
           onPress={() => handleJoinRequest(item)}
           disabled={applyingId === item.id}
+          activeOpacity={0.8}
         >
           {applyingId === item.id ? (
             <ActivityIndicator color="white" size="small" />
@@ -158,47 +159,54 @@ export default function ClubListScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <FontAwesomeIcon icon={faArrowLeft} size={20} color={theme.colors.primary} />
-        </TouchableOpacity>
-        <Text style={[styles.title, { color: theme.colors.text }]}>Clubs & Teams</Text>
-        {['admin', 'teacher'].includes(userProfile?.role) && (
-          <TouchableOpacity 
-            style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
-            onPress={() => navigation.navigate('CreateClub')}
-          >
-            <FontAwesomeIcon icon={faPlus} size={14} color="white" />
-          </TouchableOpacity>
-        )}
-      </View>
+      <LinearGradient
+        colors={['#9333ea', '#4f46e5']} 
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroContainer}
+      >
+        <View style={styles.heroContent}>
+            <View style={styles.heroTextContainer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
+                        <FontAwesomeIcon icon={faArrowLeft} size={18} color="#fff" />
+                    </TouchableOpacity>
+                    <Text style={styles.heroTitle}>Clubs & Teams</Text>
+                </View>
+                <Text style={styles.heroDescription}>
+                    Explore extracurricular activities and join your community.
+                </Text>
+            </View>
+            {['admin', 'teacher'].includes(userProfile?.role) && (
+                <TouchableOpacity
+                    style={styles.heroButton}
+                    onPress={() => navigation.navigate('CreateClub')}
+                >
+                    <FontAwesomeIcon icon={faPlus} size={14} color="#9333ea" />
+                    <Text style={styles.heroButtonText}>New</Text>
+                </TouchableOpacity>
+            )}
+        </View>
+      </LinearGradient>
 
       {/* Tabs */}
-      <View style={[styles.tabContainer, { backgroundColor: theme.colors.surface }]}>
+      <View style={[styles.tabContainer, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
         <TouchableOpacity
           onPress={() => setActiveTab('my-clubs')}
-          style={[styles.tab, activeTab === 'my-clubs' && { backgroundColor: theme.colors.card, borderBottomWidth: 2, borderBottomColor: '#AF52DE' }]}
+          style={[styles.tab, activeTab === 'my-clubs' && { backgroundColor: theme.colors.card }]}
         >
-          {loading && !clubs.length ? (
-            <SkeletonPiece style={{ width: 80, height: 14, borderRadius: 4 }} />
-          ) : (
-            <Text style={[styles.tabText, { color: activeTab === 'my-clubs' ? '#AF52DE' : theme.colors.placeholder }]}>
-              {isAdmin ? 'All Clubs' : 'My Clubs'} ({myClubs.length})
-            </Text>
-          )}
+          <Text style={[styles.tabText, { color: activeTab === 'my-clubs' ? '#AF52DE' : theme.colors.placeholder }]}>
+            {isAdmin ? 'All Clubs' : 'My Clubs'} ({myClubs.length})
+          </Text>
         </TouchableOpacity>
         {!isAdmin && (
           <TouchableOpacity
             onPress={() => setActiveTab('browse')}
-            style={[styles.tab, activeTab === 'browse' && { backgroundColor: theme.colors.card, borderBottomWidth: 2, borderBottomColor: '#AF52DE' }]}
+            style={[styles.tab, activeTab === 'browse' && { backgroundColor: theme.colors.card }]}
           >
-            {loading && !clubs.length ? (
-              <SkeletonPiece style={{ width: 80, height: 14, borderRadius: 4 }} />
-            ) : (
-              <Text style={[styles.tabText, { color: activeTab === 'browse' ? '#AF52DE' : theme.colors.placeholder }]}>
-                Browse ({availableClubs.length})
-              </Text>
-            )}
+            <Text style={[styles.tabText, { color: activeTab === 'browse' ? '#AF52DE' : theme.colors.placeholder }]}>
+              Browse ({availableClubs.length})
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -207,17 +215,7 @@ export default function ClubListScreen({ navigation }) {
         data={loading ? [1, 2, 3, 4] : currentClubs}
         keyExtractor={(item, index) => loading ? `skeleton-${index}` : item.id}
         renderItem={({ item }) => loading ? (
-          <View style={[styles.clubCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
-            <View style={styles.cardHeader}>
-              <SkeletonPiece style={[styles.iconContainer, { backgroundColor: theme.colors.cardBorder }]} />
-              <View style={styles.headerInfo}>
-                <SkeletonPiece style={{ width: '60%', height: 16, borderRadius: 4, marginBottom: 6 }} />
-                <SkeletonPiece style={{ width: '40%', height: 12, borderRadius: 4 }} />
-              </View>
-            </View>
-            <View style={styles.cardDivider} />
-            <SkeletonPiece style={{ width: '100%', height: 36, borderRadius: 10 }} />
-          </View>
+          <View style={{ paddingHorizontal: 20 }}><CardSkeleton /></View>
         ) : renderClubCard({ item })}
         contentContainerStyle={styles.listContent}
         refreshControl={
@@ -226,13 +224,13 @@ export default function ClubListScreen({ navigation }) {
         ListEmptyComponent={
           !loading && (
             <View style={styles.emptyContainer}>
-              <FontAwesomeIcon icon={activeTab === 'my-clubs' ? faDoorOpen : faUsers} size={48} color={theme.colors.placeholder} style={{ opacity: 0.3, marginBottom: 16 }} />
-              <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>
+              <FontAwesomeIcon icon={activeTab === 'my-clubs' ? faDoorOpen : faChess} size={48} color={theme.colors.placeholder} style={{ opacity: 0.2, marginBottom: 16 }} />
+              <Text style={[styles.emptyText, { color: theme.colors.text }]}>
                 {activeTab === 'my-clubs' ? "You haven't joined any clubs yet." : "No other clubs found."}
               </Text>
               {activeTab === 'my-clubs' && !isAdmin && (
                 <TouchableOpacity onPress={() => setActiveTab('browse')} style={styles.exploreButton}>
-                  <Text style={{ color: '#AF52DE', fontWeight: 'bold' }}>Explore Clubs</Text>
+                  <Text style={{ color: '#AF52DE', fontWeight: '900', textTransform: 'uppercase', fontSize: 12 }}>Explore Clubs</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -246,6 +244,163 @@ export default function ClubListScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  heroContainer: {
+    padding: 24,
+    paddingTop: 40,
+    elevation: 0,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+  },
+  heroContent: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+  },
+  heroTextContainer: {
+      flex: 1,
+      paddingRight: 10,
+  },
+  heroTitle: {
+      color: '#fff',
+      fontSize: 28,
+      fontWeight: '900',
+      marginBottom: 8,
+      letterSpacing: -1,
+  },
+  heroDescription: {
+      color: '#f5f3ff',
+      fontSize: 14,
+      fontWeight: '500',
+  },
+  backButtonHero: { marginRight: 12 },
+  heroButton: {
+      backgroundColor: '#fff',
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+  },
+  heroButtonText: {
+      color: '#9333ea',
+      fontWeight: 'bold',
+      marginLeft: 6,
+      fontSize: 14,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    borderRadius: 16,
+    marginBottom: 20,
+    marginTop: 20,
+    overflow: 'hidden',
+    padding: 4,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 12,
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  clubCard: {
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+    elevation: 0,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  headerInfo: {
+    flex: 1,
+  },
+  clubName: {
+    fontSize: 18,
+    fontWeight: '900',
+    marginBottom: 2,
+    letterSpacing: -0.5,
+  },
+  coordinatorName: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  cardDivider: {
+    height: 1,
+    marginVertical: 16,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  memberBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  badgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  viewDetails: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  joinButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  joinButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  exploreButton: {
+    marginTop: 20,
+    padding: 12,
   },
   header: {
     flexDirection: 'row',
@@ -272,108 +427,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    marginHorizontal: 20,
-    borderRadius: 12,
-    marginBottom: 16,
-    overflow: 'hidden',
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  listContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  clubCard: {
-    borderRadius: 12,
-    borderWidth: 0.2,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 0,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  clubName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 2,
-  },
-  coordinatorName: {
-    fontSize: 12,
-  },
-  cardDivider: {
-    height: 1,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    marginVertical: 12,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  memberBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#AF52DE10',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  viewDetails: {
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  joinButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  joinButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 14,
-    fontStyle: 'italic',
-  },
-  exploreButton: {
-    marginTop: 16,
-    padding: 10,
   },
 });

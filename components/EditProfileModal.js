@@ -124,50 +124,54 @@ export default function EditProfileModal({ visible, onClose, currentUser }) {
         <Modal
             isVisible={visible}
             onBackdropPress={() => !saving && !uploading && onClose(false)}
+            onSwipeComplete={() => !saving && !uploading && onClose(false)}
+            swipeDirection={['down']}
             animationIn="slideInUp"
             animationOut="slideOutDown"
-            backdropOpacity={0.5}
+            backdropOpacity={0.4}
             style={{ justifyContent: 'flex-end', margin: 0 }}
         >
             <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+                <View style={styles.swipeIndicator} />
                 <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={faUser} size={24} color={theme.colors.primary} />
+                    <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                        <FontAwesomeIcon icon={faUser} size={18} color={theme.colors.primary} />
+                    </View>
                     <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>Edit Profile</Text>
                     <TouchableOpacity onPress={() => !saving && !uploading && onClose(false)} style={styles.modalCloseButton}>
-                        <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
+                        <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
                     </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 24 }}>
                     <View style={styles.contentContainer}>
                         {/* Avatar Section */}
                         <View style={styles.avatarSection}>
-                            <TouchableOpacity onPress={pickImage} disabled={uploading || saving}>
+                            <TouchableOpacity onPress={pickImage} disabled={uploading || saving} activeOpacity={0.8}>
                                 <View style={styles.avatarContainer}>
                                     {avatarUri ? (
                                         <Image source={{ uri: avatarUri }} style={styles.avatar} />
                                     ) : (
-                                        <View style={[styles.avatarPlaceholder, { backgroundColor: theme.colors.inputBackground }]}>
-                                            <FontAwesomeIcon icon={faUser} size={40} color={theme.colors.placeholder} />
+                                        <View style={[styles.avatarPlaceholder, { backgroundColor: theme.colors.card }]}>
+                                            <FontAwesomeIcon icon={faUser} size={40} color={theme.colors.cardBorder} />
                                         </View>
                                     )}
                                     <View style={[styles.cameraIcon, { backgroundColor: theme.colors.primary }]}>
-                                        <FontAwesomeIcon icon={faCamera} size={16} color="#fff" />
+                                        <FontAwesomeIcon icon={faCamera} size={14} color="#fff" />
                                     </View>
                                 </View>
                             </TouchableOpacity>
-                            <Text style={[styles.avatarHint, { color: theme.colors.placeholder }]}>Tap to change avatar</Text>
+                            <Text style={[styles.avatarHint, { color: theme.colors.placeholder }]}>TAP TO UPDATE PHOTO</Text>
                         </View>
-
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
 
                         {/* Name Input */}
                         <View style={styles.inputSection}>
-                            <Text style={[styles.label, { color: theme.colors.text }]}>Full Name</Text>
+                            <Text style={[styles.label, { color: '#94a3b8' }]}>FULL NAME</Text>
                             <TextInput
                                 style={[styles.input, {
-                                    backgroundColor: theme.colors.inputBackground,
-                                    borderColor: theme.colors.inputBorder,
+                                    backgroundColor: theme.colors.card,
+                                    borderColor: theme.colors.cardBorder,
+                                    borderWidth: 1,
                                     color: theme.colors.text
                                 }]}
                                 value={fullName}
@@ -180,11 +184,12 @@ export default function EditProfileModal({ visible, onClose, currentUser }) {
 
                         {/* Phone Number Input */}
                         <View style={styles.inputSection}>
-                            <Text style={[styles.label, { color: theme.colors.text }]}>Phone Number</Text>
+                            <Text style={[styles.label, { color: '#94a3b8' }]}>PHONE NUMBER</Text>
                             <TextInput
                                 style={[styles.input, {
-                                    backgroundColor: theme.colors.inputBackground,
-                                    borderColor: theme.colors.inputBorder,
+                                    backgroundColor: theme.colors.card,
+                                    borderColor: theme.colors.cardBorder,
+                                    borderWidth: 1,
                                     color: theme.colors.text
                                 }]}
                                 value={number}
@@ -198,10 +203,11 @@ export default function EditProfileModal({ visible, onClose, currentUser }) {
 
                         {/* Country Picker */}
                         <View style={styles.inputSection}>
-                            <Text style={[styles.label, { color: theme.colors.text }]}>Country</Text>
+                            <Text style={[styles.label, { color: '#94a3b8' }]}>COUNTRY</Text>
                             <View style={[styles.pickerWrapper, { 
-                                borderColor: theme.colors.inputBorder, 
-                                backgroundColor: theme.colors.inputBackground 
+                                borderColor: theme.colors.cardBorder, 
+                                backgroundColor: theme.colors.card,
+                                borderWidth: 1
                             }]}>
                                 <Picker
                                     selectedValue={country}
@@ -223,9 +229,10 @@ export default function EditProfileModal({ visible, onClose, currentUser }) {
                             style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
                             onPress={handleSave}
                             disabled={saving || uploading}
+                            activeOpacity={0.8}
                         >
                             <Text style={styles.saveButtonText}>
-                                {saving || uploading ? 'Saving...' : 'Save Changes'}
+                                {saving || uploading ? 'SAVING CHANGES...' : 'CONFIRM UPDATES'}
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -237,105 +244,121 @@ export default function EditProfileModal({ visible, onClose, currentUser }) {
 
 const styles = StyleSheet.create({
     modalContent: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 30,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
+        paddingHorizontal: 24,
+        paddingTop: 8,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
         maxHeight: '90%',
-        minHeight: '50%',
+    },
+    swipeIndicator: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#cbd5e1',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: 20,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingBottom: 15,
+        paddingBottom: 20,
         borderBottomWidth: 1,
-        marginBottom: 10,
+    },
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
     },
     modalTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        marginLeft: 15,
+        fontSize: 18,
+        fontWeight: '900',
+        letterSpacing: -0.5,
         flex: 1,
     },
     modalCloseButton: {
-        padding: 5,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     contentContainer: {
         paddingBottom: 20,
     },
     avatarSection: {
         alignItems: 'center',
-        marginVertical: 20,
+        marginBottom: 32,
     },
     avatarContainer: {
         position: 'relative',
     },
     avatar: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        borderWidth: 3,
-        borderColor: '#007AFF',
+        width: 112,
+        height: 112,
+        borderRadius: 36,
     },
     avatarPlaceholder: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
+        width: 112,
+        height: 112,
+        borderRadius: 36,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
-        borderColor: '#ddd',
+        borderStyle: 'dashed',
     },
     cameraIcon: {
         position: 'absolute',
-        bottom: 0,
-        right: 0,
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        bottom: -4,
+        right: -4,
+        width: 36,
+        height: 36,
+        borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 2,
+        borderWidth: 3,
         borderColor: '#fff',
     },
     avatarHint: {
-        fontSize: 13,
-        marginTop: 8,
-    },
-    divider: {
-        height: 1,
-        marginVertical: 15,
+        fontSize: 10,
+        fontWeight: '900',
+        marginTop: 16,
+        letterSpacing: 1,
     },
     inputSection: {
-        marginBottom: 20,
+        marginBottom: 24,
     },
     label: {
-        fontSize: 15,
-        fontWeight: '600',
+        fontSize: 10,
+        fontWeight: '900',
         marginBottom: 8,
+        letterSpacing: 1.5,
     },
     input: {
-        borderWidth: 1,
-        borderRadius: 12,
-        padding: 14,
+        borderRadius: 16,
+        height: 56,
+        paddingHorizontal: 16,
         fontSize: 15,
+        fontWeight: '700',
     },
     pickerWrapper: {
-        borderWidth: 1,
-        borderRadius: 12,
+        borderRadius: 16,
+        height: 56,
         overflow: 'hidden',
         justifyContent: 'center',
     },
     saveButton: {
-        padding: 16,
-        borderRadius: 12,
+        height: 56,
+        borderRadius: 16,
+        justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 10,
+        marginTop: 8,
     },
     saveButtonText: {
         color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 13,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
 });

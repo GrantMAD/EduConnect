@@ -18,78 +18,77 @@ export default function GamificationHub() {
     if (loading) return null;
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.colors.card }]}>
-            <Text style={[styles.title, { color: theme.colors.text }]}>Your Progress</Text>
+        <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+            <Text style={[styles.title, { color: theme.colors.text }]}>Your Stats</Text>
             <Text style={[styles.subtitle, { color: theme.colors.placeholder }]}>
-                Track your experience, level up, and earn rewards.
+                TRACK PERFORMANCE METRICS AND ACHIEVEMENTS
             </Text>
-            
+
             <View style={styles.mainRow}>
                 {/* Level & XP */}
                 <View style={styles.xpSection}>
                     <View style={styles.levelRow}>
                         <View>
-                            <Text style={[styles.levelText, { color: theme.colors.primary }]}>Lvl {current_level || 1}</Text>
+                            <Text style={[styles.levelText, { color: theme.colors.primary }]}>LVL {current_level || 1}</Text>
                             <Text style={[styles.xpText, { color: theme.colors.placeholder }]}>
                                 {(current_xp || 0) % xpForNextLevel} / {xpForNextLevel} XP
                             </Text>
                         </View>
-                        <Text style={[styles.nextLevelLabel, { color: theme.colors.placeholder }]}>NEXT LEVEL</Text>
+                        <Text style={[styles.nextLevelLabel, { color: '#94a3b8' }]}>NEXT LEVEL</Text>
                     </View>
 
-                    <View style={[styles.progressBarBg, { backgroundColor: theme.colors.border }]}>
-                        <View 
+                    <View style={[styles.progressBarBg, { backgroundColor: theme.colors.background }]}>
+                        <View
                             style={[
-                                styles.progressBarFill, 
+                                styles.progressBarFill,
                                 { backgroundColor: theme.colors.primary, width: `${progress * 100}%` }
-                            ]} 
+                            ]}
                         />
                     </View>
-                    
+
                     <View style={styles.statsGrid}>
-                        <View style={[styles.statBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-                            <View style={[styles.iconBox, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
-                                <FontAwesomeIcon icon={faCoins} color="#F59E0B" size={12} />
+                        <View style={[styles.statBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                            <View style={[styles.iconBox, { backgroundColor: '#f59e0b' + '15' }]}>
+                                <FontAwesomeIcon icon={faCoins} color="#f59e0b" size={10} />
                             </View>
                             <View>
-                                <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>Coins</Text>
                                 <Text style={[styles.statValue, { color: theme.colors.text }]}>{coins || 0}</Text>
+                                <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>COINS</Text>
                             </View>
                         </View>
-                        <View style={[styles.statBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-                            <View style={[styles.iconBox, { backgroundColor: 'rgba(249, 115, 22, 0.1)' }]}>
-                                <FontAwesomeIcon icon={faFire} color="#F97316" size={12} />
+                        <View style={[styles.statBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                            <View style={[styles.iconBox, { backgroundColor: '#ef4444' + '15' }]}>
+                                <FontAwesomeIcon icon={faFire} color="#ef4444" size={10} />
                             </View>
                             <View>
-                                <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>Streak</Text>
-                                <Text style={[styles.statValue, { color: theme.colors.text }]}>{streak?.current_streak || 0}d</Text>
+                                <Text style={[styles.statValue, { color: theme.colors.text }]}>{streak?.current_streak || 0}D</Text>
+                                <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>STREAK</Text>
                             </View>
                         </View>
                     </View>
                 </View>
 
                 {/* Next Badge Card */}
-                <View style={[styles.badgeCard, { backgroundColor: 'rgba(99, 102, 241, 0.05)', borderColor: theme.colors.cardBorder }]}>
+                <View style={[styles.badgeCard, { backgroundColor: theme.colors.primary + '05', borderColor: theme.colors.primary + '20', borderWidth: 1 }]}>
                     <Text style={[styles.badgeGoalLabel, { color: theme.colors.primary }]}>GOAL</Text>
                     {nextBadge ? (
                         <>
-                            <View style={styles.badgeIconContainer}>
-                                <FontAwesomeIcon icon={nextBadge.icon} color={theme.colors.primary} size={24} />
+                            <View style={[styles.badgeIconContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                                <FontAwesomeIcon icon={nextBadge.icon} color={theme.colors.primary} size={20} />
                             </View>
-                            <Text style={[styles.badgeName, { color: theme.colors.text }]} numberOfLines={1}>{nextBadge.name}</Text>
+                            <Text style={[styles.badgeName, { color: theme.colors.text }]} numberOfLines={1}>{nextBadge.name.toUpperCase()}</Text>
                             <View style={styles.badgeXpRow}>
-                                <FontAwesomeIcon icon={faArrowUp} color={theme.colors.primary} size={8} style={{ marginRight: 4 }} />
                                 <Text style={[styles.badgeXpText, { color: theme.colors.primary }]}>
-                                    {nextBadge.min_xp - (current_xp || 0)} XP
+                                    +{nextBadge.min_xp - (current_xp || 0)} XP
                                 </Text>
                             </View>
                         </>
                     ) : (
                         <>
-                            <View style={styles.badgeIconContainer}>
-                                <FontAwesomeIcon icon={faTrophy} color="#F59E0B" size={24} />
+                            <View style={[styles.badgeIconContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                                <FontAwesomeIcon icon={faTrophy} color="#f59e0b" size={20} />
                             </View>
-                            <Text style={[styles.badgeName, { color: theme.colors.text }]}>Elite</Text>
+                            <Text style={[styles.badgeName, { color: theme.colors.text }]}>ELITE</Text>
                             <Text style={[styles.badgeXpText, { color: theme.colors.placeholder }]}>MAX</Text>
                         </>
                     )}
@@ -101,19 +100,21 @@ export default function GamificationHub() {
 
 const styles = StyleSheet.create({
     container: {
-        padding: 20,
-        borderRadius: 24,
-        marginBottom: 20,
+        padding: 24,
+        borderRadius: 32,
+        marginBottom: 24,
     },
     title: {
         fontSize: 18,
         fontWeight: '900',
         marginBottom: 4,
+        letterSpacing: -0.5,
     },
     subtitle: {
-        fontSize: 12,
-        fontWeight: '600',
-        marginBottom: 20,
+        fontSize: 9,
+        fontWeight: '900',
+        marginBottom: 24,
+        letterSpacing: 1,
     },
     mainRow: {
         flexDirection: 'row',
@@ -126,15 +127,17 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-end',
-        marginBottom: 8,
+        marginBottom: 10,
     },
     levelText: {
-        fontSize: 24,
+        fontSize: 22,
         fontWeight: '900',
+        letterSpacing: -1,
     },
     xpText: {
-        fontSize: 11,
-        fontWeight: '700',
+        fontSize: 10,
+        fontWeight: '800',
+        marginTop: 2,
     },
     nextLevelLabel: {
         fontSize: 8,
@@ -143,14 +146,14 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     progressBarBg: {
-        height: 8,
-        borderRadius: 4,
+        height: 10,
+        borderRadius: 5,
         overflow: 'hidden',
-        marginBottom: 16,
+        marginBottom: 20,
     },
     progressBarFill: {
         height: '100%',
-        borderRadius: 4,
+        borderRadius: 5,
     },
     statsGrid: {
         flexDirection: 'row',
@@ -162,29 +165,27 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 10,
         borderRadius: 16,
-        borderWidth: 1,
         gap: 8,
     },
     iconBox: {
         width: 24,
         height: 24,
-        borderRadius: 6,
+        borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
     },
     statLabel: {
-        fontSize: 8,
+        fontSize: 7,
         fontWeight: '900',
-        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     statValue: {
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: '900',
     },
     badgeCard: {
         width: 100,
-        borderRadius: 20,
-        borderWidth: 1,
+        borderRadius: 24,
         padding: 12,
         alignItems: 'center',
         justifyContent: 'center',
@@ -193,27 +194,22 @@ const styles = StyleSheet.create({
         fontSize: 8,
         fontWeight: '900',
         letterSpacing: 1,
-        marginBottom: 8,
+        marginBottom: 12,
     },
     badgeIconContainer: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
-        backgroundColor: '#fff',
+        width: 48,
+        height: 48,
+        borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
     },
     badgeName: {
-        fontSize: 10,
-        fontWeight: '800',
+        fontSize: 9,
+        fontWeight: '900',
         textAlign: 'center',
         marginBottom: 4,
+        letterSpacing: 0.5,
     },
     badgeXpRow: {
         flexDirection: 'row',

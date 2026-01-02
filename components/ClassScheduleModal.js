@@ -41,31 +41,38 @@ export default function ClassScheduleModal({ visible, onClose, selectedDate, onS
         <Modal
             isVisible={visible}
             onBackdropPress={onClose}
+            onSwipeComplete={onClose}
+            swipeDirection={['down']}
             animationIn="slideInUp"
             animationOut="slideOutDown"
-            backdropOpacity={0.5}
+            backdropOpacity={0.4}
             style={{ justifyContent: 'flex-end', margin: 0 }}
             avoidKeyboard={true}
         >
-            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: 40 }]}>
+                <View style={styles.swipeIndicator} />
                 <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={faCalendarAlt} size={24} color={theme.colors.primary} />
+                    <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                        <FontAwesomeIcon icon={faCalendarAlt} size={18} color={theme.colors.primary} />
+                    </View>
                     <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>Schedule Class</Text>
                     <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-                        <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
+                        <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
                     </TouchableOpacity>
                 </View>
 
                 <View style={styles.contentContainer}>
-                    <Text style={[styles.dateText, { color: theme.colors.text }]}>
-                        {selectedDate}
-                    </Text>
+                    <View style={[styles.dateLabel, { backgroundColor: theme.colors.card }]}>
+                        <Text style={[styles.dateText, { color: theme.colors.text }]}>
+                            {selectedDate?.toUpperCase()}
+                        </Text>
+                    </View>
 
-                    <Text style={[styles.sectionLabel, { color: theme.colors.placeholder }]}>Time</Text>
+                    <Text style={[styles.sectionLabel, { color: '#94a3b8' }]}>TIMING</Text>
                     <View style={styles.timeInputRow}>
                         <View style={styles.timeInputGroup}>
-                            <Text style={[styles.timeInputLabel, { color: theme.colors.placeholder }]}>Start</Text>
-                            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.cardBorder }]}>
+                            <Text style={[styles.timeInputLabel, { color: theme.colors.placeholder }]}>START</Text>
+                            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                                 <TextInput
                                     style={[styles.timeInput, { color: theme.colors.text }]}
                                     placeholder="10:00"
@@ -81,8 +88,8 @@ export default function ClassScheduleModal({ visible, onClose, selectedDate, onS
                         <Text style={[styles.timeSeparator, { color: theme.colors.placeholder }]}>-</Text>
 
                         <View style={styles.timeInputGroup}>
-                            <Text style={[styles.timeInputLabel, { color: theme.colors.placeholder }]}>End</Text>
-                            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.cardBorder }]}>
+                            <Text style={[styles.timeInputLabel, { color: theme.colors.placeholder }]}>END</Text>
+                            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                                 <TextInput
                                     style={[styles.timeInput, { color: theme.colors.text }]}
                                     placeholder="11:00"
@@ -96,11 +103,11 @@ export default function ClassScheduleModal({ visible, onClose, selectedDate, onS
                         </View>
                     </View>
 
-                    <Text style={[styles.sectionLabel, { color: theme.colors.placeholder }]}>Details</Text>
-                    <View style={[styles.infoInputWrapper, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.cardBorder }]}>
+                    <Text style={[styles.sectionLabel, { color: '#94a3b8' }]}>CLASS DETAILS</Text>
+                    <View style={[styles.infoInputWrapper, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                         <TextInput
                             style={[styles.infoInput, { color: theme.colors.text }]}
-                            placeholder="Enter class information (e.g., Room 304, Bring textbook)..."
+                            placeholder="Enter room number, required materials, or other instructions..."
                             placeholderTextColor={theme.colors.placeholder}
                             value={info}
                             onChangeText={setInfo}
@@ -112,9 +119,9 @@ export default function ClassScheduleModal({ visible, onClose, selectedDate, onS
                     <TouchableOpacity
                         style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
                         onPress={handleSave}
+                        activeOpacity={0.8}
                     >
-                        <FontAwesomeIcon icon={faCheck} size={16} color="#fff" style={{ marginRight: 8 }} />
-                        <Text style={styles.saveButtonText}>Add to Schedule</Text>
+                        <Text style={styles.saveButtonText}>CONFIRM SCHEDULE</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -124,97 +131,120 @@ export default function ClassScheduleModal({ visible, onClose, selectedDate, onS
 
 const styles = StyleSheet.create({
     modalContent: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 30,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        minHeight: '50%',
+        paddingHorizontal: 24,
+        paddingTop: 8,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+    },
+    swipeIndicator: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#cbd5e1',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: 20,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingBottom: 15,
+        paddingBottom: 20,
         borderBottomWidth: 1,
-        marginBottom: 20,
+        marginBottom: 24,
+    },
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
     },
     modalTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        marginLeft: 15,
+        fontSize: 18,
+        fontWeight: '900',
         flex: 1,
+        letterSpacing: -0.5,
     },
     modalCloseButton: {
-        padding: 5,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     contentContainer: {
         paddingBottom: 20,
     },
+    dateLabel: {
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        alignSelf: 'center',
+        marginBottom: 24,
+    },
     dateText: {
-        fontSize: 18,
-        fontWeight: '600',
-        marginBottom: 20,
-        textAlign: 'center',
+        fontSize: 11,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
     sectionLabel: {
-        fontSize: 12,
-        fontWeight: '600',
-        marginBottom: 8,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
+        fontSize: 10,
+        fontWeight: '900',
+        marginBottom: 12,
+        letterSpacing: 1.5,
     },
     timeInputRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 25,
+        marginBottom: 32,
     },
     timeInputGroup: {
         flex: 1,
     },
     timeInputLabel: {
-        fontSize: 12,
-        marginBottom: 5,
+        fontSize: 10,
+        fontWeight: '900',
+        marginBottom: 8,
         textAlign: 'center',
     },
     inputWrapper: {
-        borderWidth: 1,
-        borderRadius: 12,
+        borderRadius: 16,
         paddingHorizontal: 15,
-        paddingVertical: 12,
+        height: 56,
+        justifyContent: 'center',
     },
     timeInput: {
-        fontSize: 18,
-        fontWeight: '600',
+        fontSize: 20,
+        fontWeight: '900',
         textAlign: 'center',
     },
     timeSeparator: {
         fontSize: 24,
         fontWeight: '300',
-        marginHorizontal: 15,
-        marginTop: 15,
+        marginHorizontal: 16,
+        marginTop: 18,
     },
     infoInputWrapper: {
-        borderWidth: 1,
-        borderRadius: 12,
-        padding: 15,
-        marginBottom: 25,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 32,
         height: 120,
     },
     infoInput: {
-        fontSize: 16,
+        fontSize: 14,
+        fontWeight: '600',
         height: '100%',
     },
     saveButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        height: 56,
+        borderRadius: 16,
         justifyContent: 'center',
-        padding: 16,
-        borderRadius: 12,
+        alignItems: 'center',
     },
     saveButtonText: {
         color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 16,
+        fontWeight: '900',
+        fontSize: 13,
+        letterSpacing: 1,
     },
 });

@@ -1,16 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, Image, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, Image, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import AnnouncementCardSkeleton from '../components/skeletons/AnnouncementCardSkeleton';
 import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faBullhorn, faCalendar, faUsers, faTimes, faWifi } from '@fortawesome/free-solid-svg-icons';
+import { faBullhorn, faCalendar, faUsers, faTimes, faWifi, faChevronRight, faPlus, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
 import AnnouncementDetailModal from '../components/AnnouncementDetailModal';
-import { useTheme } from '../context/ThemeContext'; // Import useTheme
+import { useTheme } from '../context/ThemeContext';
 import { useSupabaseInfiniteQuery } from '../hooks/useSupabaseInfiniteQuery';
-
-const placeholderImage = require('../assets/user.png'); // Using existing asset as placeholder
+import LinearGradient from 'react-native-linear-gradient';
 
 const timeSince = (date) => {
   const seconds = Math.floor((new Date() - new Date(date)) / 1000);
@@ -40,15 +39,14 @@ const timeSince = (date) => {
 export default function AnnouncementsScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
-  const [userClasses, setUserClasses] = useState([]); // New state for classes user is associated with
+  const [userClasses, setUserClasses] = useState([]); 
   const [allClasses, setAllClasses] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
 
   const { schoolId, loadingSchool, schoolData } = useSchool();
-  const { theme } = useTheme(); // Use the theme hook
+  const { theme } = useTheme(); 
 
-  // Prepare query function for the hook
   const fetchAnnouncementsQuery = React.useCallback(({ from, to }) => {
     if (!schoolId) return Promise.resolve({ data: [], error: null });
 
@@ -62,20 +60,17 @@ export default function AnnouncementsScreen({ navigation }) {
       // Admin sees all
     } else if (['teacher', 'student', 'parent'].includes(userRole)) {
       if (userClasses.length > 0) {
-        // Show general announcements (class_id is null) OR class-specific ones
         query = query.or(`class_id.is.null,class_id.in.(${userClasses.join(',')})`);
       } else {
         query = query.is('class_id', null);
       }
     } else {
-      // Default fallback
       query = query.is('class_id', null);
     }
     
     return query;
   }, [schoolId, userRole, userClasses]);
 
-  // Use the hook
   const { 
     data: announcementsData, 
     loading: announcementsLoading, 
@@ -86,7 +81,7 @@ export default function AnnouncementsScreen({ navigation }) {
     refetch,
     loadMore
   } = useSupabaseInfiniteQuery(
-    `announcements_${schoolId}_${userRole}`, // Unique cache key
+    `announcements_${schoolId}_${userRole}`, 
     fetchAnnouncementsQuery,
     {
       pageSize: 15,
@@ -99,7 +94,7 @@ export default function AnnouncementsScreen({ navigation }) {
 
   useEffect(() => {
     const initializeUserAndClasses = async () => {
-      if (loadingSchool) return; // Wait for school data to load
+      if (loadingSchool) return; 
 
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
@@ -120,7 +115,7 @@ export default function AnnouncementsScreen({ navigation }) {
     };
 
     initializeUserAndClasses();
-  }, [schoolId, loadingSchool, schoolData]); // Re-run when schoolId, loadingSchool or schoolData changes
+  }, [schoolId, loadingSchool, schoolData]);
 
   const fetchUserClasses = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -130,14 +125,12 @@ export default function AnnouncementsScreen({ navigation }) {
     }
 
     try {
-      // Fetch user's role first
       const { data: userData, error: userError } = await supabase.from('users').select('role').eq('id', user.id).single();
       if (userError) throw userError;
       const role = userData?.role;
 
       let associatedClassIds = [];
 
-      // Fetch classes the user is directly a member of (student or teacher)
       const { data: memberClasses, error: memberError } = await supabase
         .from('class_members')
         .select('class_id')
@@ -147,7 +140,6 @@ export default function AnnouncementsScreen({ navigation }) {
         associatedClassIds.push(...memberClasses.map(m => m.class_id));
       }
 
-      // If user is a parent, fetch their children's classes
       if (role === 'parent') {
         const { data: children, error: childrenError } = await supabase
           .from('parent_child_relationships')
@@ -193,7 +185,6 @@ export default function AnnouncementsScreen({ navigation }) {
 
   useFocusEffect(
     React.useCallback(() => {
-      // Fetch announcements only when schoolId, userRole, userClasses, and allClasses are ready
       if (schoolId && userRole !== null && userClasses !== null && allClasses !== null) {
         refetch();
       }
@@ -214,48 +205,82 @@ export default function AnnouncementsScreen({ navigation }) {
       return <AnnouncementCardSkeleton />;
     }
 
+    const isNew = (new Date() - new Date(item.created_at)) / (1000 * 60 * 60 * 24) < 3;
+
     return (
-      <TouchableOpacity onPress={() => handleCardPress(item)} style={[styles.cardContainer, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }]}>
-        <View style={[styles.typeIndicator, item.type === 'general' ? { backgroundColor: theme.colors.primary } : { backgroundColor: theme.colors.success }]} />
+      <TouchableOpacity 
+        onPress={() => handleCardPress(item)} 
+        style={[styles.cardContainer, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.border }]}
+        activeOpacity={0.9}
+      >
+        <LinearGradient
+          colors={['#6366f1', '#9333ea']} // Indigo-500 to Purple-600
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.leftAccent}
+        />
+        
         <View style={styles.cardContent}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <FontAwesomeIcon icon={faBullhorn} size={18} color={theme.colors.primary} style={{ marginRight: 10 }} />
-              <Text style={[styles.title, { color: theme.colors.text }]}>{item.title}</Text>
-            </View>
-            {new Date(item.created_at) > new Date(Date.now() - 48 * 60 * 60 * 1000) ? (
-              <View style={[styles.newBadge, { backgroundColor: theme.colors.error }]}>
-                <Text style={[styles.newBadgeText, { color: theme.colors.buttonPrimaryText }]}>NEW</Text>
-              </View>
-            ) : (
-              <View style={[styles.oldBadge, { backgroundColor: theme.colors.buttonSecondary }]}>
-                <Text style={[styles.oldBadgeText, { color: theme.colors.buttonPrimaryText }]}>OLD</Text>
-              </View>
-            )}
-          </View>
-          <View style={styles.postedByContainer}>
-            <Text style={[styles.postedBy, { color: theme.colors.placeholder }]}>Posted by: {item.author ? item.author.full_name : 'Unknown Author'}</Text>
-            <Text style={[styles.timeSince, { color: theme.colors.placeholder }]}>{timeSince(item.created_at)}</Text>
-          </View>
-          <View style={[styles.separator, { backgroundColor: theme.colors.cardBorder }]} />
-          <Text style={[styles.messagePreview, { color: theme.colors.text }]} numberOfLines={3}>
-            {item.message.length > 100 ? item.message.substring(0, 100) + '...' : item.message}
-          </Text>
-          {
-            item.class?.name && (
-              <View>
-                <View style={[styles.separator, { backgroundColor: theme.colors.cardBorder }]} />
-                <View style={[styles.classBadge, { backgroundColor: theme.colors.inputBackground }]}>
-                  <FontAwesomeIcon icon={faUsers} size={12} color={theme.colors.primary} />
-                  <Text style={[styles.classBadgeText, { color: theme.colors.primary }]}>
-                    {item.class.name}
+          <View style={styles.cardHeader}>
+            <View style={styles.dateContainer}>
+                {isNew && (
+                  <LinearGradient
+                    colors={['#ef4444', '#ec4899']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.newBadge}
+                  >
+                    <Text style={styles.newBadgeText}>NEW</Text>
+                  </LinearGradient>
+                )}
+                <View style={styles.dateWrapper}>
+                  <FontAwesomeIcon icon={faCalendarAlt} size={10} color={theme.colors.placeholder} style={{ marginRight: 4 }} />
+                  <Text style={[styles.dateText, { color: theme.colors.placeholder }]}>
+                    {new Date(item.created_at).toLocaleDateString()}
                   </Text>
                 </View>
+            </View>
+          </View>
+
+          <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={2}>{item.title}</Text>
+          
+          <Text style={[styles.messagePreview, { color: theme.colors.subtext }]} numberOfLines={3}>
+            {item.message}
+          </Text>
+
+          {item.class?.name && (
+             <View style={[styles.classBadge, { backgroundColor: theme.colors.background }]}>
+                <FontAwesomeIcon icon={faUsers} size={10} color={theme.colors.primary} />
+                <Text style={[styles.classBadgeText, { color: theme.colors.primary }]}>
+                  {item.class.name}
+                </Text>
               </View>
-            )
-          }
-        </View >
-      </TouchableOpacity >
+          )}
+
+          <View style={[styles.separator, { backgroundColor: theme.colors.border }]} />
+
+          <View style={styles.cardFooter}>
+            <View style={styles.authorContainer}>
+              <LinearGradient
+                colors={['#818cf8', '#a78bfa']}
+                style={styles.avatar}
+              >
+                 <Text style={styles.avatarText}>
+                    {item.author?.full_name?.charAt(0) || 'A'}
+                 </Text>
+              </LinearGradient>
+              <Text style={[styles.authorName, { color: theme.colors.text }]} numberOfLines={1}>
+                {item.author?.full_name?.split(' ')[0] || 'Admin'}
+              </Text>
+            </View>
+
+            <View style={styles.detailsButton}>
+              <Text style={[styles.detailsText, { color: theme.colors.primary }]}>DETAILS</Text>
+              <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.primary} />
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -292,36 +317,51 @@ export default function AnnouncementsScreen({ navigation }) {
         initialNumToRender={5}
         maxToRenderPerBatch={5}
         windowSize={5}
+        contentContainerStyle={{ paddingBottom: 20 }}
         ListHeaderComponent={() => (
-          <>
-            {/* Welcome Area */}
-            <View style={styles.welcomeContainer}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-                <FontAwesomeIcon icon={faBullhorn} size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
-                <Text style={[styles.welcomeText, { color: theme.colors.text }]}>Announcements</Text>
-              </View>
-              <Text style={[styles.welcomeDescription, { color: theme.colors.text }]}>Stay updated with the latest news and updates from your school.</Text>
+          <View style={styles.headerContainer}>
+             <LinearGradient
+                colors={['#4f46e5', '#1d4ed8']} // Indigo-600 to Blue-700
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.heroContainer}
+              >
+                <View style={styles.heroContent}>
+                  <View style={styles.heroTextContainer}>
+                    <Text style={styles.heroTitle}>School Announcements</Text>
+                    <Text style={styles.heroDescription}>
+                      Stay informed about the latest news and updates.
+                    </Text>
+                  </View>
+                  {(userRole === 'admin' || userRole === 'teacher') && (
+                    <TouchableOpacity
+                      style={styles.createButton}
+                      onPress={() => navigation.navigate('CreateAnnouncement')}
+                    >
+                      <FontAwesomeIcon icon={faPlus} size={14} color="#4f46e5" />
+                      <Text style={styles.createButtonText}>New</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </LinearGradient>
+              
+            <View style={styles.statsRow}>
+               <Text style={[styles.statsText, { color: theme.colors.placeholder }]}>
+                 {isLoading ? '--' : announcements.length} Published
+               </Text>
             </View>
-
-            {/* List of Announcements Area */}
-            <View style={styles.sectionHeaderContainer}>
-              <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Latest Announcements</Text>
-              {(userRole === 'admin' || userRole === 'teacher') && (
-                <TouchableOpacity
-                  style={styles.addTextButton}
-                  onPress={() => navigation.navigate('CreateAnnouncement')}
-                >
-                  <Text style={[styles.addTextButtonText, { color: theme.colors.primary }]}>+ Add Announcement</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            <Text style={[styles.announcementCount, { color: theme.colors.placeholder }]}>
-              {isLoading ? '--' : announcements.length} loaded
-            </Text>
-          </>
+          </View>
         )}
         renderItem={renderAnnouncementItem}
-        ListEmptyComponent={!isLoading && <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No announcements yet.</Text>}
+        ListEmptyComponent={!isLoading && (
+            <View style={styles.emptyContainer}>
+                <View style={[styles.emptyIconContainer, { backgroundColor: theme.colors.cardBackground }]}>
+                    <FontAwesomeIcon icon={faBullhorn} size={30} color={theme.colors.placeholder} />
+                </View>
+                <Text style={[styles.emptyText, { color: theme.colors.text }]}>No announcements found</Text>
+                <Text style={[styles.emptySubtext, { color: theme.colors.placeholder }]}>Check back later for updates.</Text>
+            </View>
+        )}
       />
 
       <AnnouncementDetailModal
@@ -336,175 +376,188 @@ export default function AnnouncementsScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
   },
-  welcomeContainer: {
-    marginBottom: 20,
-    alignItems: 'flex-start',
+  headerContainer: {
+    marginBottom: 16,
   },
-  welcomeText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  welcomeDescription: {
-    fontSize: 16,
-  },
-  imageContainer: {
-    marginBottom: 20,
-    width: '100%',
-    height: 150,
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  placeholderImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  placeholderImageContainer: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  placeholderText: {
-    fontSize: 16,
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
-  placeholderSubText: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 5,
-  },
-  skeleton: {
-    backgroundColor: '#E0E0E0', // Skeletons can remain a fixed color or be themed
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  sectionHeaderContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 5,
-  },
-  sectionHeader: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  announcementCount: {
-    fontSize: 14,
+  heroContainer: {
+    borderRadius: 16,
+    margin: 16,
     marginBottom: 10,
+    elevation: 4,
+    shadowColor: '#4f46e5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
-  addTextButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+  heroContent: {
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  addTextButtonText: {
-    fontSize: 16,
+  heroTextContainer: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  heroDescription: {
+    fontSize: 14,
+    color: '#e0e7ff', // Indigo-100
+    lineHeight: 20,
+  },
+  createButton: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  createButtonText: {
+    color: '#4f46e5',
     fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 6,
+  },
+  statsRow: {
+    paddingHorizontal: 20,
+    marginBottom: 5,
+  },
+  statsText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   cardContainer: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 16,
     flexDirection: 'row',
-    borderRadius: 10,
-    marginBottom: 10,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-    elevation: 2,
-    overflow: 'hidden', // Ensures the border radius applies to the type indicator
+    overflow: 'hidden',
+    borderWidth: 1,
+    elevation: 0, // Explicitly 0 as requested
   },
-  typeIndicator: {
-    width: 8,
+  leftAccent: {
+    width: 6,
     height: '100%',
-  },
-  generalType: {
-    // backgroundColor handled by theme.colors.primary
-  },
-  classType: {
-    // backgroundColor handled by theme.colors.success
   },
   cardContent: {
     flex: 1,
-    padding: 15,
+    padding: 16,
+    paddingLeft: 12,
   },
-  title: {
-    fontWeight: '600',
-    fontSize: 16,
-    marginBottom: 5,
-  },
-  newBadge: {
-    borderRadius: 5,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginLeft: 10,
-  },
-  newBadgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  oldBadge: {
-    borderRadius: 5,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginLeft: 10,
-  },
-  oldBadgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  postedBy: {
-    fontSize: 12,
-  },
-  postedByContainer: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
   },
-  timeSince: {
-    fontSize: 12,
-    fontStyle: 'italic',
-  },
-  messagePreview: {
-    fontSize: 14,
-  },
-  classLabel: {
-    fontSize: 12,
-    marginLeft: 5,
-  },
-  separator: {
-    height: 1,
-    marginVertical: 10,
-  },
-  classLabelContainer: {
+  dateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  emptyText: {
-    textAlign: 'center',
-    marginTop: 20,
+  newBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  newBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  dateWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 6,
+    lineHeight: 22,
+  },
+  messagePreview: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 12,
   },
   classBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-
-    borderRadius: 20,
-    marginTop: 5,
-
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 12,
+    marginBottom: 12,
   },
   classBadgeText: {
-    fontSize: 12,
-    marginLeft: 6,
+    fontSize: 11,
     fontWeight: '600',
+    marginLeft: 4,
+  },
+  separator: {
+    height: 1,
+    width: '100%',
+    marginBottom: 12,
+    opacity: 0.5,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  authorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  avatarText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  authorName: {
+    fontSize: 12,
+    fontWeight: '600',
+    maxWidth: 100,
+  },
+  detailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailsText: {
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginRight: 4,
   },
   offlineBanner: {
     flexDirection: 'row',
@@ -512,11 +565,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 8,
     marginBottom: 8,
-    borderRadius: 8,
   },
   offlineText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
   },
+  emptyContainer: {
+      alignItems: 'center',
+      padding: 40,
+  },
+  emptyIconContainer: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 16,
+  },
+  emptyText: {
+      fontSize: 16,
+      fontWeight: '600',
+      marginBottom: 4,
+  },
+  emptySubtext: {
+      fontSize: 14,
+  }
 });

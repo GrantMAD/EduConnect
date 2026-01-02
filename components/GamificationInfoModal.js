@@ -12,78 +12,86 @@ export default function GamificationInfoModal({ visible, onClose }) {
         <Modal
             isVisible={visible}
             onBackdropPress={onClose}
+            onSwipeComplete={onClose}
+            swipeDirection={['down']}
             animationIn="slideInUp"
             animationOut="slideOutDown"
-            backdropOpacity={0.5}
+            backdropOpacity={0.4}
             style={{ justifyContent: 'flex-end', margin: 0 }}
         >
             <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+                <View style={styles.swipeIndicator} />
                 <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={faInfoCircle} size={24} color={theme.colors.primary} />
-                    <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>How it Works</Text>
+                    <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                        <FontAwesomeIcon icon={faInfoCircle} size={18} color={theme.colors.primary} />
+                    </View>
+                    <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>System Guide</Text>
                     <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-                        <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
+                        <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
                     </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 24 }}>
                     <View style={styles.contentContainer}>
 
                         {/* XP Section */}
-                        <View style={styles.section}>
+                        <View style={[styles.section, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                             <View style={styles.sectionHeader}>
-                                <FontAwesomeIcon icon={faTrophy} size={20} color="#FFD700" />
-                                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Experience Points (XP)</Text>
+                                <View style={[styles.sectionIcon, { backgroundColor: '#f59e0b' + '15' }]}>
+                                    <FontAwesomeIcon icon={faTrophy} size={14} color="#f59e0b" />
+                                </View>
+                                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Experience (XP)</Text>
                             </View>
                             <Text style={[styles.description, { color: theme.colors.text }]}>
-                                Earn XP by completing tasks, attending classes, and participating in polls. Level up to unlock new items and show off your progress!
+                                Earn XP by completing tasks, attending classes, and participating in polls. Level up to unlock rewards!
                             </Text>
                         </View>
-
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
 
                         {/* Coins Section */}
-                        <View style={styles.section}>
+                        <View style={[styles.section, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                             <View style={styles.sectionHeader}>
-                                <FontAwesomeIcon icon={faCoins} size={20} color="#FFD700" />
-                                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Coins</Text>
+                                <View style={[styles.sectionIcon, { backgroundColor: '#f59e0b' + '15' }]}>
+                                    <FontAwesomeIcon icon={faCoins} size={14} color="#f59e0b" />
+                                </View>
+                                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>EduCoins</Text>
                             </View>
                             <Text style={[styles.description, { color: theme.colors.text }]}>
-                                You earn <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>1 Coin for every 10 XP</Text> you gain. Spend coins in the Shop to customize your avatar and profile frame.
+                                You earn <Text style={{ fontWeight: '900', color: theme.colors.primary }}>1 Coin for every 10 XP</Text>. Use them in the Shop to customize your profile.
                             </Text>
                         </View>
 
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
                         {/* Streak Section */}
-                        <View style={styles.section}>
+                        <View style={[styles.section, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                             <View style={styles.sectionHeader}>
-                                <FontAwesomeIcon icon={faFire} size={20} color="#FF9500" />
+                                <View style={[styles.sectionIcon, { backgroundColor: '#ef4444' + '15' }]}>
+                                    <FontAwesomeIcon icon={faFire} size={14} color="#ef4444" />
+                                </View>
                                 <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Daily Streaks</Text>
                             </View>
                             <Text style={[styles.description, { color: theme.colors.text }]}>
-                                Keep your streak alive by logging in or doing an activity every day. Don't miss a day, or your streak will reset!
+                                Log in daily to maintain your streak. Don't break the chain or your multiplier will reset!
                             </Text>
                         </View>
 
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
                         {/* Badges Section */}
-                        <View style={styles.section}>
+                        <View style={[styles.section, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                             <View style={styles.sectionHeader}>
-                                <FontAwesomeIcon icon={faMedal} size={20} color="#FFD700" />
-                                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Badges</Text>
+                                <View style={[styles.sectionIcon, { backgroundColor: '#4f46e5' + '15' }]}>
+                                    <FontAwesomeIcon icon={faMedal} size={14} color="#4f46e5" />
+                                </View>
+                                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Achievements</Text>
                             </View>
                             <Text style={[styles.description, { color: theme.colors.text }]}>
-                                Unlock special badges as you reach XP milestones. Badges are unique to your role (Student, Teacher, or Parent) and show off your achievements!
+                                Unlock special badges as you reach milestones. Show off your accomplishments on your profile.
                             </Text>
                         </View>
 
                         <TouchableOpacity
                             style={[styles.closeButton, { backgroundColor: theme.colors.primary }]}
                             onPress={onClose}
+                            activeOpacity={0.8}
                         >
-                            <Text style={styles.closeButtonText}>Got it!</Text>
+                            <Text style={styles.closeButtonText}>UNDERSTOOD</Text>
                         </TouchableOpacity>
 
                     </View>
@@ -95,63 +103,89 @@ export default function GamificationInfoModal({ visible, onClose }) {
 
 const styles = StyleSheet.create({
     modalContent: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 30,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        maxHeight: '80%',
+        paddingHorizontal: 24,
+        paddingTop: 8,
+        paddingBottom: 40,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        maxHeight: '85%',
+    },
+    swipeIndicator: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#cbd5e1',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: 20,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingBottom: 15,
+        paddingBottom: 20,
         borderBottomWidth: 1,
-        marginBottom: 10,
+    },
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
     },
     modalTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        marginLeft: 15,
+        fontSize: 18,
+        fontWeight: '900',
         flex: 1,
+        letterSpacing: -0.5,
     },
     modalCloseButton: {
-        padding: 5,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     contentContainer: {
         paddingBottom: 20,
     },
     section: {
-        marginBottom: 10,
+        padding: 20,
+        borderRadius: 24,
+        marginBottom: 12,
     },
     sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 12,
+    },
+    sectionIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
     },
     sectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginLeft: 10,
+        fontSize: 15,
+        fontWeight: '900',
+        letterSpacing: -0.3,
     },
     description: {
-        fontSize: 16,
-        lineHeight: 24,
-        marginLeft: 30, // Indent to align with title text
-    },
-    divider: {
-        height: 1,
-        marginVertical: 15,
+        fontSize: 13,
+        lineHeight: 20,
+        fontWeight: '600',
     },
     closeButton: {
-        marginTop: 20,
-        paddingVertical: 15,
-        borderRadius: 12,
+        marginTop: 24,
+        height: 56,
+        borderRadius: 16,
+        justifyContent: 'center',
         alignItems: 'center',
     },
     closeButtonText: {
         color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
+        fontSize: 13,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
 });

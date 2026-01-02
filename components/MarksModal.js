@@ -108,17 +108,16 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
   };
 
   const renderStudentItem = ({ item: student }) => (
-    <View style={[styles.studentContainer, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder }]}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+    <View style={[styles.studentContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Image source={student.users.avatar_url ? { uri: student.users.avatar_url } : defaultUserImage} style={[styles.avatar, { borderColor: theme.colors.primary }]} />
+          <Image source={student.users.avatar_url ? { uri: student.users.avatar_url } : defaultUserImage} style={styles.avatar} />
           <View>
             <Text style={[styles.studentName, { color: theme.colors.text }]}>{student.users.full_name}</Text>
             <Text style={[styles.studentEmail, { color: theme.colors.placeholder }]}>{student.users.email}</Text>
           </View>
         </View>
         <TouchableOpacity activeOpacity={0.7} style={[styles.addMarkBtn, { backgroundColor: theme.colors.primary }]} onPress={() => handleAddMark(student.users.id)}>
-          <FontAwesomeIcon icon={faPlusCircle} size={14} color="#fff" />
           <Text style={styles.addMarkBtnText}>ADD GRADE</Text>
         </TouchableOpacity>
       </View>
@@ -129,71 +128,75 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
         const isOverLimit = parseFloat(mark.score) > parseFloat(mark.total);
 
         return (
-          <View key={index} style={[styles.markEntryContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-            <View style={[styles.assessmentTypeContainer, { justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 10 }]}>
-              <View style={{ flexDirection: 'row' }}>
+          <View key={index} style={[styles.markEntryContainer, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+            <View style={[styles.assessmentTypeContainer, { justifyContent: 'space-between', marginBottom: 12, paddingHorizontal: 12 }]}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   style={[styles.typeBtn, { borderColor: theme.colors.cardBorder }, mark.assessmentType === 'test' && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
                   onPress={() => handleMarkChange(student.users.id, index, 'assessmentType', 'test')}
                 >
-                  <Text style={[styles.typeBtnText, mark.assessmentType === 'test' ? { color: '#fff' } : { color: theme.colors.textSecondary }]}>TEST</Text>
+                  <Text style={[styles.typeBtnText, mark.assessmentType === 'test' ? { color: '#fff' } : { color: theme.colors.placeholder }]}>TEST</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   style={[styles.typeBtn, { borderColor: theme.colors.cardBorder }, mark.assessmentType === 'assignment' && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
                   onPress={() => handleMarkChange(student.users.id, index, 'assessmentType', 'assignment')}
                 >
-                  <Text style={[styles.typeBtnText, mark.assessmentType === 'assignment' ? { color: '#fff' } : { color: theme.colors.textSecondary }]}>ASSIGNMENT</Text>
+                  <Text style={[styles.typeBtnText, mark.assessmentType === 'assignment' ? { color: '#fff' } : { color: theme.colors.placeholder }]}>ASSIGNMENT</Text>
                 </TouchableOpacity>
               </View>
               <TouchableOpacity onPress={() => handleRemoveMark(student.users.id, index)} style={{ alignSelf: 'center' }}>
-                <FontAwesomeIcon icon={faMinusCircle} size={20} color={theme.colors.error} />
+                <FontAwesomeIcon icon={faMinusCircle} size={18} color="#ef4444" />
               </TouchableOpacity>
             </View>
-            <View style={[styles.markInputRow, { paddingHorizontal: 10 }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, marginRight: 10, flex: 1 }}>
-                <FontAwesomeIcon icon={faTag} size={16} color={theme.colors.placeholder} style={{ marginRight: 5 }} />
-                <TextInput
-                  style={[styles.markInput, { flex: 1, color: theme.colors.text, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.inputBackground }]}
-                  placeholder="Assessment Name"
-                  placeholderTextColor={theme.colors.placeholder}
-                  value={mark.assessmentName}
-                  onChangeText={(text) => handleMarkChange(student.users.id, index, 'assessmentName', text)}
-                />
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                <TextInput
-                  style={[styles.markInput, { width: 60, color: theme.colors.text, borderColor: isOverLimit ? theme.colors.error : theme.colors.cardBorder, backgroundColor: theme.colors.inputBackground, textAlign: 'center' }]}
-                  placeholder="Score"
-                  placeholderTextColor={theme.colors.placeholder}
-                  value={mark.score}
-                  keyboardType="numeric"
-                  onChangeText={(text) => handleMarkChange(student.users.id, index, 'score', text)}
-                />
-                <Text style={{ marginHorizontal: 5, color: theme.colors.text }}>/</Text>
-                <TextInput
-                  style={[styles.markInput, { width: 60, color: theme.colors.text, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.inputBackground, textAlign: 'center' }]}
-                  placeholder="Total"
-                  placeholderTextColor={theme.colors.placeholder}
-                  value={mark.total}
-                  keyboardType="numeric"
-                  onChangeText={(text) => handleMarkChange(student.users.id, index, 'total', text)}
-                />
-              </View>
+            
+            <View style={{ paddingHorizontal: 12, marginBottom: 12 }}>
+                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                    <FontAwesomeIcon icon={faTag} size={12} color={theme.colors.placeholder} style={{ marginRight: 10 }} />
+                    <TextInput
+                        style={[styles.markInput, { flex: 1, color: theme.colors.text }]}
+                        placeholder="Assessment Name"
+                        placeholderTextColor={theme.colors.placeholder}
+                        value={mark.assessmentName}
+                        onChangeText={(text) => handleMarkChange(student.users.id, index, 'assessmentName', text)}
+                    />
+                </View>
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 10, marginBottom: 10 }}>
-                {percentage !== null && !isNaN(percentage) ? (
-                    <Text style={{ color: parseFloat(percentage) >= 80 ? theme.colors.success : parseFloat(percentage) >= 60 ? theme.colors.warning : theme.colors.error, fontWeight: 'bold' }}>
-                        {percentage}%
-                    </Text>
-                ) : <View />}
-                {isOverLimit && <Text style={{ color: theme.colors.error, fontSize: 10, fontWeight: 'bold' }}>Exceeds total!</Text>}
+
+            <View style={[styles.markInputRow, { paddingHorizontal: 12, gap: 12 }]}>
+                <View style={[styles.inputWrapper, { flex: 1, backgroundColor: theme.colors.surface, borderColor: isOverLimit ? '#ef4444' : theme.colors.cardBorder, borderWidth: 1 }]}>
+                    <TextInput
+                        style={[styles.markInput, { flex: 1, color: theme.colors.text, textAlign: 'center' }]}
+                        placeholder="Score"
+                        placeholderTextColor={theme.colors.placeholder}
+                        value={mark.score}
+                        keyboardType="numeric"
+                        onChangeText={(text) => handleMarkChange(student.users.id, index, 'score', text)}
+                    />
+                </View>
+                <Text style={{ color: theme.colors.placeholder, fontWeight: '900' }}>/</Text>
+                <View style={[styles.inputWrapper, { flex: 1, backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                    <TextInput
+                        style={[styles.markInput, { flex: 1, color: theme.colors.text, textAlign: 'center' }]}
+                        placeholder="Total"
+                        placeholderTextColor={theme.colors.placeholder}
+                        value={mark.total}
+                        keyboardType="numeric"
+                        onChangeText={(text) => handleMarkChange(student.users.id, index, 'total', text)}
+                    />
+                </View>
+                {percentage !== null && !isNaN(percentage) && (
+                    <View style={[styles.percentageLabel, { backgroundColor: theme.colors.primary + '10' }]}>
+                        <Text style={{ color: theme.colors.primary, fontSize: 11, fontWeight: '900' }}>{percentage}%</Text>
+                    </View>
+                )}
             </View>
-            <View style={{ paddingHorizontal: 10, paddingBottom: 10 }}>
+
+            <View style={{ paddingHorizontal: 12, paddingBottom: 12, marginTop: 12 }}>
               <TextInput
-                style={[styles.markInput, { color: theme.colors.text, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.inputBackground, height: 60, textAlignVertical: 'top' }]}
-                placeholder="Add feedback/comments (optional)..."
+                style={[styles.textArea, { color: theme.colors.text, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.surface, borderWidth: 1 }]}
+                placeholder="Teacher feedback (optional)..."
                 placeholderTextColor={theme.colors.placeholder}
                 multiline
                 value={mark.feedback}
@@ -210,23 +213,28 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
     <Modal
       isVisible={visible}
       onBackdropPress={() => onClose(false)}
+      onSwipeComplete={() => onClose(false)}
+      swipeDirection={['down']}
       animationIn="slideInUp"
       animationOut="slideOutDown"
-      backdropOpacity={0.5}
+      backdropOpacity={0.4}
       style={{ justifyContent: 'flex-end', margin: 0 }}
     >
-      <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 30) }]}>
+      <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 24) }]}>
+        <View style={styles.swipeIndicator} />
         <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <FontAwesomeIcon icon={faPencilAlt} size={20} color={theme.colors.primary} style={{ marginRight: 10 }} />
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Enter Marks</Text>
+            <View style={[styles.iconBoxHeader, { backgroundColor: theme.colors.primary + '15' }]}>
+                <FontAwesomeIcon icon={faPencilAlt} size={18} color={theme.colors.primary} />
+            </View>
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Submit Marks</Text>
           </View>
           <TouchableOpacity onPress={() => onClose(false)} style={styles.modalCloseButton}>
-            <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
+            <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.modalDescription, { color: theme.colors.placeholder }]}>Enter assessment details and marks for each student. You can add multiple marks per student.</Text>
+        <Text style={[styles.modalDescription, { color: '#94a3b8' }]}>BATCH ENTRY PORTAL</Text>
 
         <FlatList
           data={classMembers}
@@ -234,14 +242,15 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
           keyExtractor={(item) => item.id.toString()}
           style={styles.studentList}
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 24 }}
         />
 
         <View style={styles.modalFooter}>
-          <TouchableOpacity style={[styles.modalButton, styles.cancelButton, { backgroundColor: theme.colors.cardBackground }]} onPress={() => onClose(false)}>
-            <Text style={[styles.cancelText, { color: theme.colors.text }]}>Cancel</Text>
+          <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => onClose(false)}>
+            <Text style={[styles.cancelText, { color: '#94a3b8' }]}>CANCEL</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.modalButton, styles.saveButton, { backgroundColor: theme.colors.primary }]} onPress={saveMarks} disabled={saving}>
-            {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveText}>Save Marks</Text>}
+          <TouchableOpacity style={[styles.modalButton, styles.saveButton, { backgroundColor: theme.colors.primary }]} onPress={saveMarks} disabled={saving} activeOpacity={0.8}>
+            {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveText}>SAVE ALL RECORDS</Text>}
           </TouchableOpacity>
         </View>
         {toast && (
@@ -255,112 +264,134 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
       </View>
     </Modal>
   );
-};
+}
 
 const styles = StyleSheet.create({
   modalContent: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 30,
-    borderTopLeftRadius: 40,
-    borderTopRightRadius: 40,
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     maxHeight: '90%',
-    minHeight: '50%',
+  },
+  swipeIndicator: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 15,
+    paddingBottom: 20,
     borderBottomWidth: 1,
-    marginBottom: 10,
+    marginBottom: 16,
   },
+  iconBoxHeader: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
   modalCloseButton: {
-    padding: 5,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalDescription: {
-    fontSize: 14,
-    marginBottom: 20,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    marginBottom: 24,
   },
   studentList: {
-    maxHeight: 400,
+    maxHeight: 450,
   },
   studentContainer: {
-    marginBottom: 15,
-    padding: 15,
+    marginBottom: 16,
+    padding: 16,
     borderRadius: 24,
-    borderWidth: 1,
   },
   studentName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '800',
   },
   studentEmail: {
-    fontSize: 13,
-    marginTop: 2,
+    fontSize: 11,
+    fontWeight: '500',
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
-    borderWidth: 2,
-  },
-  markInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 5,
-  },
-  markInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    marginRight: 12,
   },
   markEntryContainer: {
-    borderRadius: 18,
-    marginTop: 10,
-    marginBottom: 5,
-    borderWidth: 1,
-    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 8,
+    paddingVertical: 12,
+  },
+  inputWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      height: 48,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+  },
+  markInput: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  textArea: {
+      borderRadius: 12,
+      height: 60,
+      padding: 12,
+      fontSize: 13,
+      fontWeight: '600',
+      textAlignVertical: 'top',
   },
   addMarkBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
+    height: 36,
     paddingHorizontal: 12,
     borderRadius: 10,
-    gap: 6,
+    justifyContent: 'center',
   },
   addMarkBtnText: { color: '#fff', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
   assessmentTypeContainer: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
-    marginTop: 5,
+    alignItems: 'center',
   },
-  typeBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, marginRight: 8 },
+  typeBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1 },
   typeBtnText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+  percentageLabel: { paddingHorizontal: 10, height: 32, borderRadius: 8, justifyContent: 'center' },
   modalFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    marginTop: 24,
+    gap: 12,
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
+    height: 52,
+    borderRadius: 14,
     alignItems: 'center',
-    marginHorizontal: 5,
+    justifyContent: 'center',
   },
+  cancelButton: { backgroundColor: 'rgba(0,0,0,0.05)' },
   saveText: {
     color: '#fff',
-    fontWeight: '700',
+    fontWeight: '900',
+    fontSize: 12,
+    letterSpacing: 1,
   },
   cancelText: {
-    fontWeight: '600',
+    fontWeight: '900',
+    fontSize: 11,
+    letterSpacing: 1,
   },
 });
 

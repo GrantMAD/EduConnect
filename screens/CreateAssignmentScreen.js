@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Modal,
   FlatList,
+  Dimensions
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { supabase } from '../lib/supabase';
@@ -19,10 +20,13 @@ import { useToast } from '../context/ToastContext';
 import { useSchool } from '../context/SchoolContext';
 import { useGamification } from '../context/GamificationContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faArrowLeft, faChevronLeft, faCloudUploadAlt, faFileAlt, faSave, faCalendarAlt, faBook, faAlignLeft, faFolderOpen, faTrash, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faChevronLeft, faCloudUploadAlt, faFileAlt, faSave, faCalendarAlt, faBook, faAlignLeft, faFolderOpen, faTrash, faTimes, faClipboardList } from '@fortawesome/free-solid-svg-icons';
 import CreateAssignmentScreenSkeleton from '../components/skeletons/CreateAssignmentScreenSkeleton';
 import { useTheme } from '../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
+
+const { width } = Dimensions.get('window');
 
 const CreateAssignmentScreen = ({ navigation, route }) => {
   const { fromDashboard } = route.params || {};
@@ -60,7 +64,7 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
         if (error) {
           showToast('Error fetching classes');
         } else {
-          setClasses(data);
+          setClasses(data || []);
         }
       }
       setLoading(false);
@@ -157,7 +161,6 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
 
       let file_url = null;
       if (file) {
-        console.log('Uploading file...');
         const fileExt = file.name.split('.').pop();
         const fileName = `${Math.random()}.${fileExt}`;
         const filePath = `${user.id}/${fileName}`;
@@ -171,20 +174,15 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
             upsert: false,
           });
 
-        if (uploadError) {
-          throw uploadError;
-        }
+        if (uploadError) throw uploadError;
 
         const { data: publicUrlData } = supabase.storage
           .from('assignments')
           .getPublicUrl(filePath);
 
-        if (!publicUrlData) {
-          throw new Error('Error getting public URL');
-        }
+        if (!publicUrlData) throw new Error('Error getting public URL');
 
         file_url = publicUrlData.publicUrl;
-        console.log('File uploaded:', file_url);
       }
 
       const { data: newAssignment, error } = await supabase.from('assignments').insert([
@@ -198,13 +196,9 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
         },
       ]).select().single();
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
-      // --- Notification Logic ---
       try {
-        // Fetch class name
         const { data: classInfo, error: classInfoError } = await supabase
           .from('classes')
           .select('name')
@@ -212,7 +206,6 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
           .single();
         if (classInfoError) throw classInfoError;
 
-        // Fetch students from the class
         const { data: members, error: membersError } = await supabase
           .from('class_members')
           .select('user_id')
@@ -223,53 +216,41 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
         if (members && members.length > 0) {
           const studentIds = members.map(m => m.user_id);
 
-          const { data: parents, error: parentsError } = await supabase
+          const { data: parents } = await supabase
             .rpc('get_parents_of_students', { p_student_ids: studentIds });
-
-          if (parentsError) {
-            console.error('Error fetching parents via RPC for assignment notification:', parentsError);
-          }
 
           const parentIds = parents ? parents.map(p => p.parent_id) : [];
           const recipientIds = [...new Set([...studentIds, ...parentIds])];
 
           if (recipientIds.length > 0) {
-            // Fetch preferences for all potential recipients
-            const { data: recipientsData, error: recipientsError } = await supabase
+            const { data: recipientsData } = await supabase
               .from('users')
               .select('id, notification_preferences')
               .in('id', recipientIds);
 
-            if (recipientsError) throw recipientsError;
+            if (recipientsData) {
+              const finalRecipients = recipientsData.filter(u => {
+                const prefs = u.notification_preferences;
+                return !prefs || prefs.homework !== false;
+              });
 
-            // Filter based on preferences (using 'homework' preference for assignments as well)
-            const finalRecipients = recipientsData.filter(u => {
-              const prefs = u.notification_preferences;
-              return !prefs || prefs.homework !== false;
-            });
+              const notifications = finalRecipients.map(userId => ({
+                user_id: userId.id,
+                type: 'new_assignment',
+                title: `New Assignment for ${classInfo.name}`,
+                message: `A new assignment has been posted: "${newAssignment.title}"`,
+                data: { assignment_id: newAssignment.id }
+              }));
 
-            const notifications = finalRecipients.map(userId => ({
-              user_id: userId.id,
-              type: 'new_assignment',
-              title: `New Assignment for ${classInfo.name}`,
-              message: `A new assignment has been posted: "${newAssignment.title}"`,
-              data: { assignment_id: newAssignment.id }
-            }));
-
-            if (notifications.length > 0) {
-              const { error: notificationError } = await supabase.from('notifications').insert(notifications);
-              if (notificationError) {
-                console.error('Failed to create assignment notifications:', notificationError);
-                showToast('Assignment created, but failed to send notifications.', 'warning');
+              if (notifications.length > 0) {
+                await supabase.from('notifications').insert(notifications);
               }
             }
           }
         }
-      } catch (notificationError) {
-        console.error('An error occurred while sending assignment notifications:', notificationError);
-        showToast('Assignment created, but an error occurred sending notifications.', 'warning');
+      } catch (e) {
+        console.error(e);
       }
-      // --- End Notification Logic ---
 
       awardXP('content_creation', 30);
       showToast('Assignment created successfully! +30 XP', 'success');
@@ -302,150 +283,168 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
   }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} contentContainerStyle={{ paddingBottom: 50 + insets.bottom }}>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.topBackButton}>
-        <FontAwesomeIcon icon={faChevronLeft} size={16} color={theme.colors.primary} />
-        <Text style={[styles.backText, { color: theme.colors.primary }]}>Back</Text>
-      </TouchableOpacity>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <LinearGradient
+        colors={['#4f46e5', '#7c3aed']} 
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroContainer}
+      >
+        <View style={styles.heroContent}>
+            <View style={styles.heroTextContainer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
+                        <FontAwesomeIcon icon={faChevronLeft} size={18} color="#fff" />
+                    </TouchableOpacity>
+                    <Text style={styles.heroTitle}>New Assignment</Text>
+                </View>
+                <Text style={styles.heroDescription}>
+                    Create a new assignment for your students.
+                </Text>
+            </View>
+            <TouchableOpacity
+                style={styles.heroButton}
+                onPress={() => setIsTemplatesModalVisible(true)}
+            >
+                <FontAwesomeIcon icon={faFolderOpen} size={14} color="#4f46e5" />
+                <Text style={styles.heroButtonText}>Templates</Text>
+            </TouchableOpacity>
+        </View>
+      </LinearGradient>
 
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>New Assignment</Text>
-        <TouchableOpacity
-          style={[styles.templatesButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}
-          onPress={() => setIsTemplatesModalVisible(true)}
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 + insets.bottom }} showsVerticalScrollIndicator={false}>
+        <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+            <Text style={styles.cardSectionLabel}>ASSIGNMENT DETAILS</Text>
+            
+            <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>SELECT CLASS</Text>
+                <View style={[styles.pickerWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                    <Picker
+                        selectedValue={selectedClass}
+                        onValueChange={(itemValue) => setSelectedClass(itemValue)}
+                        style={{ color: theme.colors.text }}
+                        dropdownIconColor={theme.colors.placeholder}
+                    >
+                        <Picker.Item label="Choose a class..." value={null} />
+                        {classes.map((c) => (
+                        <Picker.Item key={c.id} label={c.name} value={c.id} />
+                        ))}
+                    </Picker>
+                </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <View style={styles.labelRow}>
+                    <Text style={styles.inputLabel}>TITLE</Text>
+                    <Text style={styles.charCount}>{title.length}/100</Text>
+                </View>
+                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                    <TextInput
+                        style={[styles.input, { color: theme.colors.text }]}
+                        placeholder="e.g. History Project"
+                        placeholderTextColor={theme.colors.placeholder}
+                        value={title}
+                        onChangeText={setTitle}
+                        maxLength={100}
+                    />
+                </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <View style={styles.labelRow}>
+                    <Text style={styles.inputLabel}>DESCRIPTION</Text>
+                    <Text style={styles.charCount}>{description.length}/1000</Text>
+                </View>
+                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, height: 120, alignItems: 'flex-start', paddingTop: 12 }]}>
+                    <TextInput
+                        style={[styles.input, { color: theme.colors.text, height: 100 }]}
+                        placeholder="Describe the assignment..."
+                        placeholderTextColor={theme.colors.placeholder}
+                        value={description}
+                        onChangeText={setDescription}
+                        multiline
+                        textAlignVertical="top"
+                        maxLength={1000}
+                    />
+                </View>
+            </View>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 20 }]}>
+            <Text style={styles.cardSectionLabel}>DUE DATE & ATTACHMENTS</Text>
+            
+            <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>SELECT DEADLINE</Text>
+                <Calendar
+                    onDayPress={(day) => setDueDate(day.dateString)}
+                    markedDates={{
+                        [dueDate]: { selected: true, marked: true, selectedColor: theme.colors.primary },
+                    }}
+                    theme={{
+                        backgroundColor: theme.colors.card,
+                        calendarBackground: theme.colors.card,
+                        textSectionTitleColor: theme.colors.text,
+                        selectedDayBackgroundColor: theme.colors.primary,
+                        selectedDayTextColor: '#fff',
+                        todayTextColor: theme.colors.primary,
+                        dayTextColor: theme.colors.text,
+                        textDisabledColor: theme.colors.placeholder,
+                        dotColor: theme.colors.primary,
+                        selectedDotColor: '#fff',
+                        arrowColor: theme.colors.primary,
+                        monthTextColor: theme.colors.text,
+                    }}
+                    style={styles.calendar}
+                />
+            </View>
+
+            <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>ATTACHMENT (OPTIONAL)</Text>
+                <TouchableOpacity onPress={pickDocument} style={[styles.filePicker, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderStyle: 'dashed', borderWidth: 1 }]}>
+                    <FontAwesomeIcon icon={faCloudUploadAlt} size={20} color={theme.colors.primary} />
+                    <Text style={[styles.fileName, { color: theme.colors.text }]}>{file ? file.name : 'Select a file'}</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+
+        <TouchableOpacity 
+            style={[styles.createBtnContainer, { marginTop: 30 }]} 
+            onPress={handleCreate} 
+            disabled={isCreating}
+            activeOpacity={0.8}
         >
-          <FontAwesomeIcon icon={faFolderOpen} size={16} color={theme.colors.primary} />
-          <Text style={[styles.templatesButtonText, { color: theme.colors.text }]}>Templates ({templates.length})</Text>
+            <LinearGradient
+                colors={['#4f46e5', '#7c3aed']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.createBtn}
+            >
+                {isCreating ? (
+                    <ActivityIndicator color="#fff" />
+                ) : (
+                    <>
+                        <FontAwesomeIcon icon={faSave} size={16} color="#fff" style={{ marginRight: 10 }} />
+                        <Text style={styles.createBtnText}>Create Assignment</Text>
+                    </>
+                )}
+            </LinearGradient>
         </TouchableOpacity>
-      </View>
 
-      <Text style={[styles.screenDescription, { color: theme.colors.placeholder }]}>
-        Create a new assignment for your students. You can attach files and set a due date.
-      </Text>
-
-      <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <Text style={[styles.inputHeading, { color: theme.colors.text }]}>Select Class</Text>
-        <View style={[styles.pickerContainer, { borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}>
-          <Picker
-            selectedValue={selectedClass}
-            onValueChange={(itemValue) => setSelectedClass(itemValue)}
-            style={[styles.picker, { color: theme.colors.text }]}
-            dropdownIconColor={theme.colors.text}
-          >
-            <Picker.Item label="-- Select a class --" value={null} />
-            {classes.map((c) => (
-              <Picker.Item key={c.id} label={c.name} value={c.id} />
-            ))}
-          </Picker>
-        </View>
-      </View>
-
-      <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <View style={styles.labelRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-            <FontAwesomeIcon icon={faBook} size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
-            <Text style={[styles.inputHeading, { color: theme.colors.text, marginTop: 0, marginBottom: 0 }]}>Title</Text>
-          </View>
-          <Text style={[styles.charCount, { color: theme.colors.placeholder }]}>{title.length}/100</Text>
-        </View>
-        <TextInput
-          style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}
-          placeholder="Assignment Title"
-          placeholderTextColor={theme.colors.placeholder}
-          value={title}
-          onChangeText={setTitle}
-          maxLength={100}
-        />
-      </View>
-
-      <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <View style={styles.labelRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-            <FontAwesomeIcon icon={faAlignLeft} size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
-            <Text style={[styles.inputHeading, { color: theme.colors.text, marginTop: 0, marginBottom: 0 }]}>Description</Text>
-          </View>
-          <Text style={[styles.charCount, { color: theme.colors.placeholder }]}>{description.length}/1000</Text>
-        </View>
-        <TextInput
-          style={[styles.input, styles.descriptionInput, { color: theme.colors.text, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}
-          placeholder="Assignment Description"
-          placeholderTextColor={theme.colors.placeholder}
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          maxLength={1000}
-        />
-      </View>
-
-      <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-          <FontAwesomeIcon icon={faCalendarAlt} size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
-          <Text style={[styles.inputHeading, { color: theme.colors.text, marginTop: 0 }]}>Due Date</Text>
-        </View>
-        <Calendar
-          onDayPress={(day) => setDueDate(day.dateString)}
-          markedDates={{
-            [dueDate]: { selected: true, marked: true, selectedColor: theme.colors.primary },
-          }}
-          theme={{
-            backgroundColor: theme.colors.surface,
-            calendarBackground: theme.colors.surface,
-            textSectionTitleColor: theme.colors.text,
-            selectedDayBackgroundColor: theme.colors.primary,
-            selectedDayTextColor: theme.colors.buttonPrimaryText,
-            todayTextColor: theme.colors.primary,
-            dayTextColor: theme.colors.text,
-            textDisabledColor: theme.colors.placeholder,
-            dotColor: theme.colors.primary,
-            selectedDotColor: theme.colors.buttonPrimaryText,
-            arrowColor: theme.colors.primary,
-            monthTextColor: theme.colors.text,
-            indicatorColor: theme.colors.primary,
-          }}
-          style={styles.calendar}
-        />
-      </View>
-
-      <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <Text style={[styles.inputHeading, { color: theme.colors.text }]}>Attachment (Optional)</Text>
-        <TouchableOpacity onPress={pickDocument} style={styles.filePickerContainer}>
-          <FontAwesomeIcon icon={faCloudUploadAlt} size={24} color={theme.colors.primary} />
-          <Text style={[styles.fileName, { color: theme.colors.text }]}>{file ? file.name : 'Select a file'}</Text>
+        <TouchableOpacity
+            style={[styles.templateActionBtn, { borderColor: theme.colors.primary + '40', borderWidth: 1, borderStyle: 'dashed' }]}
+            onPress={handleSaveTemplate}
+            disabled={isSavingTemplate}
+        >
+            {isSavingTemplate ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+            ) : (
+                <>
+                    <FontAwesomeIcon icon={faSave} size={14} color={theme.colors.primary} style={{ marginRight: 8 }} />
+                    <Text style={[styles.templateActionText, { color: theme.colors.primary }]}>Save as Template</Text>
+                </>
+            )}
         </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity
-        style={[styles.button, isCreating && styles.buttonDisabled, { backgroundColor: theme.colors.primary }]}
-        onPress={handleCreate}
-        disabled={isCreating}
-      >
-        {isCreating ? (
-          <View style={styles.creatingButton}>
-            <ActivityIndicator size="small" color="#fff" style={{ marginRight: 10 }} />
-            <Text style={styles.buttonText}>Creating...</Text>
-          </View>
-        ) : (
-          <View style={styles.creatingButton}>
-            <FontAwesomeIcon icon={faSave} size={18} color="#fff" style={{ marginRight: 10 }} />
-            <Text style={styles.buttonText}>Create Assignment</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.templateActionBtn, { borderColor: theme.colors.primary, marginTop: 15 }]}
-        onPress={handleSaveTemplate}
-        disabled={isSavingTemplate}
-      >
-        {isSavingTemplate ? (
-          <ActivityIndicator size="small" color={theme.colors.primary} />
-        ) : (
-          <>
-            <FontAwesomeIcon icon={faSave} size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
-            <Text style={[styles.templateActionText, { color: theme.colors.primary }]}>Save as Template</Text>
-          </>
-        )}
-      </TouchableOpacity>
+      </ScrollView>
 
       <Modal
         visible={isTemplatesModalVisible}
@@ -454,11 +453,11 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
         onRequestClose={() => setIsTemplatesModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Your Templates</Text>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.colors.cardBorder }]}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Assignment Templates</Text>
               <TouchableOpacity onPress={() => setIsTemplatesModalVisible(false)}>
-                <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.text} />
+                <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
               </TouchableOpacity>
             </View>
 
@@ -466,7 +465,7 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
               data={templates}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
-                <View style={[styles.templateItem, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+                <View style={[styles.templateItem, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                   <TouchableOpacity style={{ flex: 1 }} onPress={() => applyTemplate(item)}>
                     <Text style={[styles.templateTitle, { color: theme.colors.text }]}>{item.title}</Text>
                     <Text style={[styles.templateDescription, { color: theme.colors.placeholder }]} numberOfLines={2}>
@@ -474,12 +473,13 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => deleteTemplate(item.id)} style={styles.deleteBtn}>
-                    <FontAwesomeIcon icon={faTrash} size={16} color="#FF3B30" />
+                    <FontAwesomeIcon icon={faTrash} size={16} color="#ef4444" />
                   </TouchableOpacity>
                 </View>
               )}
               ListEmptyComponent={
-                <View style={styles.emptyContainer}>
+                <View style={styles.emptyTemplates}>
+                  <FontAwesomeIcon icon={faFolderOpen} size={40} color={theme.colors.placeholder} style={{ opacity: 0.2, marginBottom: 12 }} />
                   <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No templates saved yet.</Text>
                 </View>
               }
@@ -487,15 +487,92 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
+  container: { flex: 1 },
+  heroContainer: {
+    padding: 24,
+    paddingTop: 40,
+    elevation: 0,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
+  heroContent: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+  },
+  heroTextContainer: {
+      flex: 1,
+      paddingRight: 10,
+  },
+  heroTitle: {
+      color: '#fff',
+      fontSize: 28,
+      fontWeight: '900',
+      marginBottom: 8,
+      letterSpacing: -1,
+  },
+  heroDescription: {
+      color: '#e0e7ff',
+      fontSize: 14,
+      fontWeight: '500',
+  },
+  backButtonHero: { marginRight: 12 },
+  heroButton: {
+      backgroundColor: '#fff',
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+  },
+  heroButtonText: {
+      color: '#4f46e5',
+      fontWeight: 'bold',
+      marginLeft: 6,
+      fontSize: 14,
+  },
+  card: { padding: 24, borderRadius: 32 },
+  cardSectionLabel: {
+      fontSize: 10,
+      fontWeight: '900',
+      color: '#94a3b8',
+      letterSpacing: 1.5,
+      marginBottom: 20,
+  },
+  inputGroup: { marginBottom: 20 },
+  labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4 },
+  inputLabel: { fontSize: 10, fontWeight: '900', color: '#94a3b8', letterSpacing: 1 },
+  charCount: { fontSize: 10, fontWeight: '700', color: '#cbd5e1' },
+  inputWrapper: { borderRadius: 16, paddingHorizontal: 16, height: 56, justifyContent: 'center' },
+  input: { fontSize: 15, fontWeight: '600' },
+  pickerWrapper: { borderRadius: 16, overflow: 'hidden' },
+  calendar: { borderRadius: 16, overflow: 'hidden' },
+  filePicker: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, marginTop: 8 },
+  fileName: { marginLeft: 12, fontSize: 14, fontWeight: '700' },
+  createBtnContainer: { marginBottom: 16 },
+  createBtn: { height: 60, borderRadius: 20, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  createBtnText: { color: '#fff', fontSize: 16, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
+  templateActionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 20, marginHorizontal: 20 },
+  templateActionText: { fontWeight: '800', fontSize: 14, textTransform: 'uppercase', letterSpacing: 1 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, maxHeight: '80%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 20, borderBottomWidth: 1, marginBottom: 20 },
+  modalTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
+  templateItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, marginBottom: 12 },
+  templateTitle: { fontSize: 16, fontWeight: '800', marginBottom: 2 },
+  templateDescription: { fontSize: 12, fontWeight: '500' },
+  deleteBtn: { padding: 8 },
+  emptyTemplates: { padding: 40, alignItems: 'center' },
+  emptyText: { fontSize: 14, fontWeight: '600' },
   header: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -513,34 +590,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
   screenDescription: {
     fontSize: 14,
     marginBottom: 20,
-  },
-  inputGroup: {
-    marginBottom: 20,
-    padding: 15,
-    borderRadius: 12,
-    borderWidth: 1,
   },
   inputHeading: {
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 8,
     marginTop: 10,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  charCount: {
-    fontSize: 12,
-    marginBottom: 8,
   },
   inputDescription: {
     fontSize: 12,
@@ -554,12 +612,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   picker: {},
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
   descriptionInput: {
     minHeight: 100,
     textAlignVertical: 'top',
@@ -576,11 +628,6 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     borderStyle: 'dashed',
     borderRadius: 8,
-  },
-  fileName: {
-    marginLeft: 16,
-    fontSize: 16,
-    flexShrink: 1,
   },
   button: {
     paddingVertical: 15,
@@ -603,9 +650,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  calendar: {
-    marginBottom: 10,
-  },
   templatesButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -620,65 +664,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  templateActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-  },
-  templateActionText: {
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
   modalContainer: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
     maxHeight: '80%',
   },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  templateItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 10,
-  },
-  templateTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  templateDescription: {
-    fontSize: 13,
-  },
-  deleteBtn: {
-    padding: 10,
-  },
   emptyContainer: {
     padding: 40,
     alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
   },
 });
 

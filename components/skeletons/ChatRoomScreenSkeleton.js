@@ -1,25 +1,9 @@
 import React from 'react';
-import { View, StyleSheet, FlatList } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
+import { View, StyleSheet } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
+import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
-const SkeletonPiece = ({ style }) => {
-    const progress = useSharedValue(0);
-    const { theme } = useTheme();
-
-    React.useEffect(() => {
-        progress.value = withRepeat(withTiming(1, { duration: 1000 }), -1, true);
-    }, []);
-
-    const animatedStyle = useAnimatedStyle(() => {
-        const opacity = interpolate(progress.value, [0, 1], [0.3, 0.7]);
-        return {
-            opacity,
-        };
-    });
-
-    return <Animated.View style={[styles.skeleton, { backgroundColor: theme.colors.textSecondary }, animatedStyle, style]} />;
-};
+export { SkeletonPiece };
 
 const ChatMessageSkeleton = ({ align }) => {
     const { theme } = useTheme();
@@ -30,7 +14,7 @@ const ChatMessageSkeleton = ({ align }) => {
             styles.messageContainer,
             isRight ? styles.rightContainer : styles.leftContainer
         ]}>
-            {!isRight && <SkeletonPiece style={styles.avatar} />}
+            {!isRight && <SkeletonBase style={styles.avatar} backgroundColor={theme.colors.textSecondary} opacityRange={[0.3, 0.7]} />}
             <View style={[
                 styles.bubble,
                 {
@@ -39,8 +23,8 @@ const ChatMessageSkeleton = ({ align }) => {
                     borderBottomLeftRadius: isRight ? 12 : 0,
                 }
             ]}>
-                <SkeletonPiece style={{ width: 150, height: 14, borderRadius: 4, marginBottom: 6 }} />
-                <SkeletonPiece style={{ width: 100, height: 14, borderRadius: 4 }} />
+                <SkeletonBase style={{ width: 150, height: 14, borderRadius: 4, marginBottom: 6 }} backgroundColor={theme.colors.textSecondary} opacityRange={[0.3, 0.7]} />
+                <SkeletonBase style={{ width: 100, height: 14, borderRadius: 4 }} backgroundColor={theme.colors.textSecondary} opacityRange={[0.3, 0.7]} />
             </View>
         </View>
     );
@@ -52,9 +36,9 @@ const ChatRoomScreenSkeleton = () => {
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             {/* Header Skeleton */}
             <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
-                <SkeletonPiece style={styles.backButton} />
-                <SkeletonPiece style={styles.headerAvatar} />
-                <SkeletonPiece style={styles.headerTitle} />
+                <SkeletonBase style={styles.backButton} backgroundColor={theme.colors.textSecondary} opacityRange={[0.3, 0.7]} />
+                <SkeletonBase style={styles.headerAvatar} backgroundColor={theme.colors.textSecondary} opacityRange={[0.3, 0.7]} />
+                <SkeletonBase style={styles.headerTitle} backgroundColor={theme.colors.textSecondary} opacityRange={[0.3, 0.7]} />
             </View>
 
             <View style={styles.chatArea}>
@@ -69,9 +53,9 @@ const ChatRoomScreenSkeleton = () => {
 
             {/* Input Skeleton */}
             <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>
-                <SkeletonPiece style={styles.inputButton} />
-                <SkeletonPiece style={styles.inputField} />
-                <SkeletonPiece style={styles.inputButton} />
+                <SkeletonBase style={styles.inputButton} backgroundColor={theme.colors.textSecondary} opacityRange={[0.3, 0.7]} />
+                <SkeletonBase style={styles.inputField} backgroundColor={theme.colors.textSecondary} opacityRange={[0.3, 0.7]} />
+                <SkeletonBase style={styles.inputButton} backgroundColor={theme.colors.textSecondary} opacityRange={[0.3, 0.7]} />
             </View>
         </View>
     );
@@ -108,7 +92,7 @@ const styles = StyleSheet.create({
     chatArea: {
         flex: 1,
         padding: 16,
-        justifyContent: 'flex-end', // Start from bottom like a chat
+        justifyContent: 'flex-end',
     },
     messageContainer: {
         flexDirection: 'row',
@@ -149,9 +133,6 @@ const styles = StyleSheet.create({
         height: 40,
         borderRadius: 20,
         marginHorizontal: 8,
-    },
-    skeleton: {
-        // backgroundColor handled by theme
     },
 });
 

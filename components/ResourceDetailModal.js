@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase';
 import { useGamification } from '../context/GamificationContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '../context/ToastContext';
+import { useTheme } from '../context/ThemeContext';
 
 const timeSince = (date) => {
   if (!date) return '';
@@ -27,6 +28,7 @@ const timeSince = (date) => {
 };
 
 export default function ResourceDetailModal({ visible, onClose, resource, onVotesChanged, onResourceDeleted, onResourceUpdated, onEditPress }) {
+  const { theme } = useTheme();
   const { showToast } = useToast();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
@@ -202,94 +204,110 @@ export default function ResourceDetailModal({ visible, onClose, resource, onVote
     <Modal
       isVisible={visible}
       onBackdropPress={onClose}
+      onSwipeComplete={onClose}
+      swipeDirection={['down']}
       animationIn="slideInUp"
       animationOut="slideOutDown"
-      backdropOpacity={0.5}
+      backdropOpacity={0.4}
       style={{ justifyContent: 'flex-end', margin: 0 }}
     >
-      <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 60) }]}>
-        <View style={styles.header}>
-          <FontAwesomeIcon icon={faFileAlt} size={26} color="#007AFF" />
-          <Text style={styles.modalTitle}>{resource.title}</Text>
-          <TouchableOpacity onPress={handleShare} style={styles.shareAltButton}>
-            <FontAwesomeIcon icon={faShareAlt} size={20} color="#007AFF" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-            <FontAwesomeIcon icon={faTimes} size={22} color="#666" />
-          </TouchableOpacity>
+      <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 40) }]}>
+        <View style={styles.swipeIndicator} />
+        <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
+          <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+            <FontAwesomeIcon icon={faFileAlt} size={18} color={theme.colors.primary} />
+          </View>
+          <Text style={[styles.modalTitle, { color: theme.colors.text }]}>{resource.title}</Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={handleShare} style={styles.actionBtn}>
+              <FontAwesomeIcon icon={faShareAlt} size={18} color={theme.colors.placeholder} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={styles.descriptionContainer}>
-            <Text style={styles.descriptionText}>{resource.description}</Text>
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 24 }}>
+          <View style={styles.descriptionWrapper}>
+            <Text style={[styles.descriptionText, { color: theme.colors.text }]}>{resource.description}</Text>
           </View>
 
-          <View style={styles.detailsCard}>
-            <View style={styles.modalDetailRow}>
-              <FontAwesomeIcon icon={faUser} size={16} color="#555" style={styles.modalIcon} />
-              <Text style={styles.modalDetailText}>
-                Uploaded by {resource.users?.full_name ?? resource.users?.email ?? "Unknown"}
-              </Text>
+          <View style={[styles.metaCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+            <View style={styles.metaRow}>
+              <View style={[styles.metaIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                <FontAwesomeIcon icon={faUser} size={12} color={theme.colors.primary} />
+              </View>
+              <View>
+                <Text style={[styles.metaLabel, { color: theme.colors.placeholder }]}>UPLOADED BY</Text>
+                <Text style={[styles.metaValue, { color: theme.colors.text }]}>{resource.users?.full_name ?? "Member"}</Text>
+              </View>
             </View>
-            <View style={styles.separator} />
-            <View style={styles.modalDetailRow}>
-              <FontAwesomeIcon icon={faCalendar} size={16} color="#555" style={styles.modalIcon} />
-              <Text style={styles.modalDetailText}>Posted {timeSince(resource.created_at)}</Text>
+            <View style={[styles.metaDivider, { backgroundColor: theme.colors.cardBorder }]} />
+            <View style={styles.metaRow}>
+              <View style={[styles.metaIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                <FontAwesomeIcon icon={faCalendar} size={12} color={theme.colors.primary} />
+              </View>
+              <View>
+                <Text style={[styles.metaLabel, { color: theme.colors.placeholder }]}>TIMESTAMP</Text>
+                <Text style={[styles.metaValue, { color: theme.colors.text }]}>{timeSince(resource.created_at).toUpperCase()}</Text>
+              </View>
             </View>
           </View>
 
-          <View style={styles.voteSection}>
+          <View style={[styles.voteSection, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
             {isVoting ? (
-              <ActivityIndicator size="small" color="#007AFF" />
+              <ActivityIndicator size="small" color={theme.colors.primary} />
             ) : userVote === null ? (
               <>
-                <Text style={styles.votePrompt}>Was this resource helpful?</Text>
+                <Text style={[styles.votePrompt, { color: theme.colors.placeholder }]}>WAS THIS RESOURCE HELPFUL?</Text>
                 <View style={styles.voteContainer}>
-                  <TouchableOpacity onPress={() => castVote(1)} style={[styles.voteButton, styles.upvoteButton]}>
-                    <FontAwesomeIcon icon={faThumbsUp} size={20} color="#28A745" />
-                    <Text style={styles.voteCount}>{upvotes}</Text>
+                  <TouchableOpacity onPress={() => castVote(1)} style={[styles.voteBtn, { borderColor: '#10b981' }]}>
+                    <FontAwesomeIcon icon={faThumbsUp} size={16} color="#10b981" />
+                    <Text style={[styles.voteCount, { color: '#10b981' }]}>{upvotes}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => castVote(-1)} style={[styles.voteButton, styles.downvoteButton]}>
-                    <FontAwesomeIcon icon={faThumbsDown} size={20} color="#FF3B30" />
-                    <Text style={styles.voteCount}>{downvotes}</Text>
+                  <TouchableOpacity onPress={() => castVote(-1)} style={[styles.voteBtn, { borderColor: '#ef4444' }]}>
+                    <FontAwesomeIcon icon={faThumbsDown} size={16} color="#ef4444" />
+                    <Text style={[styles.voteCount, { color: '#ef4444' }]}>{downvotes}</Text>
                   </TouchableOpacity>
                 </View>
               </>
             ) : (
-              <Text style={styles.votedText}>Thanks for your feedback!</Text>
+              <View style={styles.votedWrapper}>
+                <FontAwesomeIcon icon={faThumbsUp} size={16} color="#10b981" />
+                <Text style={[styles.votedText, { color: '#10b981' }]}>FEEDBACK RECEIVED</Text>
+              </View>
             )}
           </View>
         </ScrollView>
 
-        {resource.file_url && (
-          <View style={styles.footer}>
-            <TouchableOpacity style={styles.openFileButton} onPress={() => handleOpenFile(resource.file_url)}>
-              <FontAwesomeIcon icon={faDownload} size={18} color="#fff" style={{ marginRight: 10 }} />
-              <Text style={styles.openFileButtonText}>View Attached File</Text>
+        <View style={styles.footerContainer}>
+          {resource.file_url && (
+            <TouchableOpacity style={[styles.primaryAction, { backgroundColor: theme.colors.primary }]} onPress={() => handleOpenFile(resource.file_url)}>
+              <FontAwesomeIcon icon={faDownload} size={14} color="#fff" />
+              <Text style={styles.primaryActionText}>VIEW ATTACHMENT</Text>
             </TouchableOpacity>
-          </View>
-        )}
+          )}
 
-        {userId === resource.uploaded_by && (
-          <View style={styles.ownerFooter}>
-            <TouchableOpacity 
-              style={styles.editButton} 
-              onPress={() => onEditPress(resource)}
-            >
-              <FontAwesomeIcon icon={faEdit} size={18} color="#007AFF" style={{ marginRight: 8 }} />
-              <Text style={styles.editButtonText}>Edit</Text>
-            </TouchableOpacity>
+          {userId === resource.uploaded_by && (
+            <View style={styles.ownerActions}>
+              <TouchableOpacity
+                style={[styles.secondaryAction, { borderColor: theme.colors.primary, borderWidth: 1 }]}
+                onPress={() => onEditPress(resource)}
+              >
+                <Text style={[styles.secondaryActionText, { color: theme.colors.primary }]}>EDIT</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={[styles.deleteButtonSmall, isDeleting && { opacity: 0.7 }]} 
-              onPress={handleDelete}
-              disabled={isDeleting}
-            >
-              <FontAwesomeIcon icon={faTrash} size={18} color="#FF3B30" style={{ marginRight: 8 }} />
-              <Text style={styles.deleteButtonTextSmall}>Delete</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+              <TouchableOpacity
+                style={[styles.secondaryAction, { borderColor: '#ef4444', borderWidth: 1 }]}
+                onPress={handleDelete}
+                disabled={isDeleting}
+              >
+                <Text style={[styles.secondaryActionText, { color: '#ef4444' }]}>DELETE</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </View>
     </Modal>
   );
@@ -297,42 +315,178 @@ export default function ResourceDetailModal({ visible, onClose, resource, onVote
 
 const styles = StyleSheet.create({
   modalContent: {
-    backgroundColor: '#F7F9FC',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 30,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    height: '85%',
+  },
+  swipeIndicator: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingBottom: 15,
+    paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E8E8E8',
+  },
+  iconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
   },
   modalTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#333',
-    marginLeft: 15,
+    fontSize: 18,
+    fontWeight: '900',
     flex: 1,
+    letterSpacing: -0.5,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 4,
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  descriptionWrapper: {
+    marginBottom: 32,
+  },
+  descriptionText: {
+    fontSize: 15,
+    lineHeight: 24,
+    fontWeight: '600',
+  },
+  metaCard: {
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 20,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  metaIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  metaLabel: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  metaValue: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  metaDivider: {
+    height: 1,
+    marginVertical: 16,
+    marginLeft: 48,
+  },
+  voteSection: {
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: 24,
+  },
+  votePrompt: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 20,
+  },
+  voteContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  voteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 44,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 10,
+  },
+  voteCount: {
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  votedWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  votedText: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  footerContainer: {
+    paddingTop: 24,
+    gap: 12,
+  },
+  primaryAction: {
+    height: 56,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  primaryActionText: {
+    color: '#fff',
+    fontWeight: '900',
+    fontSize: 13,
+    letterSpacing: 1,
+  },
+  ownerActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  secondaryAction: {
+    flex: 1,
+    height: 52,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryActionText: {
+    fontWeight: '900',
+    fontSize: 11,
+    letterSpacing: 1,
   },
   shareAltButton: {
     padding: 8,
     marginRight: 5,
   },
-  modalCloseButton: {
-    padding: 5,
-  },
   descriptionContainer: {
     paddingVertical: 20,
-  },
-  descriptionText: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#555',
   },
   detailsCard: {
     backgroundColor: '#fff',
@@ -357,52 +511,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#E8E8E8',
     marginVertical: 12,
-  },
-  voteSection: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    marginBottom: 20,
-  },
-  votePrompt: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 15,
-  },
-  votedText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#28A745',
-  },
-  voteContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '80%',
-  },
-  voteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 25,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  upvoteButton: {
-    borderColor: '#28A745',
-  },
-  downvoteButton: {
-    borderColor: '#FF3B30',
-  },
-  voteCount: {
-    marginLeft: 10,
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
   },
   footer: {
     paddingTop: 15,

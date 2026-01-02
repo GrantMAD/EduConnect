@@ -1,35 +1,19 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
 import { useTheme } from '../../context/ThemeContext';
+import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
-export const SkeletonPiece = ({ style }) => {
-    const progress = useSharedValue(0);
-    const { theme } = useTheme();
-
-    React.useEffect(() => {
-        progress.value = withRepeat(withTiming(1, { duration: 1000 }), -1, true);
-    }, []);
-
-    const animatedStyle = useAnimatedStyle(() => {
-        const opacity = interpolate(progress.value, [0, 1], [0.5, 1]);
-        return {
-            opacity,
-        };
-    });
-
-    return <Animated.View style={[styles.skeleton, { backgroundColor: theme.colors.cardBorder }, animatedStyle, style]} />;
-};
+export { SkeletonPiece };
 
 export const ResourceCardSkeleton = () => {
     const { theme } = useTheme();
     return (
-        <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-            <SkeletonPiece style={{ width: 24, height: 24, borderRadius: 8, marginRight: 10 }} />
+        <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+            <SkeletonBase style={{ width: 40, height: 40, borderRadius: 12, marginRight: 16 }} />
             <View style={{ flex: 1 }}>
-                <SkeletonPiece style={{ width: '70%', height: 16, borderRadius: 4, marginBottom: 8 }} />
-                <SkeletonPiece style={{ width: '90%', height: 14, borderRadius: 4, marginBottom: 4 }} />
-                <SkeletonPiece style={{ width: '50%', height: 12, borderRadius: 4 }} />
+                <SkeletonBase style={{ width: '60%', height: 16, borderRadius: 4, marginBottom: 8 }} />
+                <SkeletonBase style={{ width: '90%', height: 12, borderRadius: 4, marginBottom: 8 }} />
+                <SkeletonBase style={{ width: '40%', height: 10, borderRadius: 4 }} />
             </View>
         </View>
     );
@@ -42,27 +26,18 @@ export default function ResourcesScreenSkeleton() {
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             {/* Header */}
             <View style={styles.headerContainer}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <SkeletonPiece style={{ width: 24, height: 24, borderRadius: 12, marginRight: 10 }} />
-                    <SkeletonPiece style={{ width: 120, height: 24, borderRadius: 4 }} />
+                <View>
+                    <SkeletonBase style={{ width: 180, height: 28, borderRadius: 4, marginBottom: 8 }} />
+                    <SkeletonBase style={{ width: 240, height: 14, borderRadius: 4 }} />
                 </View>
-                <SkeletonPiece style={{ width: 60, height: 32, borderRadius: 10 }} />
+                <SkeletonBase style={{ width: 56, height: 56, borderRadius: 16 }} />
             </View>
-
-            {/* Description */}
-            <SkeletonPiece style={{ width: '90%', height: 16, borderRadius: 4, marginBottom: 20 }} />
 
             {/* Search Input */}
-            <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8, marginBottom: 20 }} />
-
-            {/* Controls */}
-            <View style={styles.controlsContainer}>
-                <SkeletonPiece style={{ width: 100, height: 32, borderRadius: 20, marginRight: 10 }} />
-                <SkeletonPiece style={{ width: 120, height: 32, borderRadius: 20 }} />
-            </View>
+            <SkeletonBase style={{ width: '100%', height: 52, borderRadius: 16, marginTop: 24, marginBottom: 32 }} />
 
             {/* Category Header */}
-            <SkeletonPiece style={{ width: 100, height: 18, borderRadius: 4, marginBottom: 10, marginLeft: 5 }} />
+            <SkeletonBase style={{ width: 120, height: 18, borderRadius: 4, marginBottom: 20, marginLeft: 4 }} />
 
             {/* Resource Cards */}
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -77,27 +52,18 @@ export default function ResourcesScreenSkeleton() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 16,
-    },
-    skeleton: {
-        // backgroundColor handled by theme
+        padding: 20,
     },
     headerContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 10,
     },
     card: {
         flexDirection: 'row',
-        padding: 12,
-        borderRadius: 10,
+        padding: 16,
+        borderRadius: 24,
         alignItems: 'center',
-        borderWidth: 1,
-        marginBottom: 20,
-    },
-    controlsContainer: {
-        flexDirection: 'row',
-        marginBottom: 15,
+        marginBottom: 12,
     },
 });

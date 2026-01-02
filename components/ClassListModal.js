@@ -156,42 +156,35 @@ export default function ClassListModal({ visible, classes, onClose }) {
         <Modal
             isVisible={visible}
             onBackdropPress={onClose}
+            onSwipeComplete={onClose}
+            swipeDirection={['down']}
             animationIn="slideInUp"
             animationOut="slideOutDown"
-            backdropOpacity={0.5}
+            backdropOpacity={0.4}
             style={{ justifyContent: 'flex-end', margin: 0 }}
         >
             <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+                <View style={styles.swipeIndicator} />
                 <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={faBookOpen} size={24} color="#007AFF" />
+                    <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                        <FontAwesomeIcon icon={faBookOpen} size={18} color={theme.colors.primary} />
+                    </View>
                     <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Classes</Text>
                     <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-                        <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
+                        <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
                     </TouchableOpacity>
                 </View>
 
                 {/* Search Bar */}
-                <View style={[styles.searchContainer, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={faSearch} size={16} color={theme.colors.placeholder} style={{ marginRight: 10 }} />
+                <View style={[styles.searchContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                    <FontAwesomeIcon icon={faSearch} size={14} color={theme.colors.placeholder} style={{ marginRight: 12 }} />
                     <TextInput
                         style={[styles.searchInput, { color: theme.colors.text }]}
-                        placeholder="Search classes..."
+                        placeholder="Search your classes..."
                         placeholderTextColor={theme.colors.placeholder}
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                     />
-                    {searchQuery.length > 0 && (
-                        <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
-                            <FontAwesomeIcon icon={faTimes} size={16} color={theme.colors.placeholder} />
-                        </TouchableOpacity>
-                    )}
-                </View>
-
-                <View style={styles.countContainer}>
-                    <Text style={[styles.countText, { color: theme.colors.text }]}>
-                        {filteredClasses.length} {filteredClasses.length === 1 ? 'class' : 'classes'}
-                        {searchQuery.trim() && ` (filtered from ${classes.length})`}
-                    </Text>
                 </View>
 
                 <FlatList
@@ -202,9 +195,9 @@ export default function ClassListModal({ visible, classes, onClose }) {
                     contentContainerStyle={styles.listContainer}
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
-                            <FontAwesomeIcon icon={faBookOpen} size={48} color={theme.colors.placeholder} />
+                            <FontAwesomeIcon icon={faBookOpen} size={40} color={theme.colors.cardBorder} />
                             <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>
-                                {searchQuery.trim() ? 'No classes match your search' : 'No classes found'}
+                                {searchQuery.trim() ? 'No matching classes found' : 'You have no classes yet'}
                             </Text>
                         </View>
                     }
@@ -216,102 +209,95 @@ export default function ClassListModal({ visible, classes, onClose }) {
 
 const styles = StyleSheet.create({
     modalContent: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 30,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        maxHeight: '90%',
-        minHeight: '50%',
+        paddingHorizontal: 24,
+        paddingTop: 8,
+        paddingBottom: 40,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        maxHeight: '85%',
+    },
+    swipeIndicator: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#cbd5e1',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: 20,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingBottom: 15,
+        paddingBottom: 20,
         borderBottomWidth: 1,
-        marginBottom: 10,
+    },
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
     },
     modalTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        marginLeft: 15,
+        fontSize: 18,
+        fontWeight: '900',
         flex: 1,
+        letterSpacing: -0.5,
     },
     modalCloseButton: {
-        padding: 5,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 15,
-        paddingVertical: 10,
-        marginTop: 10,
-        marginBottom: 5,
-        borderRadius: 10,
-        borderWidth: 1,
+        paddingHorizontal: 16,
+        height: 52,
+        marginTop: 24,
+        marginBottom: 8,
+        borderRadius: 16,
     },
     searchInput: {
         flex: 1,
-        fontSize: 16,
-        paddingVertical: 0,
-    },
-    clearButton: {
-        padding: 5,
-    },
-    countContainer: {
-        paddingVertical: 10,
-        paddingHorizontal: 5,
-    },
-    countText: {
         fontSize: 14,
-        fontWeight: '600',
+        fontWeight: '700',
     },
     listContainer: {
-        paddingBottom: 20,
+        paddingTop: 16,
+        paddingBottom: 40,
     },
     classCard: {
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        marginBottom: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        padding: 20,
+        borderRadius: 24,
+        marginBottom: 16,
     },
     cardHeader: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
-        marginBottom: 12,
-    },
-    iconContainer: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
-        justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 12,
+        marginBottom: 16,
     },
     headerTextContainer: {
         flex: 1,
     },
     className: {
-        fontSize: 17,
-        fontWeight: '700',
-        marginBottom: 4,
+        fontSize: 16,
+        fontWeight: '900',
+        letterSpacing: -0.3,
     },
     scheduleCount: {
-        fontSize: 13,
-        fontWeight: '500',
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 0.5,
+        marginTop: 2,
     },
     schedulesContainer: {
         gap: 8,
     },
     scheduleItem: {
-        padding: 12,
-        borderRadius: 8,
-        borderWidth: 1,
+        padding: 16,
+        borderRadius: 16,
         marginBottom: 8,
     },
     scheduleMainContent: {
@@ -325,17 +311,16 @@ const styles = StyleSheet.create({
     scheduleTitleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 6,
     },
     scheduleTitle: {
-        fontSize: 15,
-        fontWeight: '600',
+        fontSize: 14,
+        fontWeight: '800',
         flex: 1,
     },
     scheduleHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        flexWrap: 'wrap',
         gap: 8,
     },
     dateBadge: {
@@ -347,46 +332,49 @@ const styles = StyleSheet.create({
     },
     dateBadgeText: {
         color: '#FFFFFF',
-        fontSize: 11,
-        fontWeight: '700',
+        fontSize: 9,
+        fontWeight: '900',
     },
     timeRow: {
         flexDirection: 'row',
         alignItems: 'center',
     },
     timeText: {
-        fontSize: 12,
-        fontWeight: '600',
+        fontSize: 11,
+        fontWeight: '700',
     },
     expandedContent: {
-        marginTop: 12,
-        paddingTop: 12,
+        marginTop: 16,
+        paddingTop: 16,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(0,0,0,0.1)',
+        borderTopColor: 'rgba(0,0,0,0.05)',
     },
     scheduleInfoRow: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        marginBottom: 8,
+        marginBottom: 10,
     },
     scheduleInfoText: {
         flex: 1,
-        fontSize: 13,
+        fontSize: 12,
+        fontWeight: '600',
         lineHeight: 18,
     },
     noSchedulesText: {
-        fontSize: 14,
+        fontSize: 13,
+        fontWeight: '600',
         fontStyle: 'italic',
         textAlign: 'center',
-        paddingVertical: 8,
+        paddingVertical: 12,
     },
     emptyContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 40,
+        paddingVertical: 60,
     },
     emptyText: {
-        fontSize: 16,
-        marginTop: 12,
+        fontSize: 14,
+        fontWeight: '700',
+        marginTop: 16,
     },
 });

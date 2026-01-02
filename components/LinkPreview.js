@@ -63,9 +63,10 @@ const LinkPreview = ({ text, previewData: externalPreviewData }) => {
             style={[
                 styles.container,
                 {
-                    backgroundColor: theme.colors.surface,
-                    borderColor: theme.colors.border,
+                    backgroundColor: theme.colors.card,
+                    borderColor: theme.colors.cardBorder,
                     borderLeftColor: theme.colors.primary,
+                    borderWidth: 1,
                 }
             ]}
             activeOpacity={0.9}
@@ -77,7 +78,7 @@ const LinkPreview = ({ text, previewData: externalPreviewData }) => {
                 <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1}>
                     {previewData.title}
                 </Text>
-                <Text style={[styles.description, { color: theme.colors.textSecondary }]} numberOfLines={2}>
+                <Text style={[styles.description, { color: theme.colors.placeholder }]} numberOfLines={2}>
                     {previewData.description}
                 </Text>
             </View>
@@ -88,16 +89,10 @@ const LinkPreview = ({ text, previewData: externalPreviewData }) => {
 const styles = StyleSheet.create({
     container: {
         marginTop: 8,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderLeftWidth: 4, // Accent border
+        borderRadius: 16,
+        borderLeftWidth: 4, 
         overflow: 'hidden',
         flexDirection: 'row',
-        elevation: 3, // Shadow for Android
-        shadowColor: '#000', // Shadow for iOS
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
     },
     image: {
         width: 80,
@@ -105,16 +100,18 @@ const styles = StyleSheet.create({
     },
     textContainer: {
         flex: 1,
-        padding: 12,
+        padding: 16,
         justifyContent: 'center',
     },
     title: {
         fontSize: 14,
-        fontWeight: 'bold',
+        fontWeight: '900',
         marginBottom: 4,
     },
     description: {
         fontSize: 12,
+        fontWeight: '600',
+        lineHeight: 16,
     },
 });
 

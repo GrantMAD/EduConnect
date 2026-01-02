@@ -4,11 +4,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useChat } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faPlus, faUser, faUsers, faChalkboard, faComments, faImage, faFile } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faUser, faUsers, faChalkboard, faComments, faImage, faFile, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatListItemSkeleton } from '../../components/skeletons/ChatListScreenSkeleton';
+import LinearGradient from 'react-native-linear-gradient';
 
 const defaultUserImage = require('../../assets/user.png');
 
@@ -20,16 +21,16 @@ const formatTimeAgo = (dateString) => {
     const seconds = Math.floor((now - date) / 1000);
 
     let interval = seconds / 31536000;
-    if (interval > 1) return Math.floor(interval) + "y ago";
+    if (interval > 1) return Math.floor(interval) + "y";
     interval = seconds / 2592000;
-    if (interval > 1) return Math.floor(interval) + "mo ago";
+    if (interval > 1) return Math.floor(interval) + "mo";
     interval = seconds / 86400;
-    if (interval > 1) return Math.floor(interval) + "d ago";
+    if (interval > 1) return Math.floor(interval) + "d";
     interval = seconds / 3600;
-    if (interval > 1) return Math.floor(interval) + "h ago";
+    if (interval > 1) return Math.floor(interval) + "h";
     interval = seconds / 60;
-    if (interval > 1) return Math.floor(interval) + "m ago";
-    return Math.floor(seconds) + "s ago";
+    if (interval > 1) return Math.floor(interval) + "m";
+    return Math.floor(seconds) + "s";
 };
 
 export default function ChatListScreen({ navigation }) {
@@ -50,13 +51,12 @@ export default function ChatListScreen({ navigation }) {
                 return {
                     name: otherMember.users.full_name,
                     avatar: otherMember.users.avatar_url,
-                    icon: faUser, // Fallback icon if avatar is missing
+                    icon: faUser, 
                     equippedItem: otherMember.users.equipped_item
                 };
             }
         }
 
-        // Default for other types or if other member not found
         let icon = faUser;
         if (channel.type === 'class') icon = faChalkboard;
         if (channel.type === 'group') icon = faUsers;
@@ -78,7 +78,7 @@ export default function ChatListScreen({ navigation }) {
         const { name, avatar, icon, equippedItem } = getChannelDisplayInfo(item);
 
         const renderLastMessageContent = () => {
-            if (!lastMessage) return <Text style={[styles.lastMessage, { color: theme.colors.textSecondary }]}>No messages yet</Text>;
+            if (!lastMessage) return <Text style={[styles.lastMessage, { color: theme.colors.placeholder }]}>No messages yet</Text>;
 
             if (lastMessage.attachments && lastMessage.attachments.length > 0) {
                 const attachment = lastMessage.attachments[0];
@@ -87,15 +87,15 @@ export default function ChatListScreen({ navigation }) {
                     <View style={styles.attachmentPreview}>
                         <FontAwesomeIcon 
                             icon={isImage ? faImage : faFile} 
-                            size={14} 
+                            size={12} 
                             color={theme.colors.primary} 
                             style={{ marginRight: 4 }}
                         />
                         <Text
-                            style={[styles.lastMessage, { color: theme.colors.textSecondary, flex: 1 }]}
+                            style={[styles.lastMessage, { color: theme.colors.placeholder, flex: 1 }]}
                             numberOfLines={1}
                         >
-                            {lastMessage.content || attachment.name}
+                            {lastMessage.content || (isImage ? 'Image' : 'File')}
                         </Text>
                     </View>
                 );
@@ -103,7 +103,7 @@ export default function ChatListScreen({ navigation }) {
 
             return (
                 <Text
-                    style={[styles.lastMessage, { color: theme.colors.textSecondary }]}
+                    style={[styles.lastMessage, { color: theme.colors.placeholder }]}
                     numberOfLines={1}
                 >
                     {lastMessage.content}
@@ -116,11 +116,12 @@ export default function ChatListScreen({ navigation }) {
                 style={[
                     styles.channelCard,
                     {
-                        backgroundColor: item.hasUnread ? theme.colors.primary + '15' : theme.colors.surface,
-                        elevation: item.hasUnread ? 0 : 3,
-                        shadowOpacity: item.hasUnread ? 0 : 0.15,
+                        backgroundColor: item.hasUnread ? theme.colors.primary + '08' : theme.colors.card,
+                        borderColor: theme.colors.cardBorder,
+                        borderWidth: 1
                     }
                 ]}
+                activeOpacity={0.7}
                 onPress={() => navigation.navigate('ChatRoom', {
                     channelId: item.id,
                     name: name,
@@ -128,68 +129,86 @@ export default function ChatListScreen({ navigation }) {
                     equippedItem: equippedItem
                 })}
             >
-                <View style={[styles.iconContainer, { backgroundColor: theme.colors.primary + '20', overflow: 'visible' }]}>
+                <View style={styles.avatarContainer}>
                     {avatar || equippedItem ? (
                         <AnimatedAvatarBorder
                             avatarSource={avatar ? { uri: avatar } : defaultUserImage}
-                            size={50}
+                            size={54}
                             borderStyle={equippedItem ? BORDER_STYLES[equippedItem.image_url] : {}}
                             isRainbow={equippedItem && BORDER_STYLES[equippedItem.image_url]?.rainbow}
                             isAnimated={equippedItem && BORDER_STYLES[equippedItem.image_url]?.animated}
                         />
                     ) : (
-                        <FontAwesomeIcon icon={icon} size={24} color={theme.colors.primary} />
+                        <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                            <FontAwesomeIcon icon={icon} size={22} color={theme.colors.primary} />
+                        </View>
                     )}
+                    {item.hasUnread && <View style={styles.unreadBadge} />}
                 </View>
+
                 <View style={styles.contentContainer}>
                     <View style={styles.headerRow}>
-                        <Text style={[styles.channelName, { color: theme.colors.text }]}>{name}</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            {item.hasUnread && (
-                                <View style={{ backgroundColor: '#FF6B6B', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 6 }}>
-                                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>NEW</Text>
-                                </View>
-                            )}
-                            <Text style={[styles.timeText, { color: theme.colors.textSecondary }]}>{timeString}</Text>
-                        </View>
+                        <Text style={[styles.channelName, { color: theme.colors.text }]} numberOfLines={1}>{name}</Text>
+                        <Text style={[styles.timeText, { color: theme.colors.placeholder }]}>{timeString}</Text>
                     </View>
-                    {renderLastMessageContent()}
+                    <View style={styles.footerRow}>
+                        {renderLastMessageContent()}
+                        {item.hasUnread && (
+                            <View style={styles.newBadge}>
+                                <Text style={styles.newBadgeText}>NEW</Text>
+                            </View>
+                        )}
+                        <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.cardBorder} style={{ marginLeft: 8 }} />
+                    </View>
                 </View>
             </TouchableOpacity>
         );
     };
+
     const uniqueChannels = useMemo(() => {
         const map = new Map();
         channels.forEach(c => map.set(c.id, c));
         return Array.from(map.values());
     }, [channels]);
 
-
-
     return (
-        <View style={[styles.container, { backgroundColor: theme.dark ? theme.colors.background : '#F5F5F5' }]}>
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+            <LinearGradient
+                colors={['#4f46e5', '#7c3aed']} 
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.heroContainer}
+            >
+                <View style={styles.heroContent}>
+                    <View style={styles.heroTextContainer}>
+                        <Text style={styles.heroTitle}>Messages</Text>
+                        <Text style={styles.heroDescription}>
+                            Connect with your school community.
+                        </Text>
+                    </View>
+                    <TouchableOpacity
+                        style={styles.heroButton}
+                        onPress={() => navigation.navigate('NewChat')}
+                    >
+                        <FontAwesomeIcon icon={faPlus} size={14} color="#4f46e5" />
+                        <Text style={styles.heroButtonText}>New</Text>
+                    </TouchableOpacity>
+                </View>
+            </LinearGradient>
+
             <FlatList
                 data={loading ? [1, 2, 3, 4, 5] : uniqueChannels}
                 keyExtractor={item => typeof item === 'number' ? item.toString() : item.id}
                 renderItem={loading ? () => <ChatListItemSkeleton /> : renderItem}
                 contentContainerStyle={[styles.listContent, { paddingBottom: 80 + insets.bottom }]}
-                ListHeaderComponent={
-                    <View style={{ marginBottom: 20 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-                            <FontAwesomeIcon icon={faComments} size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
-                            <Text style={{ fontSize: 28, fontWeight: 'bold', color: theme.colors.text }}>
-                                Messages
-                            </Text>
-                        </View>
-                        <Text style={{ fontSize: 16, color: theme.colors.textSecondary }}>
-                            View and manage your conversations
-                        </Text>
-                    </View>
-                }
                 ListEmptyComponent={
                     !loading && (
                         <View style={styles.emptyContainer}>
-                            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No chats yet. Start a conversation!</Text>
+                            <View style={[styles.emptyIconContainer, { backgroundColor: theme.colors.cardBackground }]}>
+                                <FontAwesomeIcon icon={faComments} size={30} color={theme.colors.placeholder} />
+                            </View>
+                            <Text style={[styles.emptyText, { color: theme.colors.text }]}>No messages yet</Text>
+                            <Text style={[styles.emptySubtext, { color: theme.colors.placeholder }]}>Start a conversation with your classmates!</Text>
                         </View>
                     )
                 }
@@ -213,32 +232,81 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    centered: {
-        justifyContent: 'center',
+    heroContainer: {
+        padding: 20,
+        marginBottom: 0,
+        elevation: 0,
+        borderBottomLeftRadius: 16,
+        borderBottomRightRadius: 16,
+    },
+    heroContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
+    },
+    heroTextContainer: {
+        flex: 1,
+        paddingRight: 10,
+    },
+    heroTitle: {
+        color: '#fff',
+        fontSize: 24,
+        fontWeight: '800',
+        marginBottom: 6,
+    },
+    heroDescription: {
+        color: '#e0e7ff',
+        fontSize: 14,
+    },
+    heroButton: {
+        backgroundColor: '#fff',
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+    },
+    heroButtonText: {
+        color: '#4f46e5',
+        fontWeight: 'bold',
+        marginLeft: 6,
+        fontSize: 14,
     },
     listContent: {
         padding: 16,
     },
     channelCard: {
         flexDirection: 'row',
-        padding: 12,
-        borderRadius: 12,
-        marginBottom: 8,
+        padding: 14,
+        borderRadius: 16,
+        marginBottom: 12,
         alignItems: 'center',
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 3,
     },
-    iconContainer: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
+    avatarContainer: {
+        position: 'relative',
+        marginRight: 16,
+    },
+    iconBox: {
+        width: 54,
+        height: 54,
+        borderRadius: 27,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 16,
+    },
+    unreadBadge: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: '#4f46e5',
+        borderWidth: 2,
+        borderColor: '#fff',
     },
     contentContainer: {
         flex: 1,
@@ -251,39 +319,73 @@ const styles = StyleSheet.create({
     },
     channelName: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontWeight: '700',
+        flex: 1,
+        marginRight: 8,
     },
     timeText: {
-        fontSize: 12,
+        fontSize: 11,
+        fontWeight: '600',
+    },
+    footerRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     lastMessage: {
-        fontSize: 14,
+        fontSize: 13,
+        flex: 1,
     },
     attachmentPreview: {
         flexDirection: 'row',
         alignItems: 'center',
+        flex: 1,
+    },
+    newBadge: {
+        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        marginLeft: 8,
+    },
+    newBadgeText: {
+        color: '#4f46e5',
+        fontSize: 9,
+        fontWeight: '900',
     },
     fab: {
         position: 'absolute',
         right: 20,
-        bottom: 20,
         width: 56,
         height: 56,
         borderRadius: 28,
         justifyContent: 'center',
         alignItems: 'center',
-        elevation: 4,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4.65,
+        elevation: 8,
     },
     emptyContainer: {
-        padding: 40,
         alignItems: 'center',
+        padding: 40,
+    },
+    emptyIconContainer: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 16,
     },
     emptyText: {
         fontSize: 16,
-        textAlign: 'center',
+        fontWeight: '600',
+        marginBottom: 4,
     },
+    emptySubtext: {
+        fontSize: 14,
+        textAlign: 'center',
+    }
 });

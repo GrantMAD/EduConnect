@@ -151,32 +151,32 @@ export default function ChildProgressSnapshot() {
     if (childrenData.length === 0) return null;
 
     return (
-        <View>
+        <View style={{ marginBottom: 32 }}>
             <View style={styles.header}>
                 <View>
-                    <Text style={[styles.title, { color: theme.colors.text }]}>Children's Progress</Text>
-                    <Text style={[styles.subtitle, { color: theme.colors.placeholder }]}>Monitor performance & deadlines.</Text>
+                    <Text style={[styles.title, { color: theme.colors.text }]}>Learning Pulse</Text>
+                    <Text style={[styles.subtitle, { color: theme.colors.placeholder }]}>Real-time monitoring for your children.</Text>
                 </View>
-                {/* Removed Detailed Report link per web instructions */}
             </View>
             
             {childrenData.map((child) => (
                 <TouchableOpacity 
                     key={child.id} 
-                    style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
+                    style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
                     onPress={() => navigation.navigate('MyChildren')}
+                    activeOpacity={0.7}
                 >
-                    <View style={[styles.cardHeader, { borderBottomColor: theme.colors.border }]}>
+                    <View style={[styles.cardHeader, { borderBottomColor: theme.colors.cardBorder }]}>
                         <View style={styles.profileInfo}>
                             <Image 
                                 source={child.avatar ? { uri: child.avatar } : require('../assets/user.png')} 
-                                style={[styles.avatar, { borderColor: theme.colors.border }]}
+                                style={styles.avatar}
                             />
                             <View>
                                 <Text style={[styles.childName, { color: theme.colors.text }]}>{child.name}</Text>
                                 <View style={styles.levelBadge}>
                                     <FontAwesomeIcon icon={faStar} size={10} color="#F59E0B" />
-                                    <Text style={styles.levelText}>Level {child.level}</Text>
+                                    <Text style={styles.levelText}>Lvl {child.level}</Text>
                                 </View>
                             </View>
                         </View>
@@ -184,32 +184,33 @@ export default function ChildProgressSnapshot() {
                     </View>
 
                     <View style={styles.statsContainer}>
-                        <View style={[styles.statBox, { backgroundColor: theme.dark ? '#312e8140' : '#e0e7ff' }]}>
+                        <View style={[styles.statBox, { backgroundColor: theme.colors.primary + '10' }]}>
                             <View style={styles.statLabelRow}>
                                 <FontAwesomeIcon icon={faBookOpen} size={10} color={theme.colors.primary} />
-                                <Text style={[styles.statLabel, { color: theme.colors.primary }]}>Upcoming</Text>
+                                <Text style={[styles.statLabel, { color: theme.colors.primary }]}>UPCOMING</Text>
                             </View>
                             <Text style={[styles.statValue, { color: theme.colors.text }]}>{child.upcomingCount}</Text>
                             {child.nextDue && (
                                 <Text style={[styles.statSubtext, { color: theme.colors.placeholder }]}>
-                                    Next: {child.nextDue.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                    {child.nextDue.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}
                                 </Text>
                             )}
                         </View>
 
-                        <View style={[styles.statBox, { backgroundColor: theme.dark ? '#78350f40' : '#fef3c7' }]}>
+                        <View style={[styles.statBox, { backgroundColor: '#f59e0b' + '10' }]}>
                             <View style={styles.statLabelRow}>
                                 <FontAwesomeIcon icon={faTrophy} size={10} color="#D97706" />
-                                <Text style={[styles.statLabel, { color: '#D97706' }]}>Total XP</Text>
+                                <Text style={[styles.statLabel, { color: '#D97706' }]}>EXPERIENCE</Text>
                             </View>
                             <Text style={[styles.statValue, { color: theme.colors.text }]}>{child.xp}</Text>
+                            <Text style={[styles.statSubtext, { color: theme.colors.placeholder }]}>TOTAL XP</Text>
                         </View>
                     </View>
 
                     {child.upcomingCount > 0 && child.nextDue && (new Date(child.nextDue) - new Date() < 86400000 * 2) && (
-                        <View style={[styles.alertBox, { backgroundColor: theme.dark ? '#7f1d1d40' : '#fee2e2', borderColor: theme.dark ? '#991b1b' : '#fecaca' }]}>
+                        <View style={[styles.alertBox, { backgroundColor: '#ef4444' + '10', borderColor: '#ef4444' + '20' }]}>
                             <FontAwesomeIcon icon={faExclamationCircle} size={12} color="#EF4444" />
-                            <Text style={[styles.alertText, { color: theme.dark ? '#fca5a5' : '#b91c1c' }]}>Assignment due soon!</Text>
+                            <Text style={[styles.alertText, { color: '#EF4444' }]}>CRITICAL DEADLINE APPROACHING</Text>
                         </View>
                     )}
                 </TouchableOpacity>
@@ -219,29 +220,21 @@ export default function ChildProgressSnapshot() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        borderRadius: 12,
-        borderWidth: 1,
-        padding: 16,
-        marginBottom: 24,
-    },
     header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-end',
-        marginBottom: 12,
+        marginBottom: 16,
     },
     title: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontWeight: '900',
+        letterSpacing: -0.5,
     },
     subtitle: {
         fontSize: 12,
+        fontWeight: '600',
         marginTop: 2,
     },
     card: {
-        borderRadius: 12,
-        borderWidth: 1,
+        borderRadius: 24,
         marginBottom: 16,
         overflow: 'hidden',
     },
@@ -249,25 +242,23 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 12,
+        padding: 16,
         borderBottomWidth: 1,
-        backgroundColor: 'rgba(0,0,0,0.02)',
     },
     profileInfo: {
         flexDirection: 'row',
         alignItems: 'center',
     },
     avatar: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        borderWidth: 1,
-        marginRight: 10,
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        marginRight: 12,
         backgroundColor: '#f3f4f6',
     },
     childName: {
-        fontSize: 14,
-        fontWeight: 'bold',
+        fontSize: 16,
+        fontWeight: '900',
     },
     levelBadge: {
         flexDirection: 'row',
@@ -276,50 +267,54 @@ const styles = StyleSheet.create({
     },
     levelText: {
         fontSize: 10,
-        fontWeight: 'bold',
+        fontWeight: '900',
         color: '#F59E0B',
         marginLeft: 4,
     },
     statsContainer: {
         flexDirection: 'row',
-        padding: 12,
-        gap: 10,
+        padding: 16,
+        gap: 12,
     },
     statBox: {
         flex: 1,
-        borderRadius: 8,
-        padding: 10,
+        borderRadius: 16,
+        padding: 16,
     },
     statLabelRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 4,
-        gap: 4,
+        marginBottom: 8,
+        gap: 6,
     },
     statLabel: {
-        fontSize: 10,
-        fontWeight: 'bold',
+        fontSize: 9,
+        fontWeight: '900',
+        letterSpacing: 0.5,
     },
     statValue: {
-        fontSize: 18,
+        fontSize: 22,
         fontWeight: '900',
+        letterSpacing: -1,
     },
     statSubtext: {
         fontSize: 9,
-        marginTop: 2,
+        fontWeight: '800',
+        marginTop: 4,
     },
     alertBox: {
         flexDirection: 'row',
         alignItems: 'center',
-        margin: 12,
+        margin: 16,
         marginTop: 0,
-        padding: 8,
-        borderRadius: 8,
+        padding: 12,
+        borderRadius: 12,
         borderWidth: 1,
         gap: 8,
     },
     alertText: {
-        fontSize: 11,
-        fontWeight: '600',
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 0.5,
     }
 });

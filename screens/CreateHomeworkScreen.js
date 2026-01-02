@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Modal, FlatList, Pressable } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Modal, FlatList, Pressable, Switch, Dimensions } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -12,6 +12,9 @@ import { useTheme } from '../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import { useGamification } from '../context/GamificationContext';
+import LinearGradient from 'react-native-linear-gradient';
+
+const { width } = Dimensions.get('window');
 
 export default function CreateHomeworkScreen({ route }) {
   const { fromDashboard } = route.params || {};
@@ -50,7 +53,7 @@ export default function CreateHomeworkScreen({ route }) {
         if (error) {
           showToast('Error fetching classes', 'error');
         } else {
-          setClasses(data);
+          setClasses(data || []);
         }
       }
       setLoading(false);
@@ -146,7 +149,7 @@ export default function CreateHomeworkScreen({ route }) {
         if (error) {
           showToast('Could not fetch class schedules.', 'error');
         } else {
-          setSchedules(data);
+          setSchedules(data || []);
         }
       };
       fetchSchedules();
@@ -177,7 +180,6 @@ export default function CreateHomeworkScreen({ route }) {
 
       if (error) throw error;
 
-      // Notification Logic
       const { data: classInfo } = await supabase
         .from('classes')
         .select('name')
@@ -239,171 +241,191 @@ export default function CreateHomeworkScreen({ route }) {
   }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} contentContainerStyle={{ paddingBottom: 40 + insets.bottom }}>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.topBackButton}>
-        <FontAwesomeIcon icon={faChevronLeft} size={16} color={theme.colors.primary} />
-        <Text style={[styles.backText, { color: theme.colors.primary }]}>Back</Text>
-      </TouchableOpacity>
-
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>New Homework</Text>
-        <TouchableOpacity
-          style={[styles.templatesButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}
-          onPress={() => setIsTemplatesModalVisible(true)}
-        >
-          <FontAwesomeIcon icon={faFolderOpen} size={16} color={theme.colors.primary} />
-          <Text style={[styles.templatesButtonText, { color: theme.colors.text }]}>Templates ({templates.length})</Text>
-        </TouchableOpacity>
-      </View>
-      <Text style={[styles.screenDescription, { color: theme.colors.text }]}>Fill in the details below to assign new homework to your class.</Text>
-
-      <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <Text style={[styles.label, { color: theme.colors.text }]}>Select Class</Text>
-        <View style={[styles.pickerWrapper, { borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}>
-          <Picker
-            selectedValue={selectedClass}
-            onValueChange={(itemValue) => setSelectedClass(itemValue)}
-            style={{ color: theme.colors.text }}
-            dropdownIconColor={theme.colors.text}
-          >
-            <Picker.Item label="-- Select a class --" value={null} />
-            {classes.map((c) => (
-              <Picker.Item key={c.id} label={c.name} value={c.id} />
-            ))}
-          </Picker>
-        </View>
-      </View>
-
-      {selectedClass && (
-        <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>Select Class Day (Optional)</Text>
-          <View style={[styles.pickerWrapper, { borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}>
-            <Picker
-              selectedValue={selectedSchedule}
-              onValueChange={(itemValue) => {
-                setSelectedSchedule(itemValue);
-                if (itemValue) {
-                  const schedule = schedules.find(s => s.id === itemValue);
-                  if (schedule) {
-                    setDueDate(new Date(schedule.start_time).toISOString().split('T')[0]);
-                  }
-                }
-              }}
-              style={{ color: theme.colors.text }}
-              dropdownIconColor={theme.colors.text}
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <LinearGradient
+        colors={['#059669', '#0d9488']} 
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroContainer}
+      >
+        <View style={styles.heroContent}>
+            <View style={styles.heroTextContainer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
+                        <FontAwesomeIcon icon={faChevronLeft} size={18} color="#fff" />
+                    </TouchableOpacity>
+                    <Text style={styles.heroTitle}>New Homework</Text>
+                </View>
+                <Text style={styles.heroDescription}>
+                    Assign tasks and study materials to your students.
+                </Text>
+            </View>
+            <TouchableOpacity
+                style={styles.heroButton}
+                onPress={() => setIsTemplatesModalVisible(true)}
             >
-              <Picker.Item label="-- Select a day --" value={null} />
-              {schedules.map((s) => (
-                <Picker.Item
-                  key={s.id}
-                  label={`${s.title} - ${new Date(s.start_time).toLocaleString()}`}
-                  value={s.id}
+                <FontAwesomeIcon icon={faFolderOpen} size={14} color="#059669" />
+                <Text style={styles.heroButtonText}>Templates</Text>
+            </TouchableOpacity>
+        </View>
+      </LinearGradient>
+
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 + insets.bottom }} showsVerticalScrollIndicator={false}>
+        <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+            <Text style={styles.cardSectionLabel}>ASSIGNMENT DETAILS</Text>
+            
+            <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>SELECT CLASS</Text>
+                <View style={[styles.pickerWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                    <Picker
+                        selectedValue={selectedClass}
+                        onValueChange={(itemValue) => setSelectedClass(itemValue)}
+                        style={{ color: theme.colors.text }}
+                        dropdownIconColor={theme.colors.placeholder}
+                    >
+                        <Picker.Item label="Choose a class..." value={null} />
+                        {classes.map((c) => (
+                        <Picker.Item key={c.id} label={c.name} value={c.id} />
+                        ))}
+                    </Picker>
+                </View>
+            </View>
+
+            {selectedClass && (
+                <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>SELECT CLASS DAY (OPTIONAL)</Text>
+                    <View style={[styles.pickerWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                        <Picker
+                            selectedValue={selectedSchedule}
+                            onValueChange={(itemValue) => {
+                                setSelectedSchedule(itemValue);
+                                if (itemValue) {
+                                    const schedule = schedules.find(s => s.id === itemValue);
+                                    if (schedule) {
+                                        setDueDate(new Date(schedule.start_time).toISOString().split('T')[0]);
+                                    }
+                                }
+                            }}
+                            style={{ color: theme.colors.text }}
+                            dropdownIconColor={theme.colors.placeholder}
+                        >
+                            <Picker.Item label="-- Select a day --" value={null} />
+                            {schedules.map((s) => (
+                                <Picker.Item
+                                    key={s.id}
+                                    label={`${s.title} - ${new Date(s.start_time).toLocaleString()}`}
+                                    value={s.id}
+                                />
+                            ))}
+                        </Picker>
+                    </View>
+                </View>
+            )}
+
+            <View style={styles.inputGroup}>
+                <View style={styles.labelRow}>
+                    <Text style={styles.inputLabel}>SUBJECT</Text>
+                    <Text style={styles.charCount}>{subject.length}/100</Text>
+                </View>
+                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                    <TextInput
+                        style={[styles.input, { color: theme.colors.text }]}
+                        placeholder="e.g. Mathematics"
+                        placeholderTextColor={theme.colors.placeholder}
+                        value={subject}
+                        onChangeText={setSubject}
+                        maxLength={100}
+                    />
+                </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <View style={styles.labelRow}>
+                    <Text style={styles.inputLabel}>DESCRIPTION</Text>
+                    <Text style={styles.charCount}>{description.length}/1000</Text>
+                </View>
+                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, height: 120, alignItems: 'flex-start', paddingTop: 12 }]}>
+                    <TextInput
+                        style={[styles.input, { color: theme.colors.text, height: 100 }]}
+                        placeholder="Describe the homework..."
+                        placeholderTextColor={theme.colors.placeholder}
+                        value={description}
+                        onChangeText={setDescription}
+                        multiline
+                        textAlignVertical="top"
+                        maxLength={1000}
+                    />
+                </View>
+            </View>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 20 }]}>
+            <Text style={styles.cardSectionLabel}>DUE DATE</Text>
+            
+            <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>SELECT DEADLINE</Text>
+                <Calendar
+                    onDayPress={(day) => setDueDate(day.dateString)}
+                    markedDates={{
+                        [dueDate]: { selected: true, marked: true, selectedColor: theme.colors.primary },
+                    }}
+                    theme={{
+                        backgroundColor: theme.colors.card,
+                        calendarBackground: theme.colors.card,
+                        textSectionTitleColor: theme.colors.text,
+                        selectedDayBackgroundColor: theme.colors.primary,
+                        selectedDayTextColor: '#fff',
+                        todayTextColor: theme.colors.primary,
+                        dayTextColor: theme.colors.text,
+                        textDisabledColor: theme.colors.placeholder,
+                        dotColor: theme.colors.primary,
+                        selectedDotColor: '#fff',
+                        arrowColor: theme.colors.primary,
+                        monthTextColor: theme.colors.text,
+                    }}
+                    style={styles.calendar}
                 />
-              ))}
-            </Picker>
-          </View>
+            </View>
         </View>
-      )}
 
-      <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <View style={styles.labelRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-            <FontAwesomeIcon icon={faBook} size={18} color={theme.colors.primary} style={{ marginRight: 10 }} />
-            <Text style={[styles.label, { color: theme.colors.text, marginBottom: 0 }]}>Subject</Text>
-          </View>
-          <Text style={[styles.charCount, { color: theme.colors.placeholder }]}>{subject.length}/100</Text>
-        </View>
-        <TextInput
-          style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}
-          placeholder="e.g., Mathematics, History"
-          placeholderTextColor={theme.colors.placeholder}
-          value={subject}
-          onChangeText={setSubject}
-          maxLength={100}
-        />
-      </View>
-
-      <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <View style={styles.labelRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-            <FontAwesomeIcon icon={faClipboardList} size={18} color={theme.colors.primary} style={{ marginRight: 10 }} />
-            <Text style={[styles.label, { color: theme.colors.text, marginBottom: 0 }]}>Description</Text>
-          </View>
-          <Text style={[styles.charCount, { color: theme.colors.placeholder }]}>{description.length}/1000</Text>
-        </View>
-        <TextInput
-          style={[styles.textArea, { color: theme.colors.text, borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}
-          placeholder="Enter homework details..."
-          placeholderTextColor={theme.colors.placeholder}
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          numberOfLines={4}
-          textAlignVertical="top"
-          maxLength={1000}
-        />
-      </View>
-
-      <View style={[styles.inputGroup, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-          <FontAwesomeIcon icon={faCalendarAlt} size={18} color={theme.colors.primary} style={{ marginRight: 10 }} />
-          <Text style={[styles.label, { color: theme.colors.text }]}>Due Date</Text>
-        </View>
-        <Calendar
-          onDayPress={(day) => setDueDate(day.dateString)}
-          markedDates={{
-            [dueDate]: { selected: true, marked: true, selectedColor: theme.colors.primary },
-          }}
-          theme={{
-            backgroundColor: theme.colors.surface,
-            calendarBackground: theme.colors.surface,
-            textSectionTitleColor: theme.colors.text,
-            selectedDayBackgroundColor: theme.colors.primary,
-            selectedDayTextColor: theme.colors.buttonPrimaryText,
-            todayTextColor: theme.colors.primary,
-            dayTextColor: theme.colors.text,
-            textDisabledColor: theme.colors.placeholder,
-            dotColor: theme.colors.primary,
-            selectedDotColor: theme.colors.buttonPrimaryText,
-            arrowColor: theme.colors.primary,
-            monthTextColor: theme.colors.text,
-            indicatorColor: theme.colors.primary,
-          }}
-          style={styles.calendar}
-        />
-      </View>
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
-          onPress={handleCreate}
-          disabled={isCreating}
+        <TouchableOpacity 
+            style={[styles.createBtnContainer, { marginTop: 30 }]} 
+            onPress={handleCreate} 
+            disabled={isCreating}
+            activeOpacity={0.8}
         >
-          {isCreating ? (
-            <Text style={[styles.createButtonText, { color: theme.colors.buttonPrimaryText }]}>Creating...</Text>
-          ) : (
-            <>
-              <FontAwesomeIcon icon={faSave} size={18} color={theme.colors.buttonPrimaryText} style={{ marginRight: 10 }} />
-              <Text style={[styles.createButtonText, { color: theme.colors.buttonPrimaryText }]}>Assign Homework</Text>
-            </>
-          )}
+            <LinearGradient
+                colors={['#059669', '#0d9488']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.createBtn}
+            >
+                {isCreating ? (
+                    <ActivityIndicator color="#fff" />
+                ) : (
+                    <>
+                        <FontAwesomeIcon icon={faSave} size={16} color="#fff" style={{ marginRight: 10 }} />
+                        <Text style={styles.createBtnText}>Assign Homework</Text>
+                    </>
+                )}
+            </LinearGradient>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.templateActionBtn, { borderColor: theme.colors.primary, marginTop: 15 }]}
-          onPress={handleSaveTemplate}
-          disabled={isSavingTemplate}
+            style={[styles.templateActionBtn, { borderColor: theme.colors.primary + '40', borderWidth: 1, borderStyle: 'dashed' }]}
+            onPress={handleSaveTemplate}
+            disabled={isSavingTemplate}
         >
-          {isSavingTemplate ? (
-            <ActivityIndicator size="small" color={theme.colors.primary} />
-          ) : (
-            <>
-              <FontAwesomeIcon icon={faSave} size={16} color={theme.colors.primary} style={{ marginRight: 8 }} />
-              <Text style={[styles.templateActionText, { color: theme.colors.primary }]}>Save as Template</Text>
-            </>
-          )}
+            {isSavingTemplate ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+            ) : (
+                <>
+                    <FontAwesomeIcon icon={faSave} size={14} color={theme.colors.primary} style={{ marginRight: 8 }} />
+                    <Text style={[styles.templateActionText, { color: theme.colors.primary }]}>Save as Template</Text>
+                </>
+            )}
         </TouchableOpacity>
-      </View>
+      </ScrollView>
 
       <Modal
         visible={isTemplatesModalVisible}
@@ -412,11 +434,11 @@ export default function CreateHomeworkScreen({ route }) {
         onRequestClose={() => setIsTemplatesModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Your Templates</Text>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.colors.cardBorder }]}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Homework Templates</Text>
               <TouchableOpacity onPress={() => setIsTemplatesModalVisible(false)}>
-                <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.text} />
+                <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
               </TouchableOpacity>
             </View>
 
@@ -424,20 +446,21 @@ export default function CreateHomeworkScreen({ route }) {
               data={templates}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
-                <View style={[styles.templateItem, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+                <View style={[styles.templateItem, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                   <TouchableOpacity style={{ flex: 1 }} onPress={() => applyTemplate(item)}>
-                    <Text style={[styles.templateTitle, { color: theme.colors.text }]}>{item.title || item.subject}</Text>
+                    <Text style={[styles.templateTitle, { color: theme.colors.text }]}>{item.subject || item.title}</Text>
                     <Text style={[styles.templateDescription, { color: theme.colors.placeholder }]} numberOfLines={2}>
                       {item.description || 'No description provided'}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => deleteTemplate(item.id)} style={styles.deleteBtn}>
-                    <FontAwesomeIcon icon={faTrash} size={16} color="#FF3B30" />
+                    <FontAwesomeIcon icon={faTrash} size={16} color="#ef4444" />
                   </TouchableOpacity>
                 </View>
               )}
               ListEmptyComponent={
-                <View style={styles.emptyContainer}>
+                <View style={styles.emptyTemplates}>
+                  <FontAwesomeIcon icon={faFolderOpen} size={40} color={theme.colors.placeholder} style={{ opacity: 0.2, marginBottom: 12 }} />
                   <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No templates saved yet.</Text>
                 </View>
               }
@@ -445,15 +468,90 @@ export default function CreateHomeworkScreen({ route }) {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    backgroundColor: '#fff',
+  container: { flex: 1 },
+  heroContainer: {
+    padding: 24,
+    paddingTop: 40,
+    elevation: 0,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
+  heroContent: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+  },
+  heroTextContainer: {
+      flex: 1,
+      paddingRight: 10,
+  },
+  heroTitle: {
+      color: '#fff',
+      fontSize: 28,
+      fontWeight: '900',
+      marginBottom: 8,
+      letterSpacing: -1,
+  },
+  heroDescription: {
+      color: '#d1fae5',
+      fontSize: 14,
+      fontWeight: '500',
+  },
+  backButtonHero: { marginRight: 12 },
+  heroButton: {
+      backgroundColor: '#fff',
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+  },
+  heroButtonText: {
+      color: '#059669',
+      fontWeight: 'bold',
+      marginLeft: 6,
+      fontSize: 14,
+  },
+  card: { padding: 24, borderRadius: 32 },
+  cardSectionLabel: {
+      fontSize: 10,
+      fontWeight: '900',
+      color: '#94a3b8',
+      letterSpacing: 1.5,
+      marginBottom: 20,
+  },
+  inputGroup: { marginBottom: 20 },
+  labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4 },
+  inputLabel: { fontSize: 10, fontWeight: '900', color: '#94a3b8', letterSpacing: 1 },
+  charCount: { fontSize: 10, fontWeight: '700', color: '#cbd5e1' },
+  inputWrapper: { borderRadius: 16, paddingHorizontal: 16, height: 56, justifyContent: 'center' },
+  input: { fontSize: 15, fontWeight: '600' },
+  pickerWrapper: { borderRadius: 16, overflow: 'hidden' },
+  calendar: { borderRadius: 16, overflow: 'hidden' },
+  createBtnContainer: { marginBottom: 16 },
+  createBtn: { height: 60, borderRadius: 20, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  createBtnText: { color: '#fff', fontSize: 16, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
+  templateActionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 20, marginHorizontal: 20 },
+  templateActionText: { fontWeight: '800', fontSize: 14, textTransform: 'uppercase', letterSpacing: 1 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, maxHeight: '80%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 20, borderBottomWidth: 1, marginBottom: 20 },
+  modalTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
+  templateItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, marginBottom: 12 },
+  templateTitle: { fontSize: 16, fontWeight: '800', marginBottom: 2 },
+  templateDescription: { fontSize: 12, fontWeight: '500' },
+  deleteBtn: { padding: 8 },
+  emptyTemplates: { padding: 40, alignItems: 'center' },
+  emptyText: { fontSize: 14, fontWeight: '600' },
   header: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -471,31 +569,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  inputGroup: {
-    marginBottom: 20,
-    padding: 15,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
   label: {
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 10,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  charCount: {
-    fontSize: 12,
-    marginBottom: 10,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
   },
   textArea: {
     borderWidth: 1,
@@ -503,14 +580,6 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     minHeight: 100,
-  },
-  pickerWrapper: {
-    borderWidth: 1,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  calendar: {
-    marginBottom: 10,
   },
   buttonContainer: {
     marginBottom: 20,
@@ -544,64 +613,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  templateActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-  },
-  templateActionText: {
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
   modalContainer: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
     maxHeight: '80%',
   },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  templateItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 10,
-  },
-  templateTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  templateDescription: {
-    fontSize: 13,
-  },
-  deleteBtn: {
-    padding: 10,
-  },
   emptyContainer: {
     padding: 40,
     alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
   },
 });

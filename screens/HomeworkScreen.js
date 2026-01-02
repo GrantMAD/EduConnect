@@ -24,6 +24,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 
 import { supabase } from '../lib/supabase';
 import HomeworkCard from '../components/HomeworkCard';
@@ -455,23 +456,19 @@ export default function HomeworkScreen() {
   return (
     <Provider>
       <View style={[styles.screenWrapper, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.headerRow}>
-          <FontAwesomeIcon
-            icon={faClipboardList}
-            size={24}
-            color={theme.colors.primary}
-            style={styles.headerIcon}
-          />
-          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
-            Tasks & Assignments
-          </Text>
-        </View>
-
-        <Text style={[styles.screenDescription, { color: theme.colors.text }]}>
-          View all homework and assignments assigned to you. Tap on a card to see full details.
-        </Text>
-
-        <View style={[styles.hr, { borderBottomColor: theme.colors.cardBorder }]} />
+        <LinearGradient
+            colors={['#4f46e5', '#4338ca']} 
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroContainer}
+        >
+            <View style={styles.heroContent}>
+                <Text style={styles.heroTitle}>Tasks & Assignments</Text>
+                <Text style={styles.heroDescription}>
+                    View all homework and assignments assigned to you.
+                </Text>
+            </View>
+        </LinearGradient>
 
         <Tab.Navigator
           screenOptions={{
@@ -510,31 +507,25 @@ const styles = StyleSheet.create({
   screenWrapper: { flex: 1 },
   listContainer: { flex: 1, padding: 16 },
 
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: '800',
+  heroContainer: {
+    padding: 20,
+    marginBottom: 0,
+    elevation: 0,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 5,
+  heroContent: {
+      marginBottom: 10,
   },
-
-  headerIcon: {
-    marginRight: 10,
+  heroTitle: {
+      color: '#fff',
+      fontSize: 24,
+      fontWeight: '800',
+      marginBottom: 6,
   },
-  screenDescription: {
-    fontSize: 14,
-    marginHorizontal: 16,
-    marginTop: 5,
-    marginBottom: 10,
-  },
-  hr: {
-    borderBottomWidth: 1,
-    marginHorizontal: 16,
-    marginBottom: 8,
+  heroDescription: {
+      color: '#e0e7ff',
+      fontSize: 14,
   },
   emptyContainer: {
     flex: 1,

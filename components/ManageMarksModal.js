@@ -23,9 +23,9 @@ const MarkItem = ({ item, onUpdate, onDelete }) => {
     const isOverLimit = parseFloat(currentScore) > parseFloat(currentTotal);
 
     return (
-      <View style={[styles.markItemContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+      <View style={[styles.markItemContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
         <View style={styles.inputSection}>
-            <Text style={[styles.labelSmall, { color: theme.colors.textSecondary }]}>ASSESSMENT NAME</Text>
+            <Text style={[styles.labelSmall, { color: '#94a3b8' }]}>ASSESSMENT NAME</Text>
             <TextInput
                 style={[styles.input, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
                 value={currentAssessmentName}
@@ -37,7 +37,7 @@ const MarkItem = ({ item, onUpdate, onDelete }) => {
 
         <View style={styles.scoreRow}>
             <View style={styles.scoreInputContainer}>
-                <Text style={[styles.labelSmall, { color: theme.colors.textSecondary }]}>SCORE</Text>
+                <Text style={[styles.labelSmall, { color: '#94a3b8' }]}>SCORE</Text>
                 <TextInput
                     style={[styles.input, styles.scoreInput, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, color: theme.colors.text }, isOverLimit && styles.inputError]}
                     value={currentScore}
@@ -49,7 +49,7 @@ const MarkItem = ({ item, onUpdate, onDelete }) => {
             </View>
             <Text style={[styles.divider, { color: theme.colors.cardBorder }]}>/</Text>
             <View style={styles.scoreInputContainer}>
-                <Text style={[styles.labelSmall, { color: theme.colors.textSecondary }]}>TOTAL</Text>
+                <Text style={[styles.labelSmall, { color: '#94a3b8' }]}>TOTAL</Text>
                 <TextInput
                     style={[styles.input, styles.scoreInput, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
                     value={currentTotal}
@@ -60,8 +60,8 @@ const MarkItem = ({ item, onUpdate, onDelete }) => {
                 />
             </View>
             {percentage !== null && !isNaN(percentage) && (
-                <View style={[styles.percentageBadge, { backgroundColor: parseFloat(percentage) >= 80 ? '#ecfdf5' : parseFloat(percentage) >= 60 ? '#fffbeb' : '#fff1f2' }]}>
-                    <Text style={[styles.percentageText, { color: parseFloat(percentage) >= 80 ? '#059669' : parseFloat(percentage) >= 60 ? '#b45309' : '#e11d48' }]}>
+                <View style={[styles.percentageBadge, { backgroundColor: theme.colors.primary + '10' }]}>
+                    <Text style={[styles.percentageText, { color: theme.colors.primary }]}>
                         {percentage}%
                     </Text>
                 </View>
@@ -69,12 +69,12 @@ const MarkItem = ({ item, onUpdate, onDelete }) => {
         </View>
 
         <View style={styles.inputSection}>
-            <Text style={[styles.labelSmall, { color: theme.colors.textSecondary }]}>FEEDBACK (OPTIONAL)</Text>
+            <Text style={[styles.labelSmall, { color: '#94a3b8' }]}>OBSERVATIONS</Text>
             <TextInput
                 style={[styles.textArea, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
                 value={currentFeedback}
                 onChangeText={setCurrentFeedback}
-                placeholder="Observations or notes..."
+                placeholder="Add teacher feedback..."
                 placeholderTextColor={theme.colors.placeholder}
                 multiline
             />
@@ -82,12 +82,10 @@ const MarkItem = ({ item, onUpdate, onDelete }) => {
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity activeOpacity={0.7} style={[styles.actionButton, { backgroundColor: theme.colors.primary }]} onPress={() => onUpdate(item.id, currentScore, currentTotal, currentAssessmentName, currentFeedback)}>
-            <FontAwesomeIcon icon={faSave} size={14} color="#fff" />
-            <Text style={styles.actionButtonText}>SAVE</Text>
+            <Text style={styles.actionButtonText}>SAVE UPDATES</Text>
           </TouchableOpacity>
-          <TouchableOpacity activeOpacity={0.7} style={[styles.actionButton, { backgroundColor: '#fff1f2' }]} onPress={() => onDelete(item.id)}>
-            <FontAwesomeIcon icon={faTrash} size={14} color="#e11d48" />
-            <Text style={[styles.actionButtonText, { color: '#e11d48' }]}>DELETE</Text>
+          <TouchableOpacity activeOpacity={0.7} style={[styles.actionButton, { backgroundColor: '#ef4444' + '15' }]} onPress={() => onDelete(item.id)}>
+            <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>REMOVE</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -249,7 +247,7 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
     return (
         <View style={styles.headerContainer}>
             {addingNew ? (
-                <View style={[styles.addForm, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder }]}>
+                <View style={[styles.addForm, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                     <Text style={[styles.formTitle, { color: theme.colors.text }]}>New Entry</Text>
                     
                     <View style={styles.typeSelector}>
@@ -260,15 +258,15 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
                                 style={[styles.typeButton, { borderColor: theme.colors.cardBorder }, assessmentType === type && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
                                 onPress={() => setAssessmentType(type)}
                             >
-                                <Text style={[styles.typeText, { color: theme.colors.textSecondary }, assessmentType === type && { color: '#fff' }]}>{type.toUpperCase()}</Text>
+                                <Text style={[styles.typeText, assessmentType === type ? { color: '#fff' } : { color: theme.colors.placeholder }]}>{type.toUpperCase()}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
 
                     <View style={styles.inputSection}>
-                        <Text style={[styles.labelSmall, { color: theme.colors.textSecondary }]}>ASSESSMENT NAME</Text>
+                        <Text style={[styles.labelSmall, { color: '#94a3b8' }]}>ASSESSMENT NAME</Text>
                         <TextInput
-                            style={[styles.input, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
+                            style={[styles.input, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
                             value={newMarkName}
                             onChangeText={setNewMarkName}
                             placeholder="e.g. Quiz 1"
@@ -278,9 +276,9 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
                     
                     <View style={styles.scoreRow}>
                         <View style={styles.scoreInputContainer}>
-                            <Text style={[styles.labelSmall, { color: theme.colors.textSecondary }]}>SCORE</Text>
+                            <Text style={[styles.labelSmall, { color: '#94a3b8' }]}>SCORE</Text>
                             <TextInput
-                                style={[styles.input, styles.scoreInput, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
+                                style={[styles.input, styles.scoreInput, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
                                 value={newMarkScore}
                                 onChangeText={setNewMarkScore}
                                 placeholder="85"
@@ -290,9 +288,9 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
                         </View>
                         <Text style={[styles.divider, { color: theme.colors.cardBorder }]}>/</Text>
                         <View style={styles.scoreInputContainer}>
-                            <Text style={[styles.labelSmall, { color: theme.colors.textSecondary }]}>TOTAL</Text>
+                            <Text style={[styles.labelSmall, { color: '#94a3b8' }]}>TOTAL</Text>
                             <TextInput
-                                style={[styles.input, styles.scoreInput, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
+                                style={[styles.input, styles.scoreInput, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
                                 value={newMarkTotal}
                                 onChangeText={setNewMarkTotal}
                                 placeholder="100"
@@ -301,19 +299,19 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
                             />
                         </View>
                         {previewPercentage !== null && !isNaN(previewPercentage) && (
-                            <View style={[styles.percentageBadge, { backgroundColor: theme.colors.primary + '10' }]}>
+                            <View style={[styles.percentageBadge, { backgroundColor: theme.colors.primary + '15' }]}>
                                 <Text style={[styles.percentageText, { color: theme.colors.primary }]}>{previewPercentage}%</Text>
                             </View>
                         )}
                     </View>
 
                     <View style={styles.inputSection}>
-                        <Text style={[styles.labelSmall, { color: theme.colors.textSecondary }]}>NOTES</Text>
+                        <Text style={[styles.labelSmall, { color: '#94a3b8' }]}>TEACHER NOTES</Text>
                         <TextInput
-                            style={[styles.textArea, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
+                            style={[styles.textArea, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, color: theme.colors.text }]}
                             value={newFeedback}
                             onChangeText={setNewFeedback}
-                            placeholder="Add notes..."
+                            placeholder="Observations or notes..."
                             placeholderTextColor={theme.colors.placeholder}
                             multiline
                         />
@@ -321,10 +319,10 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
                     
                     <View style={styles.formButtons}>
                         <TouchableOpacity activeOpacity={0.7} style={styles.cancelButton} onPress={() => setAddingNew(false)}>
-                            <Text style={[styles.cancelButtonText, { color: theme.colors.textSecondary }]}>CANCEL</Text>
+                            <Text style={[styles.cancelButtonText, { color: theme.colors.placeholder }]}>CANCEL</Text>
                         </TouchableOpacity>
                         <TouchableOpacity activeOpacity={0.8} style={[styles.saveButton, { backgroundColor: theme.colors.primary }]} onPress={handleAddMark}>
-                            <Text style={styles.saveButtonText}>ADD ENTRY</Text>
+                            <Text style={styles.saveButtonText}>ADD RECORD</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -334,7 +332,7 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
                     <Text style={[styles.addButtonText, { color: theme.colors.primary }]}>NEW ASSESSMENT RECORD</Text>
                 </TouchableOpacity>
             )}
-            <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>HISTORY</Text>
+            <Text style={[styles.sectionTitle, { color: '#94a3b8' }]}>ACADEMIC HISTORY</Text>
         </View>
     );
   };
@@ -345,16 +343,16 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
         <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 24) }]}>
           <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
             <View style={styles.headerTitleRow}>
-                <View style={[styles.iconBoxHeader, { backgroundColor: theme.colors.primary + '10' }]}>
+                <View style={[styles.iconBoxHeader, { backgroundColor: theme.colors.primary + '15' }]}>
                     <FontAwesomeIcon icon={faPencilAlt} size={18} color={theme.colors.primary} />
                 </View>
                 <View>
-                    <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Marks</Text>
-                    <Text style={[styles.modalSub, { color: theme.colors.textSecondary }]}>{student?.users.full_name.toUpperCase()}</Text>
+                    <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Student Marks</Text>
+                    <Text style={[styles.modalSub, { color: theme.colors.placeholder }]}>{student?.users.full_name.toUpperCase()}</Text>
                 </View>
             </View>
             <TouchableOpacity onPress={handleClose} style={[styles.closeBtn, { backgroundColor: theme.colors.background }]}>
-              <FontAwesomeIcon icon={faTimes} size={16} color={theme.colors.textSecondary} />
+              <FontAwesomeIcon icon={faTimes} size={16} color={theme.colors.placeholder} />
             </TouchableOpacity>
           </View>
           {loading ? (
@@ -369,7 +367,7 @@ const ManageMarksModal = ({ visible, onClose, student, classId }) => {
               keyExtractor={(item) => item.id.toString()}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 40 }}
-              ListEmptyComponent={<Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No academic records found.</Text>}
+              ListEmptyComponent={<Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No records found.</Text>}
             />
           )}
         </View>
@@ -399,7 +397,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
         paddingTop: 24,
         maxHeight: '90%',
-        elevation: 20,
       },
       header: {
         flexDirection: 'row',
@@ -411,7 +408,7 @@ const styles = StyleSheet.create({
       },
       headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
       iconBoxHeader: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-      modalTitle: { fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
+      modalTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
       modalSub: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
       closeBtn: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
 
@@ -429,7 +426,7 @@ const styles = StyleSheet.create({
       },
       addButtonText: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
       
-      addForm: { padding: 20, borderRadius: 24, borderWidth: 1, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10 },
+      addForm: { padding: 20, borderRadius: 24 },
       formTitle: { fontSize: 18, fontWeight: '900', letterSpacing: -0.3, marginBottom: 20 },
       
       typeSelector: { flexDirection: 'row', marginBottom: 20, gap: 10 },
@@ -439,28 +436,28 @@ const styles = StyleSheet.create({
       formButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 16 },
       cancelButton: { paddingVertical: 12, paddingHorizontal: 16, justifyContent: 'center' },
       cancelButtonText: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
-      saveButton: { paddingVertical: 12, paddingHorizontal: 24, borderRadius: 14, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+      saveButton: { height: 48, paddingHorizontal: 24, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
       saveButtonText: { color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
 
-      markItemContainer: { padding: 20, borderRadius: 24, borderWidth: 1, marginBottom: 12, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4 },
+      markItemContainer: { padding: 20, borderRadius: 24, marginBottom: 12 },
       inputSection: { gap: 8, marginBottom: 16 },
       labelSmall: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
-      input: { height: 52, borderRadius: 16, borderWidth: 1, paddingHorizontal: 16, fontSize: 14, fontWeight: '600' },
-      textArea: { height: 80, borderRadius: 16, borderWidth: 1, padding: 16, fontSize: 14, fontWeight: '500', textAlignVertical: 'top' },
+      input: { height: 52, borderRadius: 16, borderWidth: 1, paddingHorizontal: 16, fontSize: 14, fontWeight: '700' },
+      textArea: { height: 80, borderRadius: 16, borderWidth: 1, padding: 16, fontSize: 14, fontWeight: '600', textAlignVertical: 'top' },
       
       scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
       scoreInputContainer: { flex: 1 },
       scoreInput: { textAlign: 'center' },
       divider: { fontSize: 24, fontWeight: '300', marginTop: 12 },
-      percentageBadge: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, marginTop: 16 },
+      percentageBadge: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, marginTop: 16, alignSelf: 'flex-end' },
       percentageText: { fontSize: 13, fontWeight: '900' },
       
       buttonContainer: { flexDirection: 'row', gap: 10, marginTop: 8 },
-      actionButton: { flex: 1, height: 48, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, elevation: 2 },
+      actionButton: { flex: 1, height: 48, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
       actionButtonText: { color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
       
       center: { padding: 40, alignItems: 'center' },
-      emptyText: { textAlign: 'center', marginTop: 40, fontSize: 14, fontWeight: '600' },
+      emptyText: { textAlign: 'center', marginTop: 40, fontSize: 14, fontWeight: '700' },
 });
 
 export default ManageMarksModal;

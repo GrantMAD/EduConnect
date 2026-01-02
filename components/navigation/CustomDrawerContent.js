@@ -104,36 +104,37 @@ const CustomDrawerContent = (props) => {
             style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                paddingVertical: 12,
+                paddingVertical: 14,
                 paddingHorizontal: 16,
-                marginHorizontal: 10,
-                marginBottom: 4,
-                backgroundColor: active ? theme.colors.primary + '15' : 'transparent',
-                borderRadius: 12,
-                borderLeftWidth: active ? 4 : 0,
-                borderLeftColor: theme.colors.primary,
+                marginHorizontal: 12,
+                marginBottom: 8,
+                backgroundColor: active ? theme.colors.primary + '10' : 'transparent',
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: active ? theme.colors.primary + '30' : 'transparent',
             }}
+            activeOpacity={0.7}
         >
-            <View style={{ width: 24, alignItems: 'center', marginRight: 12 }}>
-                <FontAwesomeIcon icon={icon} size={18} color={theme.colors.primary} />
+            <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: active ? theme.colors.primary + '15' : 'transparent', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <FontAwesomeIcon icon={icon} size={16} color={active ? theme.colors.primary : theme.colors.placeholder} />
             </View>
             <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, color: active ? theme.colors.primary : theme.colors.text, fontWeight: active ? '600' : '500' }}>{label}</Text>
-                {description && <Text style={{ fontSize: 11, color: theme.colors.placeholder, marginTop: 2 }}>{description}</Text>}
+                <Text style={{ fontSize: 14, color: active ? theme.colors.primary : theme.colors.text, fontWeight: active ? '900' : '700' }}>{label}</Text>
+                {description && <Text style={{ fontSize: 10, color: theme.colors.placeholder, fontWeight: '600', marginTop: 2 }}>{description.toUpperCase()}</Text>}
             </View>
         </TouchableOpacity>
     );
 
     const SectionHeader = ({ title }) => (
         <Text style={{
-            fontSize: 11,
-            fontWeight: '700',
-            color: theme.colors.placeholder,
-            marginTop: 20,
-            marginBottom: 8,
-            marginLeft: 26,
+            fontSize: 10,
+            fontWeight: '900',
+            color: '#94a3b8',
+            marginTop: 24,
+            marginBottom: 12,
+            marginLeft: 28,
             textTransform: 'uppercase',
-            letterSpacing: 1
+            letterSpacing: 1.5
         }}>
             {title}
         </Text>
@@ -147,19 +148,19 @@ const CustomDrawerContent = (props) => {
                     <View style={{ marginRight: 16 }}>
                         <AnimatedAvatarBorder
                             avatarSource={userAvatar ? { uri: userAvatar } : defaultUserImage}
-                            size={60}
-                            borderStyle={equippedItem ? BORDER_STYLES[equippedItem.image_url] : { borderWidth: 2, borderColor: theme.colors.primary }}
+                            size={64}
+                            borderStyle={equippedItem ? BORDER_STYLES[equippedItem.image_url] : { borderWidth: 1, borderColor: theme.colors.cardBorder }}
                             isRainbow={equippedItem && BORDER_STYLES[equippedItem.image_url]?.rainbow}
                             isAnimated={equippedItem && BORDER_STYLES[equippedItem.image_url]?.animated}
                         />
                     </View>
                     <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 18, fontWeight: '700', color: theme.colors.text }} numberOfLines={1}>{userName || 'User'}</Text>
-                        <Text style={{ fontSize: 13, color: theme.colors.placeholder }} numberOfLines={1}>{userEmail || ''}</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
-                            <View style={{ backgroundColor: theme.colors.primary + '20', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
-                                <Text style={{ fontSize: 10, color: theme.colors.primary, fontWeight: '600', textTransform: 'capitalize' }}>
-                                    {userRole || 'Guest'}
+                        <Text style={{ fontSize: 18, fontWeight: '900', color: theme.colors.text, letterSpacing: -0.5 }} numberOfLines={1}>{userName || 'Member'}</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: theme.colors.placeholder, marginTop: 2 }} numberOfLines={1}>{userEmail || ''}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                            <View style={{ backgroundColor: theme.colors.primary + '10', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                                <Text style={{ fontSize: 9, color: theme.colors.primary, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                    {userRole || 'GUEST'}
                                 </Text>
                             </View>
                         </View>
@@ -169,37 +170,38 @@ const CustomDrawerContent = (props) => {
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
                 {/* Search Bar Button */}
-                <View style={{ paddingHorizontal: 16, marginTop: 16, marginBottom: 4 }}>
+                <View style={{ paddingHorizontal: 16, marginTop: 24, marginBottom: 8 }}>
                     <TouchableOpacity
                         onPress={() => props.navigation.navigate('MainStack', { screen: 'Search' })}
                         style={{
                             flexDirection: 'row',
                             alignItems: 'center',
-                            backgroundColor: theme.colors.inputBackground || '#F0F0F0',
-                            paddingVertical: 12,
+                            backgroundColor: theme.colors.card,
+                            height: 52,
                             paddingHorizontal: 16,
-                            borderRadius: 12,
+                            borderRadius: 16,
                             borderWidth: 1,
-                            borderColor: theme.colors.cardBorder || 'transparent',
+                            borderColor: theme.colors.cardBorder,
                         }}
+                        activeOpacity={0.7}
                     >
-                        <FontAwesomeIcon icon={faSearch} size={16} color={theme.colors.placeholder} style={{ marginRight: 10 }} />
-                        <Text style={{ color: theme.colors.placeholder, fontSize: 15 }}>Search anything...</Text>
+                        <FontAwesomeIcon icon={faSearch} size={14} color={theme.colors.placeholder} style={{ marginRight: 12 }} />
+                        <Text style={{ color: theme.colors.placeholder, fontSize: 14, fontWeight: '700' }}>Search Platform...</Text>
                     </TouchableOpacity>
                 </View>
 
-                <SectionHeader title="General" />
+                <SectionHeader title="Portal" />
                 <DrawerItem
                     icon={faHome}
-                    label="Home"
+                    label="Dashboard"
                     routeName="HomeTabs"
                     active={activeMainStackRouteName === 'HomeTabs'}
                     onPress={() => props.navigation.navigate('MainStack', { screen: 'HomeTabs' })}
                 />
                 <DrawerItem
                     icon={faUser}
-                    label="Profile"
-                    description="Manage your personal information"
+                    label="User Profile"
+                    description="Personal data & settings"
                     routeName="Profile"
                     active={activeMainStackRouteName === 'Profile'}
                     onPress={() => props.navigation.navigate('MainStack', { screen: 'Profile' })}
@@ -212,7 +214,7 @@ const CustomDrawerContent = (props) => {
                             <DrawerItem
                                 icon={faChild}
                                 label="My Children"
-                                description="View your children's progress"
+                                description="Performance tracking"
                                 routeName="MyChildren"
                                 active={activeMainStackRouteName === 'MyChildren'}
                                 onPress={() => props.navigation.navigate('MainStack', { screen: 'MyChildren' })}
@@ -220,8 +222,8 @@ const CustomDrawerContent = (props) => {
                         )}
                         <DrawerItem
                             icon={faHandshake}
-                            label="Meetings"
-                            description="Parent-Teacher conferences"
+                            label="Appointments"
+                            description="Teacher-Parent meetings"
                             routeName="Meetings"
                             active={activeMainStackRouteName === 'Meetings'}
                             onPress={() => props.navigation.navigate('MainStack', { screen: 'Meetings' })}
@@ -229,8 +231,8 @@ const CustomDrawerContent = (props) => {
                         {['admin', 'teacher'].includes(userRole) && (
                             <DrawerItem
                                 icon={faBookOpen}
-                                label="Classes"
-                                description="Create and manage classes"
+                                label="Academic Hub"
+                                description="Manage class rosters"
                                 routeName="ManageClasses"
                                 active={activeMainStackRouteName === 'ManageClasses'}
                                 onPress={() => props.navigation.navigate('MainStack', { screen: 'ManageClasses' })}
@@ -243,7 +245,7 @@ const CustomDrawerContent = (props) => {
                 <DrawerItem
                     icon={faFootballBall}
                     label="Clubs & Teams"
-                    description="Extracurricular groups"
+                    description="Extra-curricular"
                     routeName="ClubList"
                     active={activeMainStackRouteName === 'ClubList'}
                     onPress={() => props.navigation.navigate('MainStack', { screen: 'ClubList' })}
@@ -251,7 +253,7 @@ const CustomDrawerContent = (props) => {
                 <DrawerItem
                     icon={faStore}
                     label="Marketplace"
-                    description="Buy and sell school items"
+                    description="Trade school supplies"
                     routeName="Market"
                     active={activeMainStackRouteName === 'Market'}
                     onPress={() => props.navigation.navigate('MainStack', { screen: 'Market' })}
@@ -259,7 +261,7 @@ const CustomDrawerContent = (props) => {
                 <DrawerItem
                     icon={faBookOpen}
                     label="Resources"
-                    description="View school resources"
+                    description="Academic materials"
                     routeName="Resources"
                     active={activeMainStackRouteName === 'Resources'}
                     onPress={() => props.navigation.navigate('MainStack', { screen: 'Resources' })}
@@ -267,17 +269,17 @@ const CustomDrawerContent = (props) => {
                 <DrawerItem
                     icon={faPoll}
                     label="Polls"
-                    description="Vote on school-wide polls"
+                    description="Vote on proposals"
                     routeName="Polls"
                     active={activeMainStackRouteName === 'Polls'}
                     onPress={() => props.navigation.navigate('MainStack', { screen: 'Polls' })}
                 />
 
-                <SectionHeader title="App" />
+                <SectionHeader title="System" />
                 <DrawerItem
                     icon={faGear}
                     label="Settings"
-                    description="Adjust app settings and preferences"
+                    description="App preferences"
                     routeName="Settings"
                     active={activeMainStackRouteName === 'Settings'}
                     onPress={() => props.navigation.navigate('MainStack', { screen: 'Settings' })}
@@ -289,29 +291,27 @@ const CustomDrawerContent = (props) => {
                     onPress={async () => {
                         setSigningOut(true);
                         try {
-                            // Clear push token BEFORE signing out to prevent cross-user notifications
                             await clearPushToken();
-
-                            // Then sign out
                             await supabase.auth.signOut();
                         } catch (error) {
                             console.error('Sign out error:', error);
                             setSigningOut(false);
                         }
                     }}
-                    style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12 }}
+                    style={{ flexDirection: 'row', alignItems: 'center', height: 52, paddingHorizontal: 16, borderRadius: 16, backgroundColor: theme.colors.error + '10' }}
                     disabled={signingOut}
+                    activeOpacity={0.7}
                 >
-                    <View style={{ width: 24, alignItems: 'center', marginRight: 12 }}>
-                        <FontAwesomeIcon icon={faRightFromBracket} size={18} color={theme.colors.error} />
+                    <View style={{ width: 32, alignItems: 'center', marginRight: 12 }}>
+                        <FontAwesomeIcon icon={faRightFromBracket} size={16} color={theme.colors.error} />
                     </View>
                     {signingOut ? (
                         <ActivityIndicator size="small" color={theme.colors.error} />
                     ) : (
-                        <Text style={{ fontSize: 16, color: theme.colors.error, fontWeight: '600' }}>Sign Out</Text>
+                        <Text style={{ fontSize: 14, color: theme.colors.error, fontWeight: '900', letterSpacing: 0.5 }}>SIGN OUT</Text>
                     )}
                 </TouchableOpacity>
-                <Text style={{ textAlign: 'center', fontSize: 10, color: theme.colors.placeholder, marginTop: 10 }}>v1.0.0</Text>
+                <Text style={{ textAlign: 'center', fontSize: 10, color: theme.colors.placeholder, marginTop: 16, fontWeight: '900', letterSpacing: 1 }}>CLASSCONNECT v1.0.0</Text>
             </View>
         </View>
     );

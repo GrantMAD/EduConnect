@@ -1,66 +1,37 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
-import { useTheme } from '../../context/ThemeContext'; // Import useTheme
+import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
+import { useTheme } from '../../context/ThemeContext';
 
-const SkeletonPiece = ({ style }) => {
-  const progress = useSharedValue(0);
-  const { theme } = useTheme(); // Use the theme hook
-
-  useEffect(() => {
-    progress.value = withRepeat(withTiming(1, { duration: 1000 }), -1, true);
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(progress.value, [0, 1], [0.5, 1]);
-    return {
-      opacity,
-    };
-  });
-
-  return <Animated.View style={[styles.skeleton, { backgroundColor: theme.colors.cardBorder }, animatedStyle, style]} />;
-};
+export { SkeletonPiece };
 
 const AnnouncementCardSkeleton = () => {
-  const { theme } = useTheme(); // Use the theme hook
+  const { theme } = useTheme(); 
   return (
-    <View style={[styles.cardContainer, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }]}>
+    <View style={[styles.cardContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
       <View style={styles.cardContent}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-          <SkeletonPiece style={{ width: '60%', height: 20, borderRadius: 4 }} />
-          <SkeletonPiece style={{ width: 40, height: 20, borderRadius: 4 }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <SkeletonBase style={{ width: '60%', height: 20, borderRadius: 4 }} />
+          <SkeletonBase style={{ width: 32, height: 32, borderRadius: 10 }} />
         </View>
-        <SkeletonPiece style={{ width: '40%', height: 15, borderRadius: 4, marginTop: 5 }} />
-        <View style={[styles.separator, { backgroundColor: theme.colors.cardBorder }]} />
-        <SkeletonPiece style={{ width: '100%', height: 15, borderRadius: 4, marginTop: 5 }} />
-        <SkeletonPiece style={{ width: '100%', height: 15, borderRadius: 4, marginTop: 5 }} />
-        <SkeletonPiece style={{ width: '80%', height: 15, borderRadius: 4, marginTop: 5 }} />
+        <SkeletonBase style={{ width: '40%', height: 12, borderRadius: 4, marginBottom: 16 }} />
+        <SkeletonBase style={{ width: '100%', height: 14, borderRadius: 4, marginTop: 6 }} />
+        <SkeletonBase style={{ width: '100%', height: 14, borderRadius: 4, marginTop: 6 }} />
+        <SkeletonBase style={{ width: '80%', height: 14, borderRadius: 4, marginTop: 6 }} />
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  skeleton: {
-    // backgroundColor handled by theme
-  },
   cardContainer: {
-    flexDirection: 'row',
-    borderRadius: 10,
-    marginBottom: 10,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-    elevation: 2,
+    borderRadius: 24,
+    marginBottom: 12,
     overflow: 'hidden',
   },
   cardContent: {
     flex: 1,
-    padding: 15,
-  },
-  separator: {
-    height: 1,
-    marginVertical: 10,
+    padding: 20,
   },
 });
 

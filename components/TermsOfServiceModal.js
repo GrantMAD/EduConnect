@@ -12,110 +12,60 @@ export default function TermsOfServiceModal({ visible, onClose }) {
         <Modal
             isVisible={visible}
             onBackdropPress={onClose}
+            onSwipeComplete={onClose}
+            swipeDirection={['down']}
             animationIn="slideInUp"
             animationOut="slideOutDown"
-            backdropOpacity={0.5}
+            backdropOpacity={0.4}
             style={{ justifyContent: 'flex-end', margin: 0 }}
         >
-            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: 40 }]}>
+                <View style={styles.swipeIndicator} />
                 <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={faFileContract} size={24} color={theme.colors.primary} />
-                    <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>Terms of Service</Text>
+                    <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                        <FontAwesomeIcon icon={faFileContract} size={18} color={theme.colors.primary} />
+                    </View>
+                    <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>Legal Agreement</Text>
                     <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-                        <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
+                        <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
                     </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 24 }}>
                     <View style={styles.contentContainer}>
-                        <Text style={[styles.lastUpdated, { color: theme.colors.placeholder }]}>
-                            Last Updated: January 1, 2025
-                        </Text>
+                        <View style={[styles.updateBadge, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                            <Text style={[styles.lastUpdated, { color: theme.colors.placeholder }]}>
+                                EFFECTIVE JANUARY 1, 2026
+                            </Text>
+                        </View>
 
                         <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>1. Acceptance of Terms</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                By accessing and using ClassConnect, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to these terms, please do not use our service.
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>1. TERMS OF USE</Text>
+                            <Text style={[styles.sectionText, { color: theme.colors.text }]}>
+                                By accessing and using ClassConnect, you accept and agree to be bound by the terms and provisions of this agreement.
                             </Text>
                         </View>
 
                         <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
 
                         <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>2. Use License</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                Permission is granted to temporarily access ClassConnect for personal, non-commercial use only. This is the grant of a license, not a transfer of title, and under this license you may not:
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>2. USER CONDUCT</Text>
+                            <Text style={[styles.sectionText, { color: theme.colors.text }]}>
+                                Permission is granted for personal, non-commercial use. Users are prohibited from:
                             </Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Modify or copy the materials</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Use the materials for any commercial purpose</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Attempt to decompile or reverse engineer any software</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Remove any copyright or proprietary notations</Text>
+                            <View style={styles.bulletList}>
+                                <Text style={[styles.bulletPoint, { color: theme.colors.text }]}>• Reverse engineering system architecture</Text>
+                                <Text style={[styles.bulletPoint, { color: theme.colors.text }]}>• Unauthorized data extraction</Text>
+                                <Text style={[styles.bulletPoint, { color: theme.colors.text }]}>• Harassment or misuse of platform tools</Text>
+                            </View>
                         </View>
 
                         <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
 
                         <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>3. User Accounts</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                You are responsible for maintaining the confidentiality of your account and password. You agree to accept responsibility for all activities that occur under your account.
-                            </Text>
-                        </View>
-
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>4. User Content</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                Users may post, upload, or submit content to ClassConnect. You retain all rights to your content, but grant us a license to use, display, and distribute your content within the platform.
-                            </Text>
-                        </View>
-
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>5. Prohibited Activities</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                You agree not to engage in any of the following prohibited activities:
-                            </Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Violating laws or regulations</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Harassing, abusing, or harming other users</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Impersonating others</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Distributing malware or harmful code</Text>
-                        </View>
-
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>6. Termination</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                We may terminate or suspend your account immediately, without prior notice, for any reason, including breach of these Terms.
-                            </Text>
-                        </View>
-
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>7. Limitation of Liability</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                ClassConnect shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use of or inability to use the service.
-                            </Text>
-                        </View>
-
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>8. Changes to Terms</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                We reserve the right to modify these terms at any time. We will notify users of any changes by updating the "Last Updated" date.
-                            </Text>
-                        </View>
-
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>9. Contact Information</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                If you have any questions about these Terms, please contact us at support@classconnect.com.
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>3. ACCOUNT RESPONSIBILITY</Text>
+                            <Text style={[styles.sectionText, { color: theme.colors.text }]}>
+                                You are responsible for maintaining the absolute confidentiality of your credentials and for all activities that occur under your session.
                             </Text>
                         </View>
                     </View>
@@ -127,59 +77,86 @@ export default function TermsOfServiceModal({ visible, onClose }) {
 
 const styles = StyleSheet.create({
     modalContent: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 30,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        maxHeight: '90%',
-        minHeight: '50%',
+        paddingHorizontal: 24,
+        paddingTop: 8,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        maxHeight: '85%',
+    },
+    swipeIndicator: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#cbd5e1',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: 20,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingBottom: 15,
+        paddingBottom: 20,
         borderBottomWidth: 1,
-        marginBottom: 10,
+    },
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
     },
     modalTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        marginLeft: 15,
+        fontSize: 18,
+        fontWeight: '900',
         flex: 1,
+        letterSpacing: -0.5,
     },
     modalCloseButton: {
-        padding: 5,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     contentContainer: {
         paddingBottom: 20,
     },
+    updateBadge: {
+        alignSelf: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+        marginBottom: 32,
+    },
     lastUpdated: {
-        fontSize: 13,
-        fontStyle: 'italic',
-        marginBottom: 20,
-        textAlign: 'center',
+        fontSize: 9,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
     section: {
-        marginBottom: 10,
+        marginBottom: 16,
     },
     sectionTitle: {
-        fontSize: 17,
-        fontWeight: '600',
-        marginBottom: 10,
+        fontSize: 11,
+        fontWeight: '900',
+        marginBottom: 12,
+        letterSpacing: 1,
     },
     sectionText: {
         fontSize: 14,
         lineHeight: 22,
+        fontWeight: '600',
+    },
+    bulletList: {
+        marginTop: 12,
+        gap: 8,
     },
     bulletPoint: {
-        fontSize: 14,
-        lineHeight: 22,
-        marginLeft: 10,
-        marginTop: 4,
+        fontSize: 13,
+        fontWeight: '600',
+        marginLeft: 8,
     },
     divider: {
         height: 1,
-        marginVertical: 15,
+        marginVertical: 24,
     },
 });

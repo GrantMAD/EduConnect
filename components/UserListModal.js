@@ -76,23 +76,28 @@ export default function UserListModal({ visible, users, category, onClose, onUse
         <Modal
             isVisible={visible}
             onBackdropPress={onClose}
+            onSwipeComplete={onClose}
+            swipeDirection={['down']}
             animationIn="slideInUp"
             animationOut="slideOutDown"
-            backdropOpacity={0.5}
+            backdropOpacity={0.4}
             style={{ justifyContent: 'flex-end', margin: 0 }}
         >
             <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+                <View style={styles.swipeIndicator} />
                 <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={categoryInfo.icon} size={24} color={categoryInfo.color} />
+                    <View style={[styles.iconBox, { backgroundColor: categoryInfo.color + '15' }]}>
+                        <FontAwesomeIcon icon={categoryInfo.icon} size={18} color={categoryInfo.color} />
+                    </View>
                     <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>{categoryInfo.title}</Text>
                     <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-                        <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
+                        <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
                     </TouchableOpacity>
                 </View>
 
                 {/* Search Bar */}
-                <View style={[styles.searchContainer, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={faSearch} size={16} color={theme.colors.placeholder} style={{ marginRight: 10 }} />
+                <View style={[styles.searchContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                    <FontAwesomeIcon icon={faSearch} size={14} color={theme.colors.placeholder} style={{ marginRight: 12 }} />
                     <TextInput
                         style={[styles.searchInput, { color: theme.colors.text }]}
                         placeholder="Search by name or email..."
@@ -100,18 +105,6 @@ export default function UserListModal({ visible, users, category, onClose, onUse
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                     />
-                    {searchQuery.length > 0 && (
-                        <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
-                            <FontAwesomeIcon icon={faTimes} size={16} color={theme.colors.placeholder} />
-                        </TouchableOpacity>
-                    )}
-                </View>
-
-                <View style={styles.countContainer}>
-                    <Text style={[styles.countText, { color: theme.colors.text }]}>
-                        {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'}
-                        {searchQuery.trim() && ` (filtered from ${users.length})`}
-                    </Text>
                 </View>
 
                 <FlatList
@@ -122,9 +115,9 @@ export default function UserListModal({ visible, users, category, onClose, onUse
                     contentContainerStyle={styles.listContainer}
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
-                            <FontAwesomeIcon icon={faUsers} size={48} color={theme.colors.placeholder} />
+                            <FontAwesomeIcon icon={faUsers} size={40} color={theme.colors.cardBorder} />
                             <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>
-                                {searchQuery.trim() ? 'No users match your search' : 'No users found'}
+                                {searchQuery.trim() ? 'No matching users found' : 'No users in this category'}
                             </Text>
                         </View>
                     }
@@ -136,110 +129,117 @@ export default function UserListModal({ visible, users, category, onClose, onUse
 
 const styles = StyleSheet.create({
     modalContent: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 30,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        maxHeight: '90%',
-        minHeight: '50%',
+        paddingHorizontal: 24,
+        paddingTop: 8,
+        paddingBottom: 40,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        maxHeight: '85%',
+    },
+    swipeIndicator: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#cbd5e1',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: 20,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingBottom: 15,
+        paddingBottom: 20,
         borderBottomWidth: 1,
-        marginBottom: 10,
+    },
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
     },
     modalTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        marginLeft: 15,
+        fontSize: 18,
+        fontWeight: '900',
         flex: 1,
+        letterSpacing: -0.5,
     },
     modalCloseButton: {
-        padding: 5,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 15,
-        paddingVertical: 10,
-        marginTop: 10,
-        marginBottom: 5,
-        borderRadius: 10,
-        borderWidth: 1,
+        paddingHorizontal: 16,
+        height: 52,
+        marginTop: 24,
+        marginBottom: 16,
+        borderRadius: 16,
     },
     searchInput: {
         flex: 1,
-        fontSize: 16,
-        paddingVertical: 0,
-    },
-    clearButton: {
-        padding: 5,
-    },
-    countContainer: {
-        paddingVertical: 10,
-        paddingHorizontal: 5,
-    },
-    countText: {
         fontSize: 14,
-        fontWeight: '600',
+        fontWeight: '700',
     },
     listContainer: {
-        paddingBottom: 20,
+        paddingBottom: 40,
     },
     userCard: {
         flexDirection: 'row',
-        padding: 15,
-        borderRadius: 12,
-        borderWidth: 1,
+        padding: 16,
+        borderRadius: 20,
         marginBottom: 12,
         alignItems: 'center',
     },
     avatar: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        marginRight: 15,
+        width: 52,
+        height: 52,
+        borderRadius: 14,
+        marginRight: 16,
         borderWidth: 2,
     },
     userInfo: {
         flex: 1,
     },
     userName: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 4,
+        fontSize: 15,
+        fontWeight: '900',
+        marginBottom: 2,
     },
     infoRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 3,
+        marginBottom: 2,
     },
     userDetail: {
-        fontSize: 13,
+        fontSize: 12,
+        fontWeight: '600',
         flex: 1,
     },
     roleBadge: {
         alignSelf: 'flex-start',
         paddingHorizontal: 8,
-        paddingVertical: 3,
+        paddingVertical: 2,
         borderRadius: 6,
-        marginTop: 6,
+        marginTop: 4,
     },
     roleText: {
-        fontSize: 11,
-        fontWeight: '600',
-        textTransform: 'capitalize',
+        fontSize: 9,
+        fontWeight: '900',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     emptyContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 40,
+        paddingVertical: 60,
     },
     emptyText: {
-        fontSize: 16,
-        marginTop: 12,
+        fontSize: 14,
+        fontWeight: '700',
+        marginTop: 16,
     },
 });

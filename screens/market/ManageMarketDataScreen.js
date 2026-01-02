@@ -8,16 +8,21 @@ import {
   RefreshControl,
   TouchableOpacity,
   Alert,
+  Dimensions
 } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import ManagementListSkeleton, { SkeletonPiece } from '../../components/skeletons/ManagementListSkeleton';
 import CardSkeleton from '../../components/skeletons/CardSkeleton';
-import { faPlus, faStore, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faStore, faArrowLeft, faChevronLeft } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../../lib/supabase';
 import ManageMarketItemListItem from '../../components/ManageMarketItemListItem';
 import MarketplaceItemDetailModal from '../../components/MarketplaceItemDetailModal';
 import { useToast } from '../../context/ToastContext';
+import { useTheme } from '../../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
+
+const { width } = Dimensions.get('window');
 
 export default function ManageMarketDataScreen({ navigation }) {
   const [items, setItems] = useState([]);
@@ -27,6 +32,7 @@ export default function ManageMarketDataScreen({ navigation }) {
   const [selectedItemForModal, setSelectedItemForModal] = useState(null);
 
   const { showToast } = useToast();
+  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -72,7 +78,7 @@ export default function ManageMarketDataScreen({ navigation }) {
               showToast('Failed to delete item.', 'error');
             } else {
               fetchUserItems();
-              setModalVisible(false); // Close modal after deletion
+              setModalVisible(false); 
               showToast('Item deleted successfully!', 'success');
             }
           },
@@ -82,49 +88,82 @@ export default function ManageMarketDataScreen({ navigation }) {
   };
 
   const handleEdit = (item) => {
-    setModalVisible(false); // Close modal before navigating
+    setModalVisible(false); 
     navigation.navigate('CreateMarketplaceItem', { item });
   };
 
+  const ListHeader = () => (
+    <View>
+        <LinearGradient
+            colors={['#9333ea', '#4f46e5']} 
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroContainer}
+        >
+            <View style={styles.heroContent}>
+                <View style={styles.heroTextContainer}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
+                            <FontAwesomeIcon icon={faChevronLeft} size={18} color="#fff" />
+                        </TouchableOpacity>
+                        <Text style={styles.heroTitle}>Manage Listings</Text>
+                    </View>
+                    <Text style={styles.heroDescription}>
+                        View, edit, or remove your items from the student marketplace.
+                    </Text>
+                </View>
+                <View style={styles.iconBoxHero}>
+                    <FontAwesomeIcon icon={faStore} size={24} color="rgba(255,255,255,0.7)" />
+                </View>
+            </View>
+        </LinearGradient>
+    </View>
+  );
+
   return (
-    <View style={styles.container}>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-        <FontAwesomeIcon icon={faArrowLeft} size={20} color="#007AFF" />
-        <Text style={styles.backButtonText}>Back to Management</Text>
-      </TouchableOpacity>
-      <View style={styles.mainHeaderContainer}>
-        <FontAwesomeIcon icon={faStore} size={24} color="#333" style={styles.mainHeaderIcon} />
-        <Text style={styles.header}>Manage Your Items</Text>
-      </View>
-      <Text style={styles.description}>Here you can edit or delete your marketplace items.</Text>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <FlatList
+        ListHeaderComponent={ListHeader}
         data={loading ? [1, 2, 3] : items}
         keyExtractor={(item, index) => loading ? index.toString() : item.id.toString()}
         renderItem={({ item }) => loading ? (
-          <CardSkeleton />
+          <View style={{ paddingHorizontal: 20 }}><CardSkeleton /></View>
         ) : (
-          <ManageMarketItemListItem
-            item={item}
-            onPress={(selectedItem) => {
-              setSelectedItemForModal(selectedItem);
-              setModalVisible(true);
-            }}
-          />
+          <View style={{ paddingHorizontal: 20 }}>
+            <ManageMarketItemListItem
+                item={item}
+                onPress={(selectedItem) => {
+                setSelectedItemForModal(selectedItem);
+                setModalVisible(true);
+                }}
+            />
+          </View>
         )}
         ListEmptyComponent={() => !loading && (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>You haven't listed any items yet.</Text>
-            <TouchableOpacity style={styles.createItemButton} onPress={() => navigation.navigate('CreateMarketplaceItem')}>
-              <FontAwesomeIcon icon={faPlus} size={16} color="#fff" />
+            <View style={[styles.emptyIconBox, { backgroundColor: theme.colors.cardBackground }]}>
+                <FontAwesomeIcon icon={faStore} size={40} color={theme.colors.placeholder} style={{ opacity: 0.2 }} />
+            </View>
+            <Text style={[styles.emptyText, { color: theme.colors.text }]}>You haven't listed any items yet.</Text>
+            <TouchableOpacity 
+                style={[styles.createItemButton, { backgroundColor: theme.colors.primary }]} 
+                onPress={() => navigation.navigate('CreateMarketplaceItem')}
+                activeOpacity={0.8}
+            >
+              <FontAwesomeIcon icon={faPlus} size={14} color="#fff" />
               <Text style={styles.createItemButtonText}>List your first item!</Text>
             </TouchableOpacity>
           </View>
         )}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
         contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
       />
-      <TouchableOpacity style={[styles.fab, { bottom: 20 + insets.bottom }]} onPress={() => navigation.navigate('CreateMarketplaceItem')}>
+      
+      <TouchableOpacity 
+        style={[styles.fab, { backgroundColor: theme.colors.primary, bottom: 20 + insets.bottom }]} 
+        onPress={() => navigation.navigate('CreateMarketplaceItem')}
+        activeOpacity={0.8}
+      >
         <FontAwesomeIcon icon={faPlus} size={24} color="#fff" />
       </TouchableOpacity>
 
@@ -140,13 +179,48 @@ export default function ManageMarketDataScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f7f7f7', padding: 16 },
-  header: { fontSize: 24, fontWeight: '700', color: '#333' },
-  mainHeaderContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  mainHeaderIcon: { marginRight: 10 },
-  description: { fontSize: 14, color: '#777', marginBottom: 16 },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 50 },
-  emptyText: { fontSize: 16, color: '#888' },
+  container: { flex: 1 },
+  heroContainer: {
+    padding: 24,
+    paddingTop: 40,
+    elevation: 0,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    marginBottom: 20,
+  },
+  heroContent: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+  },
+  heroTextContainer: {
+      flex: 1,
+      paddingRight: 10,
+  },
+  heroTitle: {
+      color: '#fff',
+      fontSize: 28,
+      fontWeight: '900',
+      marginBottom: 8,
+      letterSpacing: -1,
+  },
+  heroDescription: {
+      color: '#f5f3ff',
+      fontSize: 14,
+      fontWeight: '500',
+  },
+  backButtonHero: { marginRight: 12 },
+  iconBoxHero: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      justifyContent: 'center',
+      alignItems: 'center',
+  },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', marginTop: 60, paddingHorizontal: 40 },
+  emptyIconBox: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  emptyText: { fontSize: 16, fontWeight: '700', textAlign: 'center' },
   fab: {
     position: 'absolute',
     width: 56,
@@ -154,41 +228,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     right: 20,
-    bottom: 20,
-    backgroundColor: '#007AFF',
     borderRadius: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
     elevation: 8,
   },
   createItemButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#007AFF',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    marginTop: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    marginTop: 24,
   },
   createItemButtonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '900',
     marginLeft: 10,
-  },
-  backButton: {
-    marginBottom: 10,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
 });

@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, SectionList, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, ScrollView, Linking } from 'react-native';
+import { View, Text, SectionList, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, ScrollView, Linking, RefreshControl } from 'react-native';
 import { supabase } from '../lib/supabase';
 import NotificationCardSkeleton, { SkeletonPiece } from '../components/skeletons/NotificationCardSkeleton';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useToast } from '../context/ToastContext';
-import { useTheme } from '../context/ThemeContext'; // Import useTheme
+import { useTheme } from '../context/ThemeContext'; 
+import LinearGradient from 'react-native-linear-gradient';
 
 export default function NotificationsScreen({ route, navigation }) {
   const [notifications, setNotifications] = useState([]);
@@ -14,7 +15,7 @@ export default function NotificationsScreen({ route, navigation }) {
   const [selectedItemDetail, setSelectedItemDetail] = useState(null);
   const [modalLoading, setModalLoading] = useState(false);
   const { showToast } = useToast();
-  const { theme } = useTheme(); // Use the theme hook
+  const { theme } = useTheme();
 
   const fetchNotifications = async () => {
     if (!refreshing) setLoading(true);
@@ -27,7 +28,7 @@ export default function NotificationsScreen({ route, navigation }) {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(100);  // Pagination: Load first 100 notifications
+        .limit(100); 
 
       if (error) throw error;
       setNotifications(data || []);
@@ -71,7 +72,6 @@ export default function NotificationsScreen({ route, navigation }) {
         selectFields = 'title, description, due_date, file_url';
         break;
       case 'new_poll':
-        // Navigate to Polls screen instead of showing modal
         await supabase
           .from('notifications')
           .update({ is_read: true })
@@ -111,12 +111,11 @@ export default function NotificationsScreen({ route, navigation }) {
         navigation.navigate('ClubList');
         return;
       default:
-        return; // Not a pressable notification
+        return; 
     }
 
     if (!itemId) return;
 
-    // Mark notification as read when opening the modal
     await supabase
       .from('notifications')
       .update({ is_read: true })
@@ -153,12 +152,9 @@ export default function NotificationsScreen({ route, navigation }) {
   const handleClearAll = async () => {
     Alert.alert(
       'Clear All Notifications',
-      'Are you sure you want to delete all of your notifications? This action cannot be undone.',
+      'Are you sure you want to delete all of your notifications?',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Clear All',
           style: 'destructive',
@@ -238,9 +234,7 @@ export default function NotificationsScreen({ route, navigation }) {
             child_id: notification.user_id,
           });
 
-        if (insertError) {
-          throw insertError;
-        }
+        if (insertError) throw insertError;
 
         const { error: updateRequestError } = await supabase
           .from('parent_child_requests')
@@ -249,9 +243,7 @@ export default function NotificationsScreen({ route, navigation }) {
           .eq('parent_id', notification.related_user_id)
           .eq('status', 'pending');
 
-        if (updateRequestError) {
-          throw updateRequestError;
-        }
+        if (updateRequestError) throw updateRequestError;
 
         await supabase.from('notifications').insert({
           user_id: notification.related_user_id,
@@ -269,9 +261,7 @@ export default function NotificationsScreen({ route, navigation }) {
           .eq('parent_id', notification.related_user_id)
           .eq('status', 'pending');
 
-        if (updateRequestError) {
-          throw updateRequestError;
-        }
+        if (updateRequestError) throw updateRequestError;
 
         await supabase.from('notifications').insert({
           user_id: notification.related_user_id,
@@ -401,8 +391,9 @@ export default function NotificationsScreen({ route, navigation }) {
           styles.card, 
           { 
             backgroundColor: theme.colors.cardBackground, 
-            shadowColor: theme.colors.text,
-            borderLeftColor: isUnread ? info.color : 'transparent',
+            borderColor: theme.colors.cardBorder,
+            borderWidth: 1,
+            borderLeftColor: isUnread ? info.color : theme.colors.cardBorder,
             borderLeftWidth: 4
           }
         ]}
@@ -412,8 +403,8 @@ export default function NotificationsScreen({ route, navigation }) {
           onPress={() => handleNotificationPress(item)}
           disabled={!isPressable}
         >
-          <View style={[styles.iconContainer, { backgroundColor: isUnread ? `${info.color}20` : theme.colors.inputBackground }]}>
-            <FontAwesome5 name={info.icon} size={20} color={isUnread ? info.color : theme.colors.placeholder} />
+          <View style={[styles.iconContainer, { backgroundColor: isUnread ? `${info.color}15` : theme.colors.background }]}>
+            <FontAwesome5 name={info.icon} size={18} color={isUnread ? info.color : theme.colors.placeholder} />
           </View>
           <View style={styles.contentContainer}>
             <View style={styles.typeHeader}>
@@ -425,34 +416,17 @@ export default function NotificationsScreen({ route, navigation }) {
             <Text style={[styles.date, { color: theme.colors.placeholder }]}>{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
 
             {/* Specialized Actions for Requests */}
-            {item.type === 'school_join_request' && isUnread && (
+            {(item.type === 'school_join_request' || item.type === 'parent_child_request') && isUnread && (
               <View style={styles.buttonsRow}>
                 <TouchableOpacity
                   style={[styles.button, { backgroundColor: theme.colors.primary }]}
-                  onPress={() => handleJoinResponse(item, true)}
+                  onPress={() => item.type === 'school_join_request' ? handleJoinResponse(item, true) : handleParentChildResponse(item, true)}
                 >
                   <Text style={[styles.buttonText, { color: '#fff' }]}>Accept</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.button, { backgroundColor: theme.colors.error }]}
-                  onPress={() => handleJoinResponse(item, false)}
-                >
-                  <Text style={[styles.buttonText, { color: '#fff' }]}>Decline</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {item.type === 'parent_child_request' && isUnread && (
-              <View style={styles.buttonsRow}>
-                <TouchableOpacity
-                  style={[styles.button, { backgroundColor: theme.colors.primary }]}
-                  onPress={() => handleParentChildResponse(item, true)}
-                >
-                  <Text style={[styles.buttonText, { color: '#fff' }]}>Accept</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.button, { backgroundColor: theme.colors.error }]}
-                  onPress={() => handleParentChildResponse(item, false)}
+                  onPress={() => item.type === 'school_join_request' ? handleJoinResponse(item, false) : handleParentChildResponse(item, false)}
                 >
                   <Text style={[styles.buttonText, { color: '#fff' }]}>Decline</Text>
                 </TouchableOpacity>
@@ -464,11 +438,11 @@ export default function NotificationsScreen({ route, navigation }) {
         <View style={styles.actionsContainer}>
           {isUnread && (
             <TouchableOpacity onPress={() => handleMarkAsRead(item.id)} style={styles.actionButton}>
-              <FontAwesome5 name="check-circle" size={18} color={theme.colors.success} />
+              <FontAwesome5 name="check-circle" size={16} color={theme.colors.success} />
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.actionButton}>
-            <FontAwesome5 name="trash-alt" size={18} color={theme.colors.error} />
+            <FontAwesome5 name="trash-alt" size={16} color={theme.colors.error} />
           </TouchableOpacity>
         </View>
       </View>
@@ -477,27 +451,34 @@ export default function NotificationsScreen({ route, navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.headerRow}>
-        <View>
-          <Text style={[styles.header, { color: theme.colors.text }]}>Notifications</Text>
-          <Text style={[styles.description, { color: theme.colors.placeholder }]}>
-            {notifications.filter(n => !n.is_read).length} unread updates
-          </Text>
+      <LinearGradient
+        colors={['#4f46e5', '#4338ca']} 
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroContainer}
+      >
+        <View style={styles.heroContent}>
+            <View style={styles.heroTextContainer}>
+                <Text style={styles.heroTitle}>Notifications</Text>
+                <Text style={styles.heroDescription}>
+                    {notifications.filter(n => !n.is_read).length} unread updates
+                </Text>
+            </View>
+            {!loading && notifications.length > 0 && (
+                <View style={styles.heroActions}>
+                    <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.heroActionBtn}>
+                        <FontAwesome5 name="check-double" size={14} color="#4f46e5" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handleClearAll} style={styles.heroActionBtn}>
+                        <FontAwesome5 name="broom" size={14} color="#e11d48" />
+                    </TouchableOpacity>
+                </View>
+            )}
         </View>
-        {!loading && notifications.length > 0 && (
-          <View style={{ flexDirection: 'row' }}>
-            <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.headerActionButton}>
-              <FontAwesome5 name="check-double" size={16} color={theme.colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleClearAll} style={styles.headerActionButton}>
-              <FontAwesome5 name="broom" size={16} color={theme.colors.error} />
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
+      </LinearGradient>
 
       {loading ? (
-        <ScrollView>
+        <ScrollView style={{ padding: 16 }}>
           {[1, 2, 3, 4, 5].map(i => <NotificationCardSkeleton key={i} />)}
         </ScrollView>
       ) : (
@@ -507,13 +488,12 @@ export default function NotificationsScreen({ route, navigation }) {
           renderItem={renderNotification}
           renderSectionHeader={({ section: { title } }) => (
             <View style={[styles.sectionHeader, { backgroundColor: theme.colors.background }]}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{title}</Text>
+              <Text style={[styles.sectionTitle, { color: theme.colors.placeholder }]}>{title}</Text>
               <View style={[styles.sectionLine, { backgroundColor: theme.colors.cardBorder }]} />
             </View>
           )}
-          contentContainerStyle={{ paddingBottom: 20 }}
-          refreshing={refreshing}
-          onRefresh={onRefresh}
+          contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           stickySectionHeadersEnabled={false}
           removeClippedSubviews={true}
           initialNumToRender={15}
@@ -521,7 +501,7 @@ export default function NotificationsScreen({ route, navigation }) {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <FontAwesome5 name="bell-slash" size={60} color={theme.colors.placeholder} />
-              <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>All caught up!</Text>
+              <Text style={[styles.emptyText, { color: theme.colors.text }]}>All caught up!</Text>
               <Text style={[styles.emptySubText, { color: theme.colors.placeholder }]}>No new notifications for you right now.</Text>
             </View>
           }
@@ -535,7 +515,7 @@ export default function NotificationsScreen({ route, navigation }) {
         onRequestClose={() => setDetailModalVisible(false)}
       >
         <View style={styles.modalContainer}>
-          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.text }]}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
             {modalLoading ? (
               <ActivityIndicator size="large" color={theme.colors.primary} />
             ) : selectedItemDetail ? (
@@ -570,8 +550,8 @@ export default function NotificationsScreen({ route, navigation }) {
                   <View>
                     <View style={[styles.hr, { borderBottomColor: theme.colors.cardBorder }]} />
                     <TouchableOpacity style={[styles.fileLinkButton, { backgroundColor: theme.colors.success }]} onPress={() => Linking.openURL(selectedItemDetail.file_url)}>
-                      <FontAwesome5 name="link" size={16} color={theme.colors.buttonPrimaryText} style={{ marginRight: 8 }} />
-                      <Text style={[styles.modalCloseButtonText, { color: theme.colors.buttonPrimaryText }]}>View Attached File</Text>
+                      <FontAwesome5 name="link" size={16} color="#fff" style={{ marginRight: 8 }} />
+                      <Text style={[styles.modalCloseButtonText, { color: '#fff' }]}>View Attached File</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -580,7 +560,7 @@ export default function NotificationsScreen({ route, navigation }) {
                   style={[styles.modalCloseButton, { backgroundColor: theme.colors.primary }]}
                   onPress={() => setDetailModalVisible(false)}
                 >
-                  <Text style={[styles.modalCloseButtonText, { color: theme.colors.buttonPrimaryText }]}>Close</Text>
+                  <Text style={[styles.modalCloseButtonText, { color: '#fff' }]}>Close</Text>
                 </TouchableOpacity>
               </>
             ) : null}
@@ -592,24 +572,48 @@ export default function NotificationsScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-    marginTop: 10,
+  container: { flex: 1 },
+  heroContainer: {
+    padding: 20,
+    marginBottom: 0,
+    elevation: 0,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
   },
-  header: { fontSize: 28, fontWeight: 'bold' },
-  description: { fontSize: 14, marginTop: 2 },
-  headerActionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 10,
+  heroContent: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+  },
+  heroTextContainer: {
+      flex: 1,
+      paddingRight: 10,
+  },
+  heroTitle: {
+      color: '#fff',
+      fontSize: 24,
+      fontWeight: '800',
+      marginBottom: 6,
+  },
+  heroDescription: {
+      color: '#e0e7ff',
+      fontSize: 14,
+  },
+  heroActions: {
+      flexDirection: 'row',
+      gap: 8,
+  },
+  heroActionBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: '#fff',
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -618,23 +622,23 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
     marginRight: 10,
   },
   sectionLine: {
     flex: 1,
     height: 1,
+    opacity: 0.5,
   },
   card: {
     borderRadius: 16,
     marginBottom: 12,
     flexDirection: 'row',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
     overflow: 'hidden',
+    elevation: 0,
   },
   cardMain: {
     flex: 1,
@@ -643,9 +647,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -658,19 +662,19 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   typeLabel: {
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  title: { fontSize: 16, marginBottom: 4 },
-  message: { fontSize: 14, lineHeight: 20, marginBottom: 6 },
-  date: { fontSize: 12, fontWeight: '500' },
+  title: { fontSize: 15, marginBottom: 4 },
+  message: { fontSize: 13, lineHeight: 18, marginBottom: 6 },
+  date: { fontSize: 11, fontWeight: '600' },
   buttonsRow: { flexDirection: 'row', marginTop: 12 },
   button: { 
     paddingVertical: 8, 
@@ -678,26 +682,25 @@ const styles = StyleSheet.create({
     borderRadius: 10, 
     marginRight: 10 
   },
-  buttonText: { fontWeight: '700', fontSize: 13 },
+  buttonText: { fontWeight: '700', fontSize: 12 },
   actionsContainer: { 
-    width: 50, 
+    width: 44, 
     justifyContent: 'center', 
     alignItems: 'center', 
     borderLeftWidth: 1,
     borderLeftColor: 'rgba(0,0,0,0.05)',
-    paddingVertical: 10,
   },
   actionButton: { 
-    padding: 10,
+    padding: 8,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 100,
+    marginTop: 60,
   },
   emptyText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     marginTop: 20,
   },
@@ -711,7 +714,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     marginVertical: 12,
   },
-  // Modal Styles
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -721,12 +723,10 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '90%',
     maxHeight: '80%',
-    borderRadius: 15,
+    borderRadius: 20,
     padding: 20,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
   },
   modalTitleContainer: {
     flexDirection: 'row',
@@ -734,7 +734,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   modalHeader: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
   },
   modalDateContainer: {
@@ -743,17 +743,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   modalDate: {
-    fontSize: 13,
+    fontSize: 12,
   },
   modalMessageScrollView: {
     maxHeight: '70%',
   },
   modalMessage: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
   },
   fileLinkButton: {
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 12,
     marginTop: 10,
     alignItems: 'center',
@@ -761,13 +761,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalCloseButton: {
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 12,
     marginTop: 20,
     alignItems: 'center',
   },
   modalCloseButtonText: {
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 15,
   },
 });

@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, Image, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, Image, ActivityIndicator, Dimensions } from 'react-native';
 import { useChat } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faSearch, faUserPlus, faUsers, faCheck, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faUserPlus, faUsers, faCheck, faChevronRight, faChevronLeft, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../context/ToastContext';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 
+const { width } = Dimensions.get('window');
 const defaultUserImage = require('../../assets/user.png');
 
 export default function NewChatScreen({ navigation }) {
@@ -22,7 +24,6 @@ export default function NewChatScreen({ navigation }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [creating, setCreating] = useState(false);
 
-    // Group Chat State
     const [isGroupMode, setIsGroupMode] = useState(false);
     const [groupName, setGroupName] = useState('');
     const [selectedUsers, setSelectedUsers] = useState(new Set());
@@ -36,7 +37,6 @@ export default function NewChatScreen({ navigation }) {
         try {
             const { data: { user: currentUser } } = await supabase.auth.getUser();
 
-            // Fetch current user's school_id
             const { data: userData, error: userError } = await supabase
                 .from('users')
                 .select('school_id')
@@ -49,8 +49,8 @@ export default function NewChatScreen({ navigation }) {
             let query = supabase
                 .from('users')
                 .select('id, full_name, email, avatar_url, role')
-                .eq('school_id', schoolId) // Filter by school_id
-                .neq('id', currentUser.id) // Don't show self
+                .eq('school_id', schoolId) 
+                .neq('id', currentUser.id) 
                 .limit(50);
 
             if (searchQuery) {
@@ -60,7 +60,6 @@ export default function NewChatScreen({ navigation }) {
             const { data, error } = await query;
             if (error) throw error;
 
-            // Manually fetch equipped items for all users
             const userIds = (data || []).map(user => user.id);
 
             if (userIds.length > 0) {
@@ -77,7 +76,6 @@ export default function NewChatScreen({ navigation }) {
                         inventoryMap[item.user_id] = shopItem;
                     });
 
-                    // Inject equipped items into user data
                     const processedUsers = (data || []).map(user => ({
                         ...user,
                         equipped_item: inventoryMap[user.id] || null
@@ -99,7 +97,6 @@ export default function NewChatScreen({ navigation }) {
 
     const handleUserPress = async (selectedUser) => {
         if (isGroupMode) {
-            // Toggle selection
             setSelectedUsers(prev => {
                 const newSet = new Set(prev);
                 if (newSet.has(selectedUser.id)) {
@@ -110,7 +107,6 @@ export default function NewChatScreen({ navigation }) {
                 return newSet;
             });
         } else {
-            // Direct Message - Start immediately
             setCreating(true);
             try {
                 const channelName = `${selectedUser.full_name}`;
@@ -149,16 +145,11 @@ export default function NewChatScreen({ navigation }) {
 
     const getRoleColor = (role) => {
         switch (role?.toLowerCase()) {
-            case 'admin':
-                return theme.colors.error; // Red
-            case 'teacher':
-                return theme.colors.primary; // Blue/Primary
-            case 'student':
-                return '#4CAF50'; // Green
-            case 'parent':
-                return '#FF9800'; // Orange
-            default:
-                return theme.colors.textSecondary; // Grey
+            case 'admin': return '#e11d48';
+            case 'teacher': return '#4f46e5';
+            case 'student': return '#10b981';
+            case 'parent': return '#f59e0b';
+            default: return theme.colors.placeholder;
         }
     };
 
@@ -170,13 +161,12 @@ export default function NewChatScreen({ navigation }) {
             <TouchableOpacity
                 style={[
                     styles.userCard,
-                    {
-                        backgroundColor: theme.colors.surface,
-                    },
-                    isGroupMode && isSelected && { backgroundColor: theme.colors.primary + '10' }
+                    { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 },
+                    isGroupMode && isSelected && { borderColor: theme.colors.primary, borderWidth: 2 }
                 ]}
                 onPress={() => handleUserPress(item)}
                 disabled={creating}
+                activeOpacity={0.7}
             >
                 <AnimatedAvatarBorder
                     avatarSource={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage}
@@ -186,10 +176,10 @@ export default function NewChatScreen({ navigation }) {
                     isAnimated={item.equipped_item && BORDER_STYLES[item.equipped_item.image_url]?.animated}
                 />
                 <View style={styles.userInfo}>
-                    <Text style={[styles.userName, { color: theme.colors.text }]}>{item.full_name}</Text>
-                    <View style={[styles.roleBadge, { backgroundColor: roleColor + '20' }]}>
+                    <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name}</Text>
+                    <View style={[styles.roleBadge, { backgroundColor: roleColor + '15' }]}>
                         <Text style={[styles.roleText, { color: roleColor }]}>
-                            {item.role || 'User'}
+                            {item.role?.toUpperCase() || 'USER'}
                         </Text>
                     </View>
                 </View>
@@ -197,13 +187,13 @@ export default function NewChatScreen({ navigation }) {
                 {isGroupMode ? (
                     <View style={[
                         styles.selectionCircle,
-                        { borderColor: isSelected ? theme.colors.primary : theme.colors.textSecondary },
+                        { borderColor: isSelected ? theme.colors.primary : theme.colors.cardBorder },
                         isSelected && { backgroundColor: theme.colors.primary }
                     ]}>
                         {isSelected && <FontAwesomeIcon icon={faCheck} size={10} color="#fff" />}
                     </View>
                 ) : (
-                    <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.primary} />
+                    <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
                 )}
             </TouchableOpacity>
         );
@@ -211,13 +201,22 @@ export default function NewChatScreen({ navigation }) {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            {/* Header */}
-            <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <FontAwesomeIcon icon={isGroupMode ? faUsers : faUserPlus} size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
-                        <Text style={{ fontSize: 28, fontWeight: 'bold', color: theme.colors.text }}>
-                            {isGroupMode ? 'New Group' : 'New Message'}
+            <LinearGradient
+                colors={['#4f46e5', '#7c3aed']} 
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.heroContainer}
+            >
+                <View style={styles.heroContent}>
+                    <View style={styles.heroTextContainer}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
+                                <FontAwesomeIcon icon={faChevronLeft} size={18} color="#fff" />
+                            </TouchableOpacity>
+                            <Text style={styles.heroTitle}>{isGroupMode ? 'New Group' : 'New Chat'}</Text>
+                        </View>
+                        <Text style={styles.heroDescription}>
+                            {isGroupMode ? 'Name your group and add members.' : 'Select a user to start a conversation.'}
                         </Text>
                     </View>
                     <TouchableOpacity
@@ -226,67 +225,61 @@ export default function NewChatScreen({ navigation }) {
                             setSelectedUsers(new Set());
                             setGroupName('');
                         }}
-                        style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            paddingHorizontal: 12,
-                            paddingVertical: 8,
-                            backgroundColor: isGroupMode ? theme.colors.surface : theme.colors.primary,
-                            borderRadius: 8
-                        }}
+                        style={styles.modeToggleBtn}
                     >
-                        {!isGroupMode && <FontAwesomeIcon icon={faUserPlus} size={14} color="#fff" style={{ marginRight: 6 }} />}
-                        <Text style={{ color: isGroupMode ? theme.colors.primary : '#fff', fontWeight: '600' }}>
-                            {isGroupMode ? 'Cancel' : 'Create Group'}
-                        </Text>
+                        <FontAwesomeIcon icon={isGroupMode ? faPlus : faUsers} size={14} color="#4f46e5" />
+                        <Text style={styles.modeToggleText}>{isGroupMode ? 'DM' : 'Group'}</Text>
                     </TouchableOpacity>
                 </View>
-                <Text style={{ fontSize: 16, color: theme.colors.textSecondary }}>
-                    {isGroupMode ? 'Name your group and add members' : 'Select a user to start a conversation'}
-                </Text>
-            </View>
+            </LinearGradient>
 
-            {/* Group Name Input */}
-            {isGroupMode && (
-                <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface, marginBottom: 8 }]}>
+            <View style={{ paddingHorizontal: 20, marginTop: 20 }}>
+                {isGroupMode && (
+                    <View style={[styles.inputWrapper, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, marginBottom: 12 }]}>
+                        <FontAwesomeIcon icon={faUsers} size={16} color={theme.colors.placeholder} style={{ marginRight: 12 }} />
+                        <TextInput
+                            style={[styles.input, { color: theme.colors.text }]}
+                            placeholder="Group Name"
+                            placeholderTextColor={theme.colors.placeholder}
+                            value={groupName}
+                            onChangeText={setGroupName}
+                        />
+                    </View>
+                )}
+
+                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                    <FontAwesomeIcon icon={faSearch} size={16} color={theme.colors.placeholder} style={{ marginRight: 12 }} />
                     <TextInput
-                        style={[styles.searchInput, { color: theme.colors.text }]}
-                        placeholder="Group Name"
-                        placeholderTextColor={theme.colors.textSecondary}
-                        value={groupName}
-                        onChangeText={setGroupName}
+                        style={[styles.input, { color: theme.colors.text }]}
+                        placeholder="Search for a user..."
+                        placeholderTextColor={theme.colors.placeholder}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        onSubmitEditing={fetchUsers}
                     />
                 </View>
-            )}
-
-            <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface }]}>
-                <FontAwesomeIcon icon={faSearch} size={16} color={theme.colors.textSecondary} style={styles.searchIcon} />
-                <TextInput
-                    style={[styles.searchInput, { color: theme.colors.text }]}
-                    placeholder="Search users..."
-                    placeholderTextColor={theme.colors.textSecondary}
-                    value={searchQuery}
-                    onChangeText={(text) => {
-                        setSearchQuery(text);
-                    }}
-                    onSubmitEditing={fetchUsers}
-                />
             </View>
 
             {loading ? (
-                <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 20 }} />
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                </View>
             ) : (
                 <FlatList
                     data={users}
                     keyExtractor={item => item.id}
                     renderItem={renderItem}
-                    contentContainerStyle={[styles.listContent, { paddingBottom: isGroupMode ? 100 : 20 + insets.bottom }]}
+                    contentContainerStyle={[styles.listContent, { paddingBottom: isGroupMode ? 120 : 20 + insets.bottom }]}
+                    ListEmptyComponent={!loading && (
+                        <View style={styles.emptyContainer}>
+                            <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No users found.</Text>
+                        </View>
+                    )}
                 />
             )}
 
-            {/* Create Group Button */}
             {isGroupMode && (
-                <View style={[styles.footer, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border, paddingBottom: insets.bottom + 16 }]}>
+                <View style={[styles.footer, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.cardBorder, borderTopWidth: 1, paddingBottom: insets.bottom + 16 }]}>
                     <TouchableOpacity
                         style={[
                             styles.createButton,
@@ -315,9 +308,82 @@ export default function NewChatScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
+    container: { flex: 1 },
+    heroContainer: {
+        padding: 24,
+        paddingTop: 40,
+        elevation: 0,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
     },
+    heroContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    heroTextContainer: {
+        flex: 1,
+        paddingRight: 10,
+    },
+    heroTitle: {
+        color: '#fff',
+        fontSize: 28,
+        fontWeight: '900',
+        marginBottom: 8,
+        letterSpacing: -1,
+    },
+    heroDescription: {
+        color: '#e0e7ff',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    backButtonHero: { marginRight: 12 },
+    modeToggleBtn: {
+        backgroundColor: '#fff',
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+    },
+    modeToggleText: {
+        color: '#4f46e5',
+        fontWeight: 'bold',
+        marginLeft: 6,
+        fontSize: 14,
+    },
+    inputWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        borderRadius: 16,
+        height: 56,
+    },
+    input: { flex: 1, fontSize: 15, fontWeight: '700' },
+    loadingContainer: { padding: 40, alignItems: 'center' },
+    listContent: { padding: 20 },
+    userCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        marginBottom: 12,
+        borderRadius: 20,
+    },
+    userInfo: { flex: 1, marginLeft: 16 },
+    userName: { fontSize: 16, fontWeight: '700', marginBottom: 2 },
+    roleBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginTop: 2 },
+    roleText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+    selectionCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, justifyContent: 'center', alignItems: 'center', marginLeft: 10 },
+    footer: { padding: 20, position: 'absolute', bottom: 0, width: '100%' },
+    createButton: { height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+    createButtonText: { color: '#fff', fontSize: 16, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
+    loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 100 },
+    emptyContainer: { alignItems: 'center', marginTop: 40 },
+    emptyText: { fontSize: 16, fontStyle: 'italic' },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -330,83 +396,11 @@ const styles = StyleSheet.create({
     searchIcon: {
         marginRight: 10,
     },
-    searchInput: {
-        flex: 1,
-        fontSize: 14,
-    },
-    listContent: {
-        paddingHorizontal: 16,
-        paddingBottom: 20,
-        flexGrow: 0,
-    },
-    userCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
-        marginBottom: 8,
-        borderRadius: 12,
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-    },
     avatar: {
         width: 48,
         height: 48,
         borderRadius: 24,
         marginRight: 16,
         backgroundColor: '#E0E0E0',
-    },
-    userInfo: {
-        flex: 1,
-        marginLeft: 12,
-    },
-    userName: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 2,
-    },
-    roleBadge: {
-        alignSelf: 'flex-start',
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 12,
-        marginTop: 2,
-    },
-    roleText: {
-        fontSize: 12,
-        fontWeight: '600',
-        textTransform: 'capitalize',
-    },
-    loadingOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    selectionCircle: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        borderWidth: 2,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginLeft: 10,
-    },
-    footer: {
-        padding: 16,
-        borderTopWidth: 1,
-    },
-    createButton: {
-        paddingVertical: 14,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    createButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
     },
 });

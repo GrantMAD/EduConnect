@@ -51,8 +51,8 @@ const Toast = ({ message, type = 'default', duration = 3000, onHide }) => {
   }
 
   return (
-    <Animated.View style={[styles.toastContainer, { opacity: fadeAnim, backgroundColor: getBackgroundColor() }]}>
-      <Text style={[styles.toastText, { color: theme.colors.buttonPrimaryText }]}>{message}</Text>
+    <Animated.View style={[styles.toastContainer, { opacity: fadeAnim, backgroundColor: getBackgroundColor(), borderColor: 'rgba(0,0,0,0.1)', borderWidth: 1 }]}>
+      <Text style={[styles.toastText, { color: '#fff' }]}>{message}</Text>
     </Animated.View>
   );
 };
@@ -60,18 +60,19 @@ const Toast = ({ message, type = 'default', duration = 3000, onHide }) => {
 const styles = StyleSheet.create({
   toastContainer: {
     position: 'absolute',
-    bottom: height * 0.1, // 10% from the bottom
-    borderRadius: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    bottom: 40, 
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
     marginHorizontal: 20,
     alignSelf: 'center',
-    zIndex: 99999, // Very high z-index to appear above modals
-    elevation: 99999, // For Android
+    zIndex: 99999,
   },
   toastText: {
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '800',
     textAlign: 'center',
+    letterSpacing: 0.3,
   },
 });
 

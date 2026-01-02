@@ -70,12 +70,12 @@ export default function MarketplaceAnalytics({ items }) {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <View style={[styles.headerIconContainer, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
-                    <FontAwesomeIcon icon={faChartLine} color="#6366F1" size={18} />
+                <View style={[styles.headerIconContainer, { backgroundColor: '#4f46e5' + '15' }]}>
+                    <FontAwesomeIcon icon={faChartLine} color="#4f46e5" size={18} />
                 </View>
                 <View>
-                    <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Marketplace Insights</Text>
-                    <Text style={[styles.headerSubtitle, { color: theme.colors.placeholder }]}>Real-time trading performance</Text>
+                    <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Market Insights</Text>
+                    <Text style={[styles.headerSubtitle, { color: theme.colors.placeholder }]}>REAL-TIME TRANSACTION METRICS</Text>
                 </View>
             </View>
 
@@ -83,36 +83,36 @@ export default function MarketplaceAnalytics({ items }) {
                 <View style={styles.kpiRow}>
                     <StatCard 
                         icon={faTag} 
-                        label="Total Listings" 
+                        label="LISTINGS" 
                         value={analyticsData.totalItems} 
-                        color="#6366F1" 
+                        color="#4f46e5" 
                     />
                     <StatCard 
                         icon={faWallet} 
-                        label="Total Value" 
+                        label="TOTAL VALUE" 
                         value={`R${Math.round(analyticsData.totalValue)}`} 
-                        color="#10B981" 
+                        color="#10b981" 
                     />
                 </View>
                 <View style={styles.kpiRow}>
                     <StatCard 
                         icon={faStore} 
-                        label="Official Store" 
+                        label="OFFICIAL" 
                         value={analyticsData.pieData[0].population} 
-                        color="#8B5CF6" 
+                        color="#7c3aed" 
                     />
                     <StatCard 
                         icon={faUsers} 
-                        label="Community" 
+                        label="COMMUNITY" 
                         value={analyticsData.pieData[1].population} 
-                        color="#F59E0B" 
+                        color="#f59e0b" 
                     />
                 </View>
             </View>
 
-            <View style={[styles.chartWrapper, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
+            <View style={[styles.chartWrapper, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                 <View style={styles.chartHeader}>
-                    <Text style={[styles.chartTitle, { color: theme.colors.placeholder }]}>LISTING DISTRIBUTION</Text>
+                    <Text style={[styles.chartTitle, { color: '#94a3b8' }]}>CATEGORY DISTRIBUTION</Text>
                 </View>
                 <BarChart
                     data={{
@@ -131,9 +131,9 @@ export default function MarketplaceAnalytics({ items }) {
                 />
             </View>
 
-            <View style={[styles.chartWrapper, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
+            <View style={[styles.chartWrapper, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                 <View style={styles.chartHeader}>
-                    <Text style={[styles.chartTitle, { color: theme.colors.placeholder }]}>INVENTORY BREAKDOWN</Text>
+                    <Text style={[styles.chartTitle, { color: '#94a3b8' }]}>MERCHANT BREAKDOWN</Text>
                 </View>
                 <PieChart
                     data={analyticsData.pieData}
@@ -153,13 +153,13 @@ export default function MarketplaceAnalytics({ items }) {
 function StatCard({ icon, label, value, color }) {
     const { theme } = useTheme();
     return (
-        <View style={[styles.statCard, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
+        <View style={[styles.statCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
             <View style={[styles.statIcon, { backgroundColor: color + '15' }]}>
-                <FontAwesomeIcon icon={icon} color={color} size={16} />
+                <FontAwesomeIcon icon={icon} color={color} size={14} />
             </View>
             <View style={styles.statInfo}>
-                <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>{label}</Text>
                 <Text style={[styles.statValue, { color: theme.colors.text }]}>{value}</Text>
+                <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>{label}</Text>
             </View>
         </View>
     );
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     header: { 
         flexDirection: 'row', 
         alignItems: 'center', 
-        gap: 12, 
+        gap: 16, 
         marginBottom: 24
     },
     headerIconContainer: { 
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     headerTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
-    headerSubtitle: { fontSize: 12, fontWeight: '600', marginTop: 2 },
+    headerSubtitle: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
     
     kpiGrid: {
         gap: 12,
@@ -200,18 +200,11 @@ const styles = StyleSheet.create({
         alignItems: 'center', 
         padding: 16, 
         borderRadius: 24, 
-        borderWidth: 1,
-        // Small outer shadow
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3,
-        elevation: 2
     },
     statIcon: { 
-        width: 40, 
-        height: 40, 
-        borderRadius: 12, 
+        width: 36, 
+        height: 36, 
+        borderRadius: 10, 
         alignItems: 'center', 
         justifyContent: 'center', 
         marginRight: 12 
@@ -219,20 +212,13 @@ const styles = StyleSheet.create({
     statInfo: {
         flex: 1
     },
-    statLabel: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
-    statValue: { fontSize: 16, fontWeight: '900' },
+    statValue: { fontSize: 15, fontWeight: '900' },
+    statLabel: { fontSize: 8, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
     
     chartWrapper: { 
         padding: 16, 
         borderRadius: 32, 
-        borderWidth: 1, 
         marginBottom: 16,
-        // Small outer shadow
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3,
-        elevation: 2
     },
     chartHeader: {
         flexDirection: 'row',

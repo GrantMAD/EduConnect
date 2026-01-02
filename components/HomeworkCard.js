@@ -28,38 +28,44 @@ export default function HomeworkCard({ homework, onPress, onTrackPress }) {
   const isCompleted = homework.student_completions?.length > 0;
 
   return (
-    <TouchableOpacity onPress={onPress} style={[styles.container, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
+    <TouchableOpacity 
+        onPress={onPress} 
+        style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+        activeOpacity={0.7}
+    >
       <View style={styles.header}>
         <View style={styles.row}>
-          <FontAwesomeIcon icon={faBookOpen} size={16} color={theme.colors.primary} style={styles.icon} />
-          <Text style={[styles.title, { color: theme.colors.text }]}>{homework.subject}</Text>
+          <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+            <FontAwesomeIcon icon={faBookOpen} size={14} color={theme.colors.primary} />
+          </View>
+          <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1}>{homework.subject}</Text>
         </View>
         {isCompleted && (
-          <View style={[styles.badge, { backgroundColor: theme.colors.success + '20' }]}>
-            <FontAwesomeIcon icon={faCheckCircle} size={12} color={theme.colors.success} />
-            <Text style={[styles.badgeText, { color: theme.colors.success }]}>Done</Text>
+          <View style={[styles.badge, { backgroundColor: '#10b981' + '15' }]}>
+            <FontAwesomeIcon icon={faCheckCircle} size={10} color="#10b981" />
+            <Text style={[styles.badgeText, { color: '#10b981' }]}>Done</Text>
           </View>
         )}
       </View>
 
-      <View style={styles.row}>
-        <FontAwesomeIcon icon={faCalendarAlt} size={16} color={theme.colors.primary} style={styles.icon} />
-        <Text style={{ color: theme.colors.text }}>Due: {formatDate(homework.due_date)}</Text>
+      <View style={[styles.dateRow, { backgroundColor: theme.colors.background }]}>
+        <FontAwesomeIcon icon={faCalendarAlt} size={12} color={theme.colors.placeholder} />
+        <Text style={[styles.dateText, { color: theme.colors.placeholder }]}>DUE {formatDate(homework.due_date).toUpperCase()}</Text>
       </View>
-
-      <View style={[styles.hr, { borderBottomColor: theme.colors.cardBorder }]} />
 
       <View style={styles.footer}>
         {isTeacher ? (
           <TouchableOpacity
-            style={[styles.trackButton, { backgroundColor: theme.colors.primary + '15' }]}
+            style={[styles.trackButton, { backgroundColor: theme.colors.primary }]}
             onPress={onTrackPress}
           >
-            <FontAwesomeIcon icon={faUsers} size={14} color={theme.colors.primary} />
-            <Text style={[styles.trackButtonText, { color: theme.colors.primary }]}>Track Students</Text>
+            <FontAwesomeIcon icon={faUsers} size={12} color="#fff" />
+            <Text style={styles.trackButtonText}>TRACK STUDENTS</Text>
           </TouchableOpacity>
         ) : (
-          <Text style={[styles.tapToOpen, { color: theme.colors.placeholder }]}>Tap to open</Text>
+          <View style={styles.openRow}>
+              <Text style={[styles.tapToOpen, { color: theme.colors.primary }]}>VIEW DETAILS</Text>
+          </View>
         )}
       </View>
     </TouchableOpacity>
@@ -68,63 +74,87 @@ export default function HomeworkCard({ homework, onPress, onTrackPress }) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    borderWidth: 1,
-    marginBottom: 12,
-    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderRadius: 24,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    flex: 1,
+    marginRight: 8,
   },
-  icon: {
-    marginRight: 10,
+  iconBox: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
   },
   title: {
-    fontWeight: 'bold',
-    fontSize: 18,
+    fontWeight: '900',
+    fontSize: 17,
+    letterSpacing: -0.5,
   },
-  hr: {
-    borderBottomWidth: 1,
-    marginVertical: 12,
+  dateRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 10,
+      alignSelf: 'flex-start',
+      marginBottom: 20,
+      gap: 8,
   },
-  tapToOpen: {
-    fontSize: 12,
-    textAlign: 'center',
+  dateText: {
+      fontSize: 10,
+      fontWeight: '900',
+      letterSpacing: 0.5,
   },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    gap: 6,
   },
   badgeText: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '900',
     textTransform: 'uppercase',
   },
   footer: {
-    marginTop: 4,
+    marginTop: 0,
   },
   trackButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 10,
+    height: 44,
+    borderRadius: 14,
     gap: 8,
   },
   trackButtonText: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  openRow: {
+      alignItems: 'center',
+      paddingTop: 4,
+  },
+  tapToOpen: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
 });

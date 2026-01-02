@@ -119,10 +119,11 @@ export default function ManageCompletionsModal({
             <TouchableOpacity
                 style={[
                     styles.studentCard,
-                    { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder }
+                    { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }
                 ]}
                 onPress={() => toggleCompletion(member.user_id)}
                 disabled={!!processingId}
+                activeOpacity={0.7}
             >
                 <Image
                     source={member.users?.avatar_url ? { uri: member.users.avatar_url } : defaultUserImage}
@@ -140,11 +141,9 @@ export default function ManageCompletionsModal({
                     {isProcessing ? (
                         <ActivityIndicator size="small" color={theme.colors.primary} />
                     ) : (
-                        <FontAwesomeIcon
-                            icon={isDone ? faCheckCircle : faCircle}
-                            size={24}
-                            color={isDone ? theme.colors.success : theme.colors.cardBorder}
-                        />
+                        <View style={[styles.checkCircle, { borderColor: isDone ? theme.colors.success : theme.colors.cardBorder, backgroundColor: isDone ? theme.colors.success : 'transparent' }]}>
+                            {isDone && <FontAwesomeIcon icon={faCheckCircle} size={12} color="#fff" />}
+                        </View>
                     )}
                 </View>
             </TouchableOpacity>
@@ -158,32 +157,34 @@ export default function ManageCompletionsModal({
             onSwipeComplete={onClose}
             swipeDirection={['down']}
             style={styles.modal}
-            backdropOpacity={0.5}
+            backdropOpacity={0.4}
         >
-            <View style={[styles.content, { backgroundColor: theme.colors.surface }]}>
-                <View style={styles.handle} />
+            <View style={[styles.content, { backgroundColor: theme.colors.surface, paddingBottom: 40 }]}>
+                <View style={styles.swipeIndicator} />
 
-                <View style={styles.header}>
+                <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
                     <View style={styles.headerTitleRow}>
-                        <FontAwesomeIcon icon={faUsers} size={20} color={theme.colors.primary} />
+                        <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                            <FontAwesomeIcon icon={faUsers} size={18} color={theme.colors.primary} />
+                        </View>
                         <Text style={[styles.title, { color: theme.colors.text }]}>Track Students</Text>
                     </View>
                     <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                        <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
+                        <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
                     </TouchableOpacity>
                 </View>
 
                 <View style={[styles.infoBanner, { backgroundColor: theme.colors.primary + '10' }]}>
-                    <FontAwesomeIcon icon={faInfoCircle} size={16} color={theme.colors.primary} />
+                    <FontAwesomeIcon icon={faInfoCircle} size={14} color={theme.colors.primary} />
                     <Text style={[styles.infoText, { color: theme.colors.primary }]}>
-                        Tap a student's card to mark their work as complete. Verified tasks appear with a "Done" badge for parents and students.
+                        Tap a student to verify completion. Parents will see a "Done" badge on their dashboard.
                     </Text>
                 </View>
 
                 {loading ? (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={theme.colors.primary} />
-                        <Text style={{ color: theme.colors.placeholder, marginTop: 10 }}>Loading Roster...</Text>
+                        <Text style={{ color: theme.colors.placeholder, marginTop: 16, fontWeight: '700', fontSize: 12 }}>LOADING ROSTER...</Text>
                     </View>
                 ) : (
                     <FlatList
@@ -191,9 +192,10 @@ export default function ManageCompletionsModal({
                         keyExtractor={item => item.id}
                         renderItem={renderStudent}
                         contentContainerStyle={styles.list}
+                        showsVerticalScrollIndicator={false}
                         ListEmptyComponent={
                             <View style={styles.empty}>
-                                <Text style={{ color: theme.colors.placeholder }}>No students enrolled in this class.</Text>
+                                <Text style={{ color: theme.colors.placeholder, fontWeight: '700' }}>No students found in this class.</Text>
                             </View>
                         }
                     />
@@ -209,15 +211,16 @@ const styles = StyleSheet.create({
         margin: 0,
     },
     content: {
-        height: '80%',
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        padding: 20,
+        height: '85%',
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        paddingHorizontal: 24,
+        paddingTop: 8,
     },
-    handle: {
+    swipeIndicator: {
         width: 40,
         height: 4,
-        backgroundColor: 'rgba(0,0,0,0.1)',
+        backgroundColor: '#cbd5e1',
         borderRadius: 2,
         alignSelf: 'center',
         marginBottom: 20,
@@ -226,28 +229,45 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 16,
+        paddingBottom: 20,
+        borderBottomWidth: 1,
+        marginBottom: 20,
     },
     headerTitleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 16,
+    },
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     title: {
-        fontSize: 20,
-        fontWeight: 'bold',
+        fontSize: 18,
+        fontWeight: '900',
+        letterSpacing: -0.5,
+    },
+    closeBtn: {
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     infoBanner: {
         flexDirection: 'row',
-        padding: 12,
-        borderRadius: 12,
-        gap: 10,
-        marginBottom: 20,
+        padding: 16,
+        borderRadius: 16,
+        gap: 12,
+        marginBottom: 24,
     },
     infoText: {
         flex: 1,
         fontSize: 12,
         lineHeight: 18,
+        fontWeight: '600',
     },
     loadingContainer: {
         flex: 1,
@@ -260,34 +280,41 @@ const styles = StyleSheet.create({
     studentCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 12,
-        borderRadius: 16,
-        borderWidth: 1,
+        padding: 16,
+        borderRadius: 20,
         marginBottom: 12,
     },
     avatar: {
         width: 44,
         height: 44,
-        borderRadius: 22,
+        borderRadius: 14,
     },
     studentInfo: {
         flex: 1,
-        marginLeft: 12,
+        marginLeft: 16,
     },
     studentName: {
-        fontSize: 16,
-        fontWeight: '700',
+        fontSize: 15,
+        fontWeight: '800',
     },
     studentEmail: {
-        fontSize: 12,
+        fontSize: 11,
+        fontWeight: '500',
+        marginTop: 2,
     },
     statusContainer: {
-        width: 30,
-        alignItems: 'center',
+        marginLeft: 12,
+    },
+    checkCircle: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        borderWidth: 2,
         justifyContent: 'center',
+        alignItems: 'center',
     },
     empty: {
-        padding: 20,
+        padding: 40,
         alignItems: 'center',
     },
 });

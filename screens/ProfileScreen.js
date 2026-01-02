@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, Alert, ScrollView, Image, To
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import ProfileScreenSkeleton, { SkeletonPiece } from '../components/skeletons/ProfileScreenSkeleton';
-import { faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone, faTrophy, faMedal, faFire, faStore, faChartBar, faCoins, faInfoCircle, faArrowRight, faGlobe, faUserFriends, faPencilAlt } from '@fortawesome/free-solid-svg-icons';
+import { faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone, faTrophy, faMedal, faFire, faStore, faChartBar, faCoins, faInfoCircle, faArrowRight, faGlobe, faUserFriends, faPencilAlt, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
@@ -91,187 +91,196 @@ export default function ProfileScreen({ navigation }) {
     <>
       <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}>
         {/* Header / Banner Section */}
-        <View style={[styles.headerSection, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-          {bannerStyle ? (
-            <LinearGradient 
-              colors={bannerStyle.background} 
-              start={{x: 0, y: 0}} 
-              end={{x: 1, y: 0}} 
-              style={styles.banner}
-            >
-              {bannerStyle.overlay && <View style={[StyleSheet.absoluteFill, { backgroundColor: bannerStyle.overlay }]} />}
-            </LinearGradient>
-          ) : (
-            <View style={[styles.banner, { backgroundColor: theme.colors.primary }]} />
-          )}
+        <View style={[styles.headerCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+          <View style={styles.bannerWrapper}>
+            {bannerStyle ? (
+                <LinearGradient 
+                colors={bannerStyle.background} 
+                start={{x: 0, y: 0}} 
+                end={{x: 1, y: 0}} 
+                style={styles.banner}
+                >
+                {bannerStyle.overlay && <View style={[StyleSheet.absoluteFill, { backgroundColor: bannerStyle.overlay }]} />}
+                </LinearGradient>
+            ) : (
+                <View style={[styles.banner, { backgroundColor: theme.colors.primary }]} />
+            )}
+          </View>
 
-          <View style={styles.profileContent}>
-            {/* Avatar and Main Actions Row */}
+          <View style={styles.profileInfoArea}>
             <View style={styles.avatarRow}>
-              <View style={styles.avatarWrapper}>
+              <View style={[styles.avatarBox, { backgroundColor: theme.colors.card }]}>
                 {loading ? (
-                  <SkeletonPiece style={{ width: 100, height: 100, borderRadius: 50 }} />
+                  <SkeletonPiece style={{ width: 120, height: 120, borderRadius: 40 }} />
                 ) : (
                   <AnimatedAvatarBorder
                     avatarSource={avatarSource}
-                    size={100}
+                    size={120}
                     borderStyle={borderStyle}
                     isRainbow={borderStyle.rainbow}
                     isAnimated={borderStyle.animated}
                   />
                 )}
+                {!loading && <View style={styles.onlineIndicator} />}
               </View>
               
-              <TouchableOpacity 
-                onPress={() => setShowEditProfile(true)}
-                style={[styles.editButton, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder }]}
-              >
-                <FontAwesomeIcon icon={faPencilAlt} size={14} color={theme.colors.text} />
-                <Text style={[styles.editButtonText, { color: theme.colors.text }]}>Edit Profile</Text>
-              </TouchableOpacity>
+              <View style={styles.actionRow}>
+                 <View style={[styles.roleBadge, { 
+                     backgroundColor: userData.role === 'admin' ? '#fff1f2' : userData.role === 'teacher' ? '#ecfdf5' : '#eef2ff'
+                 }]}>
+                    <Text style={[styles.roleText, { 
+                        color: userData.role === 'admin' ? '#e11d48' : userData.role === 'teacher' ? '#059669' : '#4f46e5'
+                    }]}>{userData.role || 'User'}</Text>
+                </View>
+                <TouchableOpacity 
+                    onPress={() => setShowEditProfile(true)}
+                    style={[styles.editBtn, { backgroundColor: theme.colors.text, borderColor: theme.colors.text }]}
+                >
+                    <FontAwesomeIcon icon={faPencilAlt} size={12} color={theme.colors.background} />
+                    <Text style={[styles.editBtnText, { color: theme.colors.background }]}>Edit</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
-            {/* User Name and Titles Block */}
-            <View style={styles.nameBlock}>
-              <View style={styles.fullNameRow}>
-                {loading ? (
-                  <SkeletonPiece style={{ width: 180, height: 28, borderRadius: 4 }} />
-                ) : (
-                  <>
-                    <Text 
-                      style={[styles.fullName, nameColorStyle?.style, !nameColorStyle && { color: theme.colors.text }]}
-                      numberOfLines={1}
-                    >
-                      {userData.full_name || 'Student'}
-                    </Text>
-                    {titleStyle && (
-                      <View style={[styles.titleTag, { backgroundColor: titleStyle.colors.bg }]}>
-                        <Text style={[styles.titleTagText, { color: titleStyle.colors.text }]}>{titleStyle.label}</Text>
-                      </View>
+            <View style={styles.nameSection}>
+                <View style={styles.fullNameRow}>
+                    {loading ? (
+                    <SkeletonPiece style={{ width: 180, height: 32, borderRadius: 4 }} />
+                    ) : (
+                    <>
+                        <Text 
+                        style={[styles.fullName, nameColorStyle?.style, !nameColorStyle && { color: theme.colors.text }]}
+                        numberOfLines={1}
+                        >
+                        {userData.full_name || 'Student'}
+                        </Text>
+                        {titleStyle && (
+                        <View style={[styles.titleTag, { backgroundColor: titleStyle.colors.bg }]}>
+                            <Text style={[styles.titleTagText, { color: titleStyle.colors.text }]}>{titleStyle.label}</Text>
+                        </View>
+                        )}
+                    </>
                     )}
-                  </>
-                )}
-              </View>
-              
-              {loading ? (
-                <SkeletonPiece style={{ width: 140, height: 16, borderRadius: 4, marginTop: 8 }} />
-              ) : (
-                <Text style={[styles.email, { color: theme.colors.textSecondary }]}>{userData.email}</Text>
-              )}
-              
-              {loading ? (
-                <SkeletonPiece style={{ width: 60, height: 20, borderRadius: 8, marginTop: 10 }} />
-              ) : (
-                <View style={[styles.roleBadge, { backgroundColor: theme.colors.primary + '15' }]}>
-                  <Text style={[styles.roleText, { color: theme.colors.primary }]}>{userData.role?.toUpperCase() || 'USER'}</Text>
                 </View>
-              )}
+                {!loading && <Text style={[styles.emailText, { color: theme.colors.placeholder }]}>{userData.email}</Text>}
             </View>
           </View>
         </View>
 
-        {/* Gamification Card */}
-        <View style={[styles.gamificationCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardTitleRow}>
-              <FontAwesomeIcon icon={faTrophy} size={18} color="#FF9500" />
-              <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Level {current_level}</Text>
+        {/* Gamification Hub Card */}
+        <View style={[styles.hubCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+          <View style={styles.hubHeader}>
+            <View>
+                <Text style={[styles.hubTitle, { color: theme.colors.text }]}>Gamification Hub</Text>
+                <Text style={[styles.hubSubtitle, { color: theme.colors.placeholder }]}>Track your progress and achievements.</Text>
             </View>
-            <TouchableOpacity onPress={() => setShowGamificationInfo(true)}>
-              <FontAwesomeIcon icon={faInfoCircle} size={18} color={theme.colors.placeholder} />
-            </TouchableOpacity>
-          </View>
-
-          {gamificationLoading ? (
-            <View style={{ width: '100%' }}>
-              <SkeletonPiece style={{ height: 10, borderRadius: 5, marginBottom: 8 }} />
-              <SkeletonPiece style={{ width: 150, height: 12, borderRadius: 4, alignSelf: 'flex-end' }} />
-            </View>
-          ) : (
-            <>
-              <View style={[styles.progressBarBackground, { backgroundColor: theme.colors.background }]}>
-                <View style={[styles.progressBarFill, { width: `${progressPercent}%`, backgroundColor: theme.colors.primary }]} />
-              </View>
-              <Text style={[styles.xpText, { color: theme.colors.placeholder }]}>{current_xp} XP Total • {100 - (current_xp % 100)} XP to Level {current_level + 1}</Text>
-            </>
-          )}
-
-          <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <FontAwesomeIcon icon={faFire} size={24} color="#FF4500" />
-              {gamificationLoading ? (
-                <SkeletonPiece style={{ width: 30, height: 22, borderRadius: 4, marginTop: 5 }} />
-              ) : (
-                <Text style={[styles.statValue, { color: theme.colors.text }]}>{streak?.current_streak || 0}</Text>
-              )}
-              <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>STREAK</Text>
-            </View>
-            <View style={[styles.statDivider, { backgroundColor: theme.colors.cardBorder }]} />
-            <View style={styles.statBox}>
-              <FontAwesomeIcon icon={faCoins} size={24} color="#FFD700" />
-              {gamificationLoading ? (
-                <SkeletonPiece style={{ width: 50, height: 22, borderRadius: 4, marginTop: 5 }} />
-              ) : (
-                <Text style={[styles.statValue, { color: theme.colors.text }]}>{coins}</Text>
-              )}
-              <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>COINS</Text>
+            <View style={styles.hubActionGroup}>
+                <TouchableOpacity style={[styles.hubActionBtn, { backgroundColor: '#eef2ff' }]} onPress={() => navigation.navigate('Leaderboard')}>
+                    <FontAwesomeIcon icon={faChartBar} size={14} color="#4f46e5" />
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.hubActionBtn, { backgroundColor: '#fffbeb' }]} onPress={() => navigation.navigate('Shop')}>
+                    <FontAwesomeIcon icon={faStore} size={14} color="#d97706" />
+                </TouchableOpacity>
             </View>
           </View>
 
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={[styles.cardButton, { backgroundColor: theme.colors.primary }]} onPress={() => navigation.navigate('Shop')}>
-              <FontAwesomeIcon icon={faStore} size={14} color="#fff" />
-              <Text style={styles.cardButtonText}>Rewards Shop</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.cardButton, { backgroundColor: theme.colors.background, borderWidth: 1, borderColor: theme.colors.cardBorder }]} onPress={() => navigation.navigate('Leaderboard')}>
-              <FontAwesomeIcon icon={faChartBar} size={14} color={theme.colors.text} />
-              <Text style={[styles.cardButtonText, { color: theme.colors.text }]}>Leaderboard</Text>
-            </TouchableOpacity>
+          <View style={[styles.levelBox, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+            <View style={styles.levelHeader}>
+                <View style={styles.levelInfoLeft}>
+                    <LinearGradient colors={['#6366f1', '#9333ea']} style={styles.levelBadge}>
+                        <Text style={styles.levelBadgeText}>{current_level}</Text>
+                    </LinearGradient>
+                    <View style={{ marginLeft: 12 }}>
+                        <Text style={styles.levelLabel}>CURRENT LEVEL</Text>
+                        <Text style={[styles.xpValue, { color: theme.colors.text }]}>{current_xp.toLocaleString()} Total XP</Text>
+                    </View>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.nextLevelLabel}>TO NEXT LEVEL</Text>
+                    <Text style={[styles.nextLevelValue, { color: theme.colors.text }]}>{xpForNextLevel - currentLevelProgress} XP</Text>
+                </View>
+            </View>
+            <View style={[styles.progressContainer, { backgroundColor: theme.colors.card }]}>
+                <LinearGradient 
+                    colors={['#6366f1', '#a855f7']} 
+                    start={{x: 0, y: 0}} end={{x: 1, y: 0}}
+                    style={[styles.progressFill, { width: `${progressPercent}%` }]} 
+                />
+            </View>
+          </View>
+
+          <View style={styles.statGrid}>
+            <View style={[styles.statItem, { backgroundColor: '#fff7ed', borderColor: '#ffedd5', borderWidth: 1 }]}>
+                <View style={styles.statIconBox}>
+                    <FontAwesomeIcon icon={faFire} size={20} color="#f97316" />
+                </View>
+                <Text style={styles.statBigValue}>{streak?.current_streak || 0}</Text>
+                <Text style={styles.statSmallLabel}>DAY STREAK</Text>
+            </View>
+            <View style={[styles.statItem, { backgroundColor: '#fffbeb', borderColor: '#fef3c7', borderWidth: 1 }]}>
+                <View style={styles.statIconBox}>
+                    <FontAwesomeIcon icon={faCoins} size={20} color="#f59e0b" />
+                </View>
+                <Text style={styles.statBigValue}>{coins.toLocaleString()}</Text>
+                <Text style={styles.statSmallLabel}>EDUCOINS</Text>
+            </View>
           </View>
         </View>
 
-        {/* Badges Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <FontAwesomeIcon icon={faMedal} size={18} color={theme.colors.primary} />
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Badges & Achievements</Text>
-          </View>
-          
-          <View style={styles.badgesGrid}>
-            {gamificationLoading ? (
-              [1, 2, 3].map(i => (
-                <View key={i} style={styles.badgeItem}>
-                  <SkeletonPiece style={{ width: 60, height: 60, borderRadius: 30, marginBottom: 8 }} />
-                  <SkeletonPiece style={{ width: 50, height: 10, borderRadius: 4 }} />
-                </View>
-              ))
-            ) : (BADGES[userData.role] || BADGES['student']).map((badge, index) => {
-              const isEarned = badges.some(b => b.id === badge.id);
-              return (
-                <View key={index} style={[styles.badgeItem, !isEarned && { opacity: 0.4 }]}>
-                  <View style={[styles.badgeCircle, { backgroundColor: isEarned ? '#FFF9C4' : theme.colors.surface, borderColor: isEarned ? '#FFD700' : theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={badge.icon} size={24} color={isEarned ? '#FFD700' : theme.colors.placeholder} />
-                  </View>
-                  <Text style={[styles.badgeName, { color: theme.colors.text }]} numberOfLines={1}>{badge.name}</Text>
-                </View>
-              );
-            })}
-          </View>
+        {/* Achievements Grid */}
+        <View style={[styles.hubCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+            <View style={{ marginBottom: 24 }}>
+                <Text style={[styles.hubTitle, { color: theme.colors.text }]}>Achievements</Text>
+                <Text style={[styles.hubSubtitle, { color: theme.colors.placeholder }]}>Badges earned through your school journey.</Text>
+            </View>
+
+            <View style={styles.badgesGrid}>
+                {(BADGES[userData.role] || BADGES['student']).map((badge, index) => {
+                    const isEarned = badges.some(b => b.id === badge.id);
+                    return (
+                        <View key={index} style={styles.badgeWrapper}>
+                            <View style={[
+                                styles.badgeIconContainer, 
+                                isEarned ? { backgroundColor: '#eef2ff' } : { backgroundColor: theme.colors.background, opacity: 0.4 }
+                            ]}>
+                                <FontAwesomeIcon 
+                                    icon={badge.icon} 
+                                    size={24} 
+                                    color={isEarned ? '#4f46e5' : theme.colors.placeholder} 
+                                />
+                                {isEarned && (
+                                    <View style={styles.earnedCheck}>
+                                        <FontAwesomeIcon icon={faCheckCircle} size={10} color="#10b981" />
+                                    </View>
+                                )}
+                            </View>
+                            <Text style={[styles.badgeLabel, { color: isEarned ? theme.colors.text : theme.colors.placeholder }]} numberOfLines={1}>
+                                {badge.name}
+                            </Text>
+                            {!isEarned && (
+                                <Text style={styles.xpUnlockText}>{badge.min_xp} XP</Text>
+                            )}
+                        </View>
+                    );
+                })}
+            </View>
         </View>
 
-        {/* Personal Info */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <FontAwesomeIcon icon={faAddressCard} size={18} color={theme.colors.primary} />
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Personal Information</Text>
-          </View>
+        {/* Personal Details */}
+        <View style={[styles.hubCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+            <View style={styles.detailsHeader}>
+                <Text style={[styles.hubTitle, { color: theme.colors.text }]}>Personal Details</Text>
+                <View style={[styles.detailsIconBox, { backgroundColor: '#eef2ff' }]}>
+                    <FontAwesomeIcon icon={faUser} size={14} color="#4f46e5" />
+                </View>
+            </View>
 
-          <View style={[styles.infoList, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-            <InfoRow icon={faUser} label="Full Name" value={userData.full_name} theme={theme} loading={loading} />
-            <InfoRow icon={faEnvelope} label="Email" value={userData.email} theme={theme} loading={loading} />
-            <InfoRow icon={faPhone} label="Phone" value={userData.number || 'Not provided'} theme={theme} loading={loading} />
-            <InfoRow icon={faGlobe} label="Country" value={userData.country || 'Not provided'} theme={theme} loading={loading} />
-          </View>
+            <View style={styles.detailsList}>
+                <DetailItem icon={faBriefcase} color="#4f46e5" label="Account Role" value={userData.role} capitalize theme={theme} />
+                <DetailItem icon={faEnvelope} color="#3b82f6" label="Email Address" value={userData.email} theme={theme} />
+                <DetailItem icon={faPhone} color="#10b981" label="Phone Number" value={userData.number || 'Not linked'} theme={theme} />
+                <DetailItem icon={faGlobe} color="#8b5cf6" label="Location" value={userData.country || 'Not set'} theme={theme} />
+            </View>
         </View>
 
         <GamificationInfoModal visible={showGamificationInfo} onClose={() => setShowGamificationInfo(false)} />
@@ -292,61 +301,88 @@ export default function ProfileScreen({ navigation }) {
   );
 }
 
-const InfoRow = ({ icon, label, value, theme, loading }) => (
-  <View style={[styles.infoRow, { borderBottomColor: theme.colors.background }]}>
-    <FontAwesomeIcon icon={icon} size={16} color={theme.colors.placeholder} />
-    <View style={{ marginLeft: 15, flex: 1 }}>
-      <Text style={[styles.infoLabel, { color: theme.colors.placeholder }]}>{label}</Text>
-      {loading ? (
-        <SkeletonPiece style={{ width: '80%', height: 16, borderRadius: 4, marginTop: 4 }} />
-      ) : (
-        <Text style={[styles.infoValue, { color: theme.colors.text }]}>{value}</Text>
-      )}
+const DetailItem = ({ icon, color, label, value, capitalize, theme }) => (
+    <View style={styles.detailItemRow}>
+        <View style={[styles.detailIconBox, { backgroundColor: color + '15' }]}>
+            <FontAwesomeIcon icon={icon} size={12} color={color} />
+        </View>
+        <View style={{ marginLeft: 12, flex: 1 }}>
+            <Text style={styles.detailLabel}>{label}</Text>
+            <Text style={[styles.detailValue, { color: theme.colors.text }, capitalize && { textTransform: 'capitalize' }]}>
+                {value}
+            </Text>
+        </View>
     </View>
-  </View>
 );
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, paddingBottom: 24 },
-  headerSection: { borderBottomLeftRadius: 30, borderBottomRightRadius: 30, overflow: 'hidden', borderBottomWidth: 1, elevation: 5 },
-  banner: { height: 160 },
-  profileContent: { paddingHorizontal: 24, paddingBottom: 24 },
-  avatarRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: -50, marginBottom: 15 },
-  avatarWrapper: { elevation: 10 },
-  editButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, gap: 6, marginBottom: 5 },
-  editButtonText: { fontSize: 12, fontWeight: 'bold' },
-  nameBlock: { alignSelf: 'stretch' },
-  fullNameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
-  fullName: { fontSize: 26, fontWeight: '900' },
-  email: { fontSize: 14, fontWeight: '600', marginTop: 2 },
-  roleBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginTop: 10 },
-  roleText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  titleTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  titleTagText: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
-  gamificationCard: { margin: 24, padding: 20, borderRadius: 25, borderWidth: 1, elevation: 3 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  cardTitle: { fontSize: 20, fontWeight: '900' },
-  progressBarBackground: { height: 10, borderRadius: 5, width: '100%', overflow: 'hidden', marginBottom: 8 },
-  progressBarFill: { height: '100%', borderRadius: 5 },
-  xpText: { fontSize: 12, fontWeight: '700', textAlign: 'right' },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-around', marginVertical: 20, paddingVertical: 15, borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(0,0,0,0.05)' },
-  statBox: { alignItems: 'center' },
-  statValue: { fontSize: 22, fontWeight: '900', marginTop: 5 },
-  statLabel: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1 },
-  statDivider: { width: 1, height: '100%' },
-  buttonRow: { flexDirection: 'row', gap: 10 },
-  cardButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 15, gap: 8 },
-  cardButtonText: { color: '#fff', fontSize: 13, fontWeight: 'bold' },
-  section: { paddingHorizontal: 24, marginTop: 10 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15 },
-  sectionTitle: { fontSize: 18, fontWeight: '900' },
-  badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  badgeItem: { width: '30%', alignItems: 'center', marginBottom: 20 },
-  badgeCircle: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  badgeName: { fontSize: 11, fontWeight: 'bold', textAlign: 'center' },
-  infoList: { borderRadius: 20, borderWidth: 1, overflow: 'hidden' },
-  infoRow: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
-  infoLabel: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
-  infoValue: { fontSize: 15, fontWeight: '600', marginTop: 2 }
+  container: { flexGrow: 1, padding: 16, paddingBottom: 40 },
+  headerCard: { borderRadius: 32, overflow: 'hidden', marginBottom: 20 },
+  bannerWrapper: { height: 140, overflow: 'hidden' },
+  banner: { height: '100%' },
+  profileInfoArea: { paddingHorizontal: 24, paddingBottom: 24 },
+  avatarRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: -40, marginBottom: 16 },
+  avatarBox: { padding: 4, borderRadius: 40, position: 'relative' },
+  onlineIndicator: { 
+      position: 'absolute', 
+      bottom: 8, 
+      right: 8, 
+      width: 16, 
+      height: 16, 
+      borderRadius: 8, 
+      backgroundColor: '#22c55e', 
+      borderWidth: 3, 
+      borderColor: '#fff' 
+  },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  roleBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  roleText: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
+  editBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, gap: 6 },
+  editBtnText: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
+  nameSection: { marginTop: 4 },
+  fullNameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  fullName: { fontSize: 28, fontWeight: '900', letterSpacing: -0.5 },
+  titleTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  titleTagText: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase' },
+  emailText: { fontSize: 14, fontWeight: '600', marginTop: 4 },
+  
+  hubCard: { borderRadius: 32, padding: 24, marginBottom: 20 },
+  hubHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 },
+  hubTitle: { fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
+  hubSubtitle: { fontSize: 13, fontWeight: '500', marginTop: 2 },
+  hubActionGroup: { flexDirection: 'row', gap: 8 },
+  hubActionBtn: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  
+  levelBox: { borderRadius: 24, padding: 20, marginBottom: 24 },
+  levelHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  levelInfoLeft: { flexDirection: 'row', alignItems: 'center' },
+  levelBadge: { width: 48, height: 48, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  levelBadgeText: { color: '#fff', fontSize: 20, fontWeight: '900' },
+  levelLabel: { fontSize: 9, fontWeight: '900', color: '#6366f1', letterSpacing: 1 },
+  xpValue: { fontSize: 18, fontWeight: '900' },
+  nextLevelLabel: { fontSize: 9, fontWeight: '900', color: '#94a3b8', letterSpacing: 1 },
+  nextLevelValue: { fontSize: 15, fontWeight: '900' },
+  progressContainer: { height: 12, borderRadius: 6, width: '100%', overflow: 'hidden', padding: 2 },
+  progressFill: { height: '100%', borderRadius: 4 },
+  
+  statGrid: { flexDirection: 'row', gap: 12 },
+  statItem: { flex: 1, borderRadius: 24, padding: 20, alignItems: 'center' },
+  statIconBox: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  statBigValue: { fontSize: 24, fontWeight: '900', marginBottom: 2 },
+  statSmallLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 1, color: 'rgba(0,0,0,0.4)' },
+  
+  badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+  badgeWrapper: { width: (width - 112) / 3, alignItems: 'center', marginBottom: 8 },
+  badgeIconContainer: { width: 64, height: 64, borderRadius: 20, justifyContent: 'center', alignItems: 'center', position: 'relative', marginBottom: 8 },
+  earnedCheck: { position: 'absolute', top: -4, right: -4, backgroundColor: '#fff', borderRadius: 10, padding: 2 },
+  badgeLabel: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center', letterSpacing: 0.5 },
+  xpUnlockText: { fontSize: 9, fontWeight: '700', color: '#94a3b8', marginTop: 2 },
+  
+  detailsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  detailsIconBox: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  detailsList: { gap: 20 },
+  detailItemRow: { flexDirection: 'row', alignItems: 'center' },
+  detailIconBox: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  detailLabel: { fontSize: 9, fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1 },
+  detailValue: { fontSize: 14, fontWeight: '700', marginTop: 1 }
 });

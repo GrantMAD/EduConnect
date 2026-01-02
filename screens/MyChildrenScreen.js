@@ -35,7 +35,8 @@ import {
   faCircleInfo,
   faClock,
   faComment,
-  faQuoteLeft
+  faQuoteLeft,
+  faUserFriends
 } from '@fortawesome/free-solid-svg-icons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -93,12 +94,12 @@ const MarkRow = ({ mark, theme }) => {
             </Text>
           )}
         </View>
-        <View style={[styles.markBadge, { backgroundColor: theme.colors.cardBorder + '40', width: 'auto', minWidth: 44, paddingHorizontal: 8 }]}>
+        <View style={[styles.markBadge, { backgroundColor: theme.colors.background, width: 'auto', minWidth: 44, paddingHorizontal: 8, borderWidth: 1, borderColor: theme.colors.cardBorder }]}>
           <Text style={[styles.markValue, { color: theme.colors.text, fontSize: 13 }]}>{displayValue}</Text>
         </View>
       </View>
       {mark.teacher_feedback && (
-        <View style={styles.feedbackContainer}>
+        <View style={[styles.feedbackContainer, { backgroundColor: theme.colors.primary + '05', borderColor: theme.colors.primary + '10', borderWidth: 1 }]}>
           <FontAwesomeIcon icon={faComment} size={10} color={theme.colors.primary} style={{ marginRight: 6, marginTop: 2 }} />
           <Text style={[styles.feedbackText, { color: theme.colors.placeholder }]}>
             {mark.teacher_feedback}
@@ -146,7 +147,7 @@ const ClassCard = ({ classInfo, theme }) => {
   }, [classInfo.marks]);
 
   return (
-    <View style={[styles.clsCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+    <View style={[styles.clsCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
       <TouchableOpacity onPress={() => setExpanded(!expanded)} style={styles.clsCardHeader}>
         <View style={styles.clsIconNameRow}>
           <View style={[styles.clsIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
@@ -161,17 +162,17 @@ const ClassCard = ({ classInfo, theme }) => {
             </Text>
           </View>
           {averageMark !== null && (
-            <View style={[styles.avgBadge, { backgroundColor: averageMark >= 80 ? '#34C75920' : averageMark >= 60 ? '#FF950020' : '#FF3B3020' }]}>
-              <Text style={[styles.avgBadgeText, { color: averageMark >= 80 ? '#34C759' : averageMark >= 60 ? '#FF9500' : '#FF3B30' }]}>
+            <View style={[styles.avgBadge, { backgroundColor: averageMark >= 80 ? '#ecfdf5' : averageMark >= 60 ? '#fffbeb' : '#fff1f2' }]}>
+              <Text style={[styles.avgBadgeText, { color: averageMark >= 80 ? '#059669' : averageMark >= 60 ? '#d97706' : '#e11d48' }]}>
                 {averageMark}%
               </Text>
             </View>
           )}
         </View>
 
-        <View style={[styles.clsFooter, { borderTopColor: theme.colors.cardBorder + '60' }]}>
+        <View style={[styles.clsFooter, { borderTopColor: theme.colors.cardBorder, borderTopWidth: 1 }]}>
           <View style={styles.footerStat}>
-            <FontAwesomeIcon icon={faCalendarCheck} size={12} color={attendanceRate > 85 ? theme.colors.success : '#FF9500'} />
+            <FontAwesomeIcon icon={faCalendarCheck} size={12} color={attendanceRate > 85 ? '#10b981' : '#f59e0b'} />
             <Text style={[styles.footerStatText, { color: theme.colors.placeholder }]}>{attendanceRate}% Attendance</Text>
           </View>
           <FontAwesomeIcon icon={expanded ? faChevronUp : faChevronDown} size={14} color={theme.colors.placeholder} />
@@ -179,7 +180,7 @@ const ClassCard = ({ classInfo, theme }) => {
       </TouchableOpacity>
 
       {expanded && (
-        <View style={[styles.clsExpanded, { backgroundColor: theme.colors.background + '50' }]}>
+        <View style={[styles.clsExpanded, { backgroundColor: theme.colors.background }]}>
           <Text style={styles.expandedTitle}>RECENT GRADES</Text>
           {classInfo.marks?.length > 0 ? (
             <View style={styles.marksList}>
@@ -215,7 +216,6 @@ const StudentDashboard = ({ student, theme, refreshTrigger }) => {
     const fetchClassData = async () => {
       setLoading(true);
       try {
-        // 1. Get all class memberships for this student
         const { data: memberships, error: memError } = await supabase
           .from('class_members')
           .select('id, attendance, class_id, classes (id, name, teacher:users(full_name))')
@@ -229,7 +229,6 @@ const StudentDashboard = ({ student, theme, refreshTrigger }) => {
 
         const classIds = memberships.map(m => m.class_id);
 
-        // 2. Batch fetch ALL relevant schedules for these classes
         const { data: allSchedules } = await supabase
           .from('class_schedules')
           .select('class_id, start_time')
@@ -237,7 +236,6 @@ const StudentDashboard = ({ student, theme, refreshTrigger }) => {
           .lte('start_time', new Date().toISOString())
           .order('start_time', { ascending: true });
 
-        // 3. Batch fetch ALL marks for this student across these classes
         const { data: allMarks } = await supabase
           .from('student_marks')
           .select('class_id, assessment_name, mark, teacher_feedback, score, total_possible')
@@ -245,7 +243,6 @@ const StudentDashboard = ({ student, theme, refreshTrigger }) => {
           .in('class_id', classIds)
           .order('created_at', { ascending: false });
 
-        // 4. Process and combine data locally
         const processed = memberships.map(member => {
           const classSchedules = (allSchedules || []).filter(s => s.class_id === member.class_id);
           const classMarks = (allMarks || []).filter(m => m.class_id === member.class_id);
@@ -303,8 +300,8 @@ const StudentDashboard = ({ student, theme, refreshTrigger }) => {
 
   if (classes.length === 0) {
     return (
-      <View style={[styles.emptyState, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <FontAwesomeIcon icon={faGraduationCap} size={48} color={theme.colors.placeholder + '40'} />
+      <View style={[styles.emptyState, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, borderStyle: 'dashed' }]}>
+        <FontAwesomeIcon icon={faGraduationCap} size={48} color={theme.colors.placeholder} style={{ opacity: 0.3 }} />
         <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>No Active Classes</Text>
         <Text style={[styles.emptyStateDesc, { color: theme.colors.placeholder }]}>This student is not enrolled in any classes yet.</Text>
       </View>
@@ -313,25 +310,31 @@ const StudentDashboard = ({ student, theme, refreshTrigger }) => {
 
   return (
     <View style={styles.dashboardContainer}>
-      <View style={styles.statsRow}>
-        <View style={[styles.statBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-          <View style={[styles.statIcon, { backgroundColor: '#007AFF15' }]}><FontAwesomeIcon icon={faGraduationCap} color="#007AFF" size={14} /></View>
-          <Text style={[styles.statVal, { color: theme.colors.text }]}>{stats.classes}</Text>
-          <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>Classes</Text>
+      <View style={styles.statsGrid}>
+        <View style={[styles.statItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+          <View style={[styles.statIconBox, { backgroundColor: '#eef2ff' }]}>
+            <FontAwesomeIcon icon={faGraduationCap} color="#4f46e5" size={14} />
+          </View>
+          <Text style={[styles.statBigVal, { color: theme.colors.text }]}>{stats.classes}</Text>
+          <Text style={styles.statSmallLabel}>ENROLLED</Text>
         </View>
-        <View style={[styles.statBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-          <View style={[styles.statIcon, { backgroundColor: '#34C75915' }]}><FontAwesomeIcon icon={faPercentage} color="#34C759" size={14} /></View>
-          <Text style={[styles.statVal, { color: theme.colors.text }]}>{stats.avgAttendance}%</Text>
-          <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>Attendance</Text>
+        <View style={[styles.statItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+          <View style={[styles.statIconBox, { backgroundColor: '#ecfdf5' }]}>
+            <FontAwesomeIcon icon={faPercentage} color="#10b981" size={14} />
+          </View>
+          <Text style={[styles.statBigVal, { color: theme.colors.text }]}>{stats.avgAttendance}%</Text>
+          <Text style={styles.statSmallLabel}>ATTENDANCE</Text>
         </View>
-        <View style={[styles.statBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-          <View style={[styles.statIcon, { backgroundColor: '#AF52DE15' }]}><FontAwesomeIcon icon={faChartLine} color="#AF52DE" size={14} /></View>
-          <Text style={[styles.statVal, { color: theme.colors.text }]}>{stats.marks}</Text>
-          <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>Assessments</Text>
+        <View style={[styles.statItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+          <View style={[styles.statIconBox, { backgroundColor: '#f5f3ff' }]}>
+            <FontAwesomeIcon icon={faChartLine} color="#8b5cf6" size={14} />
+          </View>
+          <Text style={[styles.statBigVal, { color: theme.colors.text }]}>{stats.marks}</Text>
+          <Text style={styles.statSmallLabel}>GRADED</Text>
         </View>
       </View>
 
-      <Text style={[styles.sectionHeading, { color: theme.colors.text }]}>Subject Performance</Text>
+      <Text style={[styles.sectionTitleLabel, { color: theme.colors.text }]}>Subject Performance</Text>
       {classes.map((cls, idx) => <ClassCard key={idx} classInfo={cls} theme={theme} />)}
     </View>
   );
@@ -343,7 +346,7 @@ const AdminFamilyCard = ({ parentData, onClick, theme }) => (
   <TouchableOpacity
     onPress={onClick}
     activeOpacity={0.9}
-    style={[styles.adminCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}
+    style={[styles.adminCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
   >
     <LinearGradient colors={['#4F46E5', '#7C3AED']} style={styles.adminCardHeader} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
       <Image source={parentData.parent.avatar_url ? { uri: parentData.parent.avatar_url } : defaultUserImage} style={styles.adminAvatar} />
@@ -356,7 +359,7 @@ const AdminFamilyCard = ({ parentData, onClick, theme }) => (
       <Text style={styles.adminLabel}>LINKED STUDENTS</Text>
       <View style={styles.childPills}>
         {parentData.children.map(child => (
-          <View key={child.id} style={[styles.childPill, { backgroundColor: theme.colors.background }]}>
+          <View key={child.id} style={[styles.childPill, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
             <Image source={child.avatar_url ? { uri: child.avatar_url } : defaultUserImage} style={styles.tinyAvatar} />
             <Text style={[styles.childPillText, { color: theme.colors.text }]}>{child.full_name.split(' ')[0]}</Text>
           </View>
@@ -376,11 +379,13 @@ const AdminFamilyDetail = ({ parentData, onBack, theme }) => (
 
     <LinearGradient colors={['#4F46E5', '#7C3AED']} style={styles.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
       <Image source={parentData.parent.avatar_url ? { uri: parentData.parent.avatar_url } : defaultUserImage} style={styles.heroAvatar} />
-      <Text style={styles.heroName}>{parentData.parent.full_name}</Text>
-      <Text style={styles.heroEmail}>{parentData.parent.email}</Text>
-      <View style={styles.badgeRow}>
-        <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>Parent Account</Text></View>
-        <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>{parentData.children.length} Students</Text></View>
+      <View>
+        <Text style={styles.heroName}>{parentData.parent.full_name}</Text>
+        <Text style={styles.heroEmail}>{parentData.parent.email}</Text>
+        <View style={styles.badgeRow}>
+            <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>Parent Account</Text></View>
+            <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>{parentData.children.length} Students</Text></View>
+        </View>
       </View>
     </LinearGradient>
 
@@ -391,7 +396,7 @@ const AdminFamilyDetail = ({ parentData, onBack, theme }) => (
       </View>
 
       {parentData.children.map(child => (
-        <View key={child.id} style={[styles.adminChildSection, { borderTopColor: theme.colors.cardBorder }]}>
+        <View key={child.id} style={[styles.adminChildSection, { borderTopColor: theme.colors.cardBorder, borderTopWidth: 1 }]}>
           <View style={styles.adminChildHeader}>
             <Image source={child.avatar_url ? { uri: child.avatar_url } : defaultUserImage} style={styles.adminChildAvatar} />
             <View>
@@ -408,7 +413,7 @@ const AdminFamilyDetail = ({ parentData, onBack, theme }) => (
 
 // --- Main Page ---
 
-export default function MyChildrenScreen() {
+export default function MyChildrenScreen({ navigation }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const [children, setChildren] = useState([]);
@@ -419,7 +424,6 @@ export default function MyChildrenScreen() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [userRole, setUserRole] = useState(null);
 
-  // Admin State
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedParent, setSelectedParent] = useState(null);
 
@@ -495,29 +499,49 @@ export default function MyChildrenScreen() {
             data={filtered}
             keyExtractor={item => item.parent.id}
             renderItem={({ item }) => <AdminFamilyCard parentData={item} onClick={() => setSelectedParent(item)} theme={theme} />}
-            contentContainerStyle={{ padding: 20, paddingTop: 30 }}
+            contentContainerStyle={{ paddingBottom: 40 }}
             refreshing={refreshing}
             onRefresh={onRefresh}
             ListHeaderComponent={
-              <View style={{ marginBottom: 24 }}>
-                <Text style={[styles.pageTitle, { color: theme.colors.text }]}>Family Connections</Text>
-                <Text style={[styles.pageDesc, { color: theme.colors.placeholder }]}>Manage school link accounts.</Text>
-                <View style={[styles.searchBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-                  <FontAwesomeIcon icon={faSearch} color={theme.colors.placeholder} size={16} />
-                  <TextInput
-                    style={[styles.searchInput, { color: theme.colors.text }]}
-                    placeholder="Search parents..."
-                    placeholderTextColor={theme.colors.placeholder}
-                    value={searchTerm}
-                    onChangeText={setSearchTerm}
-                  />
+              <View>
+                <LinearGradient
+                    colors={['#4f46e5', '#7c3aed']} 
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.heroContainer}
+                >
+                    <View style={styles.heroContent}>
+                        <View style={styles.heroTextContainer}>
+                            <Text style={styles.heroTitle}>Family Connections</Text>
+                            <Text style={styles.heroDescription}>
+                                Manage parent-child links across the school community.
+                            </Text>
+                        </View>
+                        <View style={styles.statusBadge}>
+                            <FontAwesomeIcon icon={faUserFriends} size={16} color="rgba(255,255,255,0.7)" />
+                            <Text style={styles.statusBadgeValue}>{parents.length}</Text>
+                        </View>
+                    </View>
+                </LinearGradient>
+
+                <View style={{ paddingHorizontal: 20 }}>
+                    <View style={[styles.searchBox, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+                    <FontAwesomeIcon icon={faSearch} color={theme.colors.placeholder} size={16} />
+                    <TextInput
+                        style={[styles.searchInput, { color: theme.colors.text }]}
+                        placeholder="Search parents..."
+                        placeholderTextColor={theme.colors.placeholder}
+                        value={searchTerm}
+                        onChangeText={setSearchTerm}
+                    />
+                    </View>
                 </View>
               </View>
             }
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <FontAwesomeIcon icon={faSearch} size={48} color={theme.colors.placeholder + '40'} />
-                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No families found matching your search.</Text>
+                <FontAwesomeIcon icon={faSearch} size={48} color={theme.colors.placeholder} style={{ opacity: 0.3 }} />
+                <Text style={[styles.emptyText, { color: theme.colors.text }]}>No families found matching your search.</Text>
               </View>
             }
           />
@@ -537,14 +561,28 @@ export default function MyChildrenScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} tintColor={theme.colors.primary} />
         }
       >
-        <View style={{ padding: 20, paddingTop: 30 }}>
-          <Text style={[styles.pageTitle, { color: theme.colors.text }]}>My Children</Text>
-          <Text style={[styles.pageDesc, { color: theme.colors.placeholder }]}>Academic performance overview.</Text>
-        </View>
+        <LinearGradient
+            colors={['#4f46e5', '#7c3aed']} 
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroContainer}
+        >
+            <View style={styles.heroContent}>
+                <View style={styles.heroTextContainer}>
+                    <Text style={styles.heroTitle}>My Children</Text>
+                    <Text style={styles.heroDescription}>
+                        Academic performance and attendance overview.
+                    </Text>
+                </View>
+                <TouchableOpacity style={styles.heroActionBtn} onPress={() => navigation.navigate('Search')}>
+                    <FontAwesomeIcon icon={faUserPlus} size={14} color="#4f46e5" />
+                </TouchableOpacity>
+            </View>
+        </LinearGradient>
 
         {children.length === 0 ? (
-          <View style={[styles.emptyState, { margin: 20, backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, padding: 40 }]}>
-            <FontAwesomeIcon icon={faUserPlus} size={48} color={theme.colors.primary + '40'} />
+          <View style={[styles.emptyState, { margin: 20, backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, padding: 40, borderStyle: 'dashed' }]}>
+            <FontAwesomeIcon icon={faUserPlus} size={48} color={theme.colors.placeholder} style={{ opacity: 0.3 }} />
             <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>No Students Linked</Text>
             <Text style={[styles.emptyStateDesc, { color: theme.colors.placeholder }]}>Link a student account to view their progress.</Text>
           </View>
@@ -556,7 +594,7 @@ export default function MyChildrenScreen() {
                   key={child.id}
                   onPress={() => setSelectedChildId(child.id)}
                   style={[styles.childBtn, {
-                    backgroundColor: selectedChildId === child.id ? theme.colors.primary : theme.colors.surface,
+                    backgroundColor: selectedChildId === child.id ? theme.colors.primary : theme.colors.card,
                     borderColor: selectedChildId === child.id ? theme.colors.primary : theme.colors.cardBorder
                   }]}
                 >
@@ -568,9 +606,9 @@ export default function MyChildrenScreen() {
 
             {selectedChild && (
               <View style={{ padding: 20 }}>
-                <LinearGradient colors={['#4F46E5', '#7C3AED']} style={styles.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                <LinearGradient colors={['#4F46E5', '#7C3AED']} style={styles.childHero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
                   <Image source={selectedChild.avatar_url ? { uri: selectedChild.avatar_url } : defaultUserImage} style={styles.heroAvatar} />
-                  <View>
+                  <View style={{ flex: 1 }}>
                     <Text style={styles.heroName}>{selectedChild.full_name}</Text>
                     <Text style={styles.heroEmail}>{selectedChild.email}</Text>
                     <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>Student</Text></View>
@@ -588,92 +626,139 @@ export default function MyChildrenScreen() {
 }
 
 const styles = StyleSheet.create({
-  pageTitle: { fontSize: 28, fontWeight: '900', letterSpacing: -0.5 },
-  pageDesc: { fontSize: 15, marginTop: 4, marginBottom: 12 },
-  selectorScroll: { paddingHorizontal: 20, marginBottom: 20 },
+  heroContainer: {
+    padding: 24,
+    paddingTop: 40,
+    marginBottom: 20,
+    elevation: 0,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+  },
+  heroContent: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+  },
+  heroTextContainer: {
+      flex: 1,
+      paddingRight: 10,
+  },
+  heroTitle: {
+      color: '#fff',
+      fontSize: 28,
+      fontWeight: '900',
+      marginBottom: 8,
+      letterSpacing: -1,
+  },
+  heroDescription: {
+      color: '#e0e7ff',
+      fontSize: 14,
+      fontWeight: '500',
+  },
+  heroActionBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: '#fff',
+      justifyContent: 'center',
+      alignItems: 'center',
+  },
+  statusBadge: {
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 12,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.2)',
+  },
+  statusBadgeValue: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: '900',
+      marginTop: 2,
+  },
+  selectorScroll: { paddingHorizontal: 20, marginBottom: 24 },
   childBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingLeft: 8, paddingRight: 16, borderRadius: 30, borderWidth: 1, marginRight: 12 },
   selectorAvatar: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, marginRight: 10 },
   childBtnText: { fontSize: 14, fontWeight: '700' },
-  hero: { flexDirection: 'row', alignItems: 'center', padding: 24, borderRadius: 24, marginBottom: 24 },
-  heroAvatar: { width: 70, height: 70, borderRadius: 35, borderWidth: 3, borderColor: '#ffffff40', marginRight: 20 },
-  heroName: { fontSize: 22, fontWeight: '900', color: '#FFFFFF' },
+  childHero: { flexDirection: 'row', alignItems: 'center', padding: 24, borderRadius: 32, marginBottom: 24 },
+  hero: { flexDirection: 'row', alignItems: 'center', padding: 24, borderRadius: 32, marginBottom: 24 },
+  heroAvatar: { width: 70, height: 70, borderRadius: 24, borderWidth: 3, borderColor: '#ffffff40', marginRight: 20 },
+  heroName: { fontSize: 22, fontWeight: '900', color: '#FFFFFF', letterSpacing: -0.5 },
   heroEmail: { fontSize: 14, color: '#E0E7FF', marginBottom: 8 },
   heroBadge: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, backgroundColor: '#ffffff20', borderWidth: 1, borderColor: '#ffffff30' },
   heroBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
   dashboardContainer: {},
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
-  statBox: { width: (width - 64) / 3, padding: 12, borderRadius: 16, borderWidth: 1, alignItems: 'center' },
-  statIcon: { width: 28, height: 28, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  statVal: { fontSize: 18, fontWeight: '900' },
-  statLabel: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase' },
-  sectionHeading: { fontSize: 18, fontWeight: '800', marginBottom: 16 },
-  clsCard: { borderRadius: 16, borderWidth: 1, marginBottom: 16, overflow: 'hidden' },
-  clsCardHeader: { padding: 16 },
-  clsIconNameRow: { flexDirection: 'row', alignItems: 'center' },
-  clsIconBox: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  statsGrid: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  statItem: { flex: 1, padding: 16, borderRadius: 24, alignItems: 'center' },
+  statIconBox: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  statBigVal: { fontSize: 20, fontWeight: '900', marginBottom: 2 },
+  statSmallLabel: { fontSize: 8, fontWeight: '900', color: '#94a3b8', letterSpacing: 1 },
+  sectionTitleLabel: { fontSize: 18, fontWeight: '900', marginBottom: 16, letterSpacing: -0.5 },
+  clsCard: { borderRadius: 24, marginBottom: 16, overflow: 'hidden' },
+  clsCardHeader: { padding: 20 },
+  clsIconNameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  clsIconBox: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   clsName: { fontSize: 16, fontWeight: '800' },
   clsTeacher: { fontSize: 13, marginTop: 2 },
   avgBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   avgBadgeText: { fontSize: 12, fontWeight: '800' },
-  clsFooter: { marginTop: 16, pt: 16, borderTopWidth: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  clsFooter: { paddingVertical: 16, borderTopWidth: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   footerStat: { flexDirection: 'row', alignItems: 'center' },
-  footerStatText: { fontSize: 12, fontWeight: '600', marginLeft: 6 },
-  clsExpanded: { padding: 16, borderTopWidth: 1, borderTopColor: '#00000005' },
-  expandedTitle: { fontSize: 10, fontWeight: '800', color: '#8E8E93', letterSpacing: 1 },
-  marksList: { marginTop: 8, borderRadius: 12, overflow: 'hidden' },
-  markRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1 },
+  footerStatText: { fontSize: 12, fontWeight: '600', marginLeft: 8 },
+  clsExpanded: { padding: 20, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)' },
+  expandedTitle: { fontSize: 10, fontWeight: '900', color: '#94a3b8', letterSpacing: 1.5, marginBottom: 12 },
+  marksList: { borderRadius: 16, overflow: 'hidden' },
+  markRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1 },
   markAssessment: { fontSize: 14, fontWeight: '700' },
-  markType: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginTop: 2 },
-  markBadge: { width: 40, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  markValue: { fontSize: 14, fontWeight: '900' },
-  attScroll: { marginTop: 8, gap: 8 },
-  attPill: { width: 70, alignItems: 'center', padding: 8, borderRadius: 12, borderWidth: 1 },
-  attPillDay: { fontSize: 9, fontWeight: '800', marginBottom: 4 },
-  attPillDate: { fontSize: 10, fontWeight: '700', marginTop: 4 },
-  emptyState: { alignItems: 'center', justifyContent: 'center', padding: 32, borderRadius: 24, borderStyle: 'dashed', borderWidth: 2 },
-  emptyStateTitle: { fontSize: 18, fontWeight: '800', marginTop: 16 },
+  markType: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase', marginTop: 2, letterSpacing: 0.5 },
+  markBadge: { borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  markValue: { fontWeight: '900' },
+  attScroll: { gap: 10, paddingVertical: 4 },
+  attPill: { width: 70, alignItems: 'center', padding: 10, borderRadius: 16, borderWidth: 1 },
+  attPillDay: { fontSize: 8, fontWeight: '900', marginBottom: 6, letterSpacing: 0.5 },
+  attPillDate: { fontSize: 10, fontWeight: '800', marginTop: 6 },
+  emptyState: { alignItems: 'center', justifyContent: 'center', padding: 40, borderRadius: 32 },
+  emptyStateTitle: { fontSize: 18, fontWeight: '900', marginTop: 16 },
   emptyStateDesc: { fontSize: 14, textAlign: 'center', marginTop: 8 },
-  adminCard: { borderRadius: 24, borderWidth: 1, marginBottom: 16, overflow: 'hidden' },
-  adminCardHeader: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-  adminAvatar: { width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: '#ffffff30', marginRight: 16 },
+  adminCard: { borderRadius: 32, marginBottom: 16, overflow: 'hidden' },
+  adminCardHeader: { flexDirection: 'row', alignItems: 'center', padding: 20 },
+  adminAvatar: { width: 50, height: 50, borderRadius: 16, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', marginRight: 16 },
   adminName: { fontSize: 17, fontWeight: '900', color: '#FFFFFF' },
   adminEmail: { fontSize: 13, color: '#E0E7FF' },
-  adminCardBody: { padding: 16 },
-  adminLabel: { fontSize: 10, fontWeight: '800', color: '#8E8E93', letterSpacing: 1, marginBottom: 12 },
+  adminCardBody: { padding: 20 },
+  adminLabel: { fontSize: 9, fontWeight: '900', color: '#94a3b8', letterSpacing: 1.5, marginBottom: 12 },
   childPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  childPill: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 20 },
-  tinyAvatar: { width: 20, height: 20, borderRadius: 10, marginRight: 6 },
-  childPillText: { fontSize: 12, fontWeight: '600' },
-  viewAll: { fontSize: 12, fontWeight: '800', marginTop: 16 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, borderRadius: 16, borderWidth: 1, marginTop: 16 },
-  searchInput: { flex: 1, paddingVertical: 12, marginLeft: 10, fontSize: 15 },
+  childPill: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20 },
+  tinyAvatar: { width: 20, height: 20, borderRadius: 10, marginRight: 8 },
+  childPillText: { fontSize: 12, fontWeight: '700' },
+  viewAll: { fontSize: 12, fontWeight: '900', marginTop: 16 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, borderRadius: 16, borderWidth: 1, marginTop: 12, marginBottom: 20 },
+  searchInput: { flex: 1, paddingVertical: 12, marginLeft: 12, fontSize: 15, fontWeight: '500' },
   backBtn: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingTop: 40 },
   backText: { fontSize: 14, fontWeight: '700', marginLeft: 10 },
-  badgeRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  heroEmail: { fontSize: 15, color: '#E0E7FF' },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  titleIcon: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: '900' },
-  adminChildSection: { marginTop: 24, paddingTop: 24, borderTopWidth: 1 },
-  adminChildHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  adminChildAvatar: { width: 44, height: 44, borderRadius: 22, marginRight: 12 },
-  adminChildName: { fontSize: 16, fontWeight: '800' },
-  adminChildEmail: { fontSize: 13 },
+  titleIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  sectionTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
+  adminChildSection: { marginTop: 24, paddingTop: 24 },
+  adminChildHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  adminChildAvatar: { width: 48, height: 48, borderRadius: 16, marginRight: 16 },
+  adminChildName: { fontSize: 18, fontWeight: '900' },
+  adminChildEmail: { fontSize: 13, fontWeight: '500' },
   emptyContainer: { padding: 80, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { textAlign: 'center', marginTop: 12, fontSize: 14 },
+  emptyText: { textAlign: 'center', marginTop: 12, fontSize: 16, fontWeight: '600' },
   feedbackContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#007AFF08',
-    padding: 10,
-    borderRadius: 10,
-    marginTop: 4,
-    marginLeft: 4,
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 6,
   },
   feedbackText: {
     fontSize: 12,
     fontStyle: 'italic',
-    lineHeight: 16,
+    lineHeight: 18,
     flex: 1,
   },
 });

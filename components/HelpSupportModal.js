@@ -13,12 +13,14 @@ export default function HelpSupportModal({ visible, onClose }) {
     };
 
     const FAQItem = ({ question, answer }) => (
-        <View style={styles.faqItem}>
+        <View style={[styles.faqItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
             <View style={styles.questionContainer}>
-                <FontAwesomeIcon icon={faQuestionCircle} size={16} color={theme.colors.primary} />
+                <View style={[styles.faqIconBox, { backgroundColor: theme.colors.primary + '10' }]}>
+                    <FontAwesomeIcon icon={faQuestionCircle} size={12} color={theme.colors.primary} />
+                </View>
                 <Text style={[styles.question, { color: theme.colors.text }]}>{question}</Text>
             </View>
-            <Text style={[styles.answer, { color: theme.colors.placeholder }]}>{answer}</Text>
+            <Text style={[styles.answer, { color: theme.colors.text }]}>{answer}</Text>
         </View>
     );
 
@@ -26,64 +28,60 @@ export default function HelpSupportModal({ visible, onClose }) {
         <Modal
             isVisible={visible}
             onBackdropPress={onClose}
+            onSwipeComplete={onClose}
+            swipeDirection={['down']}
             animationIn="slideInUp"
             animationOut="slideOutDown"
-            backdropOpacity={0.5}
+            backdropOpacity={0.4}
             style={{ justifyContent: 'flex-end', margin: 0 }}
         >
-            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: 40 }]}>
+                <View style={styles.swipeIndicator} />
                 <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={faBook} size={24} color={theme.colors.primary} />
-                    <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>Help & Support</Text>
+                    <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                        <FontAwesomeIcon icon={faBook} size={18} color={theme.colors.primary} />
+                    </View>
+                    <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>Support Center</Text>
                     <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-                        <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
+                        <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
                     </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 24 }}>
                     <View style={styles.contentContainer}>
                         <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Contact Support</Text>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>DIRECT ASSISTANCE</Text>
                             <TouchableOpacity
-                                style={[styles.contactButton, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}
+                                style={[styles.contactButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
                                 onPress={handleEmailSupport}
+                                activeOpacity={0.7}
                             >
-                                <FontAwesomeIcon icon={faEnvelope} size={20} color={theme.colors.primary} />
+                                <View style={[styles.contactIconBox, { backgroundColor: theme.colors.primary + '10' }]}>
+                                    <FontAwesomeIcon icon={faEnvelope} size={16} color={theme.colors.primary} />
+                                </View>
                                 <View style={styles.contactInfo}>
-                                    <Text style={[styles.contactTitle, { color: theme.colors.text }]}>Email Support</Text>
-                                    <Text style={[styles.contactDetail, { color: theme.colors.placeholder }]}>support@classconnect.com</Text>
+                                    <Text style={[styles.contactTitle, { color: theme.colors.text }]}>Email Support Team</Text>
+                                    <Text style={[styles.contactDetail, { color: theme.colors.placeholder }]}>Response within 24 hours</Text>
                                 </View>
                             </TouchableOpacity>
                         </View>
 
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
                         <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Frequently Asked Questions</Text>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text, marginTop: 16 }]}>FREQUENTLY ASKED QUESTIONS</Text>
 
                             <FAQItem
                                 question="How do I reset my password?"
-                                answer="Navigate to Settings > Account Management > Change Password to update your password."
+                                answer="Navigate to Settings > Account > Security to initiate a password change request."
                             />
 
                             <FAQItem
                                 question="How do I enable notifications?"
-                                answer="Go to Settings > Notification Preferences and toggle the notifications you want to receive."
+                                answer="Access Settings > Notifications to customize your alert preferences for all events."
                             />
 
                             <FAQItem
-                                question="How does the gamification system work?"
-                                answer="Earn XP by completing assignments, participating in polls, and engaging with school activities. Level up to unlock badges and rewards in the marketplace."
-                            />
-
-                            <FAQItem
-                                question="Can parents view their children's progress?"
-                                answer="Yes! Parents can link their accounts to their children and view homework, grades, and class schedules."
-                            />
-
-                            <FAQItem
-                                question="How do I report a bug?"
-                                answer="Please email our support team with details about the issue you're experiencing."
+                                question="Can parents view academic progress?"
+                                answer="Yes. Once linked, parents have real-time access to grades, homework, and session attendance."
                             />
                         </View>
                     </View>
@@ -95,81 +93,111 @@ export default function HelpSupportModal({ visible, onClose }) {
 
 const styles = StyleSheet.create({
     modalContent: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 30,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        maxHeight: '90%',
-        minHeight: '50%',
+        paddingHorizontal: 24,
+        paddingTop: 8,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        maxHeight: '85%',
+    },
+    swipeIndicator: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#cbd5e1',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: 20,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingBottom: 15,
+        paddingBottom: 20,
         borderBottomWidth: 1,
-        marginBottom: 10,
+    },
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
     },
     modalTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        marginLeft: 15,
+        fontSize: 18,
+        fontWeight: '900',
+        letterSpacing: -0.5,
         flex: 1,
     },
     modalCloseButton: {
-        padding: 5,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     contentContainer: {
         paddingBottom: 20,
     },
     section: {
-        marginBottom: 15,
+        marginBottom: 24,
     },
     sectionTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        marginBottom: 12,
-    },
-    divider: {
-        height: 1,
-        marginVertical: 15,
+        fontSize: 10,
+        fontWeight: '900',
+        marginBottom: 16,
+        letterSpacing: 1.5,
+        color: '#94a3b8',
     },
     contactButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 15,
+        padding: 16,
+        borderRadius: 20,
+    },
+    contactIconBox: {
+        width: 44,
+        height: 44,
         borderRadius: 12,
-        borderWidth: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
     },
     contactInfo: {
-        marginLeft: 16,
         flex: 1,
     },
     contactTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 4,
+        fontSize: 15,
+        fontWeight: '800',
     },
     contactDetail: {
-        fontSize: 14,
+        fontSize: 12,
+        fontWeight: '600',
+        marginTop: 2,
     },
     faqItem: {
-        marginBottom: 20,
+        padding: 20,
+        borderRadius: 24,
+        marginBottom: 12,
     },
     questionContainer: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
-        marginBottom: 8,
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    faqIconBox: {
+        width: 24,
+        height: 24,
+        borderRadius: 6,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
     },
     question: {
-        fontSize: 15,
-        fontWeight: '600',
-        marginLeft: 10,
+        fontSize: 14,
+        fontWeight: '800',
         flex: 1,
     },
     answer: {
-        fontSize: 14,
+        fontSize: 13,
         lineHeight: 20,
-        marginLeft: 26,
+        fontWeight: '600',
     },
 });

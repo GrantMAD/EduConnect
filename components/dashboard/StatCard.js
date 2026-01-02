@@ -11,21 +11,21 @@ const StatCard = ({ icon, title, value, color, onPress, style, loading }) => {
         <TouchableOpacity
             style={[
                 styles.statCard, 
-                { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }, 
+                { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }, 
                 style
             ]}
             onPress={onPress}
             activeOpacity={onPress ? 0.7 : 1}
         >
-            <View style={[styles.iconContainer, { backgroundColor: color + '20' }]}>
-                <FontAwesomeIcon icon={icon} size={24} color={color} />
+            <View style={[styles.iconContainer, { backgroundColor: color + '15' }]}>
+                <FontAwesomeIcon icon={icon} size={18} color={color} />
             </View>
             {loading ? (
-                <SkeletonPiece style={{ width: 60, height: 28, borderRadius: 4, marginBottom: 4 }} />
+                <SkeletonPiece style={{ width: 60, height: 24, borderRadius: 4, marginBottom: 4 }} />
             ) : (
                 <Text style={[styles.statValue, { color: theme.colors.text }]}>{value}</Text>
             )}
-            <Text style={[styles.statTitle, { color: theme.colors.placeholder }]}>{title}</Text>
+            <Text style={[styles.statTitle, { color: '#94a3b8' }]}>{title.toUpperCase()}</Text>
         </TouchableOpacity>
     );
 };
@@ -33,30 +33,32 @@ const StatCard = ({ icon, title, value, color, onPress, style, loading }) => {
 const styles = StyleSheet.create({
     statCard: {
         width: '48%',
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
+        padding: 20,
+        borderRadius: 24,
         alignItems: 'center',
-        minHeight: 120,
+        minHeight: 140,
         justifyContent: 'center',
         marginBottom: 12,
     },
     iconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: 44,
+        height: 44,
+        borderRadius: 14,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 16,
     },
     statValue: {
-        fontSize: 28,
-        fontWeight: 'bold',
+        fontSize: 24,
+        fontWeight: '900',
         marginBottom: 4,
+        letterSpacing: -0.5,
     },
     statTitle: {
-        fontSize: 14,
+        fontSize: 9,
+        fontWeight: '900',
         textAlign: 'center',
+        letterSpacing: 1,
     },
 });
 

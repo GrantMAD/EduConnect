@@ -18,6 +18,7 @@ import FileViewer from 'react-native-file-viewer';
 import { useGamification } from '../context/GamificationContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ResourcesScreenSkeleton, { SkeletonPiece, ResourceCardSkeleton } from '../components/skeletons/ResourcesScreenSkeleton';
+import LinearGradient from 'react-native-linear-gradient';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -37,14 +38,13 @@ export default function ResourcesScreen() {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedResource, setSelectedResource] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('newest'); // 'newest', 'oldest', 'popular'
+  const [sortBy, setSortBy] = useState('newest'); 
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
   const [infoModalVisible, setInfoModalVisible] = useState(false);
-  const [activeTab, setActiveTab] = useState('public'); // 'public' or 'personal'
+  const [activeTab, setActiveTab] = useState('public'); 
   const [editingResource, setEditingResource] = useState(null);
   
-  // Folder State
   const [currentFolder, setCurrentFolder] = useState(null);
 
   useEffect(() => {
@@ -77,7 +77,6 @@ export default function ResourcesScreen() {
       if (!user) return;
 
       if (bookmarkedIds.has(resourceId)) {
-        // Remove bookmark
         const { error } = await supabase
           .from('resource_bookmarks')
           .delete()
@@ -92,7 +91,6 @@ export default function ResourcesScreen() {
         });
         showToast('Bookmark removed', 'info');
       } else {
-        // Add bookmark
         const { error } = await supabase
           .from('resource_bookmarks')
           .insert({ user_id: user.id, resource_id: resourceId });
@@ -160,7 +158,6 @@ export default function ResourcesScreen() {
 
       if (error) throw error;
 
-      // Calculate vote counts for each resource
       const resourcesWithVotes = await Promise.all(
         data.map(async (resource) => {
           const { data: votes } = await supabase
@@ -199,11 +196,9 @@ export default function ResourcesScreen() {
     return faFileAlt;
   };
 
-  // Filter and Sort resources
   const processResources = () => {
     let processed = [...resources];
 
-    // 1. Filter by Search Term
     if (searchTerm) {
       processed = processed.filter(r =>
         r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -211,17 +206,14 @@ export default function ResourcesScreen() {
       );
     }
 
-    // 2. Filter by Bookmarks
     if (showBookmarkedOnly) {
       processed = processed.filter(r => bookmarkedIds.has(r.id));
     }
 
-    // 3. Filter by Current Folder (if not searching and folder selected)
     if (!searchTerm && currentFolder) {
       processed = processed.filter(r => (r.category || 'General') === currentFolder);
     }
 
-    // 4. Sort
     processed.sort((a, b) => {
       if (sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at);
       if (sortBy === 'oldest') return new Date(a.created_at) - new Date(b.created_at);
@@ -283,22 +275,38 @@ export default function ResourcesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.headerContainer}>
-        <View style={styles.headerLeft}>
-          <FontAwesomeIcon icon={faBook} size={24} color={theme.colors.primary} style={styles.headerIcon} />
-          <Text style={[styles.header, { color: theme.colors.text }]}>
-            {currentFolder && !searchTerm ? currentFolder : 'Resources'}
-          </Text>
+      <LinearGradient
+        colors={['#4f46e5', '#4338ca']} 
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroContainer}
+      >
+        <View style={styles.heroContent}>
+            <View style={styles.heroTextContainer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                     <Text style={styles.heroTitle}>
+                        {currentFolder && !searchTerm ? currentFolder : 'Resources'}
+                    </Text>
+                    <TouchableOpacity onPress={() => setInfoModalVisible(true)} style={styles.infoButton}>
+                        <FontAwesomeIcon icon={faInfoCircle} size={16} color="rgba(255,255,255,0.7)" />
+                    </TouchableOpacity>
+                </View>
+                {!currentFolder && (
+                    <Text style={styles.heroDescription}>
+                         {activeTab === 'public' 
+                        ? "Access and manage all your educational resources."
+                        : "Keep your private study materials here."}
+                    </Text>
+                )}
+            </View>
+             {(userRole === 'teacher' || userRole === 'admin') && (
+                <TouchableOpacity style={styles.addButton} onPress={() => setShowCreateModal(true)}>
+                    <FontAwesomeIcon icon={faPlus} size={14} color="#4f46e5" />
+                    <Text style={styles.addButtonText}>New</Text>
+                </TouchableOpacity>
+            )}
         </View>
-        {loading ? (
-          <SkeletonPiece style={{ width: 100, height: 35, borderRadius: 10 }} />
-        ) : (userRole === 'teacher' || userRole === 'admin') && (
-          <TouchableOpacity style={styles.addButton} onPress={() => setShowCreateModal(true)}>
-            <FontAwesomeIcon icon={faPlus} size={16} color="#fff" />
-            <Text style={styles.addButtonText}>Add Resource</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      </LinearGradient>
 
       {/* Tabs - Only show when at root and not searching */}
       {(!currentFolder && !searchTerm) && (userRole === 'teacher' || userRole === 'admin') && (
@@ -310,7 +318,7 @@ export default function ResourcesScreen() {
               setCurrentFolder(null);
             }}
           >
-            <Text style={[styles.tabText, activeTab === 'public' && styles.activeTabText]}>Public Resources</Text>
+            <Text style={[styles.tabText, activeTab === 'public' && styles.activeTabText]}>Public</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'personal' && styles.activeTab]}
@@ -319,7 +327,7 @@ export default function ResourcesScreen() {
               setCurrentFolder(null);
             }}
           >
-            <Text style={[styles.tabText, activeTab === 'personal' && styles.activeTabText]}>Personal Resources</Text>
+            <Text style={[styles.tabText, activeTab === 'personal' && styles.activeTabText]}>Personal</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -332,33 +340,21 @@ export default function ResourcesScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Search & Description - Hide description inside folders to save space */}
-      {(!currentFolder) && (
-        <View style={styles.descriptionContainer}>
-          <Text style={[styles.descriptionText, { color: theme.colors.text }]}>
-            {activeTab === 'public' 
-              ? "Access and manage all your educational resources here."
-              : "Keep your private study materials and notes here. Only you can see these."}
-          </Text>
-          <TouchableOpacity onPress={() => setInfoModalVisible(true)} style={styles.infoButton}>
-            <FontAwesomeIcon icon={faInfoCircle} size={18} color={theme.colors.primary} />
-          </TouchableOpacity>
-        </View>
-      )}
-
       {loading ? (
         <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8, marginBottom: 20 }} />
       ) : (
-        <TextInput
-          style={[styles.searchInput, { color: theme.colors.text, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.inputBackground }]}
-          placeholder="Search resources..."
-          placeholderTextColor={theme.colors.placeholder}
-          value={searchTerm}
-          onChangeText={(text) => {
-            setSearchTerm(text);
-            if (text) setCurrentFolder(null); // Reset folder when searching
-          }}
-        />
+        <View style={{ paddingHorizontal: 16 }}>
+             <TextInput
+            style={[styles.searchInput, { color: theme.colors.text, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.inputBackground }]}
+            placeholder="Search resources..."
+            placeholderTextColor={theme.colors.placeholder}
+            value={searchTerm}
+            onChangeText={(text) => {
+                setSearchTerm(text);
+                if (text) setCurrentFolder(null); 
+            }}
+            />
+        </View>
       )}
 
       {/* Controls - Only show in file list view (search or inside folder) */}
@@ -390,7 +386,7 @@ export default function ResourcesScreen() {
 
       <ScrollView 
         style={styles.scrollView} 
-        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 20, paddingHorizontal: 16 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} tintColor={theme.colors.primary} />
         }
@@ -480,20 +476,49 @@ export default function ResourcesScreen() {
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#fff' },
+  heroContainer: {
+    padding: 20,
+    marginBottom: 0,
+    elevation: 0,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  heroContent: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+  },
+  heroTextContainer: {
+      flex: 1,
+      paddingRight: 10,
+  },
+  heroTitle: {
+      color: '#fff',
+      fontSize: 24,
+      fontWeight: '800',
+      marginBottom: 6,
+  },
+  heroDescription: {
+      color: '#e0e7ff',
+      fontSize: 14,
+  },
+  infoButton: { padding: 5, marginLeft: 5 },
+  
   headerContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   headerIcon: { marginRight: 10 },
   descriptionContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   descriptionText: { fontSize: 14, color: '#555', flex: 1 },
-  infoButton: { padding: 5, marginLeft: 5 },
-  container: { padding: 16, flex: 1, backgroundColor: '#fff' },
-  header: { fontSize: 22, fontWeight: '700' },
+
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: '#F0F0F0',
     borderRadius: 12,
     padding: 4,
-    marginBottom: 20,
+    marginBottom: 10,
+    marginTop: 16,
+    marginHorizontal: 16,
   },
   tab: {
     flex: 1,
@@ -503,11 +528,9 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     backgroundColor: '#fff',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    elevation: 0,
+    borderWidth: 1,
+    borderColor: '#eee',
   },
   tabText: {
     fontSize: 14,
@@ -517,8 +540,21 @@ const styles = StyleSheet.create({
   activeTabText: {
     color: '#007AFF',
   },
-  addButton: { flexDirection: 'row', backgroundColor: '#007AFF', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  addButtonText: { color: '#fff', fontWeight: '600', marginLeft: 8 },
+  addButton: { 
+      flexDirection: 'row', 
+      backgroundColor: '#fff', 
+      paddingVertical: 8, 
+      paddingHorizontal: 12, 
+      borderRadius: 20, 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+  },
+  addButtonText: { color: '#4f46e5', fontWeight: '600', marginLeft: 8, fontSize: 14 },
+  
   card: { flexDirection: 'row', backgroundColor: '#f8f8f8', padding: 15, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#eee' },
   title: { fontSize: 16, fontWeight: '700' },
   description: { color: '#555', marginVertical: 4, fontSize: 13 },
@@ -546,16 +582,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 15,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.23,
-    shadowRadius: 2.62,
     borderWidth: 1,
     borderColor: '#eee',
+    elevation: 0,
   },
   voteCount: { marginLeft: 4, marginRight: 8, fontSize: 12, fontWeight: '600', color: '#555' },
-  controlsContainer: { flexDirection: 'row', marginBottom: 15 },
+  controlsContainer: { flexDirection: 'row', marginBottom: 15, paddingHorizontal: 16 },
   controlButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -587,11 +619,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#eee',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    elevation: 0,
   },
   folderName: {
     fontSize: 16,
@@ -608,6 +636,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
     paddingVertical: 5,
+    paddingHorizontal: 16,
   },
   backButtonText: {
     fontSize: 16,

@@ -5,7 +5,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { useGamification } from '../../context/GamificationContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faPaperPlane, faPaperclip, faImage, faArrowLeft, faUser, faEllipsisV, faArrowDown, faSearch, faThumbtack, faTimes, faPen, faBan, faReply, faSmile, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faPaperPlane, faPaperclip, faImage, faArrowLeft, faUser, faEllipsisV, faArrowDown, faSearch, faThumbtack, faTimes, faPen, faBan, faReply, faSmile, faPlus, faChevronLeft } from '@fortawesome/free-solid-svg-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
@@ -29,7 +29,7 @@ export default function ChatRoomScreen({ route, navigation }) {
     const { theme } = useTheme();
     const { showToast } = useToast();
     const insets = useSafeAreaInsets();
-    
+
     const [inputText, setInputText] = useState('');
     const [sending, setSending] = useState(false);
     const [recipientLastReadAt, setRecipientLastReadAt] = useState(null);
@@ -61,7 +61,6 @@ export default function ChatRoomScreen({ route, navigation }) {
 
     const flatListRef = useRef();
 
-    // Sticker Detection
     const allStickersList = useMemo(() => Object.values(STICKER_PACKS).flatMap(pack => pack.stickers), []);
     const availableStickers = useMemo(() => ownedStickerPacks?.flatMap(pack => STICKER_PACKS[pack.image_url]?.stickers || []) || [], [ownedStickerPacks]);
 
@@ -158,9 +157,9 @@ export default function ChatRoomScreen({ route, navigation }) {
 
     const handleSend = async () => {
         if (!inputText.trim() && !attachment) return;
-        
+
         const content = inputText.trim() || (attachment ? (attachment.type === 'image' ? 'Sent an image' : 'Sent a file') : '');
-        
+
         if (editingMessage && !attachment) {
             await editMessage(editingMessage.id, content);
             setEditingMessage(null);
@@ -171,7 +170,7 @@ export default function ChatRoomScreen({ route, navigation }) {
         setInputText('');
         setReplyingTo(null);
         setSending(true);
-        
+
         try {
             let attachments = [];
             if (attachment) {
@@ -239,24 +238,29 @@ export default function ChatRoomScreen({ route, navigation }) {
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
-            {/* Header */}
-            <View style={[styles.chatHeader, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.cardBorder, zIndex: 10 }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            {/* Cleaner Header */}
+            <View style={[styles.chatHeader, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.cardBorder, borderBottomWidth: 1, zIndex: 10, paddingTop: 10 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingHorizontal: 16 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 10, marginRight: 5 }}>
-                            <FontAwesomeIcon icon={faArrowLeft} size={20} color={theme.colors.text} />
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, marginRight: 8 }}>
+                            <FontAwesomeIcon icon={faChevronLeft} size={20} color={theme.colors.text} />
                         </TouchableOpacity>
                         <AnimatedAvatarBorder
                             avatarSource={avatar ? { uri: avatar } : defaultUserImage}
-                            size={32}
+                            size={36}
                             borderStyle={equippedItem ? BORDER_STYLES[equippedItem.image_url] : {}}
                             isRainbow={equippedItem && BORDER_STYLES[equippedItem.image_url]?.rainbow}
                             isAnimated={equippedItem && BORDER_STYLES[equippedItem.image_url]?.animated}
                         />
-                        <Text style={[styles.chatHeaderTitle, { color: theme.colors.text, marginLeft: 10 }]} numberOfLines={1}>{name}</Text>
+                        <View style={{ marginLeft: 12, flex: 1 }}>
+                            <Text style={[styles.chatHeaderTitle, { color: theme.colors.text }]} numberOfLines={1}>{name}</Text>
+                            {Object.keys(typingUsers).length > 0 && (
+                                <Text style={{ fontSize: 10, color: '#10b981', fontWeight: 'bold' }}>typing...</Text>
+                            )}
+                        </View>
                     </View>
-                    <TouchableOpacity style={{ padding: 10 }} onPress={() => setIsSearching(!isSearching)}>
-                        <FontAwesomeIcon icon={isSearching ? faTimes : faSearch} size={20} color={theme.colors.text} />
+                    <TouchableOpacity style={{ padding: 8 }} onPress={() => setIsSearching(!isSearching)}>
+                        <FontAwesomeIcon icon={isSearching ? faTimes : faSearch} size={18} color={theme.colors.placeholder} />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -266,11 +270,11 @@ export default function ChatRoomScreen({ route, navigation }) {
                 data={uniqueMessages}
                 keyExtractor={item => item.id}
                 renderItem={renderMessage}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={[styles.listContent, { paddingBottom: 20 }]}
                 inverted
                 onEndReached={() => hasMoreMessages && fetchOlderMessages(channelId)}
                 onEndReachedThreshold={0.5}
-                removeClippedSubviews={Platform.OS === 'android'} // Often causes issues on iOS with inverted lists, test carefully or restrict to Android
+                removeClippedSubviews={Platform.OS === 'android'}
                 initialNumToRender={15}
                 maxToRenderPerBatch={10}
                 windowSize={10}
@@ -278,9 +282,9 @@ export default function ChatRoomScreen({ route, navigation }) {
 
             {/* Sticker Picker */}
             {showStickerPicker && (
-                <View style={[styles.stickerPicker, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                <View style={[styles.stickerPicker, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.cardBorder, borderTopWidth: 1 }]}>
                     <View style={styles.stickerPickerHeader}>
-                        <Text style={[styles.stickerPickerTitle, { color: theme.colors.textSecondary }]}>YOUR STICKERS</Text>
+                        <Text style={[styles.stickerPickerTitle, { color: theme.colors.placeholder }]}>YOUR STICKERS</Text>
                         <TouchableOpacity onPress={() => setShowStickerPicker(false)}>
                             <FontAwesomeIcon icon={faTimes} size={16} color={theme.colors.placeholder} />
                         </TouchableOpacity>
@@ -289,11 +293,11 @@ export default function ChatRoomScreen({ route, navigation }) {
                         <View style={styles.stickerGrid}>
                             {availableStickers.map((sticker, i) => (
                                 <TouchableOpacity key={i} onPress={() => handleSendSticker(sticker)} style={styles.stickerItem}>
-                                    <Text style={{ fontSize: 32 }}>{sticker}</Text>
+                                    <Text style={{ fontSize: 36 }}>{sticker}</Text>
                                 </TouchableOpacity>
                             ))}
                             {availableStickers.length === 0 && (
-                                <Text style={{ color: theme.colors.placeholder, fontStyle: 'italic' }}>No sticker packs unlocked.</Text>
+                                <Text style={{ color: theme.colors.placeholder, fontStyle: 'italic', fontSize: 12 }}>Visit the shop to unlock stickers!</Text>
                             )}
                         </View>
                     </ScrollView>
@@ -302,60 +306,63 @@ export default function ChatRoomScreen({ route, navigation }) {
 
             {/* Attachment Preview */}
             {attachment && (
-                <View style={[styles.attachmentPreview, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                <View style={[styles.attachmentPreview, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         {attachment.type === 'image' ? (
-                            <Image source={{ uri: attachment.uri }} style={{ width: 48, height: 48, borderRadius: 8, marginRight: 12 }} />
+                            <Image source={{ uri: attachment.uri }} style={{ width: 50, height: 50, borderRadius: 12, marginRight: 12 }} />
                         ) : (
-                            <View style={{ width: 48, height: 48, borderRadius: 8, backgroundColor: theme.colors.primary + '15', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-                                <FontAwesomeIcon icon={faPaperclip} size={24} color={theme.colors.primary} />
+                            <View style={{ width: 50, height: 50, borderRadius: 12, backgroundColor: theme.colors.primary + '15', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                                <FontAwesomeIcon icon={faPaperclip} size={20} color={theme.colors.primary} />
                             </View>
                         )}
                         <View style={{ flex: 1, marginRight: 10 }}>
                             <Text style={{ color: theme.colors.text, fontWeight: 'bold', fontSize: 14 }} numberOfLines={1}>{attachment.name}</Text>
-                            <Text style={{ color: theme.colors.textSecondary, fontSize: 12, marginTop: 2 }}>
-                                {attachment.type === 'image' ? 'Image' : 'Document'} • {(attachment.size / 1024).toFixed(1)} KB
+                            <Text style={{ color: theme.colors.placeholder, fontSize: 11, marginTop: 2, fontWeight: '600' }}>
+                                {attachment.type.toUpperCase()}
                             </Text>
                         </View>
-                        <TouchableOpacity 
-                            onPress={() => setAttachment(null)} 
-                            style={{ 
-                                padding: 8, 
-                                backgroundColor: theme.colors.background, 
-                                borderRadius: 20,
-                                elevation: 1
+                        <TouchableOpacity
+                            onPress={() => setAttachment(null)}
+                            style={{
+                                width: 32, height: 32,
+                                backgroundColor: theme.colors.background,
+                                borderRadius: 16,
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                borderWidth: 1,
+                                borderColor: theme.colors.cardBorder
                             }}
                         >
-                            <FontAwesomeIcon icon={faTimes} size={14} color={theme.colors.textSecondary} />
+                            <FontAwesomeIcon icon={faTimes} size={12} color={theme.colors.text} />
                         </TouchableOpacity>
                     </View>
                 </View>
             )}
 
-            {/* Attach Menu with Backdrop */}
+            {/* Attach Menu */}
             {showAttachMenu && (
                 <>
-                    <TouchableOpacity 
-                        style={styles.menuBackdrop} 
-                        activeOpacity={1} 
+                    <TouchableOpacity
+                        style={styles.menuBackdrop}
+                        activeOpacity={1}
                         onPress={() => setShowAttachMenu(false)}
                     />
-                    <View style={[styles.attachMenu, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                    <View style={[styles.attachMenu, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                         <TouchableOpacity onPress={handlePickImage} style={styles.attachMenuItem}>
-                            <View style={[styles.attachIconBox, { backgroundColor: '#4CAF50' }]}>
-                                <FontAwesomeIcon icon={faImage} size={24} color="#fff" />
+                            <View style={[styles.attachIconBox, { backgroundColor: '#10b981' }]}>
+                                <FontAwesomeIcon icon={faImage} size={22} color="#fff" />
                             </View>
                             <Text style={[styles.attachLabel, { color: theme.colors.text }]}>Gallery</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={handlePickDocument} style={styles.attachMenuItem}>
-                            <View style={[styles.attachIconBox, { backgroundColor: '#2196F3' }]}>
-                                <FontAwesomeIcon icon={faPaperclip} size={24} color="#fff" />
+                            <View style={[styles.attachIconBox, { backgroundColor: '#3b82f6' }]}>
+                                <FontAwesomeIcon icon={faPaperclip} size={22} color="#fff" />
                             </View>
                             <Text style={[styles.attachLabel, { color: theme.colors.text }]}>File</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => { setShowStickerPicker(true); setShowAttachMenu(false); }} style={styles.attachMenuItem}>
-                            <View style={[styles.attachIconBox, { backgroundColor: '#FF9800' }]}>
-                                <Text style={{ fontSize: 24 }}>✨</Text>
+                            <View style={[styles.attachIconBox, { backgroundColor: '#f59e0b' }]}>
+                                <Text style={{ fontSize: 22 }}>✨</Text>
                             </View>
                             <Text style={[styles.attachLabel, { color: theme.colors.text }]}>Stickers</Text>
                         </TouchableOpacity>
@@ -363,14 +370,17 @@ export default function ChatRoomScreen({ route, navigation }) {
                 </>
             )}
 
-            {/* Input */}
-            <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border, paddingBottom: Math.max(insets.bottom, 10) }]}>
+            {/* Input area */}
+            <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.cardBorder, borderTopWidth: 1, paddingBottom: Math.max(insets.bottom, 12), paddingTop: 12 }]}>
                 <TouchableOpacity onPress={() => setShowAttachMenu(!showAttachMenu)} style={styles.attachButton}>
-                    <FontAwesomeIcon icon={faPlus} size={20} color={theme.colors.primary} />
+                    <View style={[styles.plusIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                        <FontAwesomeIcon icon={faPlus} size={18} color={theme.colors.primary} />
+                    </View>
                 </TouchableOpacity>
                 <TextInput
-                    style={[styles.input, { backgroundColor: theme.colors.background, color: theme.colors.text }]}
+                    style={[styles.input, { backgroundColor: theme.colors.background, color: theme.colors.text, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
                     placeholder="Type a message..."
+                    placeholderTextColor={theme.colors.placeholder}
                     value={inputText}
                     onChangeText={(text) => { setInputText(text); sendTypingEvent(channelId); }}
                     multiline
@@ -379,7 +389,7 @@ export default function ChatRoomScreen({ route, navigation }) {
                     {sending ? (
                         <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                        <FontAwesomeIcon icon={faPaperPlane} size={16} color="#fff" />
+                        <FontAwesomeIcon icon={faPaperPlane} size={14} color="#fff" />
                     )}
                 </TouchableOpacity>
             </View>
@@ -412,13 +422,12 @@ const MessageBubble = ({ message, theme, currentUser, recipientLastReadAt, allSt
 
     const isMe = currentUser?.id === message.sender_id;
     const isSticker = !message.attachments?.length && allStickers.includes(message.content);
-    
+
     const equipped = message.sender?.equippedItems || {};
     const nameStyle = equipped.nameColor ? NAME_COLOR_STYLES[equipped.nameColor.image_url] : null;
     const titleStyle = equipped.title ? TITLE_STYLES[equipped.title.image_url] : null;
     const bubbleStyle = equipped.bubbleStyle ? BUBBLE_STYLES[equipped.bubbleStyle.image_url] : null;
 
-    // Reactions Logic
     const reactions = message.message_reactions || [];
     const reactionCounts = reactions.reduce((acc, curr) => {
         acc[curr.emoji] = (acc[curr.emoji] || 0) + 1;
@@ -429,7 +438,6 @@ const MessageBubble = ({ message, theme, currentUser, recipientLastReadAt, allSt
     const renderAttachment = () => {
         if (!message.attachments?.length) return null;
         const attachment = message.attachments[0];
-        // Check if it's an image based on type or extension
         const isImage = attachment.type === 'image' || (attachment.name && /\.(jpg|jpeg|png|gif|webp)$/i.test(attachment.name));
 
         if (isImage) {
@@ -437,23 +445,23 @@ const MessageBubble = ({ message, theme, currentUser, recipientLastReadAt, allSt
         }
 
         return (
-            <TouchableOpacity style={{ 
-                flexDirection: 'row', 
-                alignItems: 'center', 
-                backgroundColor: 'rgba(0,0,0,0.1)', 
-                padding: 10, 
-                borderRadius: 8, 
-                marginBottom: 5 
+            <TouchableOpacity style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: 'rgba(0,0,0,0.05)',
+                padding: 12,
+                borderRadius: 12,
+                marginBottom: 8
             }}>
-                <View style={{ width: 30, height: 30, backgroundColor: '#fff', borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-                    <FontAwesomeIcon icon={faPaperclip} size={14} color={theme.colors.primary} />
+                <View style={{ width: 36, height: 36, backgroundColor: '#fff', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                    <FontAwesomeIcon icon={faPaperclip} size={16} color={theme.colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                    <Text style={{ color: isMe ? '#fff' : theme.colors.text, fontWeight: 'bold' }} numberOfLines={1}>
+                    <Text style={{ color: isMe ? '#fff' : theme.colors.text, fontWeight: '700', fontSize: 13 }} numberOfLines={1}>
                         {attachment.name || 'Attachment'}
                     </Text>
-                    <Text style={{ color: isMe ? 'rgba(255,255,255,0.7)' : theme.colors.textSecondary, fontSize: 10 }}>
-                        Tap to view
+                    <Text style={{ color: isMe ? 'rgba(255,255,255,0.7)' : theme.colors.placeholder, fontSize: 10, fontWeight: '600' }}>
+                        DOWNLOAD
                     </Text>
                 </View>
             </TouchableOpacity>
@@ -468,12 +476,12 @@ const MessageBubble = ({ message, theme, currentUser, recipientLastReadAt, allSt
         const bubbleBody = (
             <View style={[
                 styles.bubble,
-                { backgroundColor: isMe ? theme.colors.primary : theme.colors.surface },
+                { backgroundColor: isMe ? theme.colors.primary : theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: isMe ? 0 : 1 },
                 bubbleStyle && { backgroundColor: bubbleStyle.backgroundColor, borderColor: bubbleStyle.borderColor, borderWidth: bubbleStyle.borderWidth, borderRadius: bubbleStyle.borderRadius }
             ]}>
                 {renderAttachment()}
                 {message.content ? (
-                    <Text style={[{ color: isMe ? '#fff' : theme.colors.text, fontSize: 16 }, bubbleStyle && { color: bubbleStyle.textColor }]}>
+                    <Text style={[{ color: isMe ? '#fff' : theme.colors.text, fontSize: 15, lineHeight: 20 }, bubbleStyle && { color: bubbleStyle.textColor }]}>
                         {message.content}
                     </Text>
                 ) : null}
@@ -482,14 +490,14 @@ const MessageBubble = ({ message, theme, currentUser, recipientLastReadAt, allSt
 
         if (bubbleStyle?.gradient) {
             return (
-                <LinearGradient 
-                    colors={bubbleStyle.gradient} 
-                    start={{x: 0, y: 0}} 
-                    end={{x: 1, y: 0}} 
-                    style={[styles.bubble, bubbleStyle.borderRadius && { borderRadius: bubbleStyle.borderRadius }]}
+                <LinearGradient
+                    colors={bubbleStyle.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.bubble, { borderRadius: bubbleStyle.borderRadius || 18 }]}
                 >
                     {renderAttachment()}
-                    {message.content ? <Text style={{ color: bubbleStyle.textColor || '#fff', fontSize: 16 }}>{message.content}</Text> : null}
+                    {message.content ? <Text style={{ color: bubbleStyle.textColor || '#fff', fontSize: 15, lineHeight: 20 }}>{message.content}</Text> : null}
                 </LinearGradient>
             );
         }
@@ -498,10 +506,10 @@ const MessageBubble = ({ message, theme, currentUser, recipientLastReadAt, allSt
     };
 
     return (
-        <View style={[styles.bubbleContainer, isMe ? { alignSelf: 'flex-end' } : { alignSelf: 'flex-start' }, { marginBottom: Object.keys(reactionCounts).length > 0 ? 20 : 15 }]}>
+        <View style={[styles.bubbleContainer, isMe ? { alignSelf: 'flex-end' } : { alignSelf: 'flex-start' }, { marginBottom: Object.keys(reactionCounts).length > 0 ? 24 : 16 }]}>
             {!isMe && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 }}>
-                    <Text style={[styles.senderName, nameStyle?.style]}>{message.sender?.full_name || 'Unknown'}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4, marginLeft: 4 }}>
+                    <Text style={[styles.senderName, { color: theme.colors.placeholder }, nameStyle?.style]}>{message.sender?.full_name || 'Unknown'}</Text>
                     {titleStyle && (
                         <View style={[styles.titleTag, { backgroundColor: titleStyle.colors.bg }]}>
                             <Text style={[styles.titleTagText, { color: titleStyle.colors.text }]}>{titleStyle.label}</Text>
@@ -509,42 +517,22 @@ const MessageBubble = ({ message, theme, currentUser, recipientLastReadAt, allSt
                     )}
                 </View>
             )}
-            
+
             <View>
                 {renderBubbleContent()}
-                
-                {/* Reactions Row - Half off, half on, right aligned */}
+
                 {Object.keys(reactionCounts).length > 0 && (
-                    <View style={{ 
-                        flexDirection: 'row', 
-                        flexWrap: 'wrap', 
-                        gap: 4, 
-                        position: 'absolute',
-                        bottom: -12,
-                        right: -6,
-                        zIndex: 10
-                    }}>
+                    <View style={styles.reactionsRow}>
                         {Object.entries(reactionCounts).map(([emoji, count]) => {
                             const iReacted = myReactions.has(emoji);
                             return (
-                                <TouchableOpacity 
-                                    key={emoji} 
+                                <TouchableOpacity
+                                    key={emoji}
                                     onPress={() => onReaction(emoji)}
-                                    style={{
+                                    style={[styles.reactionBadge, {
                                         backgroundColor: iReacted ? theme.colors.primary : theme.colors.surface,
-                                        borderColor: theme.colors.border,
-                                        borderWidth: 1,
-                                        borderRadius: 12,
-                                        paddingHorizontal: 6,
-                                        paddingVertical: 2,
-                                        flexDirection: 'row',
-                                        alignItems: 'center',
-                                        elevation: 2,
-                                        shadowColor: '#000',
-                                        shadowOffset: { width: 0, height: 1 },
-                                        shadowOpacity: 0.2,
-                                        shadowRadius: 1,
-                                    }}
+                                        borderColor: theme.colors.cardBorder,
+                                    }]}
                                 >
                                     <Text style={{ fontSize: 10, color: iReacted ? '#fff' : theme.colors.text }}>
                                         {emoji} {count > 1 ? count : ''}
@@ -556,7 +544,7 @@ const MessageBubble = ({ message, theme, currentUser, recipientLastReadAt, allSt
                 )}
             </View>
 
-            <Text style={[styles.timestamp, { marginTop: Object.keys(reactionCounts).length > 0 ? 12 : 4 }]}>
+            <Text style={[styles.timestamp, { color: theme.colors.placeholder }]}>
                 {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </Text>
         </View>
@@ -565,36 +553,32 @@ const MessageBubble = ({ message, theme, currentUser, recipientLastReadAt, allSt
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    chatHeader: { paddingVertical: 10, paddingHorizontal: 15, borderBottomWidth: 1 },
-    chatHeaderTitle: { fontSize: 18, fontWeight: 'bold' },
+    chatHeader: { paddingBottom: 12, elevation: 0 },
+    chatHeaderTitle: { fontSize: 17, fontWeight: '800' },
     listContent: { padding: 16 },
-    inputContainer: { flexDirection: 'row', padding: 10, alignItems: 'center' },
-    input: { flex: 1, borderRadius: 20, paddingHorizontal: 15, paddingVertical: 8, marginHorizontal: 10, maxHeight: 100 },
-    attachButton: { padding: 5 },
-    sendButton: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-    stickerPicker: { padding: 15, borderTopWidth: 1, height: 120 },
-    stickerPickerHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-    stickerPickerTitle: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-    stickerGrid: { flexDirection: 'row', gap: 15 },
-    stickerItem: { padding: 5 },
-    bubbleContainer: { marginBottom: 15, maxWidth: '85%' },
-    bubble: { borderRadius: 18, padding: 12, elevation: 1 },
-    senderName: { fontSize: 12, fontWeight: 'bold' },
-    timestamp: { fontSize: 9, color: '#999', marginTop: 4, alignSelf: 'flex-end' },
-    attachmentImage: { width: 200, height: 150, borderRadius: 10, marginBottom: 8 },
+    inputContainer: { flexDirection: 'row', paddingHorizontal: 16, alignItems: 'center' },
+    input: { flex: 1, borderRadius: 24, paddingHorizontal: 16, paddingVertical: 10, marginHorizontal: 12, maxHeight: 120, fontSize: 15, fontWeight: '500' },
+    attachButton: { padding: 4 },
+    plusIconBox: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+    sendButton: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+    stickerPicker: { padding: 16, height: 140 },
+    stickerPickerHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+    stickerPickerTitle: { fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
+    stickerGrid: { flexDirection: 'row', gap: 16 },
+    stickerItem: { padding: 4 },
+    bubbleContainer: { maxWidth: '85%' },
+    bubble: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, elevation: 0 },
+    senderName: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+    timestamp: { fontSize: 9, marginTop: 4, alignSelf: 'flex-end', fontWeight: '600' },
+    attachmentImage: { width: 220, height: 160, borderRadius: 14, marginBottom: 8 },
     titleTag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
     titleTagText: { fontSize: 8, fontWeight: '900', textTransform: 'uppercase' },
     attachmentPreview: {
-        marginHorizontal: 10,
-        marginBottom: 10,
-        padding: 10,
-        borderRadius: 12,
-        borderWidth: 1,
-        elevation: 3,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        marginHorizontal: 16,
+        marginBottom: 12,
+        padding: 12,
+        borderRadius: 16,
+        elevation: 0,
     },
     menuBackdrop: {
         position: 'absolute',
@@ -602,41 +586,55 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.2)', // Semi-transparent dimming
+        backgroundColor: 'rgba(0,0,0,0.1)',
         zIndex: 99,
     },
     attachMenu: {
         flexDirection: 'row',
-        padding: 20,
+        padding: 24,
         justifyContent: 'space-around',
-        borderRadius: 16,
+        borderRadius: 24,
         marginHorizontal: 16,
-        marginBottom: 80, // Sit above input
+        marginBottom: 90,
         position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
         zIndex: 100,
-        elevation: 5,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
+        elevation: 0,
     },
     attachMenuItem: {
         alignItems: 'center',
     },
     attachIconBox: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
+        width: 52,
+        height: 52,
+        borderRadius: 18,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 8,
-        elevation: 2,
     },
     attachLabel: {
-        fontSize: 12,
-        fontWeight: '600',
+        fontSize: 11,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    reactionsRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 4,
+        position: 'absolute',
+        bottom: -12,
+        right: -4,
+        zIndex: 10
+    },
+    reactionBadge: {
+        borderWidth: 1,
+        borderRadius: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        flexDirection: 'row',
+        alignItems: 'center',
     }
 });

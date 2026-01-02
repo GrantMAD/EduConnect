@@ -50,46 +50,46 @@ const DashboardStats = ({
             {/* User Statistics */}
             <View style={styles.section}>
                 <WalkthroughTarget id="dashboard-stats">
-                    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>User Statistics</Text>
-                    <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Overview of all users in your school</Text>
+                    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Identity Metrics</Text>
+                    <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>ACTIVE MEMBERS ACROSS ALL ROLES</Text>
                     <View style={styles.statsGrid}>
                         <StatCard
                             icon={faUsers}
-                            title="Total Users"
+                            title="TOTAL USERS"
                             value={stats.totalUsers}
-                            color="#007AFF"
+                            color="#4f46e5"
                             onPress={() => fetchUsersByCategory('total')}
                             loading={loading}
                         />
                         <StatCard
                             icon={faUserTie}
-                            title="Admins"
+                            title="ADMINS"
                             value={stats.adminCount}
-                            color="#FF3B30"
+                            color="#e11d48"
                             onPress={() => fetchUsersByCategory('admin')}
                             loading={loading}
                         />
                         <StatCard
                             icon={faChalkboardTeacher}
-                            title="Teachers"
+                            title="TEACHERS"
                             value={stats.teacherCount}
-                            color="#34C759"
+                            color="#3b82f6"
                             onPress={() => fetchUsersByCategory('teacher')}
                             loading={loading}
                         />
                         <StatCard
                             icon={faUserGraduate}
-                            title="Students"
+                            title="STUDENTS"
                             value={stats.studentCount}
-                            color="#5856D6"
+                            color="#10b981"
                             onPress={() => fetchUsersByCategory('student')}
                             loading={loading}
                         />
                         <StatCard
                             icon={faChild}
-                            title="Parents"
+                            title="PARENTS"
                             value={stats.parentCount}
-                            color="#FF9500"
+                            color="#f59e0b"
                             onPress={() => fetchUsersByCategory('parent')}
                             loading={loading}
                         />
@@ -99,62 +99,54 @@ const DashboardStats = ({
 
             {/* Content & Activity */}
             <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Content & Activity</Text>
-                <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Track classes, announcements, and school activities</Text>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Platform Activity</Text>
+                <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>CURRICULUM & ENGAGEMENT METRICS</Text>
                 <View style={styles.statsGrid}>
                     <StatCard
                         icon={faBookOpen}
-                        title="Classes"
+                        title="CLASSES"
                         value={stats.totalClasses}
-                        color="#007AFF"
+                        color="#3b82f6"
                         onPress={() => fetchClasses()}
                         loading={loading}
                     />
                     <StatCard
                         icon={faFootballBall}
-                        title="Clubs"
+                        title="SOCIETIES"
                         value={stats.totalClubs}
-                        color="#AF52DE"
+                        color="#7c3aed"
                         onPress={() => fetchClubs()}
                         loading={loading}
                     />
                     <StatCard
                         icon={faBullhorn}
-                        title="Announcements"
+                        title="NEWS"
                         value={stats.totalAnnouncements}
-                        color="#FF3B30"
+                        color="#e11d48"
                         onPress={() => fetchContentByType('announcements')}
                         loading={loading}
                     />
                     <StatCard
                         icon={faClipboardList}
-                        title="Homework"
+                        title="TASKS"
                         value={stats.totalHomework}
-                        color="#34C759"
+                        color="#10b981"
                         onPress={() => fetchContentByType('homework')}
                         loading={loading}
                     />
                     <StatCard
-                        icon={faClipboardList}
-                        title="Assignments"
-                        value={stats.totalAssignments}
-                        color="#5856D6"
-                        onPress={() => fetchContentByType('assignments')}
-                        loading={loading}
-                    />
-                    <StatCard
                         icon={faPoll}
-                        title="Active Polls"
+                        title="POLLS"
                         value={stats.activePolls}
-                        color="#FF9500"
+                        color="#f59e0b"
                         onPress={() => fetchContentByType('polls')}
                         loading={loading}
                     />
                     <StatCard
                         icon={faShoppingCart}
-                        title="Marketplace"
+                        title="MARKET"
                         value={stats.totalMarketItems}
-                        color="#FF2D55"
+                        color="#db2777"
                         onPress={() => fetchContentByType('market')}
                         loading={loading}
                     />
@@ -169,13 +161,16 @@ const styles = StyleSheet.create({
         marginBottom: 32,
     },
     sectionTitle: {
-        fontSize: 20,
-        fontWeight: '600',
+        fontSize: 18,
+        fontWeight: '900',
         marginBottom: 4,
+        letterSpacing: -0.5,
     },
     sectionDescription: {
-        fontSize: 14,
-        marginBottom: 16,
+        fontSize: 9,
+        fontWeight: '900',
+        marginBottom: 20,
+        letterSpacing: 1,
     },
     statsGrid: {
         flexDirection: 'row',

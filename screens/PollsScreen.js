@@ -13,6 +13,7 @@ import PollVoteModal from '../components/PollVoteModal';
 import StandardBottomModal from '../components/StandardBottomModal';
 import { useGamification } from '../context/GamificationContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 
 export default function PollsScreen({ navigation, route }) {
   const [polls, setPolls] = useState([]);
@@ -23,7 +24,7 @@ export default function PollsScreen({ navigation, route }) {
   const [selectedPoll, setSelectedPoll] = useState(null);
   const [isVoteModalVisible, setIsVoteModalVisible] = useState(false);
   const [votingLoading, setVotingLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('active'); // 'active' or 'ended'
+  const [activeTab, setActiveTab] = useState('active');
   const [infoModalVisible, setInfoModalVisible] = useState(false);
 
   const tabAnim = useRef(new Animated.Value(0)).current;
@@ -33,7 +34,7 @@ export default function PollsScreen({ navigation, route }) {
     Animated.timing(tabAnim, {
       toValue: tab === 'active' ? 0 : 1,
       duration: 300,
-      useNativeDriver: false, // 'left' property is not supported by native driver
+      useNativeDriver: false,
     }).start();
   };
 
@@ -68,16 +69,14 @@ export default function PollsScreen({ navigation, route }) {
 
   const fetchPolls = async () => {
     try {
-      // Fetch polls and user's votes separately for better performance
       const [pollsResult, userVotesResult] = await Promise.all([
         supabase
           .from('polls')
           .select('id, question, options, end_date, created_at, users:created_by(full_name)')
           .eq('school_id', schoolId)
           .order('created_at', { ascending: false })
-          .limit(50),  // Pagination: Load first 50 polls
+          .limit(50),
 
-        // Only fetch current user's votes, not all votes
         userId ? supabase
           .from('poll_votes')
           .select('poll_id, selected_option')
@@ -87,7 +86,6 @@ export default function PollsScreen({ navigation, route }) {
 
       if (pollsResult.error) throw pollsResult.error;
 
-      // Merge user votes into polls data
       const pollsWithUserVotes = (pollsResult.data || []).map(poll => ({
         ...poll,
         poll_votes: userVotesResult.data?.filter(v => v.poll_id === poll.id) || []
@@ -129,7 +127,11 @@ export default function PollsScreen({ navigation, route }) {
       initializeScreen();
     } catch (error) {
       console.error('Error voting:', error);
-      alert('Failed to vote. Please try again.');
+      if (error.code === '23505') {
+        showToast('You have already voted on this poll', 'info');
+      } else {
+        alert('Failed to vote. Please try again.');
+      }
     } finally {
       setVotingLoading(false);
     }
@@ -151,7 +153,7 @@ export default function PollsScreen({ navigation, route }) {
 
   const renderPollCard = (item) => {
     if (loading) return <CardSkeleton />;
-    
+
     const isExpired = item.end_date ? new Date(item.end_date) < new Date() : false;
 
     return (
@@ -170,28 +172,35 @@ export default function PollsScreen({ navigation, route }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.headerContainer}>
-        <View style={styles.headerLeft}>
-          <FontAwesomeIcon icon={faPoll} size={24} color={theme.colors.primary} style={styles.headerIcon} />
-          <Text style={[styles.header, { color: theme.colors.text }]}>Polls</Text>
+      <LinearGradient
+        colors={['#4f46e5', '#4338ca']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroContainer}
+      >
+        <View style={styles.heroContent}>
+          <View style={styles.heroTextContainer}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.heroTitle}>Polls</Text>
+              <TouchableOpacity onPress={() => setInfoModalVisible(true)} style={styles.infoButton}>
+                <FontAwesomeIcon icon={faInfoCircle} size={16} color="rgba(255,255,255,0.7)" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.heroDescription}>
+              Participate in school polls and share your opinions.
+            </Text>
+          </View>
+          {(userRole === 'admin' || userRole === 'teacher') && (
+            <TouchableOpacity
+              style={styles.createButton}
+              onPress={() => navigation.navigate('CreatePoll')}
+            >
+              <FontAwesomeIcon icon={faPlus} size={14} color="#4f46e5" />
+              <Text style={styles.createButtonText}>New</Text>
+            </TouchableOpacity>
+          )}
         </View>
-        {(userRole === 'admin' || userRole === 'teacher') && (
-          <TouchableOpacity
-            style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
-            onPress={() => navigation.navigate('CreatePoll')}
-          >
-            <FontAwesomeIcon icon={faPlus} size={16} color="#fff" />
-            <Text style={styles.createButtonText}>Add new poll</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <View style={styles.descriptionContainer}>
-        <Text style={[styles.descriptionText, { color: theme.colors.text }]}>Participate in school polls and share your opinions.</Text>
-        <TouchableOpacity onPress={() => setInfoModalVisible(true)} style={styles.infoButton}>
-          <FontAwesomeIcon icon={faInfoCircle} size={18} color={theme.colors.primary} />
-        </TouchableOpacity>
-      </View>
+      </LinearGradient>
 
       <View style={styles.tabContainer}>
         <TouchableOpacity
@@ -223,7 +232,7 @@ export default function PollsScreen({ navigation, route }) {
       <FlatList
         data={loading ? [1, 2, 3] : getFilteredPolls()}
         keyExtractor={(item, index) => loading ? index.toString() : item.id.toString()}
-        contentContainerStyle={{ paddingBottom: 80 + insets.bottom, paddingTop: 10 }}
+        contentContainerStyle={{ paddingBottom: 80 + insets.bottom, paddingTop: 10, paddingHorizontal: 16 }}
         refreshing={refreshing}
         onRefresh={onRefresh}
         renderItem={({ item }) => renderPollCard(item)}
@@ -269,8 +278,6 @@ export default function PollsScreen({ navigation, route }) {
   );
 }
 
-// Sub-component for individual Poll Card to handle its own data fetching (votes) if needed, 
-// or just cleaner rendering.
 function PollCard({ item, userId, theme, onVotePress, isExpired }) {
   const [votes, setVotes] = useState([]);
   const [loadingVotes, setLoadingVotes] = useState(true);
@@ -280,7 +287,6 @@ function PollCard({ item, userId, theme, onVotePress, isExpired }) {
   }, [item.id]);
 
   const fetchVotes = async () => {
-    // Fetch ALL votes for this poll to calculate percentages
     const { data, error } = await supabase
       .from('poll_votes')
       .select('user_id, selected_option')
@@ -295,7 +301,6 @@ function PollCard({ item, userId, theme, onVotePress, isExpired }) {
   const userVote = votes.find(v => v.user_id === userId);
   const totalVotes = votes.length;
 
-  // Find winning option
   let winningOption = null;
   let maxVotes = -1;
 
@@ -315,7 +320,7 @@ function PollCard({ item, userId, theme, onVotePress, isExpired }) {
   }
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.dark ? '#282828' : '#fff', shadowColor: theme.dark ? '#000' : '#ccc' }]}>
+    <View style={[styles.card, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.border }]}>
       <View style={styles.cardContent}>
         <View style={styles.cardHeader}>
           <View style={{ flex: 1 }}>
@@ -326,11 +331,11 @@ function PollCard({ item, userId, theme, onVotePress, isExpired }) {
               </Text>
             </View>
             <Text style={[styles.cardTitle, { color: theme.colors.text }]} numberOfLines={2}>{item.question}</Text>
-            <Text style={[styles.authorText, { color: '#888', marginBottom: 4 }]}>by {item.users?.full_name || 'Unknown'}</Text>
+            <Text style={[styles.authorText, { color: theme.colors.placeholder, marginBottom: 4 }]}>by {item.users?.full_name || 'Unknown'}</Text>
             {item.end_date && (
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <FontAwesomeIcon icon={faClock} size={12} color={isExpired ? theme.colors.error : '#666'} />
-                <Text style={[styles.endDateText, { color: isExpired ? theme.colors.error : '#666', marginLeft: 4 }]}>
+                <FontAwesomeIcon icon={faClock} size={12} color={isExpired ? theme.colors.error : theme.colors.placeholder} />
+                <Text style={[styles.endDateText, { color: isExpired ? theme.colors.error : theme.colors.placeholder, marginLeft: 4 }]}>
                   {isExpired ? 'Ended' : 'Ends'} {new Date(item.end_date).toLocaleDateString()}
                 </Text>
               </View>
@@ -403,21 +408,60 @@ function PollCard({ item, userId, theme, onVotePress, isExpired }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  headerLeft: { flexDirection: 'row', alignItems: 'center' },
-  headerIcon: { marginRight: 10 },
-  header: { fontSize: 24, fontWeight: 'bold' },
-  createButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20 },
-  createButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 8, fontSize: 14 },
+  container: { flex: 1 },
+  heroContainer: {
+    padding: 20,
+    marginBottom: 0,
+    elevation: 0,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  heroContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  heroTextContainer: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  heroTitle: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  heroDescription: {
+    color: '#e0e7ff',
+    fontSize: 14,
+  },
+  infoButton: { padding: 5, marginLeft: 5 },
 
-  descriptionContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  descriptionText: { fontSize: 14, flex: 1 },
-  infoButton: { padding: 4, marginLeft: 4 },
+  createButton: {
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  createButtonText: { color: '#4f46e5', fontWeight: 'bold', marginLeft: 6, fontSize: 14 },
 
-  tabContainer: { flexDirection: 'row', marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#eee', position: 'relative' },
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 10,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    position: 'relative'
+  },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
-  activeTab: {}, // Removed border styles as they are handled by the indicator
+  activeTab: {},
   tabIndicator: {
     position: 'absolute',
     bottom: 0,
@@ -433,10 +477,8 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
     marginBottom: 16,
-    elevation: 2,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    borderWidth: 1,
+    elevation: 0, // Zero elevation
   },
   cardContent: { padding: 16 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },

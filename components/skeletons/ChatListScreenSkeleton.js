@@ -1,44 +1,19 @@
 import React from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
-import Animated,
-{
-    useSharedValue,
-    useAnimatedStyle,
-    withRepeat,
-    withTiming,
-    interpolate,
-} from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate } from 'react-native-reanimated';
 import { useTheme } from '../../context/ThemeContext';
+import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
-const SkeletonPiece = ({ style }) => {
-    const progress = useSharedValue(0);
+export { SkeletonPiece };
+
+const CustomSkeletonPiece = ({ style }) => {
     const { theme } = useTheme();
-
-    React.useEffect(() => {
-        progress.value = withRepeat(
-            withTiming(1, { duration: 1000 + Math.random() * 300 }),
-            -1,
-            true
-        );
-    }, []);
-
-    const animatedStyle = useAnimatedStyle(() => {
-        const opacity = interpolate(progress.value, [0, 1], [0.3, 0.7]);
-        return { opacity };
-    });
-
     return (
-        <Animated.View
-            style={[
-                {
-                    backgroundColor: theme.dark
-                        ? 'rgba(255,255,255,0.12)'
-                        : 'rgba(0,0,0,0.08)',
-                },
-                styles.skeleton,
-                animatedStyle,
-                style,
-            ]}
+        <SkeletonBase
+            style={style}
+            duration={1000 + Math.random() * 300}
+            opacityRange={[0.3, 0.7]}
+            backgroundColor={theme.dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)'}
         />
     );
 };
@@ -82,7 +57,7 @@ export const ChatListItemSkeleton = () => {
                     { backgroundColor: theme.colors.primary + '20' },
                 ]}
             >
-                <SkeletonPiece style={styles.avatar} />
+                <CustomSkeletonPiece style={styles.avatar} />
             </View>
 
             {/* Content */}
@@ -90,17 +65,17 @@ export const ChatListItemSkeleton = () => {
 
                 {/* Header */}
                 <View style={styles.headerRow}>
-                    <SkeletonPiece style={styles.name} />
+                    <CustomSkeletonPiece style={styles.name} />
 
                     <View style={styles.rightHeader}>
-                        <SkeletonPiece style={styles.newBadge} />
-                        <SkeletonPiece style={styles.time} />
+                        <CustomSkeletonPiece style={styles.newBadge} />
+                        <CustomSkeletonPiece style={styles.time} />
                     </View>
                 </View>
 
                 {/* Message lines */}
-                <SkeletonPiece style={styles.message} />
-                <SkeletonPiece style={styles.messageLine2} />
+                <CustomSkeletonPiece style={styles.message} />
+                <CustomSkeletonPiece style={styles.messageLine2} />
             </View>
         </Animated.View>
     );
@@ -122,11 +97,11 @@ const ChatListScreenSkeleton = () => {
         >
             {/* Header */}
             <View style={styles.screenHeader}>
-                <SkeletonPiece style={styles.headerIcon} />
-                <SkeletonPiece style={styles.headerTitle} />
+                <CustomSkeletonPiece style={styles.headerIcon} />
+                <CustomSkeletonPiece style={styles.headerTitle} />
             </View>
 
-            <SkeletonPiece style={styles.headerSubtitle} />
+            <CustomSkeletonPiece style={styles.headerSubtitle} />
 
             <FlatList
                 data={[1, 2, 3, 4, 5, 6, 7, 8]}
@@ -177,32 +152,26 @@ const styles = StyleSheet.create({
     /* Skeleton Card */
     itemContainer: {
         flexDirection: 'row',
-        padding: 12,
-        borderRadius: 12,
-        marginBottom: 10,
+        padding: 16,
+        borderRadius: 20,
+        marginBottom: 12,
         alignItems: 'center',
         borderWidth: 1,
-
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-        elevation: 2,
     },
 
     /* Avatar */
     iconContainer: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
+        width: 52,
+        height: 52,
+        borderRadius: 14,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
     },
     avatar: {
-        width: 46,
-        height: 46,
-        borderRadius: 23,
+        width: 48,
+        height: 48,
+        borderRadius: 12,
     },
 
     contentContainer: {
@@ -251,10 +220,6 @@ const styles = StyleSheet.create({
         width: '60%',
         height: 14,
         borderRadius: 4,
-    },
-
-    skeleton: {
-        overflow: 'hidden',
     },
 });
 

@@ -1,15 +1,37 @@
-import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet, Alert } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, ActivityIndicator, StyleSheet, Alert, Animated, Easing, Image, Dimensions } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useNavigation } from '@react-navigation/native';
 import { usePushNotification } from '../../context/PushNotificationContext';
+
+const { width } = Dimensions.get('window');
+const logo = require('../../assets/Logo.png');
 
 const AuthGate = () => {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const { registerForPushNotificationsAsync } = usePushNotification();
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    // Start pulse animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
     const checkSchoolId = async () => {
       const { data: { user }, error } = await supabase.auth.getUser();
 
@@ -20,7 +42,6 @@ const AuthGate = () => {
       }
 
       if (user) {
-        // Fetch user profile from 'users' table to get school_id
         const { data: userProfile, error: profileError } = await supabase
           .from('users')
           .select('school_id, role')
@@ -34,7 +55,6 @@ const AuthGate = () => {
         }
 
         if (userProfile) {
-          // Block Server Admins from Mobile App
           if (userProfile.role === 'server_admin') {
             Alert.alert(
               "Access Restricted",
@@ -50,7 +70,6 @@ const AuthGate = () => {
           }
 
           if (userProfile.school_id) {
-            // Register for push notifications before navigating to main app
             await registerForPushNotificationsAsync();
             navigation.replace('MainNavigation');
           } else if (userProfile.role !== 'user') {
@@ -59,9 +78,6 @@ const AuthGate = () => {
             navigation.replace('RoleSelection');
           }
         } else {
-          // This case should ideally not be reached if user is authenticated
-          // and a profile is always created on sign-up.
-          // But as a fallback, we can navigate to RoleSelection.
           navigation.replace('RoleSelection');
         }
       } else {
@@ -70,18 +86,23 @@ const AuthGate = () => {
       setLoading(false);
     };
 
-    checkSchoolId();
-  }, []); // Empty dependency array means it runs once on mount
+    // Keep the splash/logo visible for at least 2 seconds for effect
+    const timer = setTimeout(checkSchoolId, 2000);
+    return () => clearTimeout(timer);
+  }, []); 
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#000" />
+      <View style={styles.container}>
+        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+            <Image source={logo} style={styles.logo} resizeMode="contain" />
+        </Animated.View>
+        <ActivityIndicator size="small" color="#4f46e5" style={{ marginTop: 20 }} />
       </View>
     );
   }
 
-  return null; // Or a splash screen
+  return null; 
 };
 
 const styles = StyleSheet.create({
@@ -89,7 +110,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#fff',
   },
+  logo: {
+      width: width * 0.4,
+      height: width * 0.4,
+  }
 });
 
 export default AuthGate;

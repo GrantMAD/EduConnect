@@ -21,6 +21,8 @@ import UserListModal from '../components/UserListModal';
 import DashboardSkeleton from '../components/skeletons/DashboardScreenSkeleton';
 import ChildProgressSnapshot from '../components/ChildProgressSnapshot';
 import { useGamification } from '../context/GamificationContext';
+import LinearGradient from 'react-native-linear-gradient';
+import WalkthroughTarget from '../components/WalkthroughTarget';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -396,13 +398,23 @@ export default function DashboardScreen({ navigation }) {
                     </View>
                 )}
 
-                {/* Welcome Card */}
-                <View id="dashboard-welcome" style={[styles.welcomeCard, { backgroundColor: theme.colors.primary }]}>
-                    <View style={styles.welcomeContent}>
-                        <Text style={styles.welcomeTitle}>Welcome to ClassConnect</Text>
-                        <Text style={styles.welcomeSubtitle}>Your school's complete digital companion.</Text>
-                    </View>
-                </View>
+                {/* Welcome Card - Modern Gradient */}
+                <WalkthroughTarget id="dashboard-welcome">
+                     <LinearGradient
+                        colors={['#4f46e5', '#4338ca']} 
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.welcomeCard}
+                    >
+                        {/* Decorative Circle */}
+                        <View style={styles.decorativeCircle} />
+                        
+                        <View style={styles.welcomeContent}>
+                            <Text style={styles.welcomeTitle}>Welcome to ClassConnect</Text>
+                            <Text style={styles.welcomeSubtitle}>Your school's complete digital companion.</Text>
+                        </View>
+                    </LinearGradient>
+                </WalkthroughTarget>
 
                 {/* Gamification Hub */}
                 <GamificationHub id="dashboard-gamification" />
@@ -551,9 +563,25 @@ const styles = StyleSheet.create({
     dateText: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
     bannerContainer: { width: '100%', height: 120, borderRadius: 20, overflow: 'hidden', marginBottom: 20 },
     bannerImage: { width: '100%', height: '100%' },
-    welcomeCard: { padding: 24, borderRadius: 24, marginBottom: 20, overflow: 'hidden' },
-    welcomeTitle: { color: '#fff', fontSize: 20, fontWeight: '900', marginBottom: 4 },
-    welcomeSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: '600' },
+    welcomeCard: { 
+        padding: 24, 
+        borderRadius: 20, 
+        marginBottom: 20, 
+        overflow: 'hidden',
+        position: 'relative',
+        elevation: 0 // Explicitly 0
+    },
+    decorativeCircle: {
+        position: 'absolute',
+        right: -30,
+        bottom: -30,
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+    },
+    welcomeTitle: { color: '#fff', fontSize: 20, fontWeight: '900', marginBottom: 4, zIndex: 1 },
+    welcomeSubtitle: { color: 'rgba(255,255,255,0.9)', fontSize: 14, fontWeight: '600', zIndex: 1 },
     row: { flexDirection: 'row', gap: 16, marginBottom: 20 },
     fullWidth: { flex: 1 },
     statsSection: { marginTop: 10 },

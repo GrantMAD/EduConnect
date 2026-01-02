@@ -85,29 +85,36 @@ const DailyOverview = ({ loading, todaySessions, navigation }) => {
             <View style={styles.halfSection}>
                 <View style={styles.sectionHeaderRow}>
                     <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Schedule</Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('Calendar')}>
-                        <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.primary} />
+                    <TouchableOpacity onPress={() => navigation.navigate('Calendar')} activeOpacity={0.7}>
+                        <View style={[styles.viewAllBtn, { backgroundColor: theme.colors.primary + '10' }]}>
+                            <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.primary} />
+                        </View>
                     </TouchableOpacity>
                 </View>
-                <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>View your classes & clubs.</Text>
+                <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>TODAY'S CLASSES</Text>
                 {renderTodaySchedule()}
             </View>
 
             {/* Clubs Widget */}
             <View style={styles.halfSection}>
                 <View style={styles.sectionHeaderRow}>
-                    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Clubs</Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('ClubList')}>
-                        <FontAwesomeIcon icon={faChevronRight} size={14} color="#AF52DE" />
+                    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Societies</Text>
+                    <TouchableOpacity onPress={() => navigation.navigate('ClubList')} activeOpacity={0.7}>
+                        <View style={[styles.viewAllBtn, { backgroundColor: '#7c3aed' + '10' }]}>
+                            <FontAwesomeIcon icon={faChevronRight} size={10} color="#7c3aed" />
+                        </View>
                     </TouchableOpacity>
                 </View>
-                <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>Groups & teams.</Text>
+                <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>GROUPS & TEAMS</Text>
                 <TouchableOpacity
-                    style={[styles.actionButton, { width: '100%', margin: 0, backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, paddingVertical: 12 }]}
+                    style={[styles.clubActionBtn, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
                     onPress={() => navigation.navigate('ClubList')}
+                    activeOpacity={0.7}
                 >
-                    <FontAwesomeIcon icon={faFootballBall} size={18} color="#AF52DE" />
-                    <Text style={[styles.actionButtonText, { color: theme.colors.text, fontSize: 12 }]}>Explore Clubs</Text>
+                    <View style={[styles.clubIconBox, { backgroundColor: '#7c3aed' + '15' }]}>
+                        <FontAwesomeIcon icon={faFootballBall} size={16} color="#7c3aed" />
+                    </View>
+                    <Text style={[styles.clubBtnText, { color: theme.colors.text }]}>Explore Clubs</Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -118,7 +125,7 @@ const styles = StyleSheet.create({
     rowWidgets: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 24,
+        marginBottom: 32,
     },
     halfSection: {
         width: '48%',
@@ -127,21 +134,29 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 8,
     },
     sectionTitle: {
-        fontSize: 20,
-        fontWeight: '600',
-        marginBottom: 4,
+        fontSize: 18,
+        fontWeight: '900',
+        letterSpacing: -0.5,
+    },
+    viewAllBtn: {
+        width: 24,
+        height: 24,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     miniDescription: {
-        fontSize: 11,
-        marginBottom: 12,
-        marginTop: -8,
+        fontSize: 9,
+        fontWeight: '900',
+        marginBottom: 16,
+        letterSpacing: 1,
     },
     sessionItem: {
         padding: 12,
-        borderRadius: 12,
+        borderRadius: 16,
         borderWidth: 1,
         marginBottom: 8,
         position: 'relative',
@@ -151,18 +166,20 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     sessionClassName: {
-        fontSize: 12,
-        fontWeight: 'bold',
+        fontSize: 13,
+        fontWeight: '800',
     },
     sessionType: {
-        fontSize: 10,
+        fontSize: 9,
+        fontWeight: '900',
+        textTransform: 'uppercase',
     },
     sessionTimeContainer: {
         marginLeft: 4,
     },
     sessionStartTime: {
         fontSize: 11,
-        fontWeight: 'bold',
+        fontWeight: '900',
     },
     liveBadge: {
         position: 'absolute',
@@ -170,39 +187,45 @@ const styles = StyleSheet.create({
         right: -6,
         paddingHorizontal: 6,
         paddingVertical: 2,
-        borderRadius: 4,
+        borderRadius: 6,
+        borderWidth: 2,
+        borderColor: '#fff',
     },
     liveBadgeText: {
         color: 'white',
-        fontSize: 8,
-        fontWeight: 'bold',
+        fontSize: 7,
+        fontWeight: '900',
     },
     emptyWidget: {
         padding: 20,
-        borderRadius: 12,
+        borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
-        borderStyle: 'dashed',
         borderWidth: 1,
-        borderColor: '#ccc',
     },
     emptyText: {
         fontSize: 10,
+        fontWeight: '700',
         marginTop: 8,
         textAlign: 'center',
     },
-    actionButton: {
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        flexDirection: 'row',
+    clubActionBtn: {
+        padding: 12,
+        borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    actionButtonText: {
-        fontSize: 14,
-        fontWeight: '600',
-        marginLeft: 8,
+    clubIconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    clubBtnText: {
+        fontSize: 12,
+        fontWeight: '800',
     },
 });
 

@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { SkeletonPiece } from './DashboardScreenSkeleton';
+import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
+
+export { SkeletonPiece };
 
 const LeaderboardSkeleton = () => {
     const { theme } = useTheme();
@@ -12,20 +14,20 @@ const LeaderboardSkeleton = () => {
             style={[styles.userCard, { backgroundColor: theme.colors.card, borderBottomColor: theme.colors.cardBorder }]}
         >
             <View style={styles.rankContainer}>
-                <SkeletonPiece style={{ width: 20, height: 20, borderRadius: 10 }} />
+                <SkeletonBase style={{ width: 20, height: 20, borderRadius: 10 }} />
             </View>
 
             <View style={styles.avatarContainer}>
-                <SkeletonPiece style={{ width: 44, height: 44, borderRadius: 22 }} />
+                <SkeletonBase style={{ width: 44, height: 44, borderRadius: 22 }} />
             </View>
 
             <View style={styles.userInfo}>
-                <SkeletonPiece style={{ width: 120, height: 16, borderRadius: 4, marginBottom: 6 }} />
-                <SkeletonPiece style={{ width: 60, height: 12, borderRadius: 4 }} />
+                <SkeletonBase style={{ width: 120, height: 16, borderRadius: 4, marginBottom: 6 }} />
+                <SkeletonBase style={{ width: 60, height: 12, borderRadius: 4 }} />
             </View>
 
             <View style={styles.pointsContainer}>
-                <SkeletonPiece style={{ width: 50, height: 20, borderRadius: 10 }} />
+                <SkeletonBase style={{ width: 50, height: 20, borderRadius: 10 }} />
             </View>
         </View>
     );
@@ -44,25 +46,25 @@ const styles = StyleSheet.create({
     userCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 12,
-        borderRadius: 16,
-        marginBottom: 10,
-        borderBottomWidth: 1,
+        padding: 16,
+        borderRadius: 20,
+        marginBottom: 12,
+        borderWidth: 1,
     },
     rankContainer: {
-        width: 30,
+        width: 32,
         alignItems: 'center',
-        marginRight: 10,
+        marginRight: 12,
     },
     avatarContainer: {
-        marginRight: 12,
+        marginRight: 16,
     },
     userInfo: {
         flex: 1,
     },
     pointsContainer: {
         paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingVertical: 8,
         borderRadius: 10,
     },
 });

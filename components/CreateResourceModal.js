@@ -154,90 +154,109 @@ export default function CreateResourceModal({ visible, onClose, initialData }) {
     <StandardBottomModal
       visible={visible}
       onClose={onClose}
-      title={initialData ? "Edit Resource" : "Upload Resource"}
+      title={initialData ? "Refine Resource" : "Create Resource"}
       icon={faCloudUploadAlt}
-      description={initialData ? "Update your resource details" : "Share study materials, notes, and resources with your school community"}
+      description={initialData ? "Update your resource metadata." : "Share academic materials with the community."}
     >
       <View style={styles.content}>
-        <TextInput
-          style={[styles.input, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-          placeholder="Title"
-          placeholderTextColor={theme.colors.placeholder}
-          value={title}
-          onChangeText={setTitle}
-        />
+        <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: '#94a3b8' }]}>TITLE</Text>
+            <TextInput
+                style={[styles.input, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, color: theme.colors.text }]}
+                placeholder="Enter resource title"
+                placeholderTextColor={theme.colors.placeholder}
+                value={title}
+                onChangeText={setTitle}
+            />
+        </View>
 
-        <TextInput
-          style={[styles.input, styles.descInput, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-          placeholder="Description"
-          placeholderTextColor={theme.colors.placeholder}
-          multiline
-          value={description}
-          onChangeText={setDescription}
-        />
+        <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: '#94a3b8' }]}>DESCRIPTION</Text>
+            <TextInput
+                style={[styles.input, styles.descInput, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, color: theme.colors.text }]}
+                placeholder="Details about this resource..."
+                placeholderTextColor={theme.colors.placeholder}
+                multiline
+                value={description}
+                onChangeText={setDescription}
+            />
+        </View>
 
-        <View style={[styles.pickerContainer, { borderColor: theme.colors.inputBorder, backgroundColor: theme.colors.inputBackground }]}>
-          <Picker
-            selectedValue={category}
-            onValueChange={(itemValue) => setCategory(itemValue)}
-            style={[styles.picker, { color: theme.colors.text }]}
-            dropdownIconColor={theme.colors.text}
-          >
-            <Picker.Item label="General" value="General" />
-            <Picker.Item label="Homework" value="Homework" />
-            <Picker.Item label="Study Guide" value="Study Guide" />
-            <Picker.Item label="Notes" value="Notes" />
-            <Picker.Item label="Create New Category" value="custom" />
-          </Picker>
+        <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: '#94a3b8' }]}>CATEGORY</Text>
+            <View style={[styles.pickerContainer, { borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.card, borderWidth: 1 }]}>
+                <Picker
+                    selectedValue={category}
+                    onValueChange={(itemValue) => setCategory(itemValue)}
+                    style={[styles.picker, { color: theme.colors.text }]}
+                    dropdownIconColor={theme.colors.text}
+                >
+                    <Picker.Item label="General Overview" value="General" />
+                    <Picker.Item label="Homework Related" value="Homework" />
+                    <Picker.Item label="Study Material" value="Study Guide" />
+                    <Picker.Item label="Class Notes" value="Notes" />
+                    <Picker.Item label="Custom Category" value="custom" />
+                </Picker>
+            </View>
         </View>
 
         {category === 'custom' && (
-          <TextInput
-            style={[styles.input, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-            placeholder="Enter Custom Category"
-            placeholderTextColor={theme.colors.placeholder}
-            value={customCategory}
-            onChangeText={setCustomCategory}
-          />
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: '#94a3b8' }]}>CUSTOM LABEL</Text>
+            <TextInput
+                style={[styles.input, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, color: theme.colors.text }]}
+                placeholder="Enter custom category name"
+                placeholderTextColor={theme.colors.placeholder}
+                value={customCategory}
+                onChangeText={setCustomCategory}
+            />
+          </View>
         )}
 
-        <View style={styles.toggleContainer}>
+        <TouchableOpacity
+            style={[styles.toggleCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+            onPress={() => setIsPersonal(!isPersonal)}
+            activeOpacity={0.7}
+        >
           <View style={{ flex: 1 }}>
-            <Text style={[styles.toggleLabel, { color: theme.colors.text }]}>Personal Resource</Text>
-            <Text style={[styles.toggleSubLabel, { color: theme.colors.placeholder }]}>
-              Only you will be able to see this resource
+            <Text style={[styles.toggleTitle, { color: theme.colors.text }]}>Personal Resource</Text>
+            <Text style={[styles.toggleSub, { color: theme.colors.placeholder }]}>
+              VISIBLE ONLY TO YOU
             </Text>
           </View>
           <Switch
             value={isPersonal}
             onValueChange={setIsPersonal}
-            trackColor={{ false: '#767577', true: theme.colors.primary }}
-            thumbColor={isPersonal ? '#fff' : '#f4f3f4'}
+            trackColor={{ false: theme.colors.cardBorder, true: theme.colors.primary }}
+            thumbColor={'#fff'}
           />
+        </TouchableOpacity>
+
+        <View style={styles.actionRow}>
+            <TouchableOpacity
+                style={[styles.fileBtn, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                onPress={pickDocument}
+            >
+                <Text style={[styles.fileBtnText, { color: theme.colors.text }]} numberOfLines={1}>
+                    {file ? file.name.toUpperCase() : 'SELECT DOCUMENT'}
+                </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+                style={[styles.uploadBtn, { backgroundColor: theme.colors.primary }]}
+                onPress={handleUpload}
+                disabled={isUploading}
+                activeOpacity={0.8}
+            >
+                {isUploading ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                    <Text style={styles.uploadBtnText}>
+                        {initialData ? 'SAVE CHANGES' : 'PUBLISH'}
+                    </Text>
+                )}
+            </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-          onPress={pickDocument}
-        >
-          <Text style={[styles.buttonText, { color: theme.colors.text }]}>
-            {file ? file.name : 'Pick File'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.button, styles.uploadButton, { backgroundColor: theme.colors.primary }]}
-          onPress={handleUpload}
-          disabled={isUploading}
-        >
-          {isUploading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={[styles.buttonText, { color: '#fff' }]}>
-              {initialData ? 'Save Changes' : 'Upload'}
-            </Text>
-          )}
-        </TouchableOpacity>
       </View>
     </StandardBottomModal>
   );
@@ -245,54 +264,81 @@ export default function CreateResourceModal({ visible, onClose, initialData }) {
 
 const styles = StyleSheet.create({
   content: {
-    paddingTop: 10,
+    paddingTop: 16,
+  },
+  inputGroup: {
+      marginBottom: 20,
+  },
+  label: {
+      fontSize: 9,
+      fontWeight: '900',
+      marginBottom: 8,
+      letterSpacing: 1.5,
   },
   input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    fontSize: 16,
+    borderRadius: 16,
+    padding: 16,
+    fontSize: 15,
+    fontWeight: '700',
   },
   descInput: {
     minHeight: 100,
     textAlignVertical: 'top',
   },
   pickerContainer: {
-    borderWidth: 1,
-    borderRadius: 8,
-    marginBottom: 16,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   picker: {
-    height: 50,
+    height: 56,
     width: '100%',
   },
-  toggleContainer: {
+  toggleCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 4,
+    padding: 16,
+    borderRadius: 20,
+    marginBottom: 24,
   },
-  toggleLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+  toggleTitle: {
+    fontSize: 15,
+    fontWeight: '800',
   },
-  toggleSubLabel: {
-    fontSize: 12,
+  toggleSub: {
+    fontSize: 9,
+    fontWeight: '900',
+    marginTop: 2,
+    letterSpacing: 0.5,
   },
-  button: {
-    padding: 14,
-    borderRadius: 8,
-    marginVertical: 8,
+  actionRow: {
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: 8,
+  },
+  fileBtn: {
+    flex: 1,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  fileBtnText: {
+    fontWeight: '900',
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
+  uploadBtn: {
+    flex: 1,
+    height: 56,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  uploadButton: {
-    marginTop: 16,
-  },
-  buttonText: {
-    fontWeight: '600',
-    fontSize: 16,
+  uploadBtnText: {
+    color: '#fff',
+    fontWeight: '900',
+    fontSize: 12,
+    letterSpacing: 1,
   },
 });

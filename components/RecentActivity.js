@@ -112,7 +112,7 @@ export default function RecentActivity() {
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+        <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
             <Text style={[styles.title, { color: theme.colors.text }]}>Recent Activity</Text>
             <Text style={[styles.subtitle, { color: theme.colors.placeholder }]}>Stay updated with the latest events.</Text>
 
@@ -122,15 +122,15 @@ export default function RecentActivity() {
                 <View>
                     {activities.map((activity, index) => (
                         <View key={`${activity.type}-${activity.id}`} style={styles.itemContainer}>
-                            {index !== 0 && (
-                                <View style={[styles.line, { backgroundColor: theme.colors.border, left: 15, top: -20 }]} />
-                            )}
-                            <View style={styles.row}>
-                                <View style={styles.iconWrapper}>
-                                    <FontAwesomeIcon icon={activity.icon} size={16} color={activity.color} />
-                                </View>
-                                <View style={styles.content}>
-                                    <Text style={[styles.activityText, { color: theme.colors.placeholder }]} numberOfLines={2}>
+                            <View style={styles.timelineCol}>
+                                <View style={[styles.dot, { backgroundColor: activity.color }]} />
+                                {index !== activities.length - 1 && (
+                                    <View style={[styles.line, { backgroundColor: theme.colors.cardBorder }]} />
+                                )}
+                            </View>
+                            <View style={styles.contentCol}>
+                                <View style={styles.activityHeader}>
+                                    <Text style={[styles.activityText, { color: theme.colors.text }]} numberOfLines={2}>
                                         {activity.text}
                                     </Text>
                                     <Text style={[styles.timeText, { color: theme.colors.placeholder }]}>{activity.time}</Text>
@@ -146,19 +146,19 @@ export default function RecentActivity() {
 
 const styles = StyleSheet.create({
     container: {
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
-        marginBottom: 24,
+        padding: 24,
+        borderRadius: 24,
     },
     title: {
-        fontSize: 18,
-        fontWeight: 'bold',
+        fontSize: 17,
+        fontWeight: '900',
         marginBottom: 4,
+        letterSpacing: -0.5,
     },
     subtitle: {
         fontSize: 12,
-        marginBottom: 20,
+        fontWeight: '600',
+        marginBottom: 24,
     },
     emptyText: {
         fontSize: 14,
@@ -167,38 +167,46 @@ const styles = StyleSheet.create({
         paddingVertical: 20,
     },
     itemContainer: {
-        position: 'relative',
-        marginBottom: 16,
+        flexDirection: 'row',
+        minHeight: 60,
+    },
+    timelineCol: {
+        width: 24,
+        alignItems: 'center',
+    },
+    dot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        zIndex: 1,
+        marginTop: 4,
     },
     line: {
-        position: 'absolute',
-        width: 1,
-        height: 20,
-        zIndex: -1,
-    },
-    row: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-    },
-    iconWrapper: {
-        width: 32,
-        height: 32,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-        backgroundColor: 'rgba(0,0,0,0.03)',
-        borderRadius: 16,
-    },
-    content: {
         flex: 1,
-        marginTop: 6,
+        width: 2,
+        marginTop: 4,
+        marginBottom: 4,
+    },
+    contentCol: {
+        flex: 1,
+        paddingLeft: 12,
+        paddingBottom: 20,
+    },
+    activityHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
     },
     activityText: {
         fontSize: 13,
-        marginBottom: 2,
+        fontWeight: '700',
+        flex: 1,
+        paddingRight: 8,
+        lineHeight: 18,
     },
     timeText: {
-        fontSize: 11,
-        textAlign: 'right',
+        fontSize: 10,
+        fontWeight: '800',
+        textTransform: 'uppercase',
     }
 });

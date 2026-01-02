@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faUsers, faSchool, faBullhorn, faStore, faCog, faArrowLeft, faHandshake, faChartLine } from '@fortawesome/free-solid-svg-icons';
+import { faUsers, faSchool, faBullhorn, faStore, faCog, faArrowLeft, faHandshake, faChartLine, faUserShield, faChevronRight, faUserFriends } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import SettingsScreenSkeleton, { SkeletonPiece } from '../components/skeletons/SettingsScreenSkeleton';
+import LinearGradient from 'react-native-linear-gradient';
 
 export default function ManagementScreen({ navigation }) {
     const [user, setUser] = useState(null);
@@ -20,9 +21,7 @@ export default function ManagementScreen({ navigation }) {
                     .select('role')
                     .eq('id', user.id)
                     .single();
-                if (error) {
-                    console.error('Error fetching user role:', error);
-                } else {
+                if (!error) {
                     setUser(userData);
                 }
             }
@@ -34,14 +33,18 @@ export default function ManagementScreen({ navigation }) {
 
     const ManagementButton = ({ icon, title, description, onPress, color }) => (
         <TouchableOpacity
-            style={[styles.button, { borderColor: theme.colors.cardBorder }]}
+            style={[styles.button, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
             onPress={onPress}
+            activeOpacity={0.7}
         >
-            <FontAwesomeIcon icon={icon} size={20} color={color || theme.colors.primary} />
+            <View style={[styles.iconBox, { backgroundColor: (color || theme.colors.primary) + '15' }]}>
+                <FontAwesomeIcon icon={icon} size={18} color={color || theme.colors.primary} />
+            </View>
             <View style={styles.buttonContent}>
                 <Text style={[styles.buttonText, { color: theme.colors.text }]}>{title}</Text>
                 <Text style={[styles.buttonDescription, { color: theme.colors.placeholder }]}>{description}</Text>
             </View>
+            <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
         </TouchableOpacity>
     );
 
@@ -50,66 +53,71 @@ export default function ManagementScreen({ navigation }) {
             style={[styles.container, { backgroundColor: theme.colors.background }]}
             contentContainerStyle={styles.scrollContent}
         >
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                <FontAwesomeIcon icon={faArrowLeft} size={20} color="#007AFF" />
-                <Text style={[styles.backButtonText, { color: '#007AFF' }]}>Back to Settings</Text>
-            </TouchableOpacity>
-            <View style={styles.header}>
-                <FontAwesomeIcon icon={faCog} size={32} color={theme.colors.primary} />
-                <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Management</Text>
-            </View>
-            <Text style={[styles.description, { color: theme.colors.placeholder }]}>
-                Manage users, content, and school data
-            </Text>
+            <LinearGradient
+                colors={['#4f46e5', '#7c3aed']} 
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.heroContainer}
+            >
+                <View style={styles.heroContent}>
+                    <View style={styles.heroTextContainer}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                                <FontAwesomeIcon icon={faArrowLeft} size={18} color="#fff" />
+                            </TouchableOpacity>
+                            <Text style={styles.heroTitle}>Management Hub</Text>
+                        </View>
+                        <Text style={styles.heroDescription}>
+                            Centralized tools for school administration and content management.
+                        </Text>
+                    </View>
+                    <View style={styles.roleBadge}>
+                        <FontAwesomeIcon icon={faUserShield} size={16} color="rgba(255,255,255,0.7)" />
+                        <Text style={styles.roleText}>{user?.role?.toUpperCase() || 'ADMIN'}</Text>
+                    </View>
+                </View>
+            </LinearGradient>
 
             {loading ? (
-                <>
-                    <View style={styles.section}>
-                        <SkeletonPiece style={{ width: '60%', height: 20, borderRadius: 4, marginBottom: 8 }} />
-                        <SkeletonPiece style={{ width: '90%', height: 14, borderRadius: 4, marginBottom: 16 }} />
-                        <View style={{ paddingVertical: 16, flexDirection: 'row', alignItems: 'center' }}>
-                            <SkeletonPiece style={{ width: 20, height: 20, borderRadius: 4 }} />
+                <View style={{ padding: 20 }}>
+                    <SkeletonPiece style={{ width: '60%', height: 20, borderRadius: 4, marginBottom: 8 }} />
+                    <SkeletonPiece style={{ width: '90%', height: 14, borderRadius: 4, marginBottom: 16 }} />
+                    {[1, 2, 3].map(i => (
+                        <View key={i} style={{ paddingVertical: 16, flexDirection: 'row', alignItems: 'center' }}>
+                            <SkeletonPiece style={{ width: 40, height: 40, borderRadius: 10 }} />
                             <View style={{ marginLeft: 15, flex: 1 }}>
                                 <SkeletonPiece style={{ width: 100, height: 16, borderRadius: 4, marginBottom: 4 }} />
                                 <SkeletonPiece style={{ width: 150, height: 13, borderRadius: 4 }} />
                             </View>
                         </View>
-                    </View>
-                    <View style={styles.section}>
-                        <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
-                        <SkeletonPiece style={{ width: '60%', height: 20, borderRadius: 4, marginBottom: 8 }} />
-                        <SkeletonPiece style={{ width: '90%', height: 14, borderRadius: 4, marginBottom: 16 }} />
-                        <View style={{ paddingVertical: 16, flexDirection: 'row', alignItems: 'center' }}>
-                            <SkeletonPiece style={{ width: 20, height: 20, borderRadius: 4 }} />
-                            <View style={{ marginLeft: 15, flex: 1 }}>
-                                <SkeletonPiece style={{ width: 100, height: 16, borderRadius: 4, marginBottom: 4 }} />
-                                <SkeletonPiece style={{ width: 150, height: 13, borderRadius: 4 }} />
-                            </View>
-                        </View>
-                    </View>
-                </>
+                    ))}
+                </View>
             ) : (
-                <>
+                <View style={{ padding: 20 }}>
                     {/* User Management - Admin Only */}
                     {user && user.role === 'admin' && (
                         <View style={styles.section}>
-                            <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>User Management</Text>
-                            <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
-                                Manage users and classes within your school
-                            </Text>
+                            <Text style={styles.sectionTitle}>USER MANAGEMENT</Text>
                             <ManagementButton
                                 icon={faUsers}
                                 title="Manage Users"
                                 description="Add, edit, or remove users from your school"
                                 onPress={() => navigation.navigate('UserManagement')}
-                                color="#007AFF"
+                                color="#3b82f6"
                             />
                             <ManagementButton
-                                icon={faHandshake}
+                                icon={faUserFriends}
                                 title="Manage Clubs & Teams"
                                 description="Organize extracurricular activities"
                                 onPress={() => navigation.navigate('ClubList')}
-                                color="#AF52DE"
+                                color="#8b5cf6"
+                            />
+                            <ManagementButton
+                                icon={faUserFriends}
+                                title="Family Connections"
+                                description="Manage parent-child links across the school"
+                                onPress={() => navigation.navigate('My Children')}
+                                color="#a855f7"
                             />
                         </View>
                     )}
@@ -117,35 +125,20 @@ export default function ManagementScreen({ navigation }) {
                     {/* Announcements - Admin & Teacher */}
                     {user && (user.role === 'admin' || user.role === 'teacher') && (
                         <View style={styles.section}>
-                            <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
-                            <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Announcements</Text>
-                            <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
-                                Manage school-wide announcements
-                            </Text>
+                            <Text style={styles.sectionTitle}>COMMUNICATION</Text>
                             <ManagementButton
                                 icon={faBullhorn}
                                 title="Manage Announcements"
                                 description="Create, edit, or delete announcements"
                                 onPress={() => navigation.navigate('ManageAnnouncements')}
-                                color="#FF3B30"
+                                color="#f43f5e"
                             />
-                        </View>
-                    )}
-
-                    {/* Meetings - Admin & Teacher */}
-                    {user && (user.role === 'admin' || user.role === 'teacher') && (
-                        <View style={styles.section}>
-                            <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
-                            <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Meetings</Text>
-                            <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
-                                Manage parent-teacher conferences
-                            </Text>
                             <ManagementButton
                                 icon={faHandshake}
                                 title="Parent-Teacher Meetings"
                                 description="Manage availability and bookings"
                                 onPress={() => navigation.navigate('Meetings')}
-                                color="#00BCD4"
+                                color="#06b6d4"
                             />
                         </View>
                     )}
@@ -153,44 +146,36 @@ export default function ManagementScreen({ navigation }) {
                     {/* School Data - Admin Only */}
                     {user && user.role === 'admin' && (
                         <View style={styles.section}>
-                            <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
-                            <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>School Data</Text>
-                            <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
-                                Manage your school's information and branding
-                            </Text>
+                            <Text style={styles.sectionTitle}>SCHOOL DATA</Text>
                             <ManagementButton
                                 icon={faSchool}
                                 title="Manage School Data"
                                 description="Update school-wide information and branding"
                                 onPress={() => navigation.navigate('SchoolData')}
-                                color="#34C759"
+                                color="#10b981"
                             />
                             <ManagementButton
                                 icon={faChartLine}
                                 title="Engagement Audit"
                                 description="Track teacher activity and adoption"
                                 onPress={() => navigation.navigate('EngagementInsights')}
-                                color="#6366F1"
+                                color="#6366f1"
                             />
                         </View>
                     )}
 
                     {/* Marketplace - All Users */}
                     <View style={styles.section}>
-                        <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
-                        <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Marketplace</Text>
-                        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
-                            Manage your marketplace items
-                        </Text>
+                        <Text style={styles.sectionTitle}>MARKETPLACE</Text>
                         <ManagementButton
                             icon={faStore}
                             title="Manage Market Data"
                             description="Oversee marketplace items"
                             onPress={() => navigation.navigate('ManageMarketData')}
-                            color="#FF9500"
+                            color="#f59e0b"
                         />
                     </View>
-                </>
+                </View>
             )}
         </ScrollView>
     );
@@ -199,21 +184,99 @@ export default function ManagementScreen({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 24,
     },
     scrollContent: {
         flexGrow: 1,
         paddingBottom: 40,
     },
+    heroContainer: {
+        padding: 24,
+        paddingTop: 40,
+        marginBottom: 0,
+        elevation: 0,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
+    },
+    heroContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    heroTextContainer: {
+        flex: 1,
+        paddingRight: 10,
+    },
+    heroTitle: {
+        color: '#fff',
+        fontSize: 28,
+        fontWeight: '900',
+        marginBottom: 8,
+        letterSpacing: -1,
+    },
+    heroDescription: {
+        color: '#e0e7ff',
+        fontSize: 14,
+        fontWeight: '500',
+        lineHeight: 20,
+    },
+    backButton: { marginRight: 12 },
+    roleBadge: {
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    roleText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: '900',
+        marginTop: 2,
+    },
+    section: {
+        marginBottom: 24,
+    },
+    sectionTitle: {
+        fontSize: 11,
+        fontWeight: '900',
+        color: '#94a3b8',
+        letterSpacing: 1.5,
+        marginBottom: 12,
+        marginLeft: 4,
+    },
+    button: {
+        padding: 16,
+        borderRadius: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    buttonContent: {
+        flex: 1,
+        marginLeft: 16,
+    },
+    buttonText: {
+        fontWeight: '700',
+        fontSize: 16,
+        marginBottom: 2,
+    },
+    buttonDescription: {
+        fontSize: 12,
+        fontWeight: '500',
+    },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 8,
-    },
-    headerTitle: {
-        fontSize: 32,
-        fontWeight: 'bold',
-        marginLeft: 12,
     },
     description: {
         fontSize: 16,
@@ -221,9 +284,6 @@ const styles = StyleSheet.create({
     },
     separator: {
         borderBottomWidth: 1,
-        marginBottom: 24,
-    },
-    section: {
         marginBottom: 24,
     },
     sectionHeader: {
@@ -234,33 +294,6 @@ const styles = StyleSheet.create({
     sectionDescription: {
         fontSize: 14,
         marginBottom: 16,
-    },
-    button: {
-        paddingVertical: 16,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderWidth: 1,
-        marginBottom: 8,
-    },
-    buttonContent: {
-        flex: 1,
-        marginLeft: 15,
-    },
-    buttonText: {
-        fontWeight: '600',
-        fontSize: 16,
-        marginBottom: 4,
-    },
-    buttonDescription: {
-        fontSize: 13,
-    },
-    backButton: {
-        marginBottom: 10,
-        alignSelf: 'flex-start',
-        flexDirection: 'row',
-        alignItems: 'center',
     },
     backButtonText: {
         marginLeft: 8,

@@ -39,6 +39,7 @@ import MarketplaceAnalytics from '../../components/market/MarketplaceAnalytics';
 import { useTheme } from '../../context/ThemeContext';
 import { useChat } from '../../context/ChatContext';
 import { useToast } from '../../context/ToastContext';
+import LinearGradient from 'react-native-linear-gradient';
 
 export default function MarketScreen({ navigation }) {
   const [allItems, setAllItems] = useState([]);
@@ -200,111 +201,127 @@ export default function MarketScreen({ navigation }) {
   };
 
   const ListHeader = () => (
-    <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
-      {/* Header */}
-      <View style={styles.mainHeaderContainer}>
-        <FontAwesomeIcon icon={faStore} size={24} color={theme.colors.primary} style={styles.mainHeaderIcon} />
-        <Text style={[styles.header, { color: theme.colors.text }]}>Marketplace</Text>
-      </View>
-      <Text style={[styles.subHeader, { color: theme.colors.placeholder }]}>
-        Items are advertised here only. ClassConnect does not process payments.
-      </Text>
-
-      {/* Admin Analytics */}
-      {!loading && userRole === 'admin' && (
-        <MarketplaceAnalytics items={allItems} />
-      )}
-
-      {/* Search */}
-      <View style={styles.searchContainerWrapper}>
-        <View style={[styles.searchContainer, { backgroundColor: theme.colors.cardBackground }]}>
-          <FontAwesomeIcon icon={faSearch} size={16} color={theme.colors.placeholder} style={styles.searchIcon} />
-          {loading ? (
-            <SkeletonPiece style={{ flex: 1, height: 20, borderRadius: 4 }} />
-          ) : (
-            <TextInput
-              style={[styles.searchInput, { color: theme.colors.text }]}
-              placeholder="Search for items..."
-              placeholderTextColor={theme.colors.placeholder}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          )}
-        </View>
-      </View>
-
-      {/* CATEGORY FILTER — FIXED HORIZONTAL SCROLL */}
-      <View style={styles.filterContainer}>
-        {loading ? (
-          <View style={{ flexDirection: 'row' }}>
-            {[1, 2, 3, 4].map(i => (
-              <SkeletonPiece key={i} style={{ width: 80, height: 35, borderRadius: 20, marginRight: 8 }} />
-            ))}
-          </View>
-        ) : (
-          <FlatList
-            data={categories}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[
-                  styles.categoryChip,
-                  selectedCategory === item
-                    ? { backgroundColor: theme.colors.primary }
-                    : { backgroundColor: theme.colors.cardBackground, borderWidth: 1, borderColor: theme.colors.cardBorder },
-                ]}
-                onPress={() => setSelectedCategory(item)}
-              >
-                <Text
-                  style={[
-                    styles.categoryChipText,
-                    selectedCategory === item
-                      ? { color: theme.colors.buttonPrimaryText }
-                      : { color: theme.colors.text },
-                  ]}
-                >
-                  {item}
+    <View>
+      <LinearGradient
+        colors={['#9333ea', '#4f46e5']} 
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroContainer}
+      >
+        <View style={styles.heroContent}>
+            <View style={styles.heroTextContainer}>
+                <Text style={styles.heroTitle}>Student Marketplace</Text>
+                <Text style={styles.heroDescription}>
+                    Buy, sell, and trade school supplies within your community.
                 </Text>
-              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+                style={styles.heroButton}
+                onPress={() => navigation.navigate('CreateMarketplaceItem', { fromMarketScreen: true })}
+            >
+                <FontAwesomeIcon icon={faPlus} size={14} color="#9333ea" />
+                <Text style={styles.heroButtonText}>Sell</Text>
+            </TouchableOpacity>
+        </View>
+      </LinearGradient>
+
+      <View style={{ paddingHorizontal: 16 }}>
+        {/* Admin Analytics */}
+        {!loading && userRole === 'admin' && (
+            <MarketplaceAnalytics items={allItems} />
+        )}
+
+        {/* Search */}
+        <View style={styles.searchContainerWrapper}>
+            <View style={[styles.searchContainer, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+            <FontAwesomeIcon icon={faSearch} size={16} color={theme.colors.placeholder} style={styles.searchIcon} />
+            {loading ? (
+                <SkeletonPiece style={{ flex: 1, height: 20, borderRadius: 4 }} />
+            ) : (
+                <TextInput
+                style={[styles.searchInput, { color: theme.colors.text }]}
+                placeholder="Search for items..."
+                placeholderTextColor={theme.colors.placeholder}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                />
             )}
-          />
+            </View>
+        </View>
+
+        {/* CATEGORY FILTER — FIXED HORIZONTAL SCROLL */}
+        <View style={styles.filterContainer}>
+            {loading ? (
+            <View style={{ flexDirection: 'row' }}>
+                {[1, 2, 3, 4].map(i => (
+                <SkeletonPiece key={i} style={{ width: 80, height: 35, borderRadius: 20, marginRight: 8 }} />
+                ))}
+            </View>
+            ) : (
+            <FlatList
+                data={categories}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item) => item}
+                renderItem={({ item }) => (
+                <TouchableOpacity
+                    style={[
+                    styles.categoryChip,
+                    selectedCategory === item
+                        ? { backgroundColor: theme.colors.primary }
+                        : { backgroundColor: theme.colors.cardBackground, borderWidth: 1, borderColor: theme.colors.cardBorder },
+                    ]}
+                    onPress={() => setSelectedCategory(item)}
+                >
+                    <Text
+                    style={[
+                        styles.categoryChipText,
+                        selectedCategory === item
+                        ? { color: theme.colors.buttonPrimaryText }
+                        : { color: theme.colors.text },
+                    ]}
+                    >
+                    {item}
+                    </Text>
+                </TouchableOpacity>
+                )}
+            />
+            )}
+        </View>
+
+        {/* CONTROLS */}
+        {!loading && (
+            <View style={styles.controlsRow}>
+            <TouchableOpacity style={styles.controlButton} onPress={toggleSort}>
+                <FontAwesomeIcon icon={getSortIcon()} size={14} color={theme.colors.text} style={{ marginRight: 6 }} />
+                <Text style={[styles.controlText, { color: theme.colors.text }]}>{getSortLabel()}</Text>
+            </TouchableOpacity>
+
+            <View style={{ flexDirection: 'row' }}>
+                <TouchableOpacity
+                style={[styles.iconButton, viewMode === 'horizontal' && { backgroundColor: theme.colors.cardBackground, borderWidth: 1, borderColor: theme.colors.cardBorder }]}
+                onPress={() => setViewMode('horizontal')}
+                >
+                <FontAwesomeIcon icon={faList} size={16} color={viewMode === 'horizontal' ? theme.colors.primary : theme.colors.placeholder} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                style={[styles.iconButton, viewMode === 'grid' && { backgroundColor: theme.colors.cardBackground, borderWidth: 1, borderColor: theme.colors.cardBorder }]}
+                onPress={() => setViewMode('grid')}
+                >
+                <FontAwesomeIcon icon={faThLarge} size={16} color={viewMode === 'grid' ? theme.colors.primary : theme.colors.placeholder} />
+                </TouchableOpacity>
+            </View>
+            </View>
         )}
       </View>
-
-      {/* CONTROLS */}
-      {!loading && (
-        <View style={styles.controlsRow}>
-          <TouchableOpacity style={styles.controlButton} onPress={toggleSort}>
-            <FontAwesomeIcon icon={getSortIcon()} size={14} color={theme.colors.text} style={{ marginRight: 6 }} />
-            <Text style={[styles.controlText, { color: theme.colors.text }]}>{getSortLabel()}</Text>
-          </TouchableOpacity>
-
-          <View style={{ flexDirection: 'row' }}>
-            <TouchableOpacity
-              style={[styles.iconButton, viewMode === 'horizontal' && { backgroundColor: theme.colors.cardBackground }]}
-              onPress={() => setViewMode('horizontal')}
-            >
-              <FontAwesomeIcon icon={faList} size={16} color={viewMode === 'horizontal' ? theme.colors.primary : theme.colors.placeholder} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.iconButton, viewMode === 'grid' && { backgroundColor: theme.colors.cardBackground }]}
-              onPress={() => setViewMode('grid')}
-            >
-              <FontAwesomeIcon icon={faThLarge} size={16} color={viewMode === 'grid' ? theme.colors.primary : theme.colors.placeholder} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
     </View>
   );
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {loading ? (
-        <View style={{ padding: 16 }}>
+        <View>
             <ListHeader />
             <FlatList
                 data={[1, 2, 3, 4]}
@@ -415,6 +432,51 @@ export default function MarketScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { fontSize: 24, fontWeight: '700' },
+
+  heroContainer: {
+    padding: 20,
+    marginBottom: 16,
+    elevation: 0,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  heroContent: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+  },
+  heroTextContainer: {
+      flex: 1,
+      paddingRight: 10,
+  },
+  heroTitle: {
+      color: '#fff',
+      fontSize: 24,
+      fontWeight: '800',
+      marginBottom: 6,
+  },
+  heroDescription: {
+      color: '#e0e7ff',
+      fontSize: 14,
+  },
+  heroButton: {
+      backgroundColor: '#fff',
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+  },
+  heroButtonText: {
+      color: '#9333ea',
+      fontWeight: 'bold',
+      marginLeft: 6,
+      fontSize: 14,
+  },
 
   mainHeaderContainer: {
     flexDirection: 'row',

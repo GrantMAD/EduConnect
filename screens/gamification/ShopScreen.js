@@ -4,7 +4,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useGamification } from '../../context/GamificationContext';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faCoins, faLock, faCheck, faTimes, faArrowLeft, faStore, faIdCard, faUserCircle, faPalette, faAward, faComments, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { faCoins, faLock, faCheck, faTimes, faArrowLeft, faStore, faIdCard, faUserCircle, faPalette, faAward, faComments, faChevronRight, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import { BORDER_STYLES, BANNER_STYLES, NAME_COLOR_STYLES, TITLE_STYLES, BUBBLE_STYLES, STICKER_PACKS } from '../../constants/GamificationStyles';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { SkeletonPiece } from '../../components/skeletons/DashboardScreenSkeleton';
@@ -16,7 +16,7 @@ const { width } = Dimensions.get('window');
 const ShopItemSkeleton = () => {
     const { theme } = useTheme();
     return (
-        <View style={[styles.itemCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 0.5 }]}>
+        <View style={[styles.itemCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
             <SkeletonPiece style={{ width: 80, height: 80, borderRadius: 40, marginBottom: 12 }} />
             <View style={styles.itemInfo}>
                 <SkeletonPiece style={{ width: 80, height: 16, borderRadius: 4, marginBottom: 8 }} />
@@ -53,7 +53,6 @@ export default function ShopScreen({ navigation }) {
     const fetchShopData = async () => {
         setLoading(true);
         try {
-            // Fetch items
             const { data: itemsData, error: itemsError } = await supabase
                 .from('shop_items')
                 .select('*')
@@ -62,7 +61,6 @@ export default function ShopScreen({ navigation }) {
 
             if (itemsError) throw itemsError;
 
-            // Fetch user info
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 const { data: invData } = await supabase
@@ -215,7 +213,6 @@ export default function ShopScreen({ navigation }) {
             );
         }
 
-        // Default: Border
         const borderStyle = BORDER_STYLES[item.image_url] || {};
         return (
             <AnimatedAvatarBorder
@@ -254,7 +251,7 @@ export default function ShopScreen({ navigation }) {
                 style={[styles.itemCard, {
                     backgroundColor: theme.colors.card,
                     borderColor: isEquipped ? theme.colors.primary : theme.colors.cardBorder,
-                    borderWidth: isEquipped ? 2 : 0.5,
+                    borderWidth: isEquipped ? 2 : 1,
                 }]}
                 onPress={() => setSelectedItem(item)}
                 disabled={item.min_level > current_level}
@@ -284,43 +281,39 @@ export default function ShopScreen({ navigation }) {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+            <LinearGradient
+                colors={['#9333ea', '#4f46e5']} 
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.heroContainer}
+            >
+                <View style={styles.heroContent}>
+                    <View style={styles.heroTextContainer}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={styles.heroTitle}>Rewards Shop</Text>
+                            <TouchableOpacity style={{ marginLeft: 8 }}>
+                                <FontAwesomeIcon icon={faInfoCircle} size={16} color="rgba(255,255,255,0.7)" />
+                            </TouchableOpacity>
+                        </View>
+                        <Text style={styles.heroDescription}>
+                            Spend your hard-earned coins on exclusive rewards!
+                        </Text>
+                    </View>
+                    <View style={styles.balanceBadge}>
+                        <Text style={styles.balanceLabel}>YOUR BALANCE</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={styles.balanceValue}>{coins || 0}</Text>
+                            <FontAwesomeIcon icon={faCoins} size={16} color="#fcd34d" style={{ marginLeft: 6 }} />
+                        </View>
+                    </View>
+                </View>
+            </LinearGradient>
+
             {/* Back Button */}
             <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.backButtonContainer}>
                 <FontAwesomeIcon icon={faArrowLeft} size={14} color={theme.colors.primary} />
                 <Text style={[styles.backButtonText, { color: theme.colors.primary }]}>Back to Profile</Text>
             </TouchableOpacity>
-
-            {/* Header and Balance Row */}
-            <View style={styles.headerRow}>
-                <View style={styles.headerTitleGroup}>
-                    <FontAwesomeIcon icon={faStore} size={20} color={theme.colors.primary} style={styles.mainHeaderIcon} />
-                    <Text style={[styles.headerText, { color: theme.colors.text }]}>Shop</Text>
-                </View>
-
-                {/* Coin Balance (Gradient Style) - Ultra Compact Single Line */}
-                <LinearGradient 
-                    colors={['#6366F1', '#8B5CF6']} 
-                    start={{x: 0, y: 0}} 
-                    end={{x: 1, y: 0}} 
-                    style={styles.balanceGradient}
-                >
-                    <View style={styles.balanceInfo}>
-                        <Text style={styles.balanceLabel}>Balance: </Text>
-                        <Text style={styles.balanceValue}>{coins}</Text>
-                        <FontAwesomeIcon icon={faCoins} size={10} color="#FFD700" style={{ marginLeft: 4 }} />
-                    </View>
-                </LinearGradient>
-            </View>
-            
-            <Text style={[styles.subHeader, { color: theme.colors.placeholder }]}>
-                Spend your hard-earned coins on exclusive rewards!
-            </Text>
-
-            {/* Category Tabs Indicator */}
-            <View style={styles.scrollIndicatorRow}>
-                <Text style={[styles.scrollIndicatorText, { color: theme.colors.placeholder }]}>Scroll for more categories</Text>
-                <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.placeholder} />
-            </View>
 
             {/* Category Tabs (Market-style Filter) */}
             <View style={styles.filterContainer}>
@@ -342,7 +335,7 @@ export default function ShopScreen({ navigation }) {
                         >
                             <FontAwesomeIcon 
                                 icon={item.icon} 
-                                size={14} 
+                                size={12} 
                                 color={activeTab === item.id ? '#FFF' : theme.colors.text} 
                                 style={{ marginRight: 6 }}
                             />
@@ -434,102 +427,76 @@ export default function ShopScreen({ navigation }) {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
+    heroContainer: {
+        padding: 20,
+        marginBottom: 0,
+        elevation: 0,
+        borderBottomLeftRadius: 16,
+        borderBottomRightRadius: 16,
+    },
+    heroContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    heroTextContainer: {
+        flex: 1,
+        paddingRight: 10,
+    },
+    heroTitle: {
+        color: '#fff',
+        fontSize: 24,
+        fontWeight: '800',
+        marginBottom: 6,
+    },
+    heroDescription: {
+        color: '#e0e7ff',
+        fontSize: 14,
+    },
+    balanceBadge: {
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        alignItems: 'flex-end',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    balanceLabel: {
+        color: 'rgba(255,255,255,0.7)',
+        fontSize: 8,
+        fontWeight: '900',
+    },
+    balanceValue: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '900',
+    },
     backButtonContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
         paddingTop: 16,
-        gap: 8,
-    },
-    backButtonText: {
-        fontSize: 14,
-        fontWeight: 'bold',
-    },
-    headerRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingTop: 12,
-        marginBottom: 4,
-    },
-    headerTitleGroup: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    backButtonContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingTop: 8,
-        marginTop: 10,
         gap: 6,
     },
     backButtonText: {
         fontSize: 12,
         fontWeight: 'bold',
     },
-    mainHeaderIcon: { marginRight: 8 },
-    headerText: { fontSize: 22, fontWeight: '900' },
-    subHeader: {
-        fontSize: 12,
-        paddingHorizontal: 16,
-        marginBottom: 12,
-        lineHeight: 18,
-    },
-    balanceGradient: {
-        borderRadius: 10,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        elevation: 3,
-        shadowColor: '#6366F1',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 4,
-    },
-    balanceInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    balanceLabel: {
-        fontSize: 10,
-        fontWeight: '900',
-        color: 'rgba(255,255,255,0.8)',
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-    balanceValue: {
-        fontSize: 14,
-        fontWeight: '900',
-        color: '#FFF',
-    },
-    scrollIndicatorRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        paddingHorizontal: 16,
-        marginBottom: 6,
-        gap: 4,
-    },
-    scrollIndicatorText: {
-        fontSize: 10,
-        fontWeight: 'bold',
-        textTransform: 'uppercase',
-    },
-    filterContainer: { marginBottom: 16 },
+    filterContainer: { marginBottom: 16, marginTop: 12 },
     categoryScroll: { paddingHorizontal: 16 },
     categoryChip: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
+        paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: 20,
         marginRight: 8,
     },
-    categoryChipText: { fontSize: 14, fontWeight: '600' },
+    categoryChipText: { fontSize: 12, fontWeight: '700' },
     listContent: { padding: 12, paddingBottom: 40 },
     columnWrapper: { justifyContent: 'space-between' },
-    itemCard: { width: '48%', marginBottom: 16, borderRadius: 20, padding: 15, alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'rgba(0,0,0,0.05)' },
+    itemCard: { width: '48%', marginBottom: 16, borderRadius: 20, padding: 15, alignItems: 'center' },
     previewContainer: { height: 90, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
     itemInfo: { width: '100%', alignItems: 'center' },
     itemName: { fontSize: 14, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' },

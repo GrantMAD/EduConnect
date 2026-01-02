@@ -1,19 +1,29 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, ScrollView, Dimensions } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
+import { faSignOutAlt, faUserGraduate, faChalkboardTeacher, faChild, faUserShield } from '@fortawesome/free-solid-svg-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../context/ThemeContext';
 
-const RoleCard = ({ role, description, icon, onPress, loading }) => (
-  <TouchableOpacity style={styles.card} onPress={onPress} disabled={loading}>
-    <FontAwesome5 name={icon} size={32} color="#007AFF" style={styles.cardIcon} />
-    <View style={styles.cardTextContainer}>
-      <Text style={styles.cardTitle}>{role}</Text>
-      <Text style={styles.cardDescription}>{description}</Text>
+const { width } = Dimensions.get('window');
+
+const RoleCard = ({ title, description, icon, onPress, loading, color, theme }) => (
+  <TouchableOpacity 
+    style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]} 
+    onPress={onPress} 
+    disabled={loading}
+    activeOpacity={0.8}
+  >
+    <View style={[styles.cardIconBox, { backgroundColor: color + '15' }]}>
+        <FontAwesomeIcon icon={icon} size={24} color={color} />
     </View>
-    {loading && <ActivityIndicator color="#007AFF" style={styles.cardSpinner} />}
+    <View style={styles.cardTextContainer}>
+      <Text style={[styles.cardTitle, { color: theme.colors.text }]}>{title}</Text>
+      <Text style={[styles.cardDescription, { color: theme.colors.placeholder }]}>{description}</Text>
+    </View>
+    {loading && <ActivityIndicator color={color} style={styles.cardSpinner} />}
   </TouchableOpacity>
 );
 
@@ -21,6 +31,7 @@ export default function RoleSelectionScreen({ navigation }) {
   const [loadingRole, setLoadingRole] = useState(null);
   const [signingOut, setSigningOut] = useState(false);
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
 
   const updateUserRole = async (role) => {
     setLoadingRole(role);
@@ -47,57 +58,74 @@ export default function RoleSelectionScreen({ navigation }) {
       Alert.alert('Error', error.message);
       setSigningOut(false);
     }
-    // Auth state listener in App.js usually handles redirection to Login
   };
 
   return (
-    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-      <Text style={styles.title}>Welcome to ClassConnect!</Text>
-      <Text style={styles.subtitle}>Please select your role in the school to continue.</Text>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Decorative Blobs */}
+      <View style={[styles.blob, styles.blobTop, { backgroundColor: theme.colors.primary + '10' }]} />
+      <View style={[styles.blob, styles.blobBottom, { backgroundColor: '#34C75910' }]} />
 
-      <RoleCard
-        role="Student"
-        description="I am a student at the school."
-        icon="user-graduate"
-        onPress={() => updateUserRole('student')}
-        loading={loadingRole === 'student'}
-      />
-      <RoleCard
-        role="Parent"
-        description="I am a parent of a student at the school."
-        icon="user-friends"
-        onPress={() => updateUserRole('parent')}
-        loading={loadingRole === 'parent'}
-      />
-      <RoleCard
-        role="Teacher"
-        description="I am a teacher at the school."
-        icon="chalkboard-teacher"
-        onPress={() => updateUserRole('teacher')}
-        loading={loadingRole === 'teacher'}
-      />
-      <RoleCard
-        role="Admin"
-        description="I am an administrator of the school."
-        icon="user-shield"
-        onPress={() => updateUserRole('admin')}
-        loading={loadingRole === 'admin'}
-      />
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 40 }]} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+            <Text style={[styles.title, { color: theme.colors.text }]}>Choose your <Text style={{ color: theme.colors.primary }}>journey</Text>.</Text>
+            <Text style={[styles.subtitle, { color: theme.colors.placeholder }]}>
+                Select the account type that best describes your role in the school community.
+            </Text>
+        </View>
 
-      <TouchableOpacity 
-        style={styles.signOutButton} 
-        onPress={handleSignOut}
-        disabled={signingOut}
-      >
-        {signingOut ? (
-          <ActivityIndicator color="#FF3B30" />
-        ) : (
-          <>
-            <FontAwesomeIcon icon={faSignOutAlt} size={18} color="#FF3B30" style={{ marginRight: 8 }} />
-            <Text style={styles.signOutText}>Sign Out</Text>
-          </>
-        )}
-      </TouchableOpacity>
+        <RoleCard
+            title="Student"
+            description="Access classes, track homework, and earn rewards."
+            icon={faUserGraduate}
+            color="#007AFF"
+            theme={theme}
+            onPress={() => updateUserRole('student')}
+            loading={loadingRole === 'student'}
+        />
+        <RoleCard
+            title="Parent"
+            description="Follow your child's academic journey and stay informed."
+            icon={faChild}
+            color="#FF9500"
+            theme={theme}
+            onPress={() => updateUserRole('parent')}
+            loading={loadingRole === 'parent'}
+        />
+        <RoleCard
+            title="Teacher"
+            description="Manage your classes, assign tasks, and track progress."
+            icon={faChalkboardTeacher}
+            color="#34C759"
+            theme={theme}
+            onPress={() => updateUserRole('teacher')}
+            loading={loadingRole === 'teacher'}
+        />
+        <RoleCard
+            title="Admin"
+            description="Oversee your school, manage users, and settings."
+            icon={faUserShield}
+            color="#5856D6"
+            theme={theme}
+            onPress={() => updateUserRole('admin')}
+            loading={loadingRole === 'admin'}
+        />
+
+        <TouchableOpacity 
+            style={styles.signOutButton} 
+            onPress={handleSignOut}
+            disabled={signingOut}
+        >
+            {signingOut ? (
+            <ActivityIndicator color="#FF3B30" />
+            ) : (
+            <>
+                <FontAwesomeIcon icon={faSignOutAlt} size={16} color="#FF3B30" style={{ marginRight: 8 }} />
+                <Text style={styles.signOutText}>Sign Out</Text>
+            </>
+            )}
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 }
@@ -105,65 +133,85 @@ export default function RoleSelectionScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
     alignItems: 'center',
-    backgroundColor: '#f8f9fb',
-    padding: 20,
+  },
+  blob: {
+      position: 'absolute',
+      width: 300,
+      height: 300,
+      borderRadius: 150,
+  },
+  blobTop: {
+      top: -100,
+      right: -100,
+  },
+  blobBottom: {
+      bottom: -100,
+      left: -100,
+  },
+  header: {
+      alignItems: 'center',
+      marginBottom: 40,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#333',
+    fontSize: 32,
+    fontWeight: '900',
+    marginBottom: 12,
+    textAlign: 'center',
+    letterSpacing: -1,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 30,
+    fontSize: 15,
     textAlign: 'center',
+    lineHeight: 22,
+    fontWeight: '500',
   },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 24,
     padding: 20,
-    marginBottom: 15,
-    width: '90%',
+    marginBottom: 16,
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+    elevation: 0,
   },
-  cardIcon: {
-    marginRight: 20,
+  cardIconBox: {
+      width: 56,
+      height: 56,
+      borderRadius: 16,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 16,
   },
   cardTextContainer: {
     flex: 1,
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '800',
   },
   cardDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
+    fontSize: 13,
+    marginTop: 2,
+    fontWeight: '500',
+    lineHeight: 18,
   },
   cardSpinner: {
-    marginLeft: 'auto',
+    marginLeft: 12,
   },
   signOutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
-    padding: 10,
+    marginTop: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
   },
   signOutText: {
     color: '#FF3B30',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

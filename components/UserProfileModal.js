@@ -107,40 +107,47 @@ export default function UserProfileModal({ visible, user, onClose, onMessageUser
         <Modal
             isVisible={visible}
             onBackdropPress={onClose}
+            onSwipeComplete={onClose}
+            swipeDirection={['down']}
             animationIn="slideInUp"
             animationOut="slideOutDown"
-            backdropOpacity={0.5}
+            backdropOpacity={0.4}
             style={{ justifyContent: 'flex-end', margin: 0 }}
         >
-            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 20) }]}>
+                <View style={styles.swipeIndicator} />
                 <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={faUserCircle} size={26} color={theme.colors.primary} />
+                    <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                        <FontAwesomeIcon icon={faUserCircle} size={20} color={theme.colors.primary} />
+                    </View>
                     <Text style={[styles.modalTitle, { color: theme.colors.text }]}>User Profile</Text>
                     <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-                        <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
+                        <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
                     </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 24 }}>
                     <View style={styles.profileContainer}>
                         <AnimatedAvatarBorder
                             avatarSource={user.avatar_url ? { uri: user.avatar_url } : defaultAvatar}
-                            size={80}
+                            size={96}
                             borderStyle={equippedItem ? BORDER_STYLES[equippedItem.image_url] : {}}
                             isRainbow={equippedItem && BORDER_STYLES[equippedItem.image_url]?.rainbow}
                             isAnimated={equippedItem && BORDER_STYLES[equippedItem.image_url]?.animated}
-                            containerStyle={{ marginBottom: 10 }}
+                            containerStyle={{ marginBottom: 16 }}
                         />
                         <Text style={[styles.userName, { color: theme.colors.text }]}>{user.full_name}</Text>
-                        <View style={[styles.roleBadge, { backgroundColor: roleColor + '20' }]}>
-                            <Text style={[styles.roleText, { color: roleColor }]}>{user.role || 'User'}</Text>
+                        <View style={[styles.roleBadge, { backgroundColor: roleColor + '15' }]}>
+                            <Text style={[styles.roleText, { color: roleColor }]}>{user.role?.toUpperCase() || 'USER'}</Text>
                         </View>
                     </View>
 
                     {/* Gamification Stats */}
-                    <View style={[styles.statsRow, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
+                    <View style={[styles.statsRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                         <View style={styles.statItem}>
-                            <FontAwesomeIcon icon={faStar} size={20} color="#FFD700" />
+                            <View style={[styles.statIconBox, { backgroundColor: '#f59e0b' + '15' }]}>
+                                <FontAwesomeIcon icon={faStar} size={14} color="#f59e0b" />
+                            </View>
                             <View style={styles.statTextContainer}>
                                 <Text style={[styles.statValue, { color: theme.colors.text }]}>
                                     {statsLoading ? '...' : gamificationStats.xp}
@@ -150,17 +157,19 @@ export default function UserProfileModal({ visible, user, onClose, onMessageUser
                         </View>
                         <View style={[styles.statDivider, { backgroundColor: theme.colors.cardBorder }]} />
                         <View style={styles.statItem}>
-                            <FontAwesomeIcon icon={faCoins} size={20} color="#FFA500" />
+                            <View style={[styles.statIconBox, { backgroundColor: '#f59e0b' + '15' }]}>
+                                <FontAwesomeIcon icon={faCoins} size={14} color="#f59e0b" />
+                            </View>
                             <View style={styles.statTextContainer}>
                                 <Text style={[styles.statValue, { color: theme.colors.text }]}>
                                     {statsLoading ? '...' : gamificationStats.coins}
                                 </Text>
-                                <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>Coins</Text>
+                                <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>COINS</Text>
                             </View>
                         </View>
                     </View>
 
-                    <View style={[styles.detailsCard, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
+                    <View style={[styles.detailsCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                         <TouchableOpacity onPress={handleEmail} style={styles.modalDetailRow} disabled={!user.email}>
                             <FontAwesomeIcon icon={faEnvelope} size={16} color={theme.colors.placeholder} style={styles.modalIcon} />
                             <Text style={[styles.modalDetailText, { color: theme.colors.text }]}>{user.email || 'No email provided'}</Text>
@@ -168,7 +177,7 @@ export default function UserProfileModal({ visible, user, onClose, onMessageUser
                         <View style={[styles.separator, { backgroundColor: theme.colors.cardBorder }]} />
                         <TouchableOpacity onPress={handleCall} style={styles.modalDetailRow} disabled={!user.number}>
                             <FontAwesomeIcon icon={faPhone} size={16} color={theme.colors.placeholder} style={styles.modalIcon} />
-                            <Text style={[styles.modalDetailText, { color: theme.colors.text }]}>{user.number || 'No number provided'}</Text>
+                            <Text style={[styles.modalDetailText, { color: theme.colors.text }]}>{user.number || 'No phone number'}</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -187,18 +196,14 @@ export default function UserProfileModal({ visible, user, onClose, onMessageUser
                             }
                         }}
                         disabled={loading}
+                        activeOpacity={0.8}
                     >
                         {loading ? (
                             <ActivityIndicator size="small" color="#fff" />
                         ) : (
-                            <>
-                                <FontAwesomeIcon icon={faComment} size={16} color="#fff" style={{ marginRight: 8 }} />
-                                <Text style={styles.messageButtonText}>Message User</Text>
-                            </>
+                            <Text style={styles.messageButtonText}>SEND DIRECT MESSAGE</Text>
                         )}
                     </TouchableOpacity>
-
-                    <Text style={[styles.hintText, { color: theme.colors.placeholder }]}>Tap email or number to contact user</Text>
                 </ScrollView>
             </View>
         </Modal>
@@ -207,54 +212,71 @@ export default function UserProfileModal({ visible, user, onClose, onMessageUser
 
 const styles = StyleSheet.create({
     modalContent: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 30,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
+        paddingHorizontal: 24,
+        paddingTop: 8,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
         maxHeight: '90%',
+    },
+    swipeIndicator: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#cbd5e1',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: 20,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingBottom: 15,
+        paddingBottom: 20,
         borderBottomWidth: 1,
     },
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
     modalTitle: {
-        fontSize: 22,
-        fontWeight: '700',
-        marginLeft: 15,
+        fontSize: 18,
+        fontWeight: '900',
+        letterSpacing: -0.5,
         flex: 1,
     },
     modalCloseButton: {
-        padding: 5,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     profileContainer: {
         alignItems: 'center',
-        paddingVertical: 20,
+        paddingBottom: 24,
     },
-    // avatar style removed as it's handled by AnimatedAvatarBorder
     userName: {
-        fontSize: 20,
-        fontWeight: '600',
-        marginBottom: 5,
+        fontSize: 22,
+        fontWeight: '900',
+        marginBottom: 8,
+        letterSpacing: -0.5,
     },
     roleBadge: {
-        paddingHorizontal: 10,
+        paddingHorizontal: 12,
         paddingVertical: 4,
-        borderRadius: 12,
+        borderRadius: 8,
     },
     roleText: {
-        fontSize: 12,
-        fontWeight: '600',
-        textTransform: 'capitalize',
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 0.5,
     },
     statsRow: {
         flexDirection: 'row',
-        borderRadius: 12,
-        padding: 15,
-        borderWidth: 1,
-        marginBottom: 10,
+        borderRadius: 24,
+        padding: 20,
+        marginBottom: 16,
         alignItems: 'center',
         justifyContent: 'space-around',
     },
@@ -262,59 +284,59 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
+    statIconBox: {
+        width: 32,
+        height: 32,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
     statTextContainer: {
-        marginLeft: 10,
     },
     statValue: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontWeight: '900',
     },
     statLabel: {
-        fontSize: 12,
+        fontSize: 9,
+        fontWeight: '900',
+        letterSpacing: 0.5,
     },
     statDivider: {
         width: 1,
-        height: '80%',
+        height: 40,
     },
     detailsCard: {
-        borderRadius: 12,
-        padding: 15,
-        borderWidth: 1,
-        marginBottom: 10,
-        marginTop: 10,
+        borderRadius: 24,
+        padding: 20,
+        marginBottom: 24,
     },
     modalDetailRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 8,
+        paddingVertical: 12,
     },
     modalIcon: {
-        marginRight: 12,
+        marginRight: 16,
     },
     modalDetailText: {
-        fontSize: 16,
+        fontSize: 15,
+        fontWeight: '600',
     },
     separator: {
         height: 1,
-        marginVertical: 8,
-    },
-    hintText: {
-        fontSize: 12,
-        textAlign: 'center',
-        marginTop: 5,
     },
     messageButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        height: 56,
+        borderRadius: 16,
         justifyContent: 'center',
-        padding: 15,
-        borderRadius: 12,
-        marginTop: 10,
-        marginBottom: 10,
+        alignItems: 'center',
     },
     messageButtonText: {
         color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 16,
+        fontWeight: '900',
+        fontSize: 13,
+        letterSpacing: 1,
     },
 });

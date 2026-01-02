@@ -1,47 +1,28 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
-import { useTheme } from '../../context/ThemeContext'; // Import useTheme
+import { useTheme } from '../../context/ThemeContext';
+import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
-const SkeletonPiece = ({ style }) => {
-  const progress = useSharedValue(0);
-  const { theme } = useTheme(); // Use the theme hook
-
-  React.useEffect(() => {
-    progress.value = withRepeat(withTiming(1, { duration: 1000 }), -1, true);
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(progress.value, [0, 1], [0.5, 1]);
-    return {
-      opacity,
-    };
-  });
-
-  return <Animated.View style={[styles.skeleton, { backgroundColor: theme.colors.cardBorder }, animatedStyle, style]} />;
-};
+export { SkeletonPiece };
 
 const ManagementCardSkeleton = () => {
-  const { theme } = useTheme(); // Use the theme hook
+  const { theme } = useTheme(); 
   return (
     <View style={[styles.cardContainer, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }]}>
       <View style={styles.cardContent}>
-        <SkeletonPiece style={{ width: '70%', height: 20, borderRadius: 4, marginBottom: 10 }} />
-        <SkeletonPiece style={{ width: '50%', height: 15, borderRadius: 4, marginBottom: 10 }} />
-        <SkeletonPiece style={{ width: '90%', height: 15, borderRadius: 4 }} />
+        <SkeletonBase style={{ width: '70%', height: 20, borderRadius: 4, marginBottom: 10 }} />
+        <SkeletonBase style={{ width: '50%', height: 15, borderRadius: 4, marginBottom: 10 }} />
+        <SkeletonBase style={{ width: '90%', height: 15, borderRadius: 4 }} />
       </View>
       <View style={styles.cardActions}>
-        <SkeletonPiece style={{ width: 20, height: 20, borderRadius: 10, marginLeft: 15 }} />
-        <SkeletonPiece style={{ width: 20, height: 20, borderRadius: 10, marginLeft: 15 }} />
+        <SkeletonBase style={{ width: 20, height: 20, borderRadius: 10, marginLeft: 15 }} />
+        <SkeletonBase style={{ width: 20, height: 20, borderRadius: 10, marginLeft: 15 }} />
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  skeleton: {
-    // backgroundColor handled by theme
-  },
   cardContainer: {
     flexDirection: 'row',
     borderRadius: 10,

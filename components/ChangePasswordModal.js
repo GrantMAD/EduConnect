@@ -87,35 +87,41 @@ export default function ChangePasswordModal({ visible, onClose }) {
         <Modal
             isVisible={visible}
             onBackdropPress={() => !saving && handleClose()}
+            onSwipeComplete={() => !saving && handleClose()}
+            swipeDirection={['down']}
             animationIn="slideInUp"
             animationOut="slideOutDown"
-            backdropOpacity={0.5}
+            backdropOpacity={0.4}
             style={{ justifyContent: 'flex-end', margin: 0 }}
         >
-            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: 40 }]}>
+                <View style={styles.swipeIndicator} />
                 <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={faLock} size={24} color={theme.colors.primary} />
-                    <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>Change Password</Text>
+                    <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                        <FontAwesomeIcon icon={faLock} size={18} color={theme.colors.primary} />
+                    </View>
+                    <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>Security Update</Text>
                     <TouchableOpacity onPress={() => !saving && handleClose()} style={styles.modalCloseButton}>
-                        <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
+                        <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
                     </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 24 }}>
                     <View style={styles.contentContainer}>
                         {/* Current Password */}
                         <View style={styles.inputSection}>
-                            <Text style={[styles.label, { color: theme.colors.text }]}>Current Password</Text>
+                            <Text style={[styles.label, { color: '#94a3b8' }]}>CURRENT PASSWORD</Text>
                             <View style={styles.passwordContainer}>
                                 <TextInput
                                     style={[styles.input, {
-                                        backgroundColor: theme.colors.inputBackground,
-                                        borderColor: theme.colors.inputBorder,
+                                        backgroundColor: theme.colors.card,
+                                        borderColor: theme.colors.cardBorder,
+                                        borderWidth: 1,
                                         color: theme.colors.text
                                     }]}
                                     value={currentPassword}
                                     onChangeText={setCurrentPassword}
-                                    placeholder="Enter current password"
+                                    placeholder="Verify current password"
                                     placeholderTextColor={theme.colors.placeholder}
                                     secureTextEntry={!showCurrent}
                                     editable={!saving}
@@ -126,28 +132,27 @@ export default function ChangePasswordModal({ visible, onClose }) {
                                 >
                                     <FontAwesomeIcon
                                         icon={showCurrent ? faEyeSlash : faEye}
-                                        size={18}
+                                        size={16}
                                         color={theme.colors.placeholder}
                                     />
                                 </TouchableOpacity>
                             </View>
                         </View>
 
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
                         {/* New Password */}
                         <View style={styles.inputSection}>
-                            <Text style={[styles.label, { color: theme.colors.text }]}>New Password</Text>
+                            <Text style={[styles.label, { color: '#94a3b8' }]}>NEW PASSWORD</Text>
                             <View style={styles.passwordContainer}>
                                 <TextInput
                                     style={[styles.input, {
-                                        backgroundColor: theme.colors.inputBackground,
-                                        borderColor: theme.colors.inputBorder,
+                                        backgroundColor: theme.colors.card,
+                                        borderColor: theme.colors.cardBorder,
+                                        borderWidth: 1,
                                         color: theme.colors.text
                                     }]}
                                     value={newPassword}
                                     onChangeText={setNewPassword}
-                                    placeholder="Enter new password"
+                                    placeholder="Enter secure password"
                                     placeholderTextColor={theme.colors.placeholder}
                                     secureTextEntry={!showNew}
                                     editable={!saving}
@@ -158,7 +163,7 @@ export default function ChangePasswordModal({ visible, onClose }) {
                                 >
                                     <FontAwesomeIcon
                                         icon={showNew ? faEyeSlash : faEye}
-                                        size={18}
+                                        size={16}
                                         color={theme.colors.placeholder}
                                     />
                                 </TouchableOpacity>
@@ -176,14 +181,14 @@ export default function ChangePasswordModal({ visible, onClose }) {
                                                     {
                                                         backgroundColor: level <= passwordStrength.strength
                                                             ? passwordStrength.color
-                                                            : theme.colors.inputBorder
+                                                            : theme.colors.cardBorder
                                                     }
                                                 ]}
                                             />
                                         ))}
                                     </View>
                                     <Text style={[styles.strengthLabel, { color: passwordStrength.color }]}>
-                                        {passwordStrength.label}
+                                        {passwordStrength.label.toUpperCase()}
                                     </Text>
                                 </View>
                             )}
@@ -191,17 +196,18 @@ export default function ChangePasswordModal({ visible, onClose }) {
 
                         {/* Confirm Password */}
                         <View style={styles.inputSection}>
-                            <Text style={[styles.label, { color: theme.colors.text }]}>Confirm New Password</Text>
+                            <Text style={[styles.label, { color: '#94a3b8' }]}>CONFIRM PASSWORD</Text>
                             <View style={styles.passwordContainer}>
                                 <TextInput
                                     style={[styles.input, {
-                                        backgroundColor: theme.colors.inputBackground,
-                                        borderColor: theme.colors.inputBorder,
+                                        backgroundColor: theme.colors.card,
+                                        borderColor: theme.colors.cardBorder,
+                                        borderWidth: 1,
                                         color: theme.colors.text
                                     }]}
                                     value={confirmPassword}
                                     onChangeText={setConfirmPassword}
-                                    placeholder="Confirm new password"
+                                    placeholder="Repeat new password"
                                     placeholderTextColor={theme.colors.placeholder}
                                     secureTextEntry={!showConfirm}
                                     editable={!saving}
@@ -212,7 +218,7 @@ export default function ChangePasswordModal({ visible, onClose }) {
                                 >
                                     <FontAwesomeIcon
                                         icon={showConfirm ? faEyeSlash : faEye}
-                                        size={18}
+                                        size={16}
                                         color={theme.colors.placeholder}
                                     />
                                 </TouchableOpacity>
@@ -223,11 +229,11 @@ export default function ChangePasswordModal({ visible, onClose }) {
                                 <View style={styles.matchContainer}>
                                     <FontAwesomeIcon
                                         icon={passwordsMatch ? faCheckCircle : faTimesCircle}
-                                        size={16}
-                                        color={passwordsMatch ? '#34C759' : '#FF3B30'}
+                                        size={14}
+                                        color={passwordsMatch ? '#10b981' : '#ef4444'}
                                     />
-                                    <Text style={[styles.matchText, { color: passwordsMatch ? '#34C759' : '#FF3B30' }]}>
-                                        {passwordsMatch ? 'Passwords match' : 'Passwords do not match'}
+                                    <Text style={[styles.matchText, { color: passwordsMatch ? '#10b981' : '#ef4444' }]}>
+                                        {passwordsMatch ? 'IDENTICAL' : 'NO MATCH'}
                                     </Text>
                                 </View>
                             )}
@@ -238,9 +244,10 @@ export default function ChangePasswordModal({ visible, onClose }) {
                             style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
                             onPress={handleSave}
                             disabled={saving}
+                            activeOpacity={0.8}
                         >
                             <Text style={styles.saveButtonText}>
-                                {saving ? 'Changing Password...' : 'Change Password'}
+                                {saving ? 'PROCESSING...' : 'UPDATE PASSWORD'}
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -252,68 +259,85 @@ export default function ChangePasswordModal({ visible, onClose }) {
 
 const styles = StyleSheet.create({
     modalContent: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 30,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
+        paddingHorizontal: 24,
+        paddingTop: 8,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
         maxHeight: '90%',
-        minHeight: '50%',
+    },
+    swipeIndicator: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#cbd5e1',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: 20,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingBottom: 15,
+        paddingBottom: 20,
         borderBottomWidth: 1,
-        marginBottom: 10,
+    },
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
     },
     modalTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        marginLeft: 15,
+        fontSize: 18,
+        fontWeight: '900',
         flex: 1,
+        letterSpacing: -0.5,
     },
     modalCloseButton: {
-        padding: 5,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     contentContainer: {
         paddingBottom: 20,
     },
-    divider: {
-        height: 1,
-        marginVertical: 15,
-    },
     inputSection: {
-        marginBottom: 20,
+        marginBottom: 24,
     },
     label: {
-        fontSize: 15,
-        fontWeight: '600',
+        fontSize: 10,
+        fontWeight: '900',
         marginBottom: 8,
+        letterSpacing: 1.5,
     },
     passwordContainer: {
         position: 'relative',
     },
     input: {
-        borderWidth: 1,
-        borderRadius: 12,
-        padding: 14,
-        paddingRight: 50,
+        borderRadius: 16,
+        height: 56,
+        paddingHorizontal: 16,
+        paddingRight: 56,
         fontSize: 15,
+        fontWeight: '700',
     },
     eyeIcon: {
         position: 'absolute',
-        right: 14,
-        top: 14,
-        padding: 4,
+        right: 8,
+        top: 8,
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     strengthContainer: {
-        marginTop: 8,
+        marginTop: 12,
     },
     strengthBar: {
         flexDirection: 'row',
-        gap: 4,
-        marginBottom: 4,
+        gap: 6,
+        marginBottom: 6,
     },
     strengthSegment: {
         flex: 1,
@@ -321,28 +345,32 @@ const styles = StyleSheet.create({
         borderRadius: 2,
     },
     strengthLabel: {
-        fontSize: 12,
-        fontWeight: '600',
+        fontSize: 9,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
     matchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 8,
+        marginTop: 12,
+        gap: 8,
     },
     matchText: {
-        fontSize: 13,
-        marginLeft: 6,
-        fontWeight: '500',
+        fontSize: 9,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
     saveButton: {
-        padding: 16,
-        borderRadius: 12,
+        height: 56,
+        borderRadius: 16,
+        justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 10,
+        marginTop: 8,
     },
     saveButtonText: {
         color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 13,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
 });

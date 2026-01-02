@@ -152,33 +152,29 @@ const CustomHeader = ({ navigation, showActions = false }) => {
         backgroundColor: theme.colors.headerBackground,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.cardBorder,
-        shadowColor: theme.colors.text,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 4,
         zIndex: 20,
       }}
     >
       {/* Drawer Button */}
       <TouchableOpacity
         onPress={() => navigation.openDrawer()}
-        style={{ backgroundColor: theme.colors.surface, padding: 8, borderRadius: 10, shadowColor: theme.colors.text, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 }}
+        style={{ backgroundColor: theme.colors.card, padding: 10, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.cardBorder }}
+        activeOpacity={0.7}
       >
-        <FontAwesomeIcon icon={faBars} size={20} color={theme.colors.primary} />
+        <FontAwesomeIcon icon={faBars} size={16} color={theme.colors.text} />
       </TouchableOpacity>
 
       {/* Logo - Centered */}
       <Image
         source={require('../../assets/Logo.png')}
         style={{
-          width: 65,
-          height: 65,
+          width: 50,
+          height: 50,
           resizeMode: 'contain',
           position: 'absolute',
-          left: '55%',
-          marginLeft: -32.5,
-          top: insets.top,
+          left: '50%',
+          marginLeft: -25,
+          top: insets.top + 7.5,
         }}
       />
 
@@ -186,50 +182,52 @@ const CustomHeader = ({ navigation, showActions = false }) => {
         {/* Chat Button */}
         <TouchableOpacity
           onPress={() => navigation.navigate('ChatList')}
-          style={{ backgroundColor: theme.colors.surface, padding: 8, borderRadius: 10, shadowColor: theme.colors.text, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2, marginRight: 10, position: 'relative' }}
+          style={{ backgroundColor: theme.colors.card, padding: 10, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.cardBorder, marginRight: 8, position: 'relative' }}
+          activeOpacity={0.7}
         >
-          <FontAwesomeIcon icon={faComments} size={20} color={theme.colors.success} />
+          <FontAwesomeIcon icon={faComments} size={16} color={theme.colors.primary} />
           {unreadCount > 0 && (
             <Animated.View
               style={{
                 position: 'absolute',
-                top: 4,
-                right: 4,
-                width: 10,
-                height: 10,
-                borderRadius: 5,
-                backgroundColor: theme.colors.error,
+                top: -4,
+                right: -4,
+                width: 18,
+                height: 18,
+                borderRadius: 9,
+                backgroundColor: '#ef4444',
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderWidth: 2,
+                borderColor: theme.colors.headerBackground,
                 transform: [{ scale: pulseAnim }],
-                shadowColor: theme.colors.error,
-                shadowOpacity: 0.8,
-                shadowRadius: 6,
-                elevation: 5,
               }}
-            />
+            >
+                <Text style={{ color: '#fff', fontSize: 8, fontWeight: '900' }}>{unreadCount}</Text>
+            </Animated.View>
           )}
         </TouchableOpacity>
 
         {/* Notification Bell */}
         <TouchableOpacity
           onPress={() => setShowDropdown(true)}
-          style={{ backgroundColor: theme.colors.surface, padding: 8, borderRadius: 10, shadowColor: theme.colors.text, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2, position: 'relative' }}
+          style={{ backgroundColor: theme.colors.card, padding: 10, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.cardBorder, position: 'relative' }}
+          activeOpacity={0.7}
         >
-          <FontAwesomeIcon icon={faBell} size={20} color={theme.colors.primary} />
+          <FontAwesomeIcon icon={faBell} size={16} color={theme.colors.text} />
           {hasUnread && (
             <Animated.View
               style={{
                 position: 'absolute',
-                top: 4,
-                right: 4,
+                top: -2,
+                right: -2,
                 width: 10,
                 height: 10,
                 borderRadius: 5,
-                backgroundColor: theme.colors.error,
+                backgroundColor: '#ef4444',
+                borderWidth: 2,
+                borderColor: theme.colors.headerBackground,
                 transform: [{ scale: pulseAnim }],
-                shadowColor: theme.colors.error,
-                shadowOpacity: 0.8,
-                shadowRadius: 6,
-                elevation: 5,
               }}
             />
           )}
@@ -241,23 +239,27 @@ const CustomHeader = ({ navigation, showActions = false }) => {
           onBackdropPress={() => setShowDropdown(false)}
           animationIn="fadeIn"
           animationOut="fadeOut"
-          backdropOpacity={0.1}
-          style={{ margin: 0, justifyContent: 'flex-start', alignItems: 'flex-end', marginTop: 90, marginRight: 25 }}
+          backdropOpacity={0.2}
+          style={{ margin: 0, justifyContent: 'flex-start', alignItems: 'flex-end', marginTop: 80, marginRight: 20 }}
         >
-          <View style={{ width: 300, backgroundColor: theme.colors.surface, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 15 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-              <FontAwesomeIcon icon={faBell} size={18} color={theme.colors.primary} style={{ marginRight: 8 }} />
-              <Text style={{ fontSize: 18, fontWeight: '700', color: theme.colors.text }}>
-                Notifications
-              </Text>
+          <View style={{ width: 320, backgroundColor: theme.colors.surface, borderRadius: 24, paddingVertical: 20, paddingHorizontal: 20, borderWidth: 1, borderColor: theme.colors.cardBorder }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <FontAwesomeIcon icon={faBell} size={14} color={theme.colors.primary} style={{ marginRight: 8 }} />
+                <Text style={{ fontSize: 16, fontWeight: '900', color: theme.colors.text }}>
+                  INBOX
+                </Text>
+              </View>
+              <View style={{ backgroundColor: theme.colors.primary + '15', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ color: theme.colors.primary, fontSize: 10, fontWeight: '900' }}>{notifications.filter(n => !n.is_read).length} NEW</Text>
+              </View>
             </View>
-            <Text style={{ fontSize: 12, color: theme.colors.placeholder, marginBottom: 10 }}>
-              You have {notifications.length} new notifications.
-            </Text>
-            <View style={{ borderBottomColor: theme.colors.cardBorder, borderBottomWidth: 1, marginBottom: 8 }} />
-            <ScrollView style={{ flexGrow: 0, maxHeight: 300 }}>
+            
+            <ScrollView style={{ flexGrow: 0, maxHeight: 350 }} showsVerticalScrollIndicator={false}>
               {notifications.length === 0 ? (
-                <Text style={{ textAlign: 'center', color: theme.colors.text, paddingVertical: 10 }}>No notifications</Text>
+                <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                    <Text style={{ color: theme.colors.placeholder, fontWeight: '700', fontSize: 13 }}>CLEAR INBOX</Text>
+                </View>
               ) : (
                 notifications.slice(0, 6).map((n) => (
                   <TouchableOpacity
@@ -267,27 +269,23 @@ const CustomHeader = ({ navigation, showActions = false }) => {
                       navigation.navigate('Notifications', { selectedNotificationId: n.id });
                     }}
                     style={{
-                      backgroundColor: n.is_read ? theme.colors.background : theme.colors.notification,
-                      borderRadius: 12,
-                      padding: 12,
+                      backgroundColor: n.is_read ? 'transparent' : theme.colors.primary + '05',
+                      borderRadius: 16,
+                      padding: 16,
                       marginBottom: 8,
-                      shadowColor: theme.colors.text,
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 2,
-                      elevation: 2,
                       borderWidth: 1,
-                      borderColor: theme.colors.cardBorder,
+                      borderColor: n.is_read ? theme.colors.cardBorder : theme.colors.primary + '20',
                     }}
+                    activeOpacity={0.7}
                   >
-                    <Text style={{ fontSize: 15, fontWeight: n.is_read ? '500' : '700', color: n.is_read ? theme.colors.text : theme.colors.primary, marginBottom: 4 }} numberOfLines={1}>
-                      {n.title}
+                    <Text style={{ fontSize: 14, fontWeight: '900', color: n.is_read ? theme.colors.text : theme.colors.primary, marginBottom: 4 }} numberOfLines={1}>
+                      {n.title.toUpperCase()}
                     </Text>
-                    <Text style={{ fontSize: 13, color: theme.colors.text }} numberOfLines={2}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: theme.colors.text }} numberOfLines={2}>
                       {n.message}
                     </Text>
-                    <Text style={{ fontSize: 11, color: theme.colors.placeholder, textAlign: 'right', marginTop: 4 }}>
-                      {new Date(n.created_at).toLocaleString()}
+                    <Text style={{ fontSize: 9, fontWeight: '800', color: theme.colors.placeholder, marginTop: 8 }}>
+                      {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </Text>
                   </TouchableOpacity>
                 ))
@@ -296,9 +294,10 @@ const CustomHeader = ({ navigation, showActions = false }) => {
 
             <TouchableOpacity
               onPress={() => { setShowDropdown(false); navigation.navigate('Notifications'); }}
-              style={{ marginTop: 10, paddingVertical: 10, borderRadius: 8, backgroundColor: theme.colors.primary, alignItems: 'center' }}
+              style={{ marginTop: 16, height: 48, borderRadius: 14, backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center' }}
+              activeOpacity={0.8}
             >
-              <Text style={{ color: theme.colors.buttonPrimaryText, fontWeight: '600', fontSize: 14 }}>View All Notifications</Text>
+              <Text style={{ color: '#fff', fontWeight: '900', fontSize: 12, letterSpacing: 1 }}>VIEW ALL NOTIFICATIONS</Text>
             </TouchableOpacity>
           </View>
         </Modal>

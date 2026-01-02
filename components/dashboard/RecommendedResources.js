@@ -136,19 +136,19 @@ export default function RecommendedResources({ id, schoolId, userId, role }) {
 
     return (
         <WalkthroughTarget id={id}>
-            <View style={[styles.container, { backgroundColor: theme.colors.card }]}>
+            <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                 <View style={styles.header}>
                     <View style={styles.headerLeft}>
-                        <View style={[styles.iconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
-                            <FontAwesomeIcon icon={faLightbulb} color="#F59E0B" size={16} />
+                        <View style={[styles.iconContainer, { backgroundColor: '#f59e0b' + '15' }]}>
+                            <FontAwesomeIcon icon={faLightbulb} color="#f59e0b" size={16} />
                         </View>
                         <View>
-                            <Text style={[styles.title, { color: theme.colors.text }]}>Recommended for You</Text>
-                            <Text style={[styles.subtitle, { color: theme.colors.placeholder }]}>Top materials in your subjects</Text>
+                            <Text style={[styles.title, { color: theme.colors.text }]}>Study Insights</Text>
+                            <Text style={[styles.subtitle, { color: theme.colors.placeholder }]}>TOP MATERIALS IN YOUR SUBJECTS</Text>
                         </View>
                     </View>
-                    <TouchableOpacity onPress={() => navigation.navigate('Resources')}>
-                        <Text style={[styles.viewAll, { color: theme.colors.primary }]}>View All</Text>
+                    <TouchableOpacity onPress={() => navigation.navigate('Resources')} activeOpacity={0.7}>
+                        <Text style={[styles.viewAll, { color: theme.colors.primary }]}>VIEW ALL</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -156,11 +156,12 @@ export default function RecommendedResources({ id, schoolId, userId, role }) {
                     {recommendations.map((resource) => (
                         <TouchableOpacity 
                             key={resource.id}
-                            style={[styles.item, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}
+                            style={[styles.item, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
                             onPress={() => navigation.navigate('Resources', { openResourceId: resource.id })}
+                            activeOpacity={0.7}
                         >
                             <View style={[styles.itemIcon, { backgroundColor: theme.colors.card }]}>
-                                <FontAwesomeIcon icon={getResourceIcon(resource.file_url, !!resource.url)} color={theme.colors.primary} size={18} />
+                                <FontAwesomeIcon icon={getResourceIcon(resource.file_url, !!resource.url)} color={theme.colors.primary} size={16} />
                             </View>
                             <View style={styles.itemContent}>
                                 <View style={styles.itemHeader}>
@@ -168,22 +169,20 @@ export default function RecommendedResources({ id, schoolId, userId, role }) {
                                         {resource.title}
                                     </Text>
                                     {resource.score > 5 && (
-                                        <View style={styles.trendingBadge}>
-                                            <FontAwesomeIcon icon={faStar} color="#F59E0B" size={8} style={{ marginRight: 2 }} />
-                                            <Text style={styles.trendingText}>Trending</Text>
+                                        <View style={[styles.trendingBadge, { backgroundColor: '#f59e0b' + '15' }]}>
+                                            <Text style={[styles.trendingText, { color: '#f59e0b' }]}>TRENDING</Text>
                                         </View>
                                     )}
                                 </View>
                                 <View style={styles.itemFooter}>
-                                    <Text style={[styles.category, { color: theme.colors.primary }]}>{resource.category || 'General'}</Text>
+                                    <Text style={[styles.category, { color: theme.colors.primary }]}>{resource.category?.toUpperCase() || 'GENERAL'}</Text>
                                     <Text style={styles.dot}>•</Text>
                                     <View style={styles.voteContainer}>
-                                        <FontAwesomeIcon icon={faThumbsUp} color={theme.colors.placeholder} size={10} style={{ marginRight: 4 }} />
-                                        <Text style={[styles.votes, { color: theme.colors.placeholder }]}>{resource.score} Votes</Text>
+                                        <Text style={[styles.votes, { color: theme.colors.placeholder }]}>{resource.score} VOTES</Text>
                                     </View>
                                 </View>
                             </View>
-                            <FontAwesomeIcon icon={faChevronRight} color={theme.colors.border} size={12} />
+                            <FontAwesomeIcon icon={faChevronRight} color={theme.colors.cardBorder} size={10} />
                         </TouchableOpacity>
                     ))}
                 </View>
@@ -194,50 +193,51 @@ export default function RecommendedResources({ id, schoolId, userId, role }) {
 
 const styles = StyleSheet.create({
     container: {
-        padding: 20,
-        borderRadius: 24,
-        marginBottom: 20,
+        padding: 24,
+        borderRadius: 32,
+        marginBottom: 24,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 16,
+        marginBottom: 20,
     },
     headerLeft: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 16,
     },
     iconContainer: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
+        width: 40,
+        height: 40,
+        borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
     },
     title: {
-        fontSize: 16,
+        fontSize: 17,
         fontWeight: '900',
+        letterSpacing: -0.5,
     },
     subtitle: {
-        fontSize: 11,
-        fontWeight: '600',
+        fontSize: 9,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
     viewAll: {
-        fontSize: 12,
-        fontWeight: '800',
-        textTransform: 'uppercase',
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
     list: {
-        gap: 10,
+        gap: 12,
     },
     item: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 12,
-        borderRadius: 16,
-        borderWidth: 1,
+        padding: 16,
+        borderRadius: 20,
     },
     itemIcon: {
         width: 40,
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 12,
+        marginRight: 16,
     },
     itemContent: {
         flex: 1,
@@ -253,48 +253,45 @@ const styles = StyleSheet.create({
     itemHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
-        marginBottom: 2,
+        gap: 8,
+        marginBottom: 4,
     },
     itemName: {
         fontSize: 14,
-        fontWeight: '700',
+        fontWeight: '800',
         flexShrink: 1,
     },
     trendingBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#FFF8E1',
-        paddingHorizontal: 6,
+        paddingHorizontal: 8,
         paddingVertical: 2,
-        borderRadius: 4,
+        borderRadius: 6,
     },
     trendingText: {
-        fontSize: 8,
+        fontSize: 7,
         fontWeight: '900',
-        color: '#F59E0B',
-        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     itemFooter: {
         flexDirection: 'row',
         alignItems: 'center',
     },
     category: {
-        fontSize: 10,
-        fontWeight: '800',
-        textTransform: 'uppercase',
+        fontSize: 9,
+        fontWeight: '900',
+        letterSpacing: 0.5,
     },
     dot: {
-        marginHorizontal: 6,
+        marginHorizontal: 8,
         fontSize: 10,
-        color: '#ccc',
+        color: '#cbd5e1',
     },
     voteContainer: {
         flexDirection: 'row',
         alignItems: 'center',
     },
     votes: {
-        fontSize: 10,
-        fontWeight: '700',
+        fontSize: 9,
+        fontWeight: '900',
+        letterSpacing: 0.5,
     },
 });

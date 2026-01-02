@@ -1,106 +1,67 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
-import { useTheme } from '../../context/ThemeContext'; // Import useTheme
+import { useTheme } from '../../context/ThemeContext';
+import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
-export const SkeletonPiece = ({ style }) => {
-  const progress = useSharedValue(0);
-  const { theme } = useTheme(); // Use the theme hook
-
-  React.useEffect(() => {
-    progress.value = withRepeat(withTiming(1, { duration: 1000 }), -1, true);
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(progress.value, [0, 1], [0.5, 1]);
-    return {
-      opacity,
-    };
-  });
-
-  return <Animated.View style={[styles.skeleton, { backgroundColor: theme.colors.cardBorder }, animatedStyle, style]} />;
-};
+export { SkeletonPiece };
 
 export const MarketplaceItemCardSkeleton = () => {
-    const { theme } = useTheme(); // Use the theme hook
+    const { theme } = useTheme(); 
     return (
-        <View style={[styles.cardContainer, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }]}>
-            <SkeletonPiece style={styles.cardImage} />
+        <View style={[styles.cardContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+            <SkeletonBase style={styles.cardImage} />
             <View style={styles.cardContent}>
-                <SkeletonPiece style={{ width: '80%', height: 16, borderRadius: 4, marginBottom: 5 }} />
-                <SkeletonPiece style={{ width: '50%', height: 14, borderRadius: 4 }} />
+                <SkeletonBase style={{ width: '80%', height: 14, borderRadius: 4, marginBottom: 8 }} />
+                <SkeletonBase style={{ width: '40%', height: 12, borderRadius: 4 }} />
             </View>
         </View>
     );
 };
 
 const MarketScreenSkeleton = () => {
-  const { theme } = useTheme(); // Use the theme hook
+  const { theme } = useTheme(); 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} showsVerticalScrollIndicator={false}>
         <View style={styles.mainHeaderContainer}>
-            <SkeletonPiece style={{ width: 24, height: 24, borderRadius: 4, marginRight: 10 }} />
-            <SkeletonPiece style={{ width: '60%', height: 24, borderRadius: 4 }} />
+            <SkeletonBase style={{ width: 200, height: 32, borderRadius: 4 }} />
         </View>
-        <SkeletonPiece style={{ width: '90%', height: 14, borderRadius: 4, marginBottom: 16 }} />
-        <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 10, marginBottom: 12 }} />
+        <SkeletonBase style={{ width: '90%', height: 14, borderRadius: 4, marginBottom: 24 }} />
+        <SkeletonBase style={{ width: '100%', height: 52, borderRadius: 16, marginBottom: 32 }} />
 
-        <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeaderContainer}>
-                <SkeletonPiece style={{ width: 18, height: 18, borderRadius: 4, marginRight: 10 }} />
-                <View>
-                    <SkeletonPiece style={{ width: 100, height: 18, borderRadius: 4, marginBottom: 5 }} />
-                    <SkeletonPiece style={{ width: 200, height: 12, borderRadius: 4 }} />
+        {[1, 2].map(i => (
+            <View key={i} style={styles.sectionContainer}>
+                <View style={styles.sectionHeaderContainer}>
+                    <SkeletonBase style={{ width: 120, height: 18, borderRadius: 4, marginBottom: 8 }} />
+                    <SkeletonBase style={{ width: 220, height: 10, borderRadius: 4 }} />
                 </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
+                    <MarketplaceItemCardSkeleton />
+                    <MarketplaceItemCardSkeleton />
+                    <MarketplaceItemCardSkeleton />
+                </ScrollView>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <MarketplaceItemCardSkeleton />
-                <MarketplaceItemCardSkeleton />
-                <MarketplaceItemCardSkeleton />
-            </ScrollView>
-        </View>
-
-        <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeaderContainer}>
-                <SkeletonPiece style={{ width: 18, height: 18, borderRadius: 4, marginRight: 10 }} />
-                <View>
-                    <SkeletonPiece style={{ width: 120, height: 18, borderRadius: 4, marginBottom: 5 }} />
-                    <SkeletonPiece style={{ width: 220, height: 12, borderRadius: 4 }} />
-                </View>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <MarketplaceItemCardSkeleton />
-                <MarketplaceItemCardSkeleton />
-            </ScrollView>
-        </View>
+        ))}
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 16 },
-    skeleton: {
-        // backgroundColor handled by theme
-    },
-    mainHeaderContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-    sectionContainer: { marginBottom: 20 },
-    sectionHeaderContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+    container: { flex: 1, padding: 20 },
+    mainHeaderContainer: { marginBottom: 12 },
+    sectionContainer: { marginBottom: 32 },
+    sectionHeaderContainer: { marginBottom: 20 },
     cardContainer: {
-        borderRadius: 10,
-        marginRight: 10,
-        width: 150,
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        borderRadius: 24,
+        marginRight: 16,
+        width: 180,
+        overflow: 'hidden',
     },
     cardImage: {
-        width: 150,
-        height: 100,
-        borderTopLeftRadius: 10,
-        borderTopRightRadius: 10,
+        width: 180,
+        height: 120,
     },
     cardContent: {
-        padding: 10,
+        padding: 16,
     },
 });
 

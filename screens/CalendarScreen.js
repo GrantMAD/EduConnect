@@ -10,6 +10,7 @@ import { faTimes, faCalendarAlt, faClock, faChevronDown, faChevronUp, faBook, fa
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
 import StandardBottomModal from '../components/StandardBottomModal';
+import LinearGradient from 'react-native-linear-gradient';
 
 export default function CalendarScreen({ navigation, route }) {
   const [schedules, setSchedules] = useState([]);
@@ -241,7 +242,7 @@ export default function CalendarScreen({ navigation, route }) {
         onPress={() => openScheduleModal(item)}
         style={[
           styles.eventCard,
-          { backgroundColor: theme.colors.cardBackground },
+          { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder },
           (isMeeting || isClub) && { borderLeftColor: eventColor, borderLeftWidth: 4 }
         ]}
       >
@@ -292,21 +293,29 @@ export default function CalendarScreen({ navigation, route }) {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} tintColor={theme.colors.primary} />
       }
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-        <FontAwesomeIcon icon={faCalendarAlt} size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
-        <Text style={[styles.header, { color: theme.colors.text }]}>Class Calendar</Text>
-      </View>
-      <Text style={[styles.descriptionText, { color: theme.colors.placeholder }]}>View all your scheduled classes and tap on class days for more details.</Text>
+      <LinearGradient
+        colors={['#4f46e5', '#4338ca']} 
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroContainer}
+      >
+        <View style={styles.heroContent}>
+            <Text style={styles.heroTitle}>Class Calendar</Text>
+            <Text style={styles.heroDescription}>
+                View all your scheduled classes and tap on class days for more details.
+            </Text>
+        </View>
+      </LinearGradient>
 
       {loading ? (
-        <>
+        <View style={{ marginTop: 20 }}>
           <SkeletonPiece style={{ width: '100%', height: 370, borderRadius: 10, marginBottom: 20 }} />
           <SkeletonPiece style={{ width: '50%', height: 20, borderRadius: 4, marginBottom: 15 }} />
           <SkeletonPiece style={{ width: '100%', height: 80, borderRadius: 12, marginBottom: 10 }} />
           <SkeletonPiece style={{ width: '100%', height: 80, borderRadius: 12 }} />
-        </>
+        </View>
       ) : (
-        <>
+        <View style={{ marginTop: 20 }}>
           <Calendar
             onDayPress={onDayPress}
             markedDates={markedDates}
@@ -355,7 +364,7 @@ export default function CalendarScreen({ navigation, route }) {
               <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No past events yet.</Text>
             ) : pastEvents.slice(0, 5).map(renderEventCard)}
           </View>
-        </>
+        </View>
       )}
 
       {/* Class Detail Modal */}
@@ -439,12 +448,34 @@ export default function CalendarScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { padding: 16, paddingBottom: 40 },
+  scrollContent: { padding: 0, paddingBottom: 40 }, // padding 0 for hero to touch edges
+  
+  heroContainer: {
+    padding: 20,
+    marginBottom: 0,
+    elevation: 0,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  heroContent: {
+      marginBottom: 10,
+  },
+  heroTitle: {
+      color: '#fff',
+      fontSize: 24,
+      fontWeight: '800',
+      marginBottom: 6,
+  },
+  heroDescription: {
+      color: '#e0e7ff',
+      fontSize: 14,
+  },
+
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { fontSize: 24, fontWeight: 'bold', marginBottom: 5 },
   descriptionText: { fontSize: 14, marginBottom: 20 },
-  listHeader: { fontSize: 18, fontWeight: 'bold', marginTop: 24, marginBottom: 12, marginLeft: 4 },
-  section: { marginBottom: 8 },
+  listHeader: { fontSize: 18, fontWeight: 'bold', marginTop: 24, marginBottom: 12, marginLeft: 20 }, // Adjusted margin
+  section: { marginBottom: 8, paddingHorizontal: 16 }, // Added paddingHorizontal for cards
 
   eventCard: {
     flexDirection: 'row',
@@ -452,11 +483,8 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 16,
     marginBottom: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    borderWidth: 1,
+    elevation: 0,
   },
   eventCardLeft: {
     marginRight: 12,
@@ -505,7 +533,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  emptyText: { textAlign: 'center', marginTop: 10, fontSize: 14, fontStyle: 'italic' },
+  emptyText: { textAlign: 'center', marginTop: 10, fontSize: 14, fontStyle: 'italic', paddingHorizontal: 16 },
 
   modalIconBox: { width: 50, height: 50, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
   modalTitle: { fontSize: 20, fontWeight: 'bold' },

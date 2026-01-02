@@ -34,6 +34,7 @@ import ManagementListSkeleton from '../../components/skeletons/ManagementListSke
 import CreatePTMSlotsModal from '../../components/PTM/CreatePTMSlotsModal';
 import BookPTMModal from '../../components/PTM/BookPTMModal';
 import MeetingDetailModal from '../../components/PTM/MeetingDetailModal';
+import LinearGradient from 'react-native-linear-gradient';
 
 const defaultUserImage = require('../../assets/user.png');
 
@@ -62,12 +63,10 @@ export default function MeetingsScreen({ navigation }) {
     getAuthData();
   }, []);
 
-  // Data State
   const [slots, setSlots] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [childrenTeachers, setChildrenTeachers] = useState([]);
 
-  // Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -235,7 +234,7 @@ export default function MeetingsScreen({ navigation }) {
 
               setBookings(prev => prev.filter(b => b.id !== booking.id));
               showToast('Meeting cancelled', 'success');
-              onRefresh(); // Refresh everything to update slot availability
+              onRefresh(); 
             } catch (e) {
               showToast('Failed to cancel meeting', 'error');
             }
@@ -253,43 +252,52 @@ export default function MeetingsScreen({ navigation }) {
         activeTab === id && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }
       ]}
     >
-      <FontAwesomeIcon icon={icon} size={16} color={activeTab === id ? theme.colors.primary : theme.colors.placeholder} style={{ marginRight: 8 }} />
+      <FontAwesomeIcon icon={icon} size={14} color={activeTab === id ? theme.colors.primary : theme.colors.placeholder} style={{ marginRight: 8 }} />
       <Text style={[styles.tabText, { color: activeTab === id ? theme.colors.primary : theme.colors.placeholder }]}>{label}</Text>
     </TouchableOpacity>
   );
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.headerContainer}>
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <FontAwesomeIcon icon={faArrowLeft} size={20} color={theme.colors.primary} />
-            </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: theme.colors.text, marginLeft: 8 }]}>Meetings</Text>
-          </View>
-          <Text style={[styles.headerDescription, { color: theme.colors.placeholder }]}>
-            Schedule and manage parent-teacher conferences.
-          </Text>
+      <LinearGradient
+        colors={['#0891b2', '#1d4ed8']} 
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroContainer}
+      >
+        <View style={styles.heroContent}>
+            <View style={styles.heroTextContainer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                        <FontAwesomeIcon icon={faArrowLeft} size={18} color="#fff" />
+                    </TouchableOpacity>
+                    <Text style={styles.heroTitle}>Meetings</Text>
+                </View>
+                <Text style={styles.heroDescription}>
+                    Coordinate and manage check-ins between parents and teachers.
+                </Text>
+            </View>
+            {isTeacher && (
+                <TouchableOpacity
+                    style={styles.heroButton}
+                    onPress={() => setIsCreateModalOpen(true)}
+                >
+                    <FontAwesomeIcon icon={faPlus} size={14} color="#0891b2" />
+                    <Text style={styles.heroButtonText}>Slots</Text>
+                </TouchableOpacity>
+            )}
         </View>
-        {isTeacher && (
-          <TouchableOpacity onPress={() => setIsCreateModalOpen(true)} style={styles.addButton}>
-            <FontAwesomeIcon icon={faPlus} size={20} color={theme.colors.primary} />
-          </TouchableOpacity>
-        )}
-      </View>
+      </LinearGradient>
 
       <View style={styles.tabsContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
           {renderTabButton('upcoming', 'Upcoming', faHandshake)}
           {isTeacher && renderTabButton('availability', 'Availability', faCalendarAlt)}
           {isParent && renderTabButton('browse', 'Book', faPlus)}
         </ScrollView>
       </View>
 
-      <View
-        style={styles.scrollContent}
-      >
+      <View style={styles.scrollContent}>
         {loading ? (
           <ManagementListSkeleton />
         ) : (
@@ -375,7 +383,7 @@ function UpcomingMeetingsView({ bookings, isTeacher, onCancel, onView, theme }) 
           <TouchableOpacity
             key={booking.id}
             onPress={() => onView(booking)}
-            style={[styles.meetingCard, { backgroundColor: theme.colors.cardBackground }]}
+            style={[styles.meetingCard, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
           >
             <View style={[styles.cardHeader, { borderBottomColor: theme.colors.cardBorder }]}>
               <View>
@@ -386,7 +394,7 @@ function UpcomingMeetingsView({ bookings, isTeacher, onCancel, onView, theme }) 
                   {startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Text>
               </View>
-              <View style={[styles.typeBadge, { backgroundColor: theme.colors.primary + '20' }]}>
+              <View style={[styles.typeBadge, { backgroundColor: theme.colors.primary + '15' }]}>
                 <Text style={[styles.typeBadgeText, { color: theme.colors.primary }]}>{booking.slot?.meeting_type?.replace('_', ' ')}</Text>
               </View>
             </View>
@@ -414,7 +422,7 @@ function UpcomingMeetingsView({ bookings, isTeacher, onCancel, onView, theme }) 
             </View>
 
             <View style={styles.cardFooter}>
-              <TouchableOpacity onPress={() => handleCancelBooking(booking)} style={styles.cancelBtn}>
+              <TouchableOpacity onPress={() => onCancel(booking)} style={styles.cancelBtn}>
                 <Text style={styles.cancelBtnText}>Cancel Meeting</Text>
               </TouchableOpacity>
             </View>
@@ -473,7 +481,7 @@ function ParentBrowseView({ teachers, onSelect, theme }) {
         <TouchableOpacity
           key={teacher.id}
           onPress={() => onSelect(teacher)}
-          style={[styles.teacherCard, { backgroundColor: theme.colors.cardBackground }]}
+          style={[styles.teacherCard, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
         >
           <View style={styles.teacherInfoContainer}>
             <Image
@@ -484,7 +492,7 @@ function ParentBrowseView({ teachers, onSelect, theme }) {
             <Text style={[styles.teacherEmail, { color: theme.colors.placeholder }]}>{teacher.email}</Text>
           </View>
           <View style={[styles.bookBtn, { backgroundColor: theme.colors.primary }]}>
-            <Text style={styles.bookBtnText}>View Availability</Text>
+            <Text style={styles.bookBtnText}>View Slots</Text>
           </View>
         </TouchableOpacity>
       ))}
@@ -504,27 +512,67 @@ function EmptyState({ icon, title, description, theme }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  headerContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, paddingTop: 40 },
-  backButton: { padding: 8 },
-  headerTitle: { fontSize: 24, fontWeight: 'bold' },
-  headerDescription: { fontSize: 14, marginLeft: 36, marginTop: -4 },
-  addButton: { padding: 8 },
-  tabsContainer: { borderBottomWidth: 1, borderBottomColor: '#eee' },
+  heroContainer: {
+    padding: 20,
+    marginBottom: 0,
+    elevation: 0,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  heroContent: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+  },
+  heroTextContainer: {
+      flex: 1,
+      paddingRight: 10,
+  },
+  heroTitle: {
+      color: '#fff',
+      fontSize: 24,
+      fontWeight: '800',
+      marginBottom: 6,
+  },
+  heroDescription: {
+      color: '#cffafe',
+      fontSize: 14,
+  },
+  heroButton: {
+      backgroundColor: '#fff',
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+  },
+  heroButtonText: {
+      color: '#0891b2',
+      fontWeight: 'bold',
+      marginLeft: 6,
+      fontSize: 14,
+  },
+  backButton: { marginRight: 8 },
+  tabsContainer: { borderBottomWidth: 1, borderBottomColor: '#eee', marginTop: 12 },
   tabButton: { paddingVertical: 12, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center' },
-  tabText: { fontWeight: 'bold', fontSize: 14 },
+  tabText: { fontWeight: 'bold', fontSize: 13 },
   scrollContent: { flex: 1, padding: 16 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  meetingCard: { width: '100%', borderRadius: 16, marginBottom: 16, overflow: 'hidden', elevation: 2 },
+  meetingCard: { width: '100%', borderRadius: 16, marginBottom: 16, overflow: 'hidden' },
   cardHeader: { padding: 16, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardDate: { fontWeight: 'bold', fontSize: 16 },
   cardTime: { fontSize: 12 },
   typeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  typeBadgeText: { fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
+  typeBadgeText: { fontSize: 9, fontWeight: 'bold', textTransform: 'uppercase' },
   cardBody: { padding: 16 },
   personRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   smallAvatar: { width: 32, height: 32, borderRadius: 16, marginRight: 12 },
   iconCircle: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  personRole: { fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
+  personRole: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase' },
   personName: { fontSize: 14, fontWeight: 'bold' },
   cardFooter: { padding: 12, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.02)' },
   cancelBtnText: { color: '#FF3B30', fontWeight: 'bold', fontSize: 12 },
@@ -535,13 +583,13 @@ const styles = StyleSheet.create({
   bookedText: { color: '#34C759', fontWeight: 'bold', fontSize: 12 },
   availableText: { fontSize: 12 },
   deleteBtn: { padding: 8 },
-  teacherCard: { width: '48%', borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 16, elevation: 2, minHeight: 200, justifyContent: 'space-between' },
+  teacherCard: { width: '48%', borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 16, minHeight: 200, justifyContent: 'space-between' },
   teacherInfoContainer: { alignItems: 'center', width: '100%' },
   teacherAvatar: { width: 64, height: 64, borderRadius: 32, marginBottom: 12 },
   teacherName: { fontWeight: 'bold', fontSize: 16, textAlign: 'center' },
-  teacherEmail: { fontSize: 12, textAlign: 'center', marginBottom: 16 },
+  teacherEmail: { fontSize: 11, textAlign: 'center', marginBottom: 16 },
   bookBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, width: '100%' },
-  bookBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 12, textAlign: 'center' },
+  bookBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 11, textAlign: 'center' },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
   emptyTitle: { fontSize: 18, fontWeight: 'bold', marginTop: 16 },
   emptyDescription: { fontSize: 14, textAlign: 'center', marginTop: 8 }

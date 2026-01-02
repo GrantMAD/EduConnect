@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, FlatList, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, FlatList, RefreshControl, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
@@ -8,10 +8,12 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { 
     faFootballBall, faUserFriends, faBullhorn, faCalendarAlt, 
     faChevronLeft, faClock, faUser, faInfoCircle, faPlus, 
-    faCheckCircle, faPen, faTrash, faMinus, faSignOutAlt, faSpinner
+    faCheckCircle, faPen, faTrash, faMinus, faSignOutAlt, faSpinner, faChevronRight
 } from '@fortawesome/free-solid-svg-icons';
 import CardSkeleton from '../../components/skeletons/CardSkeleton';
+import LinearGradient from 'react-native-linear-gradient';
 
+const { width } = Dimensions.get('window');
 const defaultUserImage = require('../../assets/user.png');
 
 export default function ClubDetailScreen({ route, navigation }) {
@@ -37,7 +39,6 @@ export default function ClubDetailScreen({ route, navigation }) {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // Fetch user profile
             const { data: profile } = await supabase
                 .from('users')
                 .select('*')
@@ -46,7 +47,6 @@ export default function ClubDetailScreen({ route, navigation }) {
             
             setCurrentUserProfile(profile);
 
-            // Fetch Club Info
             const { data: club, error: clubError } = await supabase
                 .from('classes')
                 .select('*, teacher:users(id, full_name, email, avatar_url, role)')
@@ -56,7 +56,6 @@ export default function ClubDetailScreen({ route, navigation }) {
             if (clubError) throw clubError;
             setClubData(club);
 
-            // Fetch Announcements
             const { data: ann } = await supabase
                 .from('announcements')
                 .select('*, author:users(full_name, email)')
@@ -64,7 +63,6 @@ export default function ClubDetailScreen({ route, navigation }) {
                 .order('created_at', { ascending: false });
             setAnnouncements(ann || []);
 
-            // Fetch Members (with RLS Fallback)
             const { data: mem } = await supabase
                 .from('class_members')
                 .select('*, users(id, full_name, email, avatar_url, role)')
@@ -85,7 +83,6 @@ export default function ClubDetailScreen({ route, navigation }) {
                 setMembers(mem || []);
             }
 
-            // Fetch Schedules
             const { data: sch } = await supabase
                 .from('class_schedules')
                 .select('*')
@@ -93,7 +90,6 @@ export default function ClubDetailScreen({ route, navigation }) {
                 .order('start_time', { ascending: true });
             setSchedules(sch || []);
 
-            // Fetch Join Requests if Coordinator
             const isCoord = profile?.role === 'admin' || club.teacher_id === user.id;
             if (isCoord) {
                 const { data: allReqs } = await supabase
@@ -145,7 +141,6 @@ export default function ClubDetailScreen({ route, navigation }) {
 
                             if (error) throw error;
 
-                            // Sync users array
                             const { data: currentMembers } = await supabase.from('class_members').select('user_id').eq('class_id', clubId);
                             const currentIds = currentMembers?.map(m => m.user_id) || [];
                             await supabase.from('classes').update({ users: currentIds }).eq('id', clubId);
@@ -178,7 +173,6 @@ export default function ClubDetailScreen({ route, navigation }) {
                     });
                 if (joinError) throw joinError;
 
-                // Sync users array
                 const { data: currentMembers } = await supabase.from('class_members').select('user_id').eq('class_id', clubId);
                 const currentIds = currentMembers?.map(m => m.user_id) || [];
                 await supabase.from('classes').update({ users: currentIds }).eq('id', clubId);
@@ -207,64 +201,94 @@ export default function ClubDetailScreen({ route, navigation }) {
     const isMember = members.some(m => m.user_id === currentUserProfile?.id);
 
     const renderHeader = () => (
-        <View style={styles.headerCard}>
-            <View style={[styles.heroImage, { backgroundColor: '#AF52DE' }]} />
-            <View style={styles.headerContent}>
-                <View style={styles.headerTop}>
-                    <View style={[styles.clubLogo, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
-                        <View style={[styles.logoInner, { backgroundColor: '#AF52DE20' }]}>
-                            <Text style={[styles.logoText, { color: '#AF52DE' }]}>{clubData?.name?.charAt(0)}</Text>
-                        </View>
-                    </View>
-                    <View style={styles.headerActions}>
+        <LinearGradient
+            colors={['#9333ea', '#4f46e5']} 
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroContainer}
+        >
+            <View style={styles.heroContent}>
+                <View style={styles.heroHeaderRow}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
+                        <FontAwesomeIcon icon={faChevronLeft} size={20} color="#fff" />
+                    </TouchableOpacity>
+                    <View style={styles.heroActions}>
                         {isCoordinator ? (
                             <TouchableOpacity 
-                                style={[styles.manageButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}
+                                style={styles.heroActionBtn}
                                 onPress={() => navigation.navigate('CreateClub', { clubToEdit: clubData })}
                             >
-                                <Text style={[styles.manageButtonText, { color: theme.colors.text }]}>Manage</Text>
+                                <Text style={styles.heroActionBtnText}>MANAGE</Text>
                             </TouchableOpacity>
                         ) : isMember ? (
                             <TouchableOpacity 
-                                style={[styles.leaveButton, { backgroundColor: theme.colors.surface, borderColor: theme.colors.error + '40' }]}
+                                style={[styles.heroActionBtn, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}
                                 onPress={handleLeaveClub}
                                 disabled={isLeaving}
                             >
-                                {isLeaving ? <ActivityIndicator size="small" color={theme.colors.error} /> : <FontAwesomeIcon icon={faSignOutAlt} size={16} color={theme.colors.error} />}
+                                {isLeaving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[styles.heroActionBtnText, { color: '#fca5a5' }]}>LEAVE</Text>}
                             </TouchableOpacity>
                         ) : null}
                     </View>
                 </View>
 
-                <View style={styles.clubInfo}>
-                    <Text style={[styles.clubName, { color: theme.colors.text }]}>{clubData?.name}</Text>
-                    <View style={styles.coordinatorRow}>
-                        <FontAwesomeIcon icon={faUser} size={12} color={theme.colors.placeholder} />
-                        <Text style={[styles.coordinatorLabel, { color: theme.colors.placeholder }]}>Coordinator: </Text>
-                        <Text style={[styles.coordinatorName, { color: theme.colors.primary }]}>{clubData?.teacher?.full_name}</Text>
+                <View style={styles.heroBody}>
+                    <View style={styles.clubLogoBox}>
+                        <View style={[styles.logoInner, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                            <Text style={styles.logoText}>{clubData?.name?.charAt(0)}</Text>
+                        </View>
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 16 }}>
+                        <Text style={styles.clubNameHero}>{clubData?.name}</Text>
+                        <View style={styles.heroMetaRow}>
+                            <View style={styles.heroBadge}>
+                                <FontAwesomeIcon icon={faFootballBall} size={10} color="#fff" style={{ opacity: 0.7 }} />
+                                <Text style={styles.heroBadgeText}>EXTRA-CURRICULAR</Text>
+                            </View>
+                            <View style={styles.heroBadge}>
+                                <FontAwesomeIcon icon={faUserFriends} size={10} color="#fff" style={{ opacity: 0.7 }} />
+                                <Text style={styles.heroBadgeText}>{members.length} MEMBERS</Text>
+                            </View>
+                        </View>
+                    </View>
+                </View>
+
+                <View style={styles.coordBox}>
+                    <View style={styles.coordAvatarBox}>
+                        {clubData?.teacher?.avatar_url ? (
+                            <Image source={{ uri: clubData.teacher.avatar_url }} style={styles.coordAvatar} />
+                        ) : (
+                            <FontAwesomeIcon icon={faUser} size={14} color="#fff" style={{ opacity: 0.5 }} />
+                        )}
+                    </View>
+                    <View style={{ marginLeft: 10 }}>
+                        <Text style={styles.coordLabel}>COORDINATOR</Text>
+                        <Text style={styles.coordName}>{clubData?.teacher?.full_name || 'Unassigned'}</Text>
                     </View>
                 </View>
             </View>
-        </View>
+        </LinearGradient>
     );
 
     const renderTabs = () => (
-        <View style={[styles.tabBar, { backgroundColor: theme.colors.surface }]}>
-            {[
-                { id: 'news', label: 'News', icon: faBullhorn },
-                { id: 'members', label: 'Members', icon: faUserFriends },
-                { id: 'calendar', label: 'Calendar', icon: faCalendarAlt },
-                ...(isCoordinator ? [{ id: 'requests', label: 'Requests', icon: faPlus }] : [])
-            ].map(tab => (
-                <TouchableOpacity 
-                    key={tab.id}
-                    onPress={() => setActiveTab(tab.id)}
-                    style={[styles.tab, activeTab === tab.id && { borderBottomColor: '#AF52DE', borderBottomWidth: 3 }]}
-                >
-                    <FontAwesomeIcon icon={tab.icon} size={16} color={activeTab === tab.id ? '#AF52DE' : theme.colors.placeholder} />
-                    <Text style={[styles.tabLabel, { color: activeTab === tab.id ? '#AF52DE' : theme.colors.placeholder }]}>{tab.label}</Text>
-                </TouchableOpacity>
-            ))}
+        <View style={[styles.tabBar, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderBottomWidth: 1 }]}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
+                {[
+                    { id: 'news', label: 'News', icon: faBullhorn },
+                    { id: 'members', label: 'Members', icon: faUserFriends },
+                    { id: 'calendar', label: 'Calendar', icon: faCalendarAlt },
+                    ...(isCoordinator ? [{ id: 'requests', label: 'Requests', icon: faPlus }] : [])
+                ].map(tab => (
+                    <TouchableOpacity 
+                        key={tab.id}
+                        onPress={() => setActiveTab(tab.id)}
+                        style={[styles.tab, activeTab === tab.id && { borderBottomColor: '#AF52DE', borderBottomWidth: 2 }]}
+                    >
+                        <FontAwesomeIcon icon={tab.icon} size={14} color={activeTab === tab.id ? '#AF52DE' : theme.colors.placeholder} />
+                        <Text style={[styles.tabLabel, { color: activeTab === tab.id ? '#AF52DE' : theme.colors.placeholder }]}>{tab.label}</Text>
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
         </View>
     );
 
@@ -275,7 +299,7 @@ export default function ClubDetailScreen({ route, navigation }) {
             case 'news':
                 return (
                     <View style={styles.tabContent}>
-                        <View style={styles.tabHeader}>
+                        <View style={styles.tabHeaderRow}>
                             <Text style={[styles.tabTitle, { color: theme.colors.text }]}>Updates & Announcements</Text>
                             {isCoordinator && (
                                 <TouchableOpacity 
@@ -287,15 +311,22 @@ export default function ClubDetailScreen({ route, navigation }) {
                             )}
                         </View>
                         {announcements.length === 0 ? (
-                            <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No announcements yet.</Text>
+                            <View style={styles.emptyContent}>
+                                <FontAwesomeIcon icon={faBullhorn} size={40} color={theme.colors.placeholder} style={{ opacity: 0.2 }} />
+                                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No announcements yet.</Text>
+                            </View>
                         ) : (
                             announcements.map(item => (
-                                <View key={item.id} style={[styles.annCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+                                <View key={item.id} style={[styles.annCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                                     <Text style={[styles.annTitle, { color: theme.colors.text }]}>{item.title}</Text>
-                                    <Text style={[styles.annBody, { color: theme.colors.text }]}>{item.message}</Text>
+                                    <Text style={[styles.annBody, { color: theme.colors.text }]} numberOfLines={3}>{item.message}</Text>
+                                    <View style={[styles.annDivider, { backgroundColor: theme.colors.cardBorder, opacity: 0.3 }]} />
                                     <View style={styles.annFooter}>
+                                        <View style={styles.annAuthorRow}>
+                                            <FontAwesomeIcon icon={faUser} size={10} color={theme.colors.placeholder} />
+                                            <Text style={[styles.annAuthor, { color: theme.colors.placeholder }]}>{item.author?.full_name}</Text>
+                                        </View>
                                         <Text style={[styles.annDate, { color: theme.colors.placeholder }]}>{new Date(item.created_at).toLocaleDateString()}</Text>
-                                        <Text style={[styles.annAuthor, { color: theme.colors.placeholder }]}>By {item.author?.full_name}</Text>
                                     </View>
                                 </View>
                             ))
@@ -306,21 +337,25 @@ export default function ClubDetailScreen({ route, navigation }) {
                 return (
                     <View style={styles.tabContent}>
                         <Text style={[styles.tabTitle, { color: theme.colors.text }]}>Member Roster ({members.length})</Text>
-                        {members.map(item => (
-                            <View key={item.id || item.user_id} style={styles.memberItem}>
-                                <Image 
-                                    source={item.users?.avatar_url ? { uri: item.users.avatar_url } : defaultUserImage} 
-                                    style={styles.memberAvatar} 
-                                />
-                                <View style={styles.memberInfo}>
-                                    <Text style={[styles.memberName, { color: theme.colors.text }]}>{item.users?.full_name}</Text>
-                                    <Text style={[styles.memberRole, { color: theme.colors.placeholder }]}>{item.users?.role}</Text>
+                        <View style={[styles.membersList, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                            {members.map((item, idx) => (
+                                <View key={item.id || item.user_id} style={[styles.memberItem, idx === members.length - 1 && { borderBottomWidth: 0 }, { borderBottomColor: theme.colors.cardBorder + '30' }]}>
+                                    <View style={[styles.memberAvatarBox, { borderColor: theme.colors.cardBorder }]}>
+                                        <Image 
+                                            source={item.users?.avatar_url ? { uri: item.users.avatar_url } : defaultUserImage} 
+                                            style={styles.memberAvatar} 
+                                        />
+                                    </View>
+                                    <View style={styles.memberInfo}>
+                                        <Text style={[styles.memberName, { color: theme.colors.text }]}>{item.users?.full_name}</Text>
+                                        <Text style={[styles.memberRoleLabel, { color: theme.colors.placeholder }]}>{item.users?.role?.toUpperCase()}</Text>
+                                    </View>
+                                    <View style={[styles.memberBadgeSmall, { backgroundColor: '#34C75910' }]}>
+                                        <Text style={{ color: '#34C759', fontSize: 9, fontWeight: '900' }}>MEMBER</Text>
+                                    </View>
                                 </View>
-                                <View style={[styles.activeBadge, { backgroundColor: '#34C75920' }]}>
-                                    <Text style={{ color: '#34C759', fontSize: 10, fontWeight: 'bold' }}>ACTIVE</Text>
-                                </View>
-                            </View>
-                        ))}
+                            ))}
+                        </View>
                     </View>
                 );
             case 'calendar':
@@ -328,11 +363,14 @@ export default function ClubDetailScreen({ route, navigation }) {
                     <View style={styles.tabContent}>
                         <Text style={[styles.tabTitle, { color: theme.colors.text }]}>Meeting Schedule</Text>
                         {schedules.length === 0 ? (
-                            <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No meetings scheduled.</Text>
+                            <View style={styles.emptyContent}>
+                                <FontAwesomeIcon icon={faCalendarAlt} size={40} color={theme.colors.placeholder} style={{ opacity: 0.2 }} />
+                                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No meetings scheduled.</Text>
+                            </View>
                         ) : (
                             schedules.map(session => (
-                                <View key={session.id} style={[styles.scheduleItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
-                                    <View style={[styles.dateBox, { backgroundColor: '#AF52DE20' }]}>
+                                <View key={session.id} style={[styles.scheduleItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                                    <View style={[styles.dateBox, { backgroundColor: '#AF52DE15' }]}>
                                         <Text style={[styles.dateMonth, { color: '#AF52DE' }]}>
                                             {new Date(session.start_time).toLocaleString('default', { month: 'short' }).toUpperCase()}
                                         </Text>
@@ -344,6 +382,7 @@ export default function ClubDetailScreen({ route, navigation }) {
                                         </Text>
                                         <Text style={[styles.scheduleLabel, { color: theme.colors.placeholder }]}>{session.class_info || 'Club Meeting'}</Text>
                                     </View>
+                                    <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.cardBorder} />
                                 </View>
                             ))
                         )}
@@ -354,31 +393,36 @@ export default function ClubDetailScreen({ route, navigation }) {
                     <View style={styles.tabContent}>
                         <Text style={[styles.tabTitle, { color: theme.colors.text }]}>Join Requests ({requests.length})</Text>
                         {requests.length === 0 ? (
-                            <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No pending requests.</Text>
+                            <View style={styles.emptyContent}>
+                                <FontAwesomeIcon icon={faUserFriends} size={40} color={theme.colors.placeholder} style={{ opacity: 0.2 }} />
+                                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No pending requests.</Text>
+                            </View>
                         ) : (
                             requests.map(req => (
-                                <View key={req.id} style={[styles.reqCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+                                <View key={req.id} style={[styles.reqCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                                     <View style={styles.reqTop}>
-                                        <Image source={req.sender?.avatar_url ? { uri: req.sender.avatar_url } : defaultUserImage} style={styles.memberAvatar} />
+                                        <View style={[styles.memberAvatarBox, { borderColor: theme.colors.cardBorder }]}>
+                                            <Image source={req.sender?.avatar_url ? { uri: req.sender.avatar_url } : defaultUserImage} style={styles.memberAvatar} />
+                                        </View>
                                         <View style={styles.reqInfo}>
                                             <Text style={[styles.memberName, { color: theme.colors.text }]}>{req.sender?.full_name}</Text>
-                                            <Text style={[styles.memberRole, { color: theme.colors.placeholder }]}>{req.sender?.email}</Text>
+                                            <Text style={[styles.memberRoleLabel, { color: theme.colors.placeholder }]}>{req.sender?.email}</Text>
                                         </View>
                                     </View>
                                     <View style={styles.reqActions}>
                                         <TouchableOpacity 
-                                            style={[styles.reqBtn, { backgroundColor: theme.colors.error + '10' }]}
+                                            style={[styles.reqBtn, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
                                             onPress={() => handleRequestAction(req, false)}
                                             disabled={processingId === req.id}
                                         >
-                                            <Text style={{ color: theme.colors.error, fontWeight: 'bold' }}>Decline</Text>
+                                            <Text style={{ color: theme.colors.text, fontWeight: '700', fontSize: 12 }}>DECLINE</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity 
-                                            style={[styles.reqBtn, { backgroundColor: '#34C759' }]}
+                                            style={[styles.reqBtn, { backgroundColor: '#10b981' }]}
                                             onPress={() => handleRequestAction(req, true)}
                                             disabled={processingId === req.id}
                                         >
-                                            {processingId === req.id ? <ActivityIndicator size="small" color="white" /> : <Text style={{ color: 'white', fontWeight: 'bold' }}>Approve</Text>}
+                                            {processingId === req.id ? <ActivityIndicator size="small" color="white" /> : <Text style={{ color: 'white', fontWeight: '900', fontSize: 12 }}>APPROVE</Text>}
                                         </TouchableOpacity>
                                     </View>
                                 </View>
@@ -390,31 +434,127 @@ export default function ClubDetailScreen({ route, navigation }) {
     };
 
     return (
-        <ScrollView 
-            style={[styles.container, { backgroundColor: theme.colors.background }]}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#AF52DE" />}
-        >
-            <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, { marginTop: insets.top + 10 }]}>
-                <FontAwesomeIcon icon={faChevronLeft} size={20} color="white" />
-            </TouchableOpacity>
-            
-            {renderHeader()}
-            {renderTabs()}
-            {renderContent()}
-        </ScrollView>
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+            <ScrollView 
+                showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#AF52DE" />}
+            >
+                {renderHeader()}
+                {renderTabs()}
+                {renderContent()}
+            </ScrollView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
+    heroContainer: {
+        padding: 24,
+        paddingTop: 40,
+        elevation: 0,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
+    },
+    heroContent: {
+        width: '100%',
+    },
+    heroHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    backButtonHero: { padding: 4 },
+    heroActions: { flexDirection: 'row', gap: 8 },
+    heroActionBtn: {
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    heroActionBtnText: { color: '#fff', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+    heroBody: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
+    clubLogoBox: { width: 80, height: 80, borderRadius: 24, padding: 4, backgroundColor: 'rgba(255,255,255,0.1)' },
+    logoInner: { flex: 1, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+    logoText: { fontSize: 36, fontWeight: '900', color: '#fff' },
+    clubNameHero: { fontSize: 28, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
+    heroMetaRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+    heroBadge: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        backgroundColor: 'rgba(0,0,0,0.1)', 
+        paddingHorizontal: 10, 
+        paddingVertical: 4, 
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    heroBadgeText: { color: '#fff', fontSize: 8, fontWeight: '900', letterSpacing: 1, marginLeft: 6 },
+    coordBox: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        backgroundColor: 'rgba(255,255,255,0.1)', 
+        padding: 12, 
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+        alignSelf: 'flex-start',
+    },
+    coordAvatarBox: { width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    coordAvatar: { width: '100%', height: '100%' },
+    coordLabel: { fontSize: 8, fontWeight: '900', color: 'rgba(255,255,255,0.6)', letterSpacing: 1 },
+    coordName: { fontSize: 13, fontWeight: '700', color: '#fff' },
+    
+    tabBar: { marginTop: 12 },
+    tab: { paddingVertical: 16, marginRight: 24, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    tabLabel: { fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+    
+    tabContent: { padding: 20 },
+    tabHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    tabTitle: { fontSize: 18, fontWeight: '900', letterSpacing: -0.5 },
+    addButton: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    annCard: { padding: 20, borderRadius: 24, marginBottom: 16 },
+    annTitle: { fontSize: 16, fontWeight: '800', marginBottom: 6 },
+    annBody: { fontSize: 14, lineHeight: 20, opacity: 0.8 },
+    annDivider: { height: 1, marginVertical: 16 },
+    annFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    annAuthorRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    annAuthor: { fontSize: 11, fontWeight: '700' },
+    annDate: { fontSize: 11, fontWeight: '600' },
+    
+    membersList: { borderRadius: 24, overflow: 'hidden' },
+    memberItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
+    memberAvatarBox: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
+    memberAvatar: { width: '100%', height: '100%' },
+    memberInfo: { flex: 1, marginLeft: 16 },
+    memberName: { fontSize: 15, fontWeight: '800' },
+    memberRoleLabel: { fontSize: 9, fontWeight: '900', marginTop: 2, letterSpacing: 1 },
+    memberBadgeSmall: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+    
+    scheduleItem: { flexDirection: 'row', padding: 16, borderRadius: 24, marginBottom: 12, alignItems: 'center' },
+    dateBox: { width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    dateMonth: { fontSize: 9, fontWeight: '900' },
+    dateDay: { fontSize: 20, fontWeight: '900', marginTop: -2 },
+    scheduleInfo: { flex: 1, marginLeft: 16 },
+    scheduleTime: { fontSize: 14, fontWeight: '800' },
+    scheduleLabel: { fontSize: 12, fontWeight: '500', marginTop: 2 },
+    
+    reqCard: { padding: 20, borderRadius: 24, marginBottom: 16 },
+    reqTop: { flexDirection: 'row', alignItems: 'center' },
+    reqInfo: { flex: 1, marginLeft: 16 },
+    reqActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20 },
+    reqBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
+    emptyContent: { padding: 40, alignItems: 'center', gap: 12 },
+    emptyText: { fontSize: 15, fontWeight: '600', textAlign: 'center' },
     backButton: { position: 'absolute', left: 20, zIndex: 10, padding: 10 },
     headerCard: { paddingBottom: 24 },
     heroImage: { height: 140, width: '100%' },
     headerContent: { paddingHorizontal: 24, marginTop: -40 },
     headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
     clubLogo: { width: 80, height: 80, borderRadius: 20, borderWidth: 4, padding: 4, elevation: 4 },
-    logoInner: { flex: 1, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-    logoText: { fontSize: 32, fontWeight: '900' },
     headerActions: { flexDirection: 'row', gap: 10, paddingBottom: 8 },
     manageButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, borderWidth: 1, elevation: 2 },
     manageButtonText: { fontSize: 13, fontWeight: 'bold' },
@@ -424,36 +564,7 @@ const styles = StyleSheet.create({
     coordinatorRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
     coordinatorLabel: { fontSize: 12 },
     coordinatorName: { fontSize: 12, fontWeight: 'bold' },
-    tabBar: { flexDirection: 'row', marginTop: 24, paddingHorizontal: 10 },
-    tab: { flex: 1, paddingVertical: 12, alignItems: 'center', gap: 4 },
-    tabLabel: { fontSize: 11, fontWeight: 'bold', marginTop: 2 },
-    tabContent: { padding: 24 },
     tabHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-    tabTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
-    addButton: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-    annCard: { padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 12 },
-    annTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
-    annBody: { fontSize: 14, lineHeight: 20, opacity: 0.8 },
-    annFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
-    annDate: { fontSize: 11 },
-    annAuthor: { fontSize: 11, fontStyle: 'italic' },
-    memberItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
-    memberAvatar: { width: 44, height: 44, borderRadius: 12 },
-    memberInfo: { flex: 1, marginLeft: 12 },
-    memberName: { fontSize: 15, fontWeight: 'bold' },
     memberRole: { fontSize: 12 },
     activeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-    scheduleItem: { flexDirection: 'row', padding: 12, borderRadius: 16, borderWidth: 1, marginBottom: 12, alignItems: 'center' },
-    dateBox: { width: 50, height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    dateMonth: { fontSize: 10, fontWeight: '900' },
-    dateDay: { fontSize: 18, fontWeight: '900' },
-    scheduleInfo: { marginLeft: 16 },
-    scheduleTime: { fontSize: 14, fontWeight: 'bold' },
-    scheduleLabel: { fontSize: 12 },
-    reqCard: { padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 12 },
-    reqTop: { flexDirection: 'row', alignItems: 'center' },
-    reqInfo: { flex: 1, marginLeft: 12 },
-    reqActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 16 },
-    reqBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
-    emptyText: { textAlign: 'center', marginTop: 20, fontStyle: 'italic' }
 });

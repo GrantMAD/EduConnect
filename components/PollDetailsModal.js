@@ -83,17 +83,22 @@ export default function PollDetailsModal({ visible, poll, onClose }) {
         <Modal
             isVisible={visible}
             onBackdropPress={onClose}
+            onSwipeComplete={onClose}
+            swipeDirection={['down']}
             animationIn="slideInUp"
             animationOut="slideOutDown"
-            backdropOpacity={0.5}
+            backdropOpacity={0.4}
             style={{ justifyContent: 'flex-end', margin: 0 }}
         >
             <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+                <View style={styles.swipeIndicator} />
                 <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={faChartBar} size={24} color="#FF9500" />
-                    <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Poll Details</Text>
+                    <View style={[styles.iconBox, { backgroundColor: '#f59e0b' + '15' }]}>
+                        <FontAwesomeIcon icon={faChartBar} size={18} color="#f59e0b" />
+                    </View>
+                    <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Poll Results</Text>
                     <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
+                        <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
                     </TouchableOpacity>
                 </View>
 
@@ -103,24 +108,24 @@ export default function PollDetailsModal({ visible, poll, onClose }) {
                     </Text>
 
                     <View style={styles.metaContainer}>
-                        <View style={styles.metaItem}>
-                            <FontAwesomeIcon icon={faClock} size={14} color={theme.colors.placeholder} />
+                        <View style={[styles.metaItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                            <FontAwesomeIcon icon={faClock} size={10} color={theme.colors.placeholder} />
                             <Text style={[styles.metaText, { color: theme.colors.placeholder }]}>
-                                Ends: {formatDate(poll.end_date)}
+                                ENDS {new Date(poll.end_date).toLocaleDateString().toUpperCase()}
                             </Text>
                         </View>
                         {poll.target_roles && (
-                            <View style={styles.metaItem}>
-                                <FontAwesomeIcon icon={faUsers} size={14} color={theme.colors.placeholder} />
+                            <View style={[styles.metaItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                                <FontAwesomeIcon icon={faUsers} size={10} color={theme.colors.placeholder} />
                                 <Text style={[styles.metaText, { color: theme.colors.placeholder }]}>
-                                    Target: {poll.target_roles.join(', ')}
+                                    {poll.target_roles.join(', ').toUpperCase()}
                                 </Text>
                             </View>
                         )}
                     </View>
 
                     <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                        Results ({totalVotes} votes)
+                        STATISTICS ({totalVotes} VOTES)
                     </Text>
 
                     {loading ? (
@@ -139,7 +144,7 @@ export default function PollDetailsModal({ visible, poll, onClose }) {
                                                     {option}
                                                 </Text>
                                                 <Text style={[styles.percentageText, { color: theme.colors.text }]}>
-                                                    {percentage}% ({count})
+                                                    {percentage}%
                                                 </Text>
                                             </View>
                                             <View style={[styles.progressBarBackground, { backgroundColor: theme.colors.cardBorder }]}>
@@ -148,7 +153,7 @@ export default function PollDetailsModal({ visible, poll, onClose }) {
                                                         styles.progressBarFill,
                                                         {
                                                             width: `${percentage}%`,
-                                                            backgroundColor: '#FF9500'
+                                                            backgroundColor: '#f59e0b'
                                                         }
                                                     ]}
                                                 />
@@ -160,38 +165,33 @@ export default function PollDetailsModal({ visible, poll, onClose }) {
 
                             {voters.length > 0 && (
                                 <View style={styles.votersSection}>
-                                    <Text style={[styles.sectionTitle, { color: theme.colors.text, marginTop: 24 }]}>
-                                        Voters
+                                    <Text style={[styles.sectionTitle, { color: theme.colors.text, marginTop: 32 }]}>
+                                        PARTICIPANTS
                                     </Text>
                                     {voters.map((vote) => (
-                                        <View key={vote.id} style={[styles.voterCard, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
+                                        <View key={vote.id} style={[styles.voterCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                                             <View style={styles.voterInfo}>
                                                 {vote.users?.avatar_url ? (
                                                     <Image source={{ uri: vote.users.avatar_url }} style={styles.avatar} />
                                                 ) : (
-                                                    <View style={[styles.avatarPlaceholder, { backgroundColor: theme.colors.cardBorder }]}>
-                                                        <FontAwesomeIcon icon={faUser} size={16} color={theme.colors.placeholder} />
+                                                    <View style={[styles.avatarPlaceholder, { backgroundColor: theme.colors.background }]}>
+                                                        <FontAwesomeIcon icon={faUser} size={14} color={theme.colors.placeholder} />
                                                     </View>
                                                 )}
                                                 <View style={styles.voterDetails}>
                                                     <Text style={[styles.voterName, { color: theme.colors.text }]}>
-                                                        {vote.users?.full_name || 'Unknown User'}
+                                                        {vote.users?.full_name || 'Anonymous User'}
                                                     </Text>
-                                                    {vote.users?.email && (
-                                                        <Text style={[styles.voterEmail, { color: theme.colors.placeholder }]}>
-                                                            {vote.users.email}
-                                                        </Text>
-                                                    )}
-                                                    <View style={[styles.roleBadge, { backgroundColor: getRoleColor(vote.users?.role) }]}>
-                                                        <Text style={styles.roleText}>
-                                                            {vote.users?.role ? vote.users.role.charAt(0).toUpperCase() + vote.users.role.slice(1) : 'User'}
+                                                    <View style={[styles.roleBadge, { backgroundColor: getRoleColor(vote.users?.role) + '15' }]}>
+                                                        <Text style={[styles.roleText, { color: getRoleColor(vote.users?.role) }]}>
+                                                            {vote.users?.role?.toUpperCase() || 'USER'}
                                                         </Text>
                                                     </View>
                                                 </View>
                                             </View>
-                                            <View style={[styles.voteBadge, { backgroundColor: theme.colors.cardBorder }]}>
-                                                <Text style={[styles.voteText, { color: theme.colors.text }]}>
-                                                    {vote.selected_option}
+                                            <View style={[styles.voteBadge, { backgroundColor: theme.colors.primary + '10' }]}>
+                                                <Text style={[styles.voteText, { color: theme.colors.primary }]}>
+                                                    {vote.selected_option.toUpperCase()}
                                                 </Text>
                                             </View>
                                         </View>
@@ -208,63 +208,87 @@ export default function PollDetailsModal({ visible, poll, onClose }) {
 
 const styles = StyleSheet.create({
     modalContent: {
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        paddingHorizontal: 20,
-        paddingTop: 20,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        paddingHorizontal: 24,
+        paddingTop: 8,
         paddingBottom: 40,
-        maxHeight: '80%',
-        minHeight: '50%',
+        maxHeight: '85%',
+    },
+    swipeIndicator: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#cbd5e1',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: 20,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingBottom: 15,
+        paddingBottom: 20,
         borderBottomWidth: 1,
-        marginBottom: 15,
+    },
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
     },
     modalTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginLeft: 15,
+        fontSize: 18,
+        fontWeight: '900',
         flex: 1,
+        letterSpacing: -0.5,
     },
     closeButton: {
-        padding: 5,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     scrollContent: {
-        paddingBottom: 20,
+        paddingVertical: 24,
     },
     question: {
         fontSize: 18,
-        fontWeight: '600',
-        marginBottom: 15,
+        fontWeight: '800',
+        marginBottom: 16,
         lineHeight: 26,
     },
     metaContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        marginBottom: 20,
-        gap: 15,
+        marginBottom: 32,
+        gap: 8,
     },
     metaItem: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 10,
     },
     metaText: {
-        fontSize: 14,
+        fontSize: 9,
+        fontWeight: '900',
+        letterSpacing: 0.5,
     },
     sectionTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 15,
+        fontSize: 10,
+        fontWeight: '900',
+        marginBottom: 20,
+        letterSpacing: 1.5,
+        color: '#94a3b8',
     },
     optionsContainer: {
-        gap: 15,
+        gap: 16,
     },
     optionItem: {
-        marginBottom: 5,
+        marginBottom: 8,
     },
     optionHeader: {
         flexDirection: 'row',
@@ -272,12 +296,12 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     optionText: {
-        fontSize: 15,
-        fontWeight: '500',
+        fontSize: 14,
+        fontWeight: '700',
     },
     percentageText: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: 13,
+        fontWeight: '800',
     },
     progressBarBackground: {
         height: 8,
@@ -295,10 +319,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
-        marginBottom: 10,
+        padding: 16,
+        borderRadius: 20,
+        marginBottom: 12,
     },
     voterInfo: {
         flexDirection: 'row',
@@ -308,13 +331,13 @@ const styles = StyleSheet.create({
     avatar: {
         width: 40,
         height: 40,
-        borderRadius: 20,
+        borderRadius: 14,
         marginRight: 12,
     },
     avatarPlaceholder: {
         width: 40,
         height: 40,
-        borderRadius: 20,
+        borderRadius: 14,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 12,
@@ -324,32 +347,28 @@ const styles = StyleSheet.create({
     },
     voterName: {
         fontSize: 14,
-        fontWeight: '600',
+        fontWeight: '800',
         marginBottom: 2,
     },
-    voterEmail: {
-        fontSize: 12,
-        marginBottom: 4,
-    },
     roleBadge: {
-        paddingHorizontal: 6,
+        paddingHorizontal: 8,
         paddingVertical: 2,
-        borderRadius: 4,
+        borderRadius: 6,
         alignSelf: 'flex-start',
     },
     roleText: {
-        color: '#FFFFFF',
-        fontSize: 10,
-        fontWeight: '700',
+        fontSize: 8,
+        fontWeight: '900',
+        letterSpacing: 0.5,
     },
     voteBadge: {
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
         marginLeft: 10,
     },
     voteText: {
-        fontSize: 12,
-        fontWeight: '600',
+        fontSize: 10,
+        fontWeight: '900',
     },
 });

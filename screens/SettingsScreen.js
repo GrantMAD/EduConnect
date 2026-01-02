@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
   faCog, faMoon, faSun, faBell, faInfoCircle, faFileContract,
   faShieldAlt, faQuestionCircle, faBullhorn, faBookOpen, faPoll,
-  faCalendar, faStore, faTrophy, faUser, faLock, faDoorOpen
+  faCalendar, faStore, faTrophy, faUser, faLock, faDoorOpen, faPalette, faGlobe, faChevronRight
 } from '@fortawesome/free-solid-svg-icons';
 import { Switch } from 'react-native-paper';
 import * as Notifications from 'expo-notifications';
@@ -21,6 +21,7 @@ import PrivacyPolicyModal from '../components/PrivacyPolicyModal';
 import EditProfileModal from '../components/EditProfileModal';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import ConfirmationModal from '../components/ConfirmationModal';
+import LinearGradient from 'react-native-linear-gradient';
 
 export default function SettingsScreen({ navigation }) {
   const [user, setUser] = useState(null);
@@ -50,11 +51,8 @@ export default function SettingsScreen({ navigation }) {
           .select('role')
           .eq('id', user.id)
           .single();
-        if (error) {
-          console.error('Error fetching user role:', error);
-        } else {
+        if (!error) {
           setUser(userData);
-          // Fetch full user data for EditProfileModal
           const { data: fullUserData } = await supabase
             .from('users')
             .select('*')
@@ -84,7 +82,6 @@ export default function SettingsScreen({ navigation }) {
       const schoolId = fullUser.school_id;
       const userId = fullUser.id;
 
-      // 1. Remove from schools.users array
       const { data: schoolData, error: schoolFetchError } = await supabase
         .from('schools')
         .select('users, created_by, name')
@@ -103,7 +100,6 @@ export default function SettingsScreen({ navigation }) {
         if (updateSchoolError) throw updateSchoolError;
       }
 
-      // 2. Remove from class_members
       const { error: deleteMembersError } = await supabase
         .from('class_members')
         .delete()
@@ -111,7 +107,6 @@ export default function SettingsScreen({ navigation }) {
 
       if (deleteMembersError) throw deleteMembersError;
 
-      // 3. If teacher/admin, unassign classes
       if (fullUser.role === 'teacher' || fullUser.role === 'admin') {
         const { error: updateClassesError } = await supabase
           .from('classes')
@@ -122,26 +117,10 @@ export default function SettingsScreen({ navigation }) {
         if (updateClassesError) throw updateClassesError;
       }
 
-      // 4. Content Cleanup
-      const { error: mkpError } = await supabase
-          .from('marketplace_items')
-          .delete()
-          .eq('seller_id', userId);
-      if (mkpError) throw mkpError;
+      await supabase.from('marketplace_items').delete().eq('seller_id', userId);
+      await supabase.from('polls').delete().eq('created_by', userId);
+      await supabase.from('announcements').delete().eq('posted_by', userId);
 
-      const { error: pollsError } = await supabase
-          .from('polls')
-          .delete()
-          .eq('created_by', userId);
-      if (pollsError) throw pollsError;
-
-      const { error: annError } = await supabase
-          .from('announcements')
-          .delete()
-          .eq('posted_by', userId);
-      if (annError) throw annError;
-
-      // 4.5 Notification
       if (schoolData?.created_by && schoolData.created_by !== userId) {
           try {
               await supabase.from('notifications').insert({
@@ -151,12 +130,9 @@ export default function SettingsScreen({ navigation }) {
                   message: `${fullUser.full_name || 'A user'} has left ${schoolData.name || 'your school'}.`,
                   is_read: false
               });
-          } catch (notifyError) {
-              console.error('Failed to send notification:', notifyError);
-          }
+          } catch (e) {}
       }
 
-      // 5. Update user profile
       const { error: updateUserError } = await supabase
         .from('users')
         .update({ school_id: null })
@@ -178,22 +154,31 @@ export default function SettingsScreen({ navigation }) {
   };
 
   const SettingRow = ({ icon, label, value, onValueChange, color }) => (
-    <View style={styles.settingRow}>
+    <View style={[styles.settingRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
       <View style={styles.settingLeft}>
-        <FontAwesomeIcon icon={icon} size={16} color={color || theme.colors.primary} />
+        <View style={[styles.iconBox, { backgroundColor: (color || theme.colors.primary) + '15' }]}>
+            <FontAwesomeIcon icon={icon} size={16} color={color || theme.colors.primary} />
+        </View>
         <Text style={[styles.settingLabel, { color: theme.colors.text }]}>{label}</Text>
       </View>
       <Switch value={value} onValueChange={onValueChange} color={theme.colors.primary} />
     </View>
   );
 
-  const LinkButton = ({ icon, title, onPress, color }) => (
+  const LinkButton = ({ icon, title, onPress, color, description }) => (
     <TouchableOpacity
-      style={[styles.linkButton, { borderColor: theme.colors.cardBorder }]}
+      style={[styles.linkButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
       onPress={onPress}
+      activeOpacity={0.7}
     >
-      <FontAwesomeIcon icon={icon} size={18} color={color || theme.colors.primary} />
-      <Text style={[styles.linkButtonText, { color: theme.colors.text }]}>{title}</Text>
+      <View style={[styles.iconBox, { backgroundColor: (color || theme.colors.primary) + '15' }]}>
+        <FontAwesomeIcon icon={icon} size={16} color={color || theme.colors.primary} />
+      </View>
+      <View style={{ flex: 1, marginLeft: 12 }}>
+        <Text style={[styles.linkButtonTitle, { color: theme.colors.text }]}>{title}</Text>
+        {description && <Text style={[styles.linkButtonDesc, { color: theme.colors.placeholder }]}>{description}</Text>}
+      </View>
+      <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
     </TouchableOpacity>
   );
 
@@ -202,208 +187,107 @@ export default function SettingsScreen({ navigation }) {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={[styles.scrollContent, { paddingBottom: 40 + insets.bottom }]}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-        <FontAwesomeIcon icon={faCog} size={28} color="#007AFF" style={{ marginRight: 12 }} />
-        <Text style={[styles.header, { color: theme.colors.text, marginBottom: 0 }]}>Settings</Text>
-      </View>
-      <Text style={[styles.description, { color: theme.colors.placeholder }]}>
-        Manage your account and application settings
-      </Text>
+      <LinearGradient
+        colors={['#4f46e5', '#4338ca']} 
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroContainer}
+      >
+        <View style={styles.heroContent}>
+            <Text style={styles.heroTitle}>Settings</Text>
+            <Text style={styles.heroDescription}>
+                Manage your account preferences and application settings.
+            </Text>
+        </View>
+      </LinearGradient>
 
-      {/* Theme Settings */}
-      <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
+      {/* Account Section */}
       <View style={styles.section}>
-        <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Theme Settings</Text>
-        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
-          Adjust the application's visual theme
-        </Text>
-        <SettingRow
-          icon={isDarkTheme ? faMoon : faSun}
-          label="Dark Mode"
-          value={isDarkTheme}
-          onValueChange={toggleTheme}
-          color={isDarkTheme ? '#FFD700' : '#FF9500'}
-        />
-      </View>
-
-      {/* Account Management */}
-      <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
-      <View style={styles.section}>
-        <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Account Management</Text>
-        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
-          Manage your profile and account security
-        </Text>
+        <Text style={styles.sectionTitle}>ACCOUNT</Text>
         <LinkButton
           icon={faUser}
           title="Edit Profile"
+          description="Update your personal information"
           onPress={() => setShowEditProfile(true)}
-          color="#007AFF"
+          color="#4f46e5"
         />
         <LinkButton
           icon={faLock}
           title="Change Password"
+          description="Manage your account security"
           onPress={() => setShowChangePassword(true)}
-          color="#FF9500"
+          color="#f59e0b"
         />
         {fullUser && fullUser.school_id && (
           <LinkButton
             icon={faDoorOpen}
             title="Leave School"
+            description="Disassociate your account from this school"
             onPress={() => setShowLeaveSchoolConfirm(true)}
-            color="#FF3B30"
+            color="#e11d48"
           />
         )}
       </View>
 
-      {/* Notification Preferences */}
-      <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
+      {/* Preferences Section */}
       <View style={styles.section}>
-        <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Notification Preferences</Text>
-        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
-          Control which notifications you receive
-        </Text>
-
-        {notificationPermissions !== 'granted' && !loading && (
-          <View style={[styles.warningContainer, { backgroundColor: '#FFF3CD', borderColor: '#FFC107' }]}>
-            <Text style={[styles.warningText, { color: '#856404' }]}>
-              ⚠️ Push notifications are not enabled. Please enable them in your device settings to receive notifications.
-            </Text>
-          </View>
-        )}
-
+        <Text style={styles.sectionTitle}>PREFERENCES</Text>
         <SettingRow
-          icon={faBell}
-          label="Push Notifications"
-          value={preferences.pushNotificationsEnabled}
-          onValueChange={(value) => updatePreference('pushNotificationsEnabled', value)}
+          icon={isDarkTheme ? faMoon : faSun}
+          label="Dark Mode"
+          value={isDarkTheme}
+          onValueChange={toggleTheme}
+          color={isDarkTheme ? '#fbbf24' : '#f59e0b'}
         />
+        
+        <View style={{ marginTop: 8 }}>
+            <SettingRow
+                icon={faBell}
+                label="Push Notifications"
+                value={preferences.pushNotificationsEnabled}
+                onValueChange={(value) => updatePreference('pushNotificationsEnabled', value)}
+                color="#4f46e5"
+            />
+        </View>
 
         {preferences.pushNotificationsEnabled && (
           <View style={styles.subSettings}>
-            <SettingRow
-              icon={faBullhorn}
-              label="Announcements"
-              value={preferences.announcements}
-              onValueChange={(value) => updatePreference('announcements', value)}
-              color="#FF3B30"
-            />
-            <SettingRow
-              icon={faBookOpen}
-              label="Homework & Assignments"
-              value={preferences.homework}
-              onValueChange={(value) => updatePreference('homework', value)}
-              color="#34C759"
-            />
-            <SettingRow
-              icon={faPoll}
-              label="Polls"
-              value={preferences.polls}
-              onValueChange={(value) => updatePreference('polls', value)}
-              color="#FF9500"
-            />
-            <SettingRow
-              icon={faCalendar}
-              label="Class Schedule"
-              value={preferences.classSchedule}
-              onValueChange={(value) => updatePreference('classSchedule', value)}
-              color="#5856D6"
-            />
-            <SettingRow
-              icon={faStore}
-              label="Marketplace"
-              value={preferences.marketplace}
-              onValueChange={(value) => updatePreference('marketplace', value)}
-              color="#FF2D55"
-            />
-            <SettingRow
-              icon={faTrophy}
-              label="Gamification (XP, Badges)"
-              value={preferences.gamification}
-              onValueChange={(value) => updatePreference('gamification', value)}
-              color="#FFD700"
-            />
+            <SettingRow icon={faBullhorn} label="Announcements" value={preferences.announcements} onValueChange={(v) => updatePreference('announcements', v)} color="#e11d48" />
+            <SettingRow icon={faBookOpen} label="Homework" value={preferences.homework} onValueChange={(v) => updatePreference('homework', v)} color="#10b981" />
+            <SettingRow icon={faPoll} label="Polls" value={preferences.polls} onValueChange={(v) => updatePreference('polls', v)} color="#f59e0b" />
+            <SettingRow icon={faCalendar} label="Class Schedule" value={preferences.classSchedule} onValueChange={(v) => updatePreference('classSchedule', v)} color="#6366f1" />
+            <SettingRow icon={faStore} label="Marketplace" value={preferences.marketplace} onValueChange={(v) => updatePreference('marketplace', v)} color="#ec4899" />
+            <SettingRow icon={faTrophy} label="Gamification" value={preferences.gamification} onValueChange={(v) => updatePreference('gamification', v)} color="#fbbf24" />
           </View>
         )}
       </View>
 
       {/* Management - Admin/Teacher Only */}
-      {loading ? (
+      {user && (user.role === 'admin' || user.role === 'teacher') && (
         <View style={styles.section}>
-          <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
-          <SkeletonPiece style={{ width: '60%', height: 20, borderRadius: 4, marginBottom: 8 }} />
-          <SkeletonPiece style={{ width: '90%', height: 14, borderRadius: 4, marginBottom: 16 }} />
-          <View style={{ paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
-            <SkeletonPiece style={{ width: 18, height: 18, borderRadius: 4 }} />
-            <View style={{ marginLeft: 15 }}>
-              <SkeletonPiece style={{ width: 100, height: 16, borderRadius: 4, marginBottom: 4 }} />
-              <SkeletonPiece style={{ width: 150, height: 12, borderRadius: 4 }} />
-            </View>
-          </View>
-        </View>
-      ) : user && (user.role === 'admin' || user.role === 'teacher') && (
-        <View>
-          <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
-          <View style={styles.section}>
-            <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>Management</Text>
-            <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
-              Access management tools for your school
-            </Text>
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => navigation.navigate('Management')}
-            >
-              <FontAwesomeIcon icon={faCog} size={18} color={theme.colors.primary} />
-              <View>
-                <Text style={[styles.buttonText, { color: theme.colors.text }]}>Management Center</Text>
-                <Text style={[styles.buttonDescription, { color: theme.colors.placeholder }]}>
-                  Manage users, content, and school data
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.sectionTitle}>MANAGEMENT</Text>
+          <LinkButton
+            icon={faCog}
+            title="Management Center"
+            description="Manage users, content, and school data"
+            onPress={() => navigation.navigate('Management')}
+            color="#4f46e5"
+          />
         </View>
       )}
 
-      {/* App Information */}
-      <View style={[styles.separator, { borderBottomColor: theme.colors.cardBorder }]} />
+      {/* Information Section */}
       <View style={styles.section}>
-        <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>App Information</Text>
-        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>
-          Learn more about ClassConnect
-        </Text>
-
-        <LinkButton
-          icon={faInfoCircle}
-          title="About ClassConnect"
-          onPress={() => setShowAppInfo(true)}
-          color="#007AFF"
-        />
-
-        <LinkButton
-          icon={faQuestionCircle}
-          title="Help & Support"
-          onPress={() => setShowHelpSupport(true)}
-          color="#34C759"
-        />
-
-        <LinkButton
-          icon={faFileContract}
-          title="Terms of Service"
-          onPress={() => setShowTerms(true)}
-          color="#5856D6"
-        />
-
-        <LinkButton
-          icon={faShieldAlt}
-          title="Privacy Policy"
-          onPress={() => setShowPrivacy(true)}
-          color="#FF9500"
-        />
-
-        <Text style={[styles.versionText, { color: theme.colors.placeholder }]}>
-          Version 1.0.0
-        </Text>
+        <Text style={styles.sectionTitle}>INFORMATION</Text>
+        <LinkButton icon={faInfoCircle} title="About ClassConnect" onPress={() => setShowAppInfo(true)} color="#3b82f6" />
+        <LinkButton icon={faQuestionCircle} title="Help & Support" onPress={() => setShowHelpSupport(true)} color="#10b981" />
+        <LinkButton icon={faFileContract} title="Terms of Service" onPress={() => setShowTerms(true)} color="#6366f1" />
+        <LinkButton icon={faShieldAlt} title="Privacy Policy" onPress={() => setShowPrivacy(true)} color="#f59e0b" />
       </View>
+
+      <Text style={[styles.versionText, { color: theme.colors.placeholder }]}>
+        Version 1.2.4
+      </Text>
 
       {/* Modals */}
       <AppInfoModal visible={showAppInfo} onClose={() => setShowAppInfo(false)} />
@@ -415,7 +299,6 @@ export default function SettingsScreen({ navigation }) {
         onClose={(updated) => {
           setShowEditProfile(false);
           if (updated) {
-            // Refresh user data
             const refreshUser = async () => {
               const { data: { user } } = await supabase.auth.getUser();
               if (user) {
@@ -442,9 +325,7 @@ export default function SettingsScreen({ navigation }) {
         onConfirm={handleLeaveSchool}
         isLoading={isProcessingLeave}
         title="Leave School"
-        message={`Are you sure you want to leave this school? This action cannot be undone.
-
-WARNING: You will lose access to all classes and school data. Your marketplace items, polls, and announcements will be deleted. Your shared resources will remain available to the school.`}
+        message={`Are you sure you want to leave this school? This action cannot be undone.`}
         confirmText="Leave School"
         type="danger"
       />
@@ -453,101 +334,96 @@ WARNING: You will lose access to all classes and school data. Your marketplace i
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  scrollContent: { flexGrow: 1, paddingBottom: 40 },
+  heroContainer: {
     padding: 24,
+    paddingTop: 40,
+    marginBottom: 20,
+    elevation: 0,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 40,
+  heroContent: {
+      marginBottom: 10,
   },
-  header: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 8,
+  heroTitle: {
+      color: '#fff',
+      fontSize: 32,
+      fontWeight: '900',
+      marginBottom: 8,
+      letterSpacing: -1,
   },
-  description: {
-    fontSize: 16,
-    marginBottom: 32,
+  heroDescription: {
+      color: '#e0e7ff',
+      fontSize: 15,
+      fontWeight: '500',
+      lineHeight: 22,
   },
-  separator: {
-    borderBottomWidth: 1,
-    marginBottom: 24,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  sectionDescription: {
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  button: {
-    paddingVertical: 12,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  buttonText: {
-    fontWeight: '500',
-    fontSize: 16,
-    marginLeft: 15,
-  },
-  buttonDescription: {
-    fontSize: 12,
-    marginLeft: 15,
-  },
-
+  section: { paddingHorizontal: 20, marginBottom: 24 },
+  sectionTitle: { fontSize: 11, fontWeight: '900', color: '#94a3b8', letterSpacing: 1.5, marginBottom: 12, marginLeft: 4 },
+  
   settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    padding: 12,
+    borderRadius: 16,
+    marginBottom: 8,
   },
   settingLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
+  iconBox: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      justifyContent: 'center',
+      alignItems: 'center',
+  },
   settingLabel: {
     fontSize: 15,
+    fontWeight: '600',
     marginLeft: 12,
   },
   subSettings: {
-    marginLeft: 20,
-    marginTop: 8,
+    marginLeft: 16,
+    marginTop: 4,
   },
   linkButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 12,
+    padding: 12,
+    borderRadius: 16,
+    marginBottom: 8,
   },
-  linkButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginLeft: 12,
+  linkButtonTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  linkButtonDesc: {
+      fontSize: 12,
+      marginTop: 1,
   },
   versionText: {
-    fontSize: 13,
+    fontSize: 11,
     textAlign: 'center',
     marginTop: 16,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 2,
   },
   warningContainer: {
     padding: 15,
     marginBottom: 15,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
   },
   warningText: {
-    fontSize: 14,
+    fontSize: 13,
     textAlign: 'center',
+    fontWeight: '600',
   },
 });

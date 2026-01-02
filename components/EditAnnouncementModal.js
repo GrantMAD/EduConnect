@@ -36,61 +36,70 @@ export default function EditAnnouncementModal({ visible, announcement, onClose, 
         <Modal
             isVisible={visible}
             onBackdropPress={onClose}
+            onSwipeComplete={onClose}
+            swipeDirection={['down']}
             animationIn="slideInUp"
             animationOut="slideOutDown"
-            backdropOpacity={0.5}
+            backdropOpacity={0.4}
             style={{ justifyContent: 'flex-end', margin: 0 }}
         >
-            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: 40 }]}>
+                <View style={styles.swipeIndicator} />
                 <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={faEdit} size={24} color={theme.colors.primary} />
+                    <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                        <FontAwesomeIcon icon={faEdit} size={18} color={theme.colors.primary} />
+                    </View>
                     <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>Edit Announcement</Text>
                     <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-                        <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
+                        <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
                     </TouchableOpacity>
                 </View>
 
                 <View style={styles.contentContainer}>
-                    <Text style={[styles.label, { color: theme.colors.text }]}>Title</Text>
-                    <TextInput
-                        style={[styles.input, {
-                            backgroundColor: theme.colors.inputBackground,
-                            color: theme.colors.text,
-                            borderColor: theme.colors.cardBorder
-                        }]}
-                        value={title}
-                        onChangeText={setTitle}
-                        placeholder="Announcement Title"
-                        placeholderTextColor={theme.colors.placeholder}
-                    />
+                    <View style={styles.inputGroup}>
+                        <Text style={[styles.label, { color: '#94a3b8' }]}>TITLE</Text>
+                        <TextInput
+                            style={[styles.input, {
+                                backgroundColor: theme.colors.card,
+                                color: theme.colors.text,
+                                borderColor: theme.colors.cardBorder,
+                                borderWidth: 1
+                            }]}
+                            value={title}
+                            onChangeText={setTitle}
+                            placeholder="Announcement Title"
+                            placeholderTextColor={theme.colors.placeholder}
+                        />
+                    </View>
 
-                    <Text style={[styles.label, { color: theme.colors.text }]}>Message</Text>
-                    <TextInput
-                        style={[styles.input, styles.messageInput, {
-                            backgroundColor: theme.colors.inputBackground,
-                            color: theme.colors.text,
-                            borderColor: theme.colors.cardBorder
-                        }]}
-                        value={message}
-                        onChangeText={setMessage}
-                        placeholder="Announcement Message"
-                        placeholderTextColor={theme.colors.placeholder}
-                        multiline
-                        textAlignVertical="top"
-                    />
+                    <View style={styles.inputGroup}>
+                        <Text style={[styles.label, { color: '#94a3b8' }]}>MESSAGE CONTENT</Text>
+                        <TextInput
+                            style={[styles.input, styles.messageInput, {
+                                backgroundColor: theme.colors.card,
+                                color: theme.colors.text,
+                                borderColor: theme.colors.cardBorder,
+                                borderWidth: 1
+                            }]}
+                            value={message}
+                            onChangeText={setMessage}
+                            placeholder="Type your message here..."
+                            placeholderTextColor={theme.colors.placeholder}
+                            multiline
+                            textAlignVertical="top"
+                        />
+                    </View>
 
                     <TouchableOpacity
                         style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
                         onPress={handleSave}
                         disabled={loading}
+                        activeOpacity={0.8}
                     >
                         {loading ? (
-                            <ActivityIndicator color="#fff" />
+                            <ActivityIndicator color="#fff" size="small" />
                         ) : (
-                            <>
-                                <FontAwesomeIcon icon={faSave} size={16} color="#fff" style={{ marginRight: 8 }} />
-                                <Text style={styles.saveButtonText}>Save Changes</Text>
-                            </>
+                            <Text style={styles.saveButtonText}>CONFIRM UPDATES</Text>
                         )}
                     </TouchableOpacity>
                 </View>
@@ -101,57 +110,78 @@ export default function EditAnnouncementModal({ visible, announcement, onClose, 
 
 const styles = StyleSheet.create({
     modalContent: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 30,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
+        paddingHorizontal: 24,
+        paddingTop: 8,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+    },
+    swipeIndicator: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#cbd5e1',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: 20,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingBottom: 15,
+        paddingBottom: 20,
         borderBottomWidth: 1,
-        marginBottom: 20,
+        marginBottom: 24,
+    },
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
     },
     modalTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        marginLeft: 15,
+        fontSize: 18,
+        fontWeight: '900',
+        letterSpacing: -0.5,
         flex: 1,
     },
     modalCloseButton: {
-        padding: 5,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     contentContainer: {
         paddingBottom: 10,
     },
+    inputGroup: {
+        marginBottom: 24,
+    },
     label: {
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 10,
+        fontWeight: '900',
         marginBottom: 8,
+        letterSpacing: 1.5,
     },
     input: {
-        borderWidth: 1,
-        borderRadius: 10,
-        padding: 12,
-        marginBottom: 20,
-        fontSize: 16,
+        borderRadius: 16,
+        padding: 16,
+        fontSize: 15,
+        fontWeight: '700',
     },
     messageInput: {
-        minHeight: 120,
+        minHeight: 140,
     },
     saveButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        height: 56,
+        borderRadius: 16,
         justifyContent: 'center',
-        padding: 15,
-        borderRadius: 12,
-        marginTop: 10,
+        alignItems: 'center',
+        marginTop: 8,
     },
     saveButtonText: {
         color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 16,
+        fontWeight: '900',
+        fontSize: 13,
+        letterSpacing: 1,
     },
 });

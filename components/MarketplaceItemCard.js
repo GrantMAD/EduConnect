@@ -20,12 +20,24 @@ const MarketplaceItemCard = ({ item, onViewSeller, onEdit, onDelete }) => {
     }
   };
 
+  const [imageError, setImageError] = React.useState(false);
+
   return (
-    <CardWrapper style={[styles.card, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }]} {...(onViewSeller && { onPress: () => onViewSeller(item.seller) })}>
+    <CardWrapper
+      style={[styles.card, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}
+      {...(onViewSeller && { onPress: () => onViewSeller(item.seller) })}
+      activeOpacity={0.9}
+    >
       <View style={styles.imageContainer}>
         <Image
-          source={{ uri: item.image_url || 'https://via.placeholder.com/150' }}
+          source={
+            !imageError && item.image_url
+              ? { uri: item.image_url }
+              : require('../assets/item_placeholder.png')
+          }
           style={styles.image}
+          resizeMode="cover"
+          onError={() => setImageError(true)}
         />
         {item.category && (
           <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(item.category) }]}>
@@ -37,7 +49,7 @@ const MarketplaceItemCard = ({ item, onViewSeller, onEdit, onDelete }) => {
       <View style={styles.infoContainer}>
         <View>
           <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
-          <Text style={[styles.description, { color: theme.colors.text }]} numberOfLines={2}>
+          <Text style={[styles.description, { color: theme.colors.placeholder }]} numberOfLines={2}>
             {item.description}
           </Text>
         </View>
@@ -69,11 +81,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     marginHorizontal: 8,
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
-    height: 320, // Fixed height for consistency
+    borderWidth: 1,
+    height: 320,
   },
   imageContainer: {
     position: 'relative',
@@ -124,25 +133,25 @@ const styles = StyleSheet.create({
   },
   category: {
     fontSize: 14,
-    backgroundColor: '#f2f2f2', // This might need to be themed as well if used
+    backgroundColor: '#f2f2f2',
     paddingVertical: 2,
     paddingHorizontal: 8,
     borderRadius: 6,
-    color: '#444', // This might need to be themed as well if used
+    color: '#444',
   },
   seller: {
     fontSize: 14,
-    color: '#555', // This might need to be themed as well if used
+    color: '#555',
   },
   button: {
     marginTop: 12,
-    backgroundColor: '#007AFF', // This might need to be themed as well if used
+    backgroundColor: '#007AFF',
     paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
   },
   buttonText: {
-    color: '#fff', // This might need to be themed as well if used
+    color: '#fff',
     fontWeight: '600',
   },
   actionButtonsContainer: {
@@ -158,3 +167,4 @@ const styles = StyleSheet.create({
 });
 
 export default MarketplaceItemCard;
+

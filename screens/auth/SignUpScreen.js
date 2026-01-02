@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, Text, Image, ActivityIndicator } from 'react-native';
+import { View, TextInput, StyleSheet, TouchableOpacity, Text, Image, ActivityIndicator, ScrollView, Dimensions } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
+import { faEye, faEyeSlash, faUser, faEnvelope, faLock, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../context/ToastContext';
-import { useTheme } from '../../context/ThemeContext'; // Import useTheme
+import { useTheme } from '../../context/ThemeContext';
+import LinearGradient from 'react-native-linear-gradient';
 
-const logo = require('../../assets/splash.png');
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 export default function SignUpScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -15,7 +16,7 @@ export default function SignUpScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { showToast } = useToast();
-  const { theme } = useTheme(); // Use the theme hook
+  const { theme } = useTheme();
 
   const handleSignUp = async () => {
     setLoading(true);
@@ -38,94 +39,217 @@ export default function SignUpScreen({ navigation }) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Image source={logo} style={styles.logo} />
-      <Text style={[styles.title, { color: theme.colors.text }]}>Create an Account</Text>
-      <TextInput
-        style={[styles.input, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-        placeholder="Full Name"
-        placeholderTextColor={theme.colors.placeholder}
-        value={fullName}
-        onChangeText={setFullName}
-      />
-      <TextInput
-        style={[styles.input, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-        placeholder="Email"
-        placeholderTextColor={theme.colors.placeholder}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-      />
-      <View style={styles.passwordContainer}>
-        <TextInput
-          style={[styles.input, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-          placeholder="Password"
-          placeholderTextColor={theme.colors.placeholder}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={!showPassword}
-        />
-        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-          <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} size={20} color={theme.colors.placeholder} />
+    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} contentContainerStyle={{ flexGrow: 1 }}>
+      {/* Top Branding Section */}
+      <LinearGradient
+        colors={['#4f46e5', '#9333ea']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.brandingSection}
+      >
+        <View style={styles.brandingContent}>
+            <View style={styles.iconContainer}>
+                <FontAwesomeIcon icon={faGraduationCap} size={40} color="#fff" />
+            </View>
+            <Text style={styles.brandingTitle}>ClassConnect</Text>
+            <Text style={styles.brandingSubtitle}>Join Thousands of Learners Worldwide</Text>
+        </View>
+      </LinearGradient>
+
+      {/* Form Section */}
+      <View style={[styles.formSection, { backgroundColor: theme.colors.background }]}>
+        <View style={styles.formHeader}>
+            <Text style={[styles.title, { color: theme.colors.text }]}>Create Account</Text>
+            <Text style={[styles.subtitle, { color: theme.colors.placeholder }]}>Start your learning adventure today</Text>
+        </View>
+
+        <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.text }]}>Full Name</Text>
+            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border }]}>
+                <FontAwesomeIcon icon={faUser} size={18} color={theme.colors.placeholder} style={styles.inputIcon} />
+                <TextInput
+                    style={[styles.input, { color: theme.colors.text }]}
+                    placeholder="John Doe"
+                    placeholderTextColor={theme.colors.placeholder}
+                    value={fullName}
+                    onChangeText={setFullName}
+                />
+            </View>
+        </View>
+
+        <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.text }]}>Email Address</Text>
+            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border }]}>
+                <FontAwesomeIcon icon={faEnvelope} size={18} color={theme.colors.placeholder} style={styles.inputIcon} />
+                <TextInput
+                    style={[styles.input, { color: theme.colors.text }]}
+                    placeholder="you@example.com"
+                    placeholderTextColor={theme.colors.placeholder}
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                />
+            </View>
+        </View>
+
+        <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.text }]}>Password</Text>
+            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.border }]}>
+                <FontAwesomeIcon icon={faLock} size={18} color={theme.colors.placeholder} style={styles.inputIcon} />
+                <TextInput
+                    style={[styles.input, { color: theme.colors.text }]}
+                    placeholder="••••••••"
+                    placeholderTextColor={theme.colors.placeholder}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+                    <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} size={18} color={theme.colors.placeholder} />
+                </TouchableOpacity>
+            </View>
+        </View>
+
+        <TouchableOpacity 
+            style={styles.signUpButtonContainer} 
+            onPress={handleSignUp} 
+            disabled={loading}
+            activeOpacity={0.8}
+        >
+            <LinearGradient
+                colors={['#4f46e5', '#9333ea']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.signUpButton}
+            >
+                {loading ? (
+                    <ActivityIndicator color="#fff" />
+                ) : (
+                    <Text style={styles.signUpButtonText}>Create Account</Text>
+                )}
+            </LinearGradient>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => navigation.navigate('SignIn')} style={styles.signInLink}>
+            <Text style={[styles.linkText, { color: theme.colors.placeholder }]}>
+                Already have an account? <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>Sign in here</Text>
+            </Text>
         </TouchableOpacity>
       </View>
-      <TouchableOpacity style={[styles.button, { backgroundColor: theme.colors.buttonPrimary }]} onPress={handleSignUp} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={[styles.buttonText, { color: theme.colors.buttonPrimaryText }]}>Sign Up</Text>}
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => navigation.navigate('SignIn')}>
-        <Text style={[styles.link, { color: theme.colors.primary }]}>Already have an account? <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>Sign In</Text></Text>
-      </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  brandingSection: {
+    height: SCREEN_HEIGHT * 0.3,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
   },
-  logo: {
-    width: 250,
-    height: 250,
+  brandingContent: {
+      alignItems: 'center',
+  },
+  iconContainer: {
+      width: 70,
+      height: 70,
+      borderRadius: 20,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 12,
+  },
+  brandingTitle: {
+      fontSize: 28,
+      fontWeight: '900',
+      color: '#fff',
+      textTransform: 'uppercase',
+      letterSpacing: -1,
+  },
+  brandingSubtitle: {
+      fontSize: 13,
+      color: 'rgba(255,255,255,0.8)',
+      fontWeight: '500',
+      textAlign: 'center',
+      marginTop: 4,
+  },
+  formSection: {
+      flex: 1,
+      marginTop: -30,
+      borderTopLeftRadius: 30,
+      borderTopRightRadius: 30,
+      padding: 24,
+  },
+  formHeader: {
+      marginBottom: 24,
+      alignItems: 'center',
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 30,
+    fontSize: 26,
+    fontWeight: '900',
+    marginBottom: 6,
+  },
+  subtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  inputGroup: {
+      marginBottom: 16,
+  },
+  label: {
+      fontSize: 13,
+      fontWeight: '700',
+      marginBottom: 8,
+      marginLeft: 4,
+  },
+  inputWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      height: 54,
+  },
+  inputIcon: {
+      marginRight: 12,
   },
   input: {
-    width: '100%',
-    padding: 15,
-    borderWidth: 1,
-    borderRadius: 10,
-    marginBottom: 15,
-  },
-  passwordContainer: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
+    flex: 1,
+    fontSize: 15,
+    height: '100%',
+    fontWeight: '600',
   },
   eyeIcon: {
-    position: 'absolute',
-    right: 15,
-    top: 15,
+    padding: 4,
   },
-  button: {
-    width: '100%',
-    padding: 15,
-    borderRadius: 10,
+  signUpButtonContainer: {
+      marginTop: 12,
+      marginBottom: 20,
+  },
+  signUpButton: {
+    height: 56,
+    borderRadius: 12,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
+    shadowColor: '#4f46e5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  buttonText: {
+  signUpButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
-  link: {
+  signInLink: {
+      alignItems: 'center',
+  },
+  linkText: {
     fontSize: 14,
   },
 });

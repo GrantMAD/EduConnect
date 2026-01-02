@@ -12,6 +12,7 @@ import {
   Pressable,
   Image,
   Switch,
+  Dimensions
 } from "react-native";
 import { supabase } from '../../lib/supabase';
 import { useSchool } from '../../context/SchoolContext';
@@ -36,17 +37,23 @@ import {
   faTimesCircle,
   faQuestionCircle,
   faComment,
+  faChevronLeft,
+  faPlus,
+  faChevronRight,
+  faSearch,
 } from "@fortawesome/free-solid-svg-icons";
 import { useToast } from "../../context/ToastContext";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 import { Calendar } from "react-native-calendars";
 import MarksModal from '../../components/MarksModal';
 import ManageMarksModal from '../../components/ManageMarksModal';
 import { useGamification } from '../../context/GamificationContext';
+import LinearGradient from 'react-native-linear-gradient';
 
+const { width } = Dimensions.get('window');
 const defaultUserImage = require("../../assets/user.png");
 
-// Helper to get a date in YYYY-MM-DD format
 const getDateString = (date) => {
   const d = new Date(date);
   const year = d.getFullYear();
@@ -61,6 +68,7 @@ export default function ManageUsersInClassScreen({ navigation }) {
 
   const { schoolId } = useSchool();
   const { showToast } = useToast();
+  const { theme } = useTheme();
   const { user } = useAuth();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
@@ -80,30 +88,6 @@ export default function ManageUsersInClassScreen({ navigation }) {
   const [isManageMarksModalVisible, setManageMarksModalVisible] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
 
-  const handleCloseMarksModal = (success) => {
-    setMarksModalVisible(false);
-    if (success) {
-      for (const studentId in expandedStudents) {
-        if (expandedStudents[studentId]) {
-          fetchStudentMarks(studentId, classId);
-        }
-      }
-    }
-  };
-
-  const handleOpenManageMarksModal = (student) => {
-    setSelectedStudent(student);
-    setManageMarksModalVisible(true);
-  };
-
-  const handleCloseManageMarksModal = (shouldRefresh) => {
-    setManageMarksModalVisible(false);
-    if (shouldRefresh && selectedStudent) {
-      fetchStudentMarks(selectedStudent.users.id, classId);
-    }
-    setSelectedStudent(null);
-  };
-
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [tempStartTime, setTempStartTime] = useState("");
@@ -115,7 +99,7 @@ export default function ManageUsersInClassScreen({ navigation }) {
   const [newStartTime, setNewStartTime] = useState('');
   const [newEndTime, setNewEndTime] = useState('');
   const [newClassInfo, setNewClassInfo] = useState('');
-  const [classSubject, setClassSubject] = useState(''); // New state for class subject
+  const [classSubject, setClassSubject] = useState('');
 
   const classStudentIds = classMembers.map((member) => member.users.id);
   const availableStudents = allStudents.filter(
@@ -146,7 +130,7 @@ export default function ManageUsersInClassScreen({ navigation }) {
         .eq("class_id", classId)
         .order("start_time", { ascending: true });
       if (error) throw error;
-      setClassSchedules(data);
+      setClassSchedules(data || []);
     } catch (error) {
       console.error(error);
       showToast("Failed to fetch class schedules.", 'error');
@@ -167,7 +151,6 @@ export default function ManageUsersInClassScreen({ navigation }) {
       }
     } catch (error) {
       console.error("Failed to fetch class subject:", error);
-      showToast("Failed to fetch class subject.", 'error');
     }
   }, [classId, showToast]);
 
@@ -183,7 +166,6 @@ export default function ManageUsersInClassScreen({ navigation }) {
     }
   }, [schoolId, classId, fetchClassMembers, fetchClassSchedules, fetchClassDetails]);
 
-  // Fetch Functions
   const fetchAllStudents = async () => {
     setFetchingStudents(true);
     try {
@@ -197,10 +179,9 @@ export default function ManageUsersInClassScreen({ navigation }) {
       const { data, error } = await query;
       if (error) throw error;
 
-      setAllStudents(data);
+      setAllStudents(data || []);
     } catch (error) {
       console.error(error);
-      showToast("Failed to fetch all students.", 'error');
     } finally {
       setFetchingStudents(false);
     }
@@ -222,11 +203,9 @@ export default function ManageUsersInClassScreen({ navigation }) {
       }));
     } catch (error) {
       console.error("Error fetching student marks:", error);
-      showToast("Failed to fetch student marks.", 'error');
     }
   };
 
-  // Add/Remove Functions
   const addStudentToClass = async (studentId) => {
     setSaving(true);
     try {
@@ -267,12 +246,10 @@ export default function ManageUsersInClassScreen({ navigation }) {
     }
   };
 
-  // Attendance
   const handleAttendanceChange = async (member, status) => {
     if (!selectedScheduleDate) return;
     const { id: memberId, attendance, users: student } = member;
 
-    // Optimistically update UI
     const updatedMembers = classMembers.map((m) =>
       m.id === memberId
         ? {
@@ -286,7 +263,6 @@ export default function ManageUsersInClassScreen({ navigation }) {
     );
     setClassMembers(updatedMembers);
 
-    // Update database
     const newAttendance = { ...attendance, [selectedScheduleDate]: status };
     try {
       const { error } = await supabase
@@ -296,44 +272,28 @@ export default function ManageUsersInClassScreen({ navigation }) {
 
       if (error) {
         showToast("Failed to save attendance.", 'error');
-        setClassMembers(classMembers); // Revert UI on error
+        setClassMembers(classMembers);
         throw error;
       }
 
-      // Handle Absence Notifications
       if (status === false) {
         try {
           const studentName = student?.full_name || 'Your child';
           const studentId = student?.id;
           const sessionDate = selectedScheduleDate;
 
-          // 1. Get Parents (using RPC as primary, manual query as fallback)
           let parentIds = [];
+          const { data: rpcParents, error: rpcError } = await supabase
+            .rpc('get_parents_of_students', { p_student_ids: [studentId] });
 
-          try {
-            const { data: rpcParents, error: rpcError } = await supabase
-              .rpc('get_parents_of_students', { p_student_ids: [studentId] });
-
-            if (!rpcError && rpcParents) {
-              parentIds = rpcParents.map(rp => rp.parent_id);
-              console.log(`Found ${parentIds.length} parents via RPC for ${studentName}`);
-            } else {
-              if (rpcError) console.warn('RPC get_parents_of_students failed or missing:', rpcError);
-
-              const { data: relationships, error: relError } = await supabase
-                .from('parent_child_relationships')
-                .select('parent_id')
-                .eq('child_id', studentId);
-
-              if (relError) {
-                console.error('Relationship manual fetch error:', relError);
-              } else if (relationships) {
-                parentIds = relationships.map(r => r.parent_id);
-                console.log(`Found ${parentIds.length} parents via manual query for ${studentName}`);
-              }
-            }
-          } catch (err) {
-            console.error('Error in parent retrieval flow:', err);
+          if (!rpcError && rpcParents) {
+            parentIds = rpcParents.map(rp => rp.parent_id);
+          } else {
+            const { data: relationships } = await supabase
+              .from('parent_child_relationships')
+              .select('parent_id')
+              .eq('child_id', studentId);
+            if (relationships) parentIds = relationships.map(r => r.parent_id);
           }
 
           if (parentIds.length > 0) {
@@ -348,13 +308,9 @@ export default function ManageUsersInClassScreen({ navigation }) {
               is_read: false
             }));
 
-            const { error: notifError } = await supabase.from('notifications').insert(notifications);
-            if (notifError) throw notifError;
-            console.log(`Sent ${notifications.length} absence notifications for ${studentName}`);
+            await supabase.from('notifications').insert(notifications);
           }
-        } catch (notifErr) {
-          console.error('Failed to send absence notification:', notifErr);
-        }
+        } catch (e) { }
       }
     } catch (error) {
       console.error("Error updating attendance:", error);
@@ -367,12 +323,8 @@ export default function ManageUsersInClassScreen({ navigation }) {
     if (cleaned.length > 2) {
       newText = cleaned.slice(0, 2) + ':' + cleaned.slice(2, 4);
     }
-
-    if (isStart) {
-      setTempStartTime(newText);
-    } else {
-      setTempEndTime(newText);
-    }
+    if (isStart) setTempStartTime(newText);
+    else setTempEndTime(newText);
   };
 
   const handleNewTimeChange = (text, isStart) => {
@@ -381,15 +333,10 @@ export default function ManageUsersInClassScreen({ navigation }) {
     if (cleaned.length > 2) {
       newText = cleaned.slice(0, 2) + ':' + cleaned.slice(2, 4);
     }
-
-    if (isStart) {
-      setNewStartTime(newText);
-    } else {
-      setNewEndTime(newText);
-    }
+    if (isStart) setNewStartTime(newText);
+    else setNewEndTime(newText);
   };
 
-  // Schedule Edit
   const formatTime = (date) => {
     const d = new Date(date);
     const hours = String(d.getHours()).padStart(2, '0');
@@ -476,18 +423,14 @@ export default function ManageUsersInClassScreen({ navigation }) {
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !schoolId) {
-        showToast('User or School not identified.', 'error');
-        setSaving(false);
-        return;
-      }
+      if (!user || !schoolId) throw new Error('Session invalid');
 
       const { error } = await supabase.from("class_schedules").insert({
         class_id: classId,
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString(),
         title: className,
-        description: classSubject, // Added description
+        description: classSubject,
         class_info: newClassInfo,
         school_id: schoolId,
         created_by: user.id,
@@ -506,194 +449,6 @@ export default function ManageUsersInClassScreen({ navigation }) {
     }
   };
 
-  // Render Items
-  const renderSchedule = ({ item }) => (
-    <TouchableOpacity onPress={() => setSelectedScheduleDate(getDateString(item.start_time))}>
-      <View style={styles.card}>
-        <View style={styles.cardRow}>
-          <FontAwesomeIcon icon={faCalendarAlt} size={14} color="#007AFF" />
-          <Text style={styles.cardTitle}> {new Date(item.start_time).toLocaleDateString()}</Text>
-        </View>
-        <View style={styles.cardRow}>
-          <FontAwesomeIcon icon={faClock} size={14} color="#007AFF" />
-          <Text style={styles.scheduleTimeText}>
-            {formatTime(item.start_time)} - {formatTime(item.end_time)}
-          </Text>
-        </View>
-        {item.class_info ? <View><View style={styles.horizontalRule} /><Text style={styles.cardInfo}>{item.class_info}</Text></View> : null}
-        <TouchableOpacity onPress={() => handleEditSchedule(item)} style={styles.editButton}>
-          <FontAwesomeIcon icon={faEdit} size={18} color="#007AFF" />
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
-
-  const renderStudent = ({ item }) => {
-    const student = item.users;
-    const attendanceStatus = item.attendance?.[selectedScheduleDate] ?? null;
-    const isExpanded = expandedStudents[student.id];
-
-    const toggleExpand = () => {
-      setExpandedStudents(prev => ({
-        ...prev,
-        [student.id]: !prev[student.id],
-      }));
-      if (!isExpanded && !studentMarks[student.id]) {
-        fetchStudentMarks(student.id, classId);
-      }
-    };
-
-    return (
-      <View style={styles.card}>
-        <TouchableOpacity onPress={toggleExpand}>
-          <View style={styles.cardRow}>
-            <Image source={student.avatar_url ? { uri: student.avatar_url } : defaultUserImage} style={styles.avatar} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>{student.full_name}</Text>
-              <Text style={styles.cardSub}>{student.email}</Text>
-            </View>
-            <View style={styles.threeStateAttendance}>
-              <TouchableOpacity
-                onPress={() => handleAttendanceChange(item, true)}
-                style={[styles.attIconButton, attendanceStatus === true && styles.attIconActivePresent]}
-              >
-                <FontAwesomeIcon
-                  icon={faCheckCircle}
-                  size={22}
-                  color={attendanceStatus === true ? '#34C759' : '#8E8E9320'}
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => handleAttendanceChange(item, false)}
-                style={[styles.attIconButton, attendanceStatus === false && styles.attIconActiveAbsent]}
-              >
-                <FontAwesomeIcon
-                  icon={faTimesCircle}
-                  size={22}
-                  color={attendanceStatus === false ? '#FF3B30' : '#8E8E9320'}
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => handleAttendanceChange(item, null)}
-                style={[styles.attIconButton, attendanceStatus === null && styles.attIconActiveUnmarked]}
-              >
-                <FontAwesomeIcon
-                  icon={faQuestionCircle}
-                  size={22}
-                  color={attendanceStatus === null ? '#007AFF' : '#8E8E9320'}
-                />
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity
-              onPress={() => removeStudentFromClass(student.id)}
-              disabled={saving}
-              style={styles.removeButton}
-            >
-              <FontAwesomeIcon icon={faMinusCircle} size={20} color="#dc3545" />
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-        {isExpanded && (
-          <View style={styles.expandedContent}>
-            {studentMarks[student.id] ? (
-              studentMarks[student.id].length > 0 ? (
-                <>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-                    <FontAwesomeIcon icon={faFileAlt} size={16} color="#007AFF" style={{ marginRight: 5 }} />
-                    <Text style={styles.marksHeader}>Tests</Text>
-                  </View>
-                  {studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('test:')).length > 0 ? (
-                    studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('test:')).map((mark, index) => (
-                      <View key={mark.id || index} style={styles.markContainerWithFeedback}>
-                        <View style={styles.markItem}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <FontAwesomeIcon icon={faTag} size={14} color="#888" style={{ marginRight: 5 }} />
-                            <Text style={styles.markAssessmentName}>{mark.assessment_name.replace(/test: /i, '')}</Text>
-                          </View>
-                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <FontAwesomeIcon icon={faGraduationCap} size={14} color="#888" style={{ marginRight: 5 }} />
-                            <Text style={styles.markValue}>{mark.mark}</Text>
-                          </View>
-                        </View>
-                        {mark.teacher_feedback && (
-                          <View style={styles.feedbackContainer}>
-                            <FontAwesomeIcon icon={faComment} size={12} color="#007AFF" style={{ marginRight: 5, marginTop: 2 }} />
-                            <Text style={styles.feedbackText}>{mark.teacher_feedback}</Text>
-                          </View>
-                        )}
-                      </View>
-                    ))
-                  ) : (
-                    <Text style={styles.emptyText}>No tests recorded.</Text>
-                  )}
-
-                  <View style={styles.horizontalRule} />
-
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 5 }}>
-                    <FontAwesomeIcon icon={faClipboardList} size={16} color="#007AFF" style={{ marginRight: 5 }} />
-                    <Text style={styles.marksHeader}>Assignments</Text>
-                  </View>
-                  {studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).length > 0 ? (
-                    studentMarks[student.id].filter(m => m.assessment_name.toLowerCase().startsWith('assignment:')).map((mark, index) => (
-                      <View key={mark.id || index} style={styles.markContainerWithFeedback}>
-                        <View style={styles.markItem}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <FontAwesomeIcon icon={faTag} size={14} color="#888" style={{ marginRight: 5 }} />
-                            <Text style={styles.markAssessmentName}>{mark.assessment_name.replace(/assignment: /i, '')}</Text>
-                          </View>
-                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <FontAwesomeIcon icon={faGraduationCap} size={14} color="#888" style={{ marginRight: 5 }} />
-                            <Text style={styles.markValue}>{mark.mark}</Text>
-                          </View>
-                        </View>
-                        {mark.teacher_feedback && (
-                          <View style={styles.feedbackContainer}>
-                            <FontAwesomeIcon icon={faComment} size={12} color="#007AFF" style={{ marginRight: 5, marginTop: 2 }} />
-                            <Text style={styles.feedbackText}>{mark.teacher_feedback}</Text>
-                          </View>
-                        )}
-                      </View>
-                    ))
-                  ) : (
-                    <Text style={styles.emptyText}>No assignments recorded.</Text>
-                  )}
-                  <TouchableOpacity style={styles.manageMarksButton} onPress={() => handleOpenManageMarksModal(item)}>
-                    <Text style={styles.manageMarksButtonText}>Manage Marks</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <Text style={styles.emptyText}>No marks recorded for this student.</Text>
-              )
-            ) : (
-              <ActivityIndicator size="small" color="#007AFF" />
-            )}
-          </View>
-        )}
-      </View>
-    );
-  };
-
-  const renderAddStudent = ({ item }) => (
-    <View style={styles.addStudentCard}>
-      <View style={styles.cardRow}>
-        <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={styles.avatar} />
-        <View>
-          <Text style={styles.cardTitle}>{item.full_name}</Text>
-          <Text style={styles.cardSub}>{item.email}</Text>
-        </View>
-      </View>
-      <TouchableOpacity
-        onPress={() => addStudentToClass(item.id)}
-        disabled={saving}
-        style={{ marginRight: 12 }}
-      >
-        <FontAwesomeIcon icon={faPlusCircle} size={20} color="#28a745" />
-      </TouchableOpacity>
-    </View>
-  );
-
   const markAllPresent = async () => {
     if (!selectedScheduleDate) return;
     setSaving(true);
@@ -709,10 +464,8 @@ export default function ManageUsersInClassScreen({ navigation }) {
         };
       });
 
-      // Optimistic update
       setClassMembers(updates);
 
-      // Batch update in Supabase
       const promises = updates.map(member =>
         supabase
           .from('class_members')
@@ -721,153 +474,266 @@ export default function ManageUsersInClassScreen({ navigation }) {
       );
 
       await Promise.all(promises);
-
-      // Award XP
       awardXP('attendance_submission', 15);
-
       showToast('All students marked present. +15 XP', 'success');
     } catch (error) {
-      console.error('Error marking all present:', error);
+      console.error(error);
       showToast('Failed to update attendance.', 'error');
-      fetchClassMembers(); // Revert on error
+      fetchClassMembers();
     } finally {
       setSaving(false);
     }
   };
 
+  const handleCloseMarksModal = () => {
+    setMarksModalVisible(false);
+  };
+
+  const handleOpenManageMarksModal = (member) => {
+    setSelectedStudent(member.users);
+    setManageMarksModalVisible(true);
+    fetchStudentMarks(member.users.id, classId);
+  };
+
+  const handleCloseManageMarksModal = () => {
+    setManageMarksModalVisible(false);
+    setSelectedStudent(null);
+  };
+
+  const renderSchedule = ({ item }) => (
+    <TouchableOpacity
+      style={[styles.sessionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+      activeOpacity={0.7}
+      onPress={() => setSelectedScheduleDate(getDateString(item.start_time))}
+    >
+      <View style={styles.sessionLeft}>
+        <View style={[styles.sessionIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+          <FontAwesomeIcon icon={faClock} size={16} color={theme.colors.primary} />
+        </View>
+        <View style={{ marginLeft: 12 }}>
+          <Text style={[styles.sessionDate, { color: theme.colors.text }]}>{new Date(item.start_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
+          <Text style={[styles.sessionTime, { color: theme.colors.placeholder }]}>
+            {formatTime(item.start_time)} - {formatTime(item.end_time)}
+          </Text>
+        </View>
+      </View>
+      <TouchableOpacity onPress={() => handleEditSchedule(item)} style={styles.sessionEditBtn}>
+        <FontAwesomeIcon icon={faEdit} size={16} color={theme.colors.placeholder} />
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+
+  const renderStudent = ({ item }) => {
+    const student = item.users;
+    const attendanceStatus = item.attendance?.[selectedScheduleDate] ?? null;
+    const isExpanded = expandedStudents[student.id];
+
+    return (
+      <View style={[styles.studentCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+        <TouchableOpacity onPress={() => setExpandedStudents(prev => ({ ...prev, [student.id]: !prev[student.id] }))}>
+          <View style={styles.studentHeader}>
+            <Image source={student.avatar_url ? { uri: student.avatar_url } : defaultUserImage} style={styles.studentAvatar} />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={[styles.studentName, { color: theme.colors.text }]}>{student.full_name}</Text>
+              <Text style={[styles.studentEmail, { color: theme.colors.placeholder }]}>{student.email}</Text>
+            </View>
+
+            <View style={styles.attGrid}>
+              <TouchableOpacity
+                onPress={() => handleAttendanceChange(item, true)}
+                style={[styles.attBtn, attendanceStatus === true && { backgroundColor: '#10b981' }]}
+              >
+                <FontAwesomeIcon icon={faCheckCircle} size={14} color={attendanceStatus === true ? '#fff' : '#10b981'} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => handleAttendanceChange(item, false)}
+                style={[styles.attBtn, attendanceStatus === false && { backgroundColor: '#ef4444' }]}
+              >
+                <FontAwesomeIcon icon={faTimesCircle} size={14} color={attendanceStatus === false ? '#fff' : '#ef4444'} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => handleAttendanceChange(item, null)}
+                style={[styles.attBtn, attendanceStatus === null && { backgroundColor: theme.colors.primary }]}
+              >
+                <FontAwesomeIcon icon={faQuestionCircle} size={14} color={attendanceStatus === null ? '#fff' : theme.colors.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        {isExpanded && (
+          <View style={styles.expandedMarks}>
+            <View style={styles.marksHeaderRow}>
+              <Text style={styles.marksTitle}>ACADEMIC RECORDS</Text>
+              <TouchableOpacity onPress={() => handleOpenManageMarksModal(item)}>
+                <Text style={{ color: theme.colors.primary, fontSize: 11, fontWeight: '900' }}>MANAGE</Text>
+              </TouchableOpacity>
+            </View>
+
+            {studentMarks[student.id] && studentMarks[student.id].length > 0 ? (
+              studentMarks[student.id].map((mark, i) => (
+                <View key={i} style={[styles.markItem, { borderBottomColor: theme.colors.cardBorder + '30' }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.markName, { color: theme.colors.text }]}>{mark.assessment_name}</Text>
+                    {mark.teacher_feedback && <Text style={[styles.markFeedback, { color: theme.colors.placeholder }]}>{mark.teacher_feedback}</Text>}
+                  </View>
+                  <View style={[styles.markValueBox, { backgroundColor: theme.colors.primary + '10' }]}>
+                    <Text style={[styles.markValue, { color: theme.colors.primary }]}>{mark.mark}</Text>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={[styles.emptyMarks, { color: theme.colors.placeholder }]}>No marks recorded yet.</Text>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
+
   const renderHeader = () => {
     if (loading && !selectedScheduleDate) {
       return (
-        <>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <FontAwesomeIcon icon={faArrowLeft} size={16} color="#007AFF" />
-            <Text style={styles.backButtonText}>Back to Classes</Text>
-          </TouchableOpacity>
-          <Text style={[styles.header, { textAlign: 'center' }]}>Manage {className}</Text>
-          <Text style={[styles.description, { textAlign: 'center' }]}>Select a class session below to manage attendance.</Text>
-          <View style={{ marginBottom: 25 }}>
-            <View style={styles.sectionHeaderContainer}>
-              <View style={styles.sectionHeader}>
-                <FontAwesomeIcon icon={faCalendarAlt} size={18} color="#007AFF" />
-                <Text style={styles.sectionTitle}>Class Schedule</Text>
-              </View>
-              <SkeletonPiece style={{ width: 120, height: 30, borderRadius: 8 }} />
-            </View>
-            <Text style={styles.sectionDescription}>Tap a session to manage attendance, or use the edit icon to modify its details.</Text>
-            <View style={styles.card}>
-              <SkeletonPiece style={{ width: '60%', height: 14, borderRadius: 4, marginBottom: 5 }} />
-              <SkeletonPiece style={{ width: '80%', height: 14, borderRadius: 4 }} />
-            </View>
-          </View>
-        </>
+        <View style={{ padding: 20 }}>
+          <SkeletonPiece style={{ width: '100%', height: 200, borderRadius: 32 }} />
+          <SkeletonPiece style={{ width: '100%', height: 100, borderRadius: 24, marginTop: 20 }} />
+        </View>
       );
     }
 
     if (!selectedScheduleDate) {
       return (
-        <>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <FontAwesomeIcon icon={faArrowLeft} size={16} color="#007AFF" />
-            <Text style={styles.backButtonText}>Back to Classes</Text>
-          </TouchableOpacity>
-          <Text style={[styles.header, { textAlign: 'center' }]}>Manage {className}</Text>
-          <Text style={[styles.description, { textAlign: 'center' }]}>Select a class session below to manage attendance.</Text>
-          <View style={{ marginBottom: 25 }}>
-            <View style={styles.sectionHeaderContainer}>
-              <View style={styles.sectionHeader}>
-                <FontAwesomeIcon icon={faCalendarAlt} size={18} color="#007AFF" />
-                <Text style={styles.sectionTitle}>Class Schedule</Text>
+        <View>
+          <LinearGradient
+            colors={['#4f46e5', '#7c3aed']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroContainer}
+          >
+            <View style={styles.heroContent}>
+              <View style={styles.heroTextContainer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
+                    <FontAwesomeIcon icon={faChevronLeft} size={18} color="#fff" />
+                  </TouchableOpacity>
+                  <Text style={styles.heroTitle}>Class Hub</Text>
+                </View>
+                <Text style={styles.heroDescription}>
+                  Management portal for {className}. Select a session to proceed.
+                </Text>
               </View>
-              <TouchableOpacity style={styles.addButtonHeader} onPress={openAddScheduleModal}>
-                <FontAwesomeIcon icon={faPlusCircle} size={20} color="#007AFF" />
-                <Text style={styles.addButtonTextHeader}>Add New Session</Text>
+              <TouchableOpacity onPress={openAddScheduleModal} style={styles.heroActionBtn}>
+                <FontAwesomeIcon icon={faPlus} size={14} color="#4f46e5" />
+                <Text style={styles.heroActionText}>New</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.sectionDescription}>Tap a session to manage attendance, or use the edit icon to modify its details.</Text>
+          </LinearGradient>
+
+          <View style={{ padding: 20 }}>
+            <Text style={styles.sectionTitle}>SESSIONS & CALENDAR</Text>
             <FlatList
               scrollEnabled={false}
               data={classSchedules}
               keyExtractor={(item) => item.id.toString()}
               renderItem={renderSchedule}
-              ListEmptyComponent={<Text style={styles.emptyText}>No scheduled sessions for this class.</Text>}
+              ListEmptyComponent={<Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No scheduled sessions yet.</Text>}
             />
           </View>
-        </>
+        </View>
       );
     }
 
     return (
-      <>
-        <TouchableOpacity onPress={() => setSelectedScheduleDate(null)} style={styles.backButton}>
-          <FontAwesomeIcon icon={faArrowLeft} size={16} color="#007AFF" />
-          <Text style={styles.backButtonText}>Back to Schedules</Text>
-        </TouchableOpacity>
-        <Text style={styles.header}>Class Information</Text>
-        <Text style={styles.description}>This section allows you to manage class details, attendance, and student marks.</Text>
-        <Text style={styles.subHeader}>Attendance for {new Date(selectedScheduleDate).toLocaleDateString()}</Text>
-
-        {/* Students Section */}
-        <View style={{ marginBottom: 25 }}>
-          <View style={[styles.sectionHeader, { marginBottom: 10 }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <FontAwesomeIcon icon={faUserGraduate} size={18} color="#007AFF" />
-              <Text style={styles.sectionTitle}>Students in this Class</Text>
+      <View>
+        <LinearGradient
+          colors={['#4f46e5', '#7c3aed']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroContainer}
+        >
+          <View style={styles.heroContent}>
+            <View style={styles.heroTextContainer}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity onPress={() => setSelectedScheduleDate(null)} style={styles.backButtonHero}>
+                  <FontAwesomeIcon icon={faArrowLeft} size={18} color="#fff" />
+                </TouchableOpacity>
+                <Text style={styles.heroTitle}>Attendance</Text>
+              </View>
+              <Text style={styles.heroDescription}>
+                Marking register for {new Date(selectedScheduleDate).toLocaleDateString()}.
+              </Text>
+            </View>
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusBadgeText}>{classMembers.length} STUDENTS</Text>
             </View>
           </View>
-          <Text style={styles.sectionDescription}>Mark student attendance for the selected date. Tap on a student's card to view their marks and access the "Manage Marks" button to edit or delete them.</Text>
+        </LinearGradient>
+
+        <View style={{ padding: 20 }}>
           <View style={styles.actionBar}>
-            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#28a745' }]} onPress={markAllPresent}>
-              <FontAwesomeIcon icon={faCheckCircle} size={14} color="#fff" style={{ marginRight: 5 }} />
-              <Text style={[styles.actionButtonText, { color: '#fff' }]}>Mark All Present</Text>
+            <TouchableOpacity style={[styles.mainActionBtn, { backgroundColor: '#10b981' }]} onPress={markAllPresent}>
+              <FontAwesomeIcon icon={faCheckCircle} size={14} color="#fff" />
+              <Text style={styles.mainActionText}>MARK ALL PRESENT</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#007AFF' }]} onPress={() => setMarksModalVisible(true)}>
-              <FontAwesomeIcon icon={faGraduationCap} size={14} color="#fff" style={{ marginRight: 5 }} />
-              <Text style={styles.actionButtonText}>Enter Marks</Text>
+            <TouchableOpacity style={[styles.mainActionBtn, { backgroundColor: theme.colors.primary }]} onPress={() => setMarksModalVisible(true)}>
+              <FontAwesomeIcon icon={faPlusCircle} size={14} color="#fff" />
+              <Text style={styles.mainActionText}>ENTER MARKS</Text>
             </TouchableOpacity>
           </View>
+
+          <Text style={styles.sectionTitle}>STUDENT ROSTER</Text>
           <FlatList
             scrollEnabled={false}
             data={classMembers}
             keyExtractor={(item) => item.id.toString()}
             renderItem={renderStudent}
-            ListEmptyComponent={<Text style={styles.emptyText}>No students yet.</Text>}
+            ListEmptyComponent={<Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No students enrolled.</Text>}
           />
 
-          {/* Add Students Subsection */}
-          <View style={{ marginTop: 20 }}>
-            <View style={[styles.sectionHeader, { marginBottom: 10 }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <FontAwesomeIcon icon={faUserPlus} size={18} color="#007AFF" />
-                <Text style={styles.sectionTitle}>Add Students</Text>
-              </View>
+          <View style={{ marginTop: 24 }}>
+            <Text style={styles.sectionTitle}>ENROLL STUDENTS</Text>
+            <View style={[styles.searchBox, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+              <FontAwesomeIcon icon={faSearch} size={14} color={theme.colors.placeholder} />
+              <TextInput
+                style={[styles.searchInput, { color: theme.colors.text }]}
+                value={searchQuery}
+                onChangeText={(t) => { setSearchQuery(t); fetchAllStudents(); }}
+                placeholder="Search for students..."
+                placeholderTextColor={theme.colors.placeholder}
+              />
             </View>
-            <Text style={styles.sectionDescription}>Search for and add more students to this class.</Text>
-            <TextInput
-              style={styles.input}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search for students..."
-            />
             <FlatList
               scrollEnabled={false}
               data={availableStudents}
               keyExtractor={(item) => item.id.toString()}
-              renderItem={renderAddStudent}
-              ListEmptyComponent={<Text style={styles.emptyText}>No students found.</Text>}
+              renderItem={({ item }) => (
+                <View style={[styles.enrollCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                  <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={styles.smallAvatar} />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.enrollName, { color: theme.colors.text }]}>{item.full_name}</Text>
+                    <Text style={[styles.enrollEmail, { color: theme.colors.placeholder }]}>{item.email}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => addStudentToClass(item.id)} style={[styles.enrollBtn, { backgroundColor: theme.colors.primary + '15' }]}>
+                    <FontAwesomeIcon icon={faPlus} size={12} color={theme.colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              )}
             />
           </View>
         </View>
-      </>
+      </View>
     );
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <FlatList
         ListHeaderComponent={renderHeader}
         data={[]}
         keyExtractor={(item, index) => index.toString()}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
       />
 
       <MarksModal
@@ -887,50 +753,25 @@ export default function ManageUsersInClassScreen({ navigation }) {
       {/* Edit Schedule Modal */}
       <Modal visible={isEditModalVisible} transparent animationType="fade" onRequestClose={() => setEditModalVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setEditModalVisible(false)}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Edit Schedule</Text>
-            <Text style={styles.modalDescription}>Adjust the time and information for this class session.</Text>
-            <View style={styles.timeInputRow}>
-              <FontAwesomeIcon icon={faClock} size={24} color="#888" style={{ marginRight: 15, marginTop: 20 }} />
-              <View style={styles.timeInputGroup}>
-                <Text style={styles.timeInputLabel}>Start Time</Text>
-                <TextInput
-                  style={styles.timeInput}
-                  placeholder="10:00"
-                  keyboardType="numeric"
-                  maxLength={5}
-                  value={tempStartTime}
-                  onChangeText={(text) => handleEditTimeChange(text, true)}
-                />
+          <View style={[styles.modalBox, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Edit Session</Text>
+            <View style={styles.timePickerRow}>
+              <View style={styles.timeCol}>
+                <Text style={styles.timeLabel}>START</Text>
+                <TextInput style={[styles.timeInp, { color: theme.colors.text, backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]} value={tempStartTime} onChangeText={(t) => handleEditTimeChange(t, true)} />
               </View>
-              <Text style={styles.timeSeparator}>-</Text>
-              <View style={styles.timeInputGroup}>
-                <Text style={styles.timeInputLabel}>End Time</Text>
-                <TextInput
-                  style={styles.timeInput}
-                  placeholder="11:00"
-                  keyboardType="numeric"
-                  maxLength={5}
-                  value={tempEndTime}
-                  onChangeText={(text) => handleEditTimeChange(text, false)}
-                />
+              <View style={styles.timeCol}>
+                <Text style={styles.timeLabel}>END</Text>
+                <TextInput style={[styles.timeInp, { color: theme.colors.text, backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]} value={tempEndTime} onChangeText={(t) => handleEditTimeChange(t, false)} />
               </View>
             </View>
             <TextInput
-              style={[styles.modalInput, { height: 80, textAlign: 'left', textAlignVertical: 'top' }]}
-              multiline
-              placeholder="Class Information"
-              value={tempClassInfo}
-              onChangeText={setTempClassInfo}
+              style={[styles.modalInfoInp, { backgroundColor: theme.colors.background, color: theme.colors.text, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+              multiline placeholder="Session details..." value={tempClassInfo} onChangeText={setTempClassInfo}
             />
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setEditModalVisible(false)}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={handleUpdateSchedule} disabled={saving}>
-                <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save'}</Text>
-              </TouchableOpacity>
+            <View style={styles.modalBtns}>
+              <TouchableOpacity style={styles.modalCancel} onPress={() => setEditModalVisible(false)}><Text style={styles.modalCancelText}>CANCEL</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.modalSave, { backgroundColor: theme.colors.primary }]} onPress={handleUpdateSchedule}><Text style={styles.modalSaveText}>SAVE</Text></TouchableOpacity>
             </View>
           </View>
         </Pressable>
@@ -939,57 +780,30 @@ export default function ManageUsersInClassScreen({ navigation }) {
       {/* Add Schedule Modal */}
       <Modal visible={isAddModalVisible} transparent animationType="fade" onRequestClose={() => setAddModalVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setAddModalVisible(false)}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Add New Session</Text>
-            <Text style={styles.modalDescription}>Select a date from the calendar to set the time for the new session.</Text>
-
-            <Calendar onDayPress={handleDayPress} markedDates={{ [newScheduleDate]: { selected: true, selectedColor: '#007AFF' } }} />
-
+          <View style={[styles.modalBoxLarge, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>New Session</Text>
+            <Calendar onDayPress={handleDayPress} markedDates={{ [newScheduleDate]: { selected: true, selectedColor: theme.colors.primary } }} theme={{ calendarBackground: theme.colors.surface, dayTextColor: theme.colors.text, monthTextColor: theme.colors.text }} />
             {newScheduleDate && (
-              <>
-                <View style={styles.timeInputRow}>
-                  <FontAwesomeIcon icon={faClock} size={24} color="#888" style={{ marginRight: 15, marginTop: 20 }} />
-                  <View style={styles.timeInputGroup}>
-                    <Text style={styles.timeInputLabel}>Start Time</Text>
-                    <TextInput
-                      style={styles.timeInput}
-                      placeholder="10:00"
-                      keyboardType="numeric"
-                      maxLength={5}
-                      value={newStartTime}
-                      onChangeText={(text) => handleNewTimeChange(text, true)}
-                    />
+              <View style={{ marginTop: 20 }}>
+                <View style={styles.timePickerRow}>
+                  <View style={styles.timeCol}>
+                    <Text style={styles.timeLabel}>START</Text>
+                    <TextInput style={[styles.timeInp, { color: theme.colors.text, backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]} value={newStartTime} onChangeText={(t) => handleNewTimeChange(t, true)} />
                   </View>
-                  <Text style={styles.timeSeparator}>-</Text>
-                  <View style={styles.timeInputGroup}>
-                    <Text style={styles.timeInputLabel}>End Time</Text>
-                    <TextInput
-                      style={styles.timeInput}
-                      placeholder="11:00"
-                      keyboardType="numeric"
-                      maxLength={5}
-                      value={newEndTime}
-                      onChangeText={(text) => handleNewTimeChange(text, false)}
-                    />
+                  <View style={styles.timeCol}>
+                    <Text style={styles.timeLabel}>END</Text>
+                    <TextInput style={[styles.timeInp, { color: theme.colors.text, backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]} value={newEndTime} onChangeText={(t) => handleNewTimeChange(t, false)} />
                   </View>
                 </View>
                 <TextInput
-                  style={[styles.modalInput, { height: 80, textAlign: 'left', textAlignVertical: 'top' }]}
-                  multiline
-                  placeholder="Class Information (Optional)"
-                  value={newClassInfo}
-                  onChangeText={setNewClassInfo}
+                  style={[styles.modalInfoInp, { backgroundColor: theme.colors.background, color: theme.colors.text, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                  multiline placeholder="Additional info..." value={newClassInfo} onChangeText={setNewClassInfo}
                 />
-              </>
+              </View>
             )}
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setAddModalVisible(false)}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={handleAddSchedule} disabled={saving}>
-                <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save'}</Text>
-              </TouchableOpacity>
+            <View style={styles.modalBtns}>
+              <TouchableOpacity style={styles.modalCancel} onPress={() => setAddModalVisible(false)}><Text style={styles.modalCancelText}>CANCEL</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.modalSave, { backgroundColor: theme.colors.primary }]} onPress={handleAddSchedule}><Text style={styles.modalSaveText}>CREATE</Text></TouchableOpacity>
             </View>
           </View>
         </Pressable>
@@ -999,211 +813,116 @@ export default function ManageUsersInClassScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f9fafb", padding: 16 },
-  header: { fontSize: 22, fontWeight: "700", marginBottom: 16, textAlign: "center" },
-  subHeader: { fontSize: 18, fontWeight: "600", marginBottom: 16 },
-  description: { fontSize: 14, color: "#666", marginBottom: 20 },
-  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  sectionTitle: { fontSize: 16, fontWeight: "600", marginLeft: 8, color: "#333" },
-  sectionDescription: { fontSize: 13, color: "#777", marginBottom: 10, marginLeft: 5 },
-  backButton: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  backButtonText: { color: '#007AFF', fontSize: 16, marginLeft: 8 },
-
-  sectionHeaderContainer: {
+  container: { flex: 1 },
+  heroContainer: {
+    padding: 24,
+    paddingTop: 40,
+    elevation: 0,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+  },
+  heroContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  heroTextContainer: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  heroTitle: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '900',
     marginBottom: 8,
+    letterSpacing: -1,
   },
-
-  card: {
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 8,
-    elevation: 1,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
-  expandedContent: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-  },
-  markItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 5,
-  },
-  markAssessmentName: {
+  heroDescription: {
+    color: '#e0e7ff',
     fontSize: 14,
     fontWeight: '500',
-    color: '#333',
   },
-  markValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#007AFF',
-  },
-  marksHeader: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 5,
-    marginBottom: 5,
-  },
-  cardRow: { flexDirection: "row", alignItems: "center", marginBottom: 5 },
-  avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10, borderWidth: 2, borderColor: "#007AFF" },
-  cardTitle: { fontSize: 15, fontWeight: "600", color: "#222" },
-  cardSub: { fontSize: 13, color: "#555", marginTop: 2 },
-  scheduleTimeText: { fontSize: 13, color: "#555", marginTop: 2, marginLeft: 5 },
-  cardInfo: { fontSize: 13, color: "#666", marginTop: 4, fontStyle: "italic" },
-  emptyText: { textAlign: "center", color: "#777", marginVertical: 10 },
-  input: { backgroundColor: "#fff", padding: 10, borderRadius: 10, borderWidth: 1, borderColor: "#ddd", marginBottom: 8 },
-
-  horizontalRule: {
-    borderBottomColor: '#eee',
-    borderBottomWidth: 1,
-    marginVertical: 8,
-    width: '100%', // Ensure it spans the full width of the card content
-  },
-
-  addStudentCard: {
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 8,
-    elevation: 1,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-
-  addButtonHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: '#e0f2fe', // Light blue background
-  },
-  addButtonTextHeader: {
-    color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 5,
-  },
-
-  removeButton: { position: "absolute", right: 12, top: 12 },
-  editButton: { position: "absolute", right: 12, top: 12 },
-
-  attendanceContainer: {
-    flexDirection: 'row', alignItems: 'center',
-    marginRight: 40, // Add space between switch and remove button
-  },
-  attendanceLabel: {
-    marginRight: 8,
-    fontSize: 14,
-    color: '#555',
-  },
-
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", alignItems: "center" },
-  modalContainer: { backgroundColor: "#fff", padding: 20, borderRadius: 15, width: "85%" },
-  modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 12, textAlign: "center" },
-  modalDescription: { fontSize: 14, color: '#666', marginBottom: 10, textAlign: 'center' },
-  modalInput: { borderWidth: 1, borderColor: "#ddd", borderRadius: 8, padding: 10, fontSize: 15, marginBottom: 10, backgroundColor: "#fafafa" },
-  modalButtons: { flexDirection: "row", justifyContent: "space-between", marginTop: 10 },
-  modalButton: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: "center", marginHorizontal: 5 },
-  saveButton: { backgroundColor: "#007AFF" },
-  cancelButton: { backgroundColor: "#f1f1f1" },
-  saveText: { color: "#fff", fontWeight: "700" },
-  cancelText: { color: "#333", fontWeight: "600" },
-
-  timeInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 30 },
-  timeInputGroup: { alignItems: 'center' },
-  timeInputLabel: { fontSize: 12, color: '#666', marginBottom: 5 },
-  timeInput: { fontSize: 18, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 15, paddingVertical: 10, width: 100, textAlign: 'center' },
-  timeSeparator: { fontSize: 18, fontWeight: 'bold', marginHorizontal: 10, marginTop: 20 },
-  manageMarksButton: {
-    backgroundColor: '#007AFF',
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 10,
-    alignItems: 'center',
-  },
-  manageMarksButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  actionBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  backButtonHero: { marginRight: 12 },
+  heroActionBtn: {
     backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    flex: 0.48,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
   },
-  actionButtonText: {
+  heroActionText: {
+    color: '#4f46e5',
+    fontWeight: 'bold',
+    marginLeft: 6,
     fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
   },
-  markContainerWithFeedback: {
-    marginBottom: 10,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-  },
-  feedbackContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#f0f7ff',
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 2,
-  },
-  feedbackText: {
-    fontSize: 12,
-    color: '#007AFF',
-    fontStyle: 'italic',
-    flex: 1,
-  },
-  threeStateAttendance: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginRight: 40,
-  },
-  attIconButton: {
-    padding: 6,
+  statusBadge: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 12,
-    backgroundColor: '#f1f1f1',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
-  attIconActivePresent: {
-    backgroundColor: '#34C75915',
+  statusBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '900',
   },
-  attIconActiveAbsent: {
-    backgroundColor: '#FF3B3015',
+  sectionTitle: { fontSize: 10, fontWeight: '900', color: '#94a3b8', letterSpacing: 1.5, marginBottom: 16, marginLeft: 4 },
+  sessionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 20,
+    marginBottom: 12,
   },
-  attIconActiveUnmarked: {
-    backgroundColor: '#007AFF15',
-  },
+  sessionLeft: { flexDirection: 'row', alignItems: 'center' },
+  sessionIconBox: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  sessionDate: { fontSize: 15, fontWeight: '800' },
+  sessionTime: { fontSize: 12, fontWeight: '600', marginTop: 2 },
+  sessionEditBtn: { padding: 8 },
+  actionBar: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  mainActionBtn: { flex: 1, height: 50, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  mainActionText: { color: '#fff', fontSize: 11, fontWeight: '900' },
+  studentCard: { borderRadius: 24, padding: 16, marginBottom: 12 },
+  studentHeader: { flexDirection: 'row', alignItems: 'center' },
+  studentAvatar: { width: 44, height: 44, borderRadius: 14 },
+  studentName: { fontSize: 15, fontWeight: '800' },
+  studentEmail: { fontSize: 11, fontWeight: '500' },
+  attGrid: { flexDirection: 'row', gap: 6, marginLeft: 8 },
+  attBtn: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.03)' },
+  expandedMarks: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)' },
+  marksHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  marksTitle: { fontSize: 9, fontWeight: '900', color: '#94a3b8', letterSpacing: 1 },
+  markItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1 },
+  markName: { fontSize: 13, fontWeight: '700' },
+  markFeedback: { fontSize: 11, fontStyle: 'italic', marginTop: 2 },
+  markValueBox: { width: 44, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  markValue: { fontSize: 12, fontWeight: '900' },
+  searchBox: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 50, borderRadius: 16, marginBottom: 16 },
+  searchInput: { flex: 1, marginLeft: 12, fontSize: 14, fontWeight: '600' },
+  enrollCard: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, marginBottom: 8 },
+  smallAvatar: { width: 36, height: 36, borderRadius: 10 },
+  enrollName: { fontSize: 14, fontWeight: '700' },
+  enrollEmail: { fontSize: 11 },
+  enrollBtn: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalBox: { width: '85%', padding: 24, borderRadius: 32 },
+  modalBoxLarge: { width: '90%', padding: 24, borderRadius: 32 },
+  modalTitle: { fontSize: 20, fontWeight: '900', textAlign: 'center', marginBottom: 24 },
+  timePickerRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+  timeCol: { flex: 1 },
+  timeLabel: { fontSize: 9, fontWeight: '900', color: '#94a3b8', marginBottom: 8, textAlign: 'center' },
+  timeInp: { height: 50, borderRadius: 14, textAlign: 'center', fontSize: 16, fontWeight: '800' },
+  modalInfoInp: { height: 80, borderRadius: 16, padding: 12, textAlignVertical: 'top', fontSize: 14 },
+  modalBtns: { flexDirection: 'row', gap: 12, marginTop: 24 },
+  modalCancel: { flex: 1, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.05)' },
+  modalCancelText: { fontSize: 12, fontWeight: '900', color: '#94a3b8' },
+  modalSave: { flex: 1, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  modalSaveText: { fontSize: 12, fontWeight: '900', color: '#fff' },
+  emptyText: { textAlign: 'center', marginVertical: 20, fontSize: 14, fontStyle: 'italic' },
+  emptyMarks: { textAlign: 'center', fontSize: 12, fontStyle: 'italic', paddingVertical: 10 }
 });

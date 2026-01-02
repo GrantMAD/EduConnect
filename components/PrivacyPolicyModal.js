@@ -12,130 +12,65 @@ export default function PrivacyPolicyModal({ visible, onClose }) {
         <Modal
             isVisible={visible}
             onBackdropPress={onClose}
+            onSwipeComplete={onClose}
+            swipeDirection={['down']}
             animationIn="slideInUp"
             animationOut="slideOutDown"
-            backdropOpacity={0.5}
+            backdropOpacity={0.4}
             style={{ justifyContent: 'flex-end', margin: 0 }}
         >
-            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: 40 }]}>
+                <View style={styles.swipeIndicator} />
                 <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
-                    <FontAwesomeIcon icon={faShieldAlt} size={24} color={theme.colors.primary} />
-                    <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>Privacy Policy</Text>
+                    <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                        <FontAwesomeIcon icon={faShieldAlt} size={18} color={theme.colors.primary} />
+                    </View>
+                    <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>Privacy Standards</Text>
                     <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-                        <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
+                        <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
                     </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 24 }}>
                     <View style={styles.contentContainer}>
-                        <Text style={[styles.lastUpdated, { color: theme.colors.placeholder }]}>
-                            Last Updated: January 1, 2025
-                        </Text>
+                        <View style={[styles.updateBadge, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                            <Text style={[styles.lastUpdated, { color: theme.colors.placeholder }]}>
+                                REVISED JANUARY 1, 2026
+                            </Text>
+                        </View>
 
                         <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>1. Information We Collect</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>1. DATA ACQUISITION</Text>
+                            <Text style={[styles.sectionText, { color: theme.colors.text }]}>
                                 We collect information that you provide directly to us, including:
                             </Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Name and email address</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Profile information and avatar</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Academic information (grades, assignments, schedules)</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• User-generated content (posts, comments, marketplace items)</Text>
+                            <View style={styles.bulletList}>
+                                <Text style={[styles.bulletPoint, { color: theme.colors.text }]}>• Identity details and credentials</Text>
+                                <Text style={[styles.bulletPoint, { color: theme.colors.text }]}>• Academic records and performance data</Text>
+                                <Text style={[styles.bulletPoint, { color: theme.colors.text }]}>• Platform engagement and contributions</Text>
+                            </View>
                         </View>
 
                         <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
 
                         <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>2. How We Use Your Information</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                We use the information we collect to:
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>2. UTILIZATION OF DATA</Text>
+                            <Text style={[styles.sectionText, { color: theme.colors.text }]}>
+                                Your information is used to:
                             </Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Provide, maintain, and improve our services</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Send you notifications and updates</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Facilitate communication between students, teachers, and parents</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Monitor and analyze usage patterns</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Detect and prevent fraud or abuse</Text>
+                            <View style={styles.bulletList}>
+                                <Text style={[styles.bulletPoint, { color: theme.colors.text }]}>• Maintain secure platform access</Text>
+                                <Text style={[styles.bulletPoint, { color: theme.colors.text }]}>• Facilitate educational communication</Text>
+                                <Text style={[styles.bulletPoint, { color: theme.colors.text }]}>• Optimize the learning experience</Text>
+                            </View>
                         </View>
 
                         <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
 
                         <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>3. Information Sharing</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                We do not sell your personal information. We may share your information with:
-                            </Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Other users within your school (as appropriate for your role)</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Service providers who assist in operating our platform</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Law enforcement when required by law</Text>
-                        </View>
-
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>4. Data Security</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                We implement appropriate technical and organizational measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.
-                            </Text>
-                        </View>
-
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>5. Student Privacy</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                We are committed to protecting student privacy and comply with applicable education privacy laws, including FERPA and COPPA. We:
-                            </Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Collect only necessary student information</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Never use student data for advertising</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Allow parents to review and request deletion of student data</Text>
-                        </View>
-
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>6. Your Rights</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                You have the right to:
-                            </Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Access your personal information</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Correct inaccurate information</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Request deletion of your information</Text>
-                            <Text style={[styles.bulletPoint, { color: theme.colors.placeholder }]}>• Opt-out of certain data processing activities</Text>
-                        </View>
-
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>7. Cookies and Tracking</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                We use cookies and similar tracking technologies to collect information about your browsing activities and to personalize your experience.
-                            </Text>
-                        </View>
-
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>8. Data Retention</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                We retain your information for as long as your account is active or as needed to provide services. We may retain certain information as required by law or for legitimate business purposes.
-                            </Text>
-                        </View>
-
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>9. Changes to This Policy</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                We may update this Privacy Policy from time to time. We will notify you of any changes by updating the "Last Updated" date and, for significant changes, by providing additional notice.
-                            </Text>
-                        </View>
-
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>10. Contact Us</Text>
-                            <Text style={[styles.sectionText, { color: theme.colors.placeholder }]}>
-                                If you have questions about this Privacy Policy, please contact us at privacy@classconnect.com.
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>3. SECURITY INFRASTRUCTURE</Text>
+                            <Text style={[styles.sectionText, { color: theme.colors.text }]}>
+                                We employ enterprise-grade encryption and organizational protocols to safeguard your sensitive information against unauthorized intrusion or compromise.
                             </Text>
                         </View>
                     </View>
@@ -147,59 +82,86 @@ export default function PrivacyPolicyModal({ visible, onClose }) {
 
 const styles = StyleSheet.create({
     modalContent: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 30,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        maxHeight: '90%',
-        minHeight: '50%',
+        paddingHorizontal: 24,
+        paddingTop: 8,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        maxHeight: '85%',
+    },
+    swipeIndicator: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#cbd5e1',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: 20,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingBottom: 15,
+        paddingBottom: 20,
         borderBottomWidth: 1,
-        marginBottom: 10,
+    },
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
     },
     modalTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        marginLeft: 15,
+        fontSize: 18,
+        fontWeight: '900',
         flex: 1,
+        letterSpacing: -0.5,
     },
     modalCloseButton: {
-        padding: 5,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     contentContainer: {
         paddingBottom: 20,
     },
+    updateBadge: {
+        alignSelf: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+        marginBottom: 32,
+    },
     lastUpdated: {
-        fontSize: 13,
-        fontStyle: 'italic',
-        marginBottom: 20,
-        textAlign: 'center',
+        fontSize: 9,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
     section: {
-        marginBottom: 10,
+        marginBottom: 16,
     },
     sectionTitle: {
-        fontSize: 17,
-        fontWeight: '600',
-        marginBottom: 10,
+        fontSize: 11,
+        fontWeight: '900',
+        marginBottom: 12,
+        letterSpacing: 1,
     },
     sectionText: {
         fontSize: 14,
         lineHeight: 22,
+        fontWeight: '600',
+    },
+    bulletList: {
+        marginTop: 12,
+        gap: 8,
     },
     bulletPoint: {
-        fontSize: 14,
-        lineHeight: 22,
-        marginLeft: 10,
-        marginTop: 4,
+        fontSize: 13,
+        fontWeight: '600',
+        marginLeft: 8,
     },
     divider: {
         height: 1,
-        marginVertical: 15,
+        marginVertical: 24,
     },
 });

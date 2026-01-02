@@ -27,17 +27,17 @@ export default function ConfirmationModal({
             onBackdropPress={isLoading ? null : onClose}
             animationIn="zoomIn"
             animationOut="zoomOut"
-            backdropOpacity={0.5}
+            backdropOpacity={0.4}
             useNativeDriver
         >
             <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
                 <View style={styles.iconContainer}>
-                    <View style={[styles.iconCircle, { backgroundColor: isDanger ? 'rgba(255, 59, 48, 0.1)' : 'rgba(0, 122, 255, 0.1)' }]}>
-                        <FontAwesomeIcon icon={faExclamationTriangle} size={30} color={accentColor} />
+                    <View style={[styles.iconCircle, { backgroundColor: accentColor + '15' }]}>
+                        <FontAwesomeIcon icon={faExclamationTriangle} size={28} color={accentColor} />
                     </View>
                     {!isLoading && (
                         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                            <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
+                            <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
                         </TouchableOpacity>
                     )}
                 </View>
@@ -52,20 +52,22 @@ export default function ConfirmationModal({
                         style={[styles.button, styles.confirmButton, { backgroundColor: accentColor }]} 
                         onPress={onConfirm}
                         disabled={isLoading}
+                        activeOpacity={0.8}
                     >
                         {isLoading ? (
                             <ActivityIndicator color="#FFFFFF" size="small" />
                         ) : (
-                            <Text style={styles.confirmText}>{confirmText}</Text>
+                            <Text style={styles.confirmText}>{confirmText.toUpperCase()}</Text>
                         )}
                     </TouchableOpacity>
                     
                     <TouchableOpacity 
-                        style={[styles.button, styles.cancelButton, { borderColor: theme.colors.cardBorder }]} 
+                        style={[styles.button, styles.cancelButton, { borderColor: theme.colors.cardBorder, borderWidth: 1 }]} 
                         onPress={onClose}
                         disabled={isLoading}
+                        activeOpacity={0.7}
                     >
-                        <Text style={[styles.cancelText, { color: theme.colors.text }]}>{cancelText}</Text>
+                        <Text style={[styles.cancelText, { color: theme.colors.text }]}>{cancelText.toUpperCase()}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -75,8 +77,8 @@ export default function ConfirmationModal({
 
 const styles = StyleSheet.create({
     modalContent: {
-        borderRadius: 20,
-        padding: 24,
+        borderRadius: 32,
+        padding: 32,
         alignItems: 'center',
     },
     iconContainer: {
@@ -84,37 +86,38 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 24,
         position: 'relative',
     },
     iconCircle: {
-        width: 70,
-        height: 70,
-        borderRadius: 35,
+        width: 64,
+        height: 64,
+        borderRadius: 20,
         justifyContent: 'center',
         alignItems: 'center',
     },
     closeButton: {
         position: 'absolute',
-        right: -10,
-        top: -10,
-        padding: 10,
+        right: -8,
+        top: -8,
+        padding: 8,
     },
     textContainer: {
         alignItems: 'center',
-        marginBottom: 30,
+        marginBottom: 32,
     },
     title: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        marginBottom: 12,
+        fontSize: 20,
+        fontWeight: '900',
+        marginBottom: 8,
         textAlign: 'center',
+        letterSpacing: -0.5,
     },
     message: {
-        fontSize: 16,
+        fontSize: 14,
         textAlign: 'center',
-        lineHeight: 22,
-        paddingHorizontal: 10,
+        lineHeight: 20,
+        fontWeight: '600',
     },
     buttonContainer: {
         width: '100%',
@@ -122,29 +125,26 @@ const styles = StyleSheet.create({
     },
     button: {
         width: '100%',
-        height: 52,
-        borderRadius: 14,
+        height: 56,
+        borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
     },
     confirmButton: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 3,
+        elevation: 0,
     },
     confirmText: {
         color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: 'bold',
+        fontSize: 13,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
     cancelButton: {
         backgroundColor: 'transparent',
-        borderWidth: 1,
     },
     cancelText: {
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 12,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
 });
