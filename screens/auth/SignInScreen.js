@@ -84,7 +84,7 @@ export default function SignInScreen({ navigation }) {
         <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
                 <Text style={[styles.label, { color: theme.colors.text }]}>Password</Text>
-                <TouchableOpacity>
+                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
                     <Text style={[styles.forgotPassword, { color: theme.colors.primary }]}>Forgot Password?</Text>
                 </TouchableOpacity>
             </View>
