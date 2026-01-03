@@ -219,17 +219,23 @@ const CustomHeader = ({ navigation, showActions = false }) => {
             <Animated.View
               style={{
                 position: 'absolute',
-                top: -2,
-                right: -2,
-                width: 10,
-                height: 10,
-                borderRadius: 5,
+                top: -4,
+                right: -4,
+                width: 18,
+                height: 18,
+                borderRadius: 9,
                 backgroundColor: '#ef4444',
+                justifyContent: 'center',
+                alignItems: 'center',
                 borderWidth: 2,
                 borderColor: theme.colors.headerBackground,
                 transform: [{ scale: pulseAnim }],
               }}
-            />
+            >
+              <Text style={{ color: '#fff', fontSize: 8, fontWeight: '900' }}>
+                {notifications.filter(n => !n.is_read).length}
+              </Text>
+            </Animated.View>
           )}
         </TouchableOpacity>
 

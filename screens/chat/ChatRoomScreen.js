@@ -98,8 +98,28 @@ export default function ChatRoomScreen({ route, navigation }) {
         fetchRecipientLastReadAt();
         fetchChannelType();
 
+        // Subscribe to member updates for real-time read receipts
+        const memberSub = supabase
+            .channel(`member-status:${channelId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'channel_members',
+                    filter: `channel_id=eq.${channelId}`,
+                },
+                (payload) => {
+                    if (payload.new.user_id !== user.id) {
+                        setRecipientLastReadAt(payload.new.last_read_at);
+                    }
+                }
+            )
+            .subscribe();
+
         return () => {
             unsubscribeFromChannel(channelId);
+            supabase.removeChannel(memberSub);
         };
     }, [channelId]);
 
@@ -435,6 +455,21 @@ const MessageBubble = React.memo(({ message, theme, currentUser, recipientLastRe
     }, {});
     const myReactions = new Set(reactions.filter(r => r.user_id === currentUser.id).map(r => r.emoji));
 
+    const isPending = message.id.toString().startsWith('temp-');
+    let statusText = null;
+    let statusColor = theme.colors.placeholder;
+
+    if (isMe) {
+        if (isPending) {
+            statusText = "Sending...";
+        } else if (recipientLastReadAt && message.created_at <= recipientLastReadAt) {
+            statusText = "Read";
+            statusColor = theme.colors.primary;
+        } else {
+            statusText = "Unread";
+        }
+    }
+
     const renderAttachment = () => {
         if (!message.attachments?.length) return null;
         const attachment = message.attachments[0];
@@ -544,9 +579,22 @@ const MessageBubble = React.memo(({ message, theme, currentUser, recipientLastRe
                 )}
             </View>
 
-            <Text style={[styles.timestamp, { color: theme.colors.placeholder }]}>
-                {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </Text>
+            <View style={{ 
+                flexDirection: 'row', 
+                alignItems: 'center', 
+                alignSelf: 'flex-end', 
+                gap: 6, 
+                marginTop: Object.keys(reactionCounts).length > 0 ? 12 : 4 
+            }}>
+                {isMe && statusText && (
+                    <Text style={{ fontSize: 9, fontWeight: '800', color: statusColor, textTransform: 'uppercase' }}>
+                        {statusText}
+                    </Text>
+                )}
+                <Text style={[styles.timestamp, { color: theme.colors.placeholder, marginTop: 0 }]}>
+                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+            </View>
         </View>
     );
 });
