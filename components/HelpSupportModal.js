@@ -9,7 +9,7 @@ export default function HelpSupportModal({ visible, onClose }) {
     const { theme } = useTheme();
 
     const handleEmailSupport = () => {
-        Linking.openURL('mailto:support@classconnect.com?subject=ClassConnect Support Request');
+        Linking.openURL('mailto:EduLink3321@gmail.com?subject=ClassConnect Support Request');
     };
 
     const FAQItem = ({ question, answer }) => (
