@@ -6,7 +6,7 @@ import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
 export { SkeletonPiece };
 
-const CustomSkeletonPiece = ({ style }) => {
+const CustomSkeletonPiece = React.memo(({ style }) => {
     const { theme } = useTheme();
     return (
         <SkeletonBase
@@ -16,9 +16,9 @@ const CustomSkeletonPiece = ({ style }) => {
             backgroundColor={theme.dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)'}
         />
     );
-};
+});
 
-export const ChatListItemSkeleton = () => {
+export const ChatListItemSkeleton = React.memo(() => {
     const { theme } = useTheme();
 
     /** Fade-in animation */
@@ -79,9 +79,9 @@ export const ChatListItemSkeleton = () => {
             </View>
         </Animated.View>
     );
-};
+});
 
-const ChatListScreenSkeleton = () => {
+const ChatListScreenSkeleton = React.memo(() => {
     const { theme } = useTheme();
 
     return (
@@ -112,7 +112,7 @@ const ChatListScreenSkeleton = () => {
             />
         </View>
     );
-};
+});
 
 const styles = StyleSheet.create({
     container: {

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 
-const DateHeader = ({ date }) => {
+const DateHeader = React.memo(({ date }) => {
     const { theme } = useTheme();
 
     return (
@@ -14,7 +14,7 @@ const DateHeader = ({ date }) => {
             </View>
         </View>
     );
-};
+});
 
 const styles = StyleSheet.create({
     container: {

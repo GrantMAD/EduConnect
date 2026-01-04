@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,7 @@ import LinearGradient from 'react-native-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-export default function SchoolSetupScreen({ navigation }) {
+const SchoolSetupScreen = ({ navigation }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState(null);
@@ -49,64 +49,65 @@ export default function SchoolSetupScreen({ navigation }) {
 
   const [schoolType, setSchoolType] = useState('Primary School');
   const [showTypePicker, setShowTypePicker] = useState(false);
-  const schoolTypes = ['Primary School', 'High School', 'University', 'College', 'Other'];
+  const schoolTypes = useMemo(() => ['Primary School', 'High School', 'University', 'College', 'Other'], []);
   const [creating, setCreating] = useState(false);
+
+  const fetchUserData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!authUser) return;
+
+      const { data: userData, error: userDataError } = await supabase
+        .from('users')
+        .select('school_request_status, requested_school_id, role, full_name')
+        .eq('id', authUser.id)
+        .single();
+      if (userDataError) throw userDataError;
+
+      setUser({ ...authUser, ...userData });
+      setRequestStatus(userData?.school_request_status || null);
+      setRole(userData?.role || null);
+
+      if (userData?.school_request_status === 'declined') {
+        if (userData.requested_school_id) {
+          const { data: school, error: schoolError } = await supabase
+            .from('schools')
+            .select('name')
+            .eq('id', userData.requested_school_id)
+            .single();
+          if (!schoolError && school) {
+            setDeclinedMessage(`Your previous request to join "${school.name}" was declined.`);
+          } else {
+            setDeclinedMessage('Your previous request to join a school was declined.');
+          }
+        } else {
+          setDeclinedMessage('Your previous request to join a school was declined.');
+        }
+      } else {
+        setDeclinedMessage(null);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      const fetchUserData = async () => {
-        setLoading(true);
-        try {
-          const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
-          if (userError) throw userError;
-          if (!authUser) return;
-
-          const { data: userData, error: userDataError } = await supabase
-            .from('users')
-            .select('school_request_status, requested_school_id, role, full_name')
-            .eq('id', authUser.id)
-            .single();
-          if (userDataError) throw userDataError;
-
-          setUser({ ...authUser, ...userData });
-          setRequestStatus(userData?.school_request_status || null);
-          setRole(userData?.role || null);
-
-          if (userData?.school_request_status === 'declined') {
-            if (userData.requested_school_id) {
-              const { data: school, error: schoolError } = await supabase
-                .from('schools')
-                .select('name')
-                .eq('id', userData.requested_school_id)
-                .single();
-              if (!schoolError && school) {
-                setDeclinedMessage(`Your previous request to join "${school.name}" was declined.`);
-              } else {
-                setDeclinedMessage('Your previous request to join a school was declined.');
-              }
-            } else {
-              setDeclinedMessage('Your previous request to join a school was declined.');
-            }
-          } else {
-            setDeclinedMessage(null);
-          }
-        } catch (err) {
-          console.error(err);
-        } finally {
-          setLoading(false);
-        }
-      };
-
       fetchUserData();
-    }, [])
+    }, [fetchUserData])
   );
 
-  const performSearch = async (searchTerm) => {
+  const performSearch = useCallback(async (searchTerm) => {
     if (!searchTerm.trim()) {
       setSchools([]);
       setSearching(false);
       return;
     }
+    setSearching(true);
     const { data, error } = await supabase
       .from('schools')
       .select('id, name, created_by, logo_url, address')
@@ -120,14 +121,14 @@ export default function SchoolSetupScreen({ navigation }) {
       setSchools(data || []);
     }
     setSearching(false);
-  };
+  }, [showToast]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handler = setTimeout(() => performSearch(search), 500);
     return () => clearTimeout(handler);
-  }, [search]);
+  }, [search, performSearch]);
 
-  const handleJoinSchool = async (schoolId, schoolName, createdBy) => {
+  const handleJoinSchool = useCallback(async (schoolId, schoolName, createdBy) => {
     if (!user) return;
     setJoiningSchool(schoolId);
 
@@ -156,7 +157,7 @@ export default function SchoolSetupScreen({ navigation }) {
         }]);
       if (notifError) throw notifError;
 
-      setUser({ ...user, school_request_status: 'pending', requested_school_id: schoolId });
+      setUser(prev => ({ ...prev, school_request_status: 'pending', requested_school_id: schoolId }));
       showToast('Your request is pending approval.', 'success');
     } catch (err) {
       console.error(err);
@@ -164,9 +165,9 @@ export default function SchoolSetupScreen({ navigation }) {
     } finally {
       setJoiningSchool(null);
     }
-  };
+  }, [user, showToast]);
 
-  const handleCancelRequest = async () => {
+  const handleCancelRequest = useCallback(async () => {
     if (!user) return;
     setCancellingRequest(true);
 
@@ -184,7 +185,7 @@ export default function SchoolSetupScreen({ navigation }) {
         if (updateUserError) throw updateUserError;
 
         setRequestStatus(null);
-        setUser({ ...user, school_request_status: null, requested_school_id: null });
+        setUser(prev => ({ ...prev, school_request_status: null, requested_school_id: null }));
         showToast('Request cancelled successfully.', 'success');
         setCancellingRequest(false);
         return;
@@ -220,7 +221,7 @@ export default function SchoolSetupScreen({ navigation }) {
         .eq('type', 'school_join_request');
 
       setRequestStatus(null);
-      setUser({ ...user, school_request_status: null, requested_school_id: null });
+      setUser(prev => ({ ...prev, school_request_status: null, requested_school_id: null }));
       showToast('Request cancelled successfully.', 'success');
     } catch (err) {
       console.error(err);
@@ -228,9 +229,9 @@ export default function SchoolSetupScreen({ navigation }) {
     } finally {
       setCancellingRequest(false);
     }
-  };
+  }, [user, showToast]);
 
-  const handleCreateSchool = async () => {
+  const handleCreateSchool = useCallback(async () => {
     if (!newSchoolName.trim() || !user) {
       showToast('School name is required.', 'error');
       return;
@@ -267,11 +268,14 @@ export default function SchoolSetupScreen({ navigation }) {
     } finally {
       setCreating(false);
     }
-  };
+  }, [newSchoolName, newSchoolAddress, newSchoolContactEmail, newSchoolContactPhone, schoolType, user, showToast, navigation]);
 
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     await supabase.auth.signOut();
-  };
+  }, []);
+
+  const openTypePicker = useCallback(() => setShowTypePicker(true), []);
+  const closeTypePicker = useCallback(() => setShowTypePicker(false), []);
 
   if (requestStatus === 'pending') {
     return (
@@ -297,7 +301,6 @@ export default function SchoolSetupScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Decorative Blobs */}
       <View style={[styles.blob, styles.blobTop, { backgroundColor: theme.colors.primary + '10' }]} />
       <View style={[styles.blob, styles.blobBottom, { backgroundColor: '#10b98110' }]} />
 
@@ -431,7 +434,7 @@ export default function SchoolSetupScreen({ navigation }) {
                             <Text style={styles.inputLabel}>INSTITUTION CATEGORY</Text>
                             <TouchableOpacity
                                 style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-                                onPress={() => setShowTypePicker(true)}
+                                onPress={openTypePicker}
                             >
                                 <Text style={[styles.input, { color: theme.colors.text, lineHeight: 20, paddingTop: 12 }]}>{schoolType}</Text>
                                 <FontAwesomeIcon icon={faChevronDown} size={12} color={theme.colors.placeholder} />
@@ -471,9 +474,9 @@ export default function SchoolSetupScreen({ navigation }) {
         visible={showTypePicker}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => setShowTypePicker(false)}
+        onRequestClose={closeTypePicker}
       >
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowTypePicker(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closeTypePicker}>
           <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
             <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Select School Type</Text>
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -497,6 +500,8 @@ export default function SchoolSetupScreen({ navigation }) {
     </View>
   );
 }
+
+export default React.memo(SchoolSetupScreen);
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

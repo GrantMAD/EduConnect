@@ -5,7 +5,7 @@ import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
 export { SkeletonPiece };
 
-export const ResourceCardSkeleton = () => {
+export const ResourceCardSkeleton = React.memo(() => {
     const { theme } = useTheme();
     return (
         <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
@@ -17,9 +17,9 @@ export const ResourceCardSkeleton = () => {
             </View>
         </View>
     );
-};
+});
 
-export default function ResourcesScreenSkeleton() {
+const ResourcesScreenSkeleton = React.memo(() => {
     const { theme } = useTheme();
 
     return (
@@ -47,7 +47,9 @@ export default function ResourcesScreenSkeleton() {
             </ScrollView>
         </View>
     );
-}
+});
+
+export default ResourcesScreenSkeleton;
 
 const styles = StyleSheet.create({
     container: {

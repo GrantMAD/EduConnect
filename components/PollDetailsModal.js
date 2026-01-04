@@ -6,7 +6,7 @@ import { faTimes, faChartBar, faUsers, faClock, faUser } from '@fortawesome/free
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
 
-export default function PollDetailsModal({ visible, poll, onClose }) {
+const PollDetailsModal = React.memo(({ visible, poll, onClose }) => {
     const { theme } = useTheme();
     const [loading, setLoading] = useState(true);
     const [voteStats, setVoteStats] = useState({});
@@ -204,7 +204,7 @@ export default function PollDetailsModal({ visible, poll, onClose }) {
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -372,3 +372,5 @@ const styles = StyleSheet.create({
         fontWeight: '900',
     },
 });
+
+export default PollDetailsModal;

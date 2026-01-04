@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Modal, Dimensions, ScrollView } from 'react-native';
 import { useChat } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -21,421 +21,6 @@ import LinearGradient from 'react-native-linear-gradient';
 
 const { width } = Dimensions.get('window');
 const defaultUserImage = require('../../assets/user.png');
-
-export default function ChatRoomScreen({ route, navigation }) {
-    const { channelId, name, avatar, equippedItem } = route.params;
-    const { messages, user, loadingMessages, fetchMessages, fetchOlderMessages, editMessage, deleteMessage, pinMessage, searchMessages, addReaction, removeReaction, sendTypingEvent, subscribeToChannel, unsubscribeFromChannel, sendMessage, uploadAttachment, markAsRead } = useChat();
-    const { ownedStickerPacks } = useGamification();
-    const { theme } = useTheme();
-    const { showToast } = useToast();
-    const insets = useSafeAreaInsets();
-
-    const [inputText, setInputText] = useState('');
-    const [sending, setSending] = useState(false);
-    const [recipientLastReadAt, setRecipientLastReadAt] = useState(null);
-    const [showStickerPicker, setShowStickerPicker] = useState(false);
-    const [attachment, setAttachment] = useState(null);
-    const [showAttachMenu, setShowAttachMenu] = useState(false);
-
-    const [menuVisible, setMenuVisible] = useState(false);
-    const [participantsModalVisible, setParticipantsModalVisible] = useState(false);
-    const [participants, setParticipants] = useState([]);
-    const [loadingParticipants, setLoadingParticipants] = useState(false);
-    const [channelType, setChannelType] = useState(null);
-    const [processingAction, setProcessingAction] = useState(false);
-
-    const [loadingMore, setLoadingMore] = useState(false);
-    const [showScrollBottom, setShowScrollBottom] = useState(false);
-    const [hasMoreMessages, setHasMoreMessages] = useState(true);
-
-    const [isSearching, setIsSearching] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState([]);
-
-    const [selectedMessage, setSelectedMessage] = useState(null);
-    const [actionModalVisible, setActionModalVisible] = useState(false);
-    const [editingMessage, setEditingMessage] = useState(null);
-    const [replyingTo, setReplyingTo] = useState(null);
-
-    const [typingUsers, setTypingUsers] = useState({});
-
-    const flatListRef = useRef();
-
-    const allStickersList = useMemo(() => Object.values(STICKER_PACKS).flatMap(pack => pack.stickers), []);
-    const availableStickers = useMemo(() => ownedStickerPacks?.flatMap(pack => STICKER_PACKS[pack.image_url]?.stickers || []) || [], [ownedStickerPacks]);
-
-    const channelMessages = isSearching ? searchResults : (messages[channelId] || []);
-
-    const uniqueMessages = useMemo(() => {
-        const map = new Map();
-        channelMessages.forEach(m => map.set(m.id, m));
-        return Array.from(map.values());
-    }, [channelMessages]);
-
-    const pinnedMessages = uniqueMessages.filter(m => m.is_pinned);
-
-    useEffect(() => {
-        navigation.setOptions({ title: name });
-        fetchMessages(channelId, 0);
-        markAsRead(channelId);
-
-        subscribeToChannel(channelId, (payload) => {
-            if (payload.userId !== user.id) {
-                setTypingUsers(prev => {
-                    if (prev[payload.userId]?.timeoutId) clearTimeout(prev[payload.userId].timeoutId);
-                    const timeoutId = setTimeout(() => {
-                        setTypingUsers(current => {
-                            const newState = { ...current };
-                            delete newState[payload.userId];
-                            return newState;
-                        });
-                    }, 3000);
-                    return { ...prev, [payload.userId]: { fullName: payload.fullName, timeoutId } };
-                });
-            }
-        });
-
-        fetchRecipientLastReadAt();
-        fetchChannelType();
-
-        // Subscribe to member updates for real-time read receipts
-        const memberSub = supabase
-            .channel(`member-status:${channelId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'channel_members',
-                    filter: `channel_id=eq.${channelId}`,
-                },
-                (payload) => {
-                    if (payload.new.user_id !== user.id) {
-                        setRecipientLastReadAt(payload.new.last_read_at);
-                    }
-                }
-            )
-            .subscribe();
-
-        return () => {
-            unsubscribeFromChannel(channelId);
-            supabase.removeChannel(memberSub);
-        };
-    }, [channelId]);
-
-    const fetchRecipientLastReadAt = async () => {
-        const { data } = await supabase.from('channel_members').select('last_read_at').eq('channel_id', channelId).neq('user_id', user.id);
-        if (data && data.length === 1) setRecipientLastReadAt(data[0].last_read_at);
-    };
-
-    const fetchChannelType = async () => {
-        const { data } = await supabase.from('channels').select('type').eq('id', channelId).maybeSingle();
-        setChannelType(data?.type ?? null);
-    };
-
-    const handlePickImage = async () => {
-        try {
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                quality: 0.8,
-            });
-
-            if (!result.canceled) {
-                setAttachment({
-                    uri: result.assets[0].uri,
-                    type: 'image',
-                    name: result.assets[0].fileName || 'image.jpg'
-                });
-                setShowAttachMenu(false);
-            }
-        } catch (error) {
-            console.error('Error picking image:', error);
-        }
-    };
-
-    const handlePickDocument = async () => {
-        try {
-            const result = await DocumentPicker.getDocumentAsync({
-                type: '*/*',
-                copyToCacheDirectory: true,
-            });
-
-            if (result.assets && result.assets.length > 0) {
-                setAttachment({
-                    uri: result.assets[0].uri,
-                    type: 'file',
-                    name: result.assets[0].name,
-                    mimeType: result.assets[0].mimeType
-                });
-                setShowAttachMenu(false);
-            }
-        } catch (error) {
-            console.error('Error picking document:', error);
-        }
-    };
-
-    const handleSend = async () => {
-        if (!inputText.trim() && !attachment) return;
-
-        const content = inputText.trim() || (attachment ? (attachment.type === 'image' ? 'Sent an image' : 'Sent a file') : '');
-
-        if (editingMessage && !attachment) {
-            await editMessage(editingMessage.id, content);
-            setEditingMessage(null);
-            setInputText('');
-            return;
-        }
-
-        setInputText('');
-        setReplyingTo(null);
-        setSending(true);
-
-        try {
-            let attachments = [];
-            if (attachment) {
-                const uploaded = await uploadAttachment(attachment.uri, attachment.name, attachment.mimeType || (attachment.type === 'image' ? 'image/jpeg' : 'application/octet-stream'));
-                attachments.push(uploaded);
-            }
-
-            await sendMessage(channelId, content, attachments, replyingTo?.id);
-            setAttachment(null);
-            flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-        } catch (error) {
-            console.error(error);
-            showToast('Failed to send message', 'error');
-        } finally {
-            setSending(false);
-        }
-    };
-
-    const handleSendSticker = async (sticker) => {
-        setShowStickerPicker(false);
-        setSending(true);
-        try {
-            await sendMessage(channelId, sticker, []);
-            flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-        } finally {
-            setSending(false);
-        }
-    };
-
-    const handleLongPressMessage = (message) => {
-        setSelectedMessage(message);
-        setActionModalVisible(true);
-    };
-
-    const renderMessage = ({ item, index }) => {
-        const currentMessageDate = new Date(item.created_at).toDateString();
-        const nextMessage = channelMessages[index + 1];
-        const nextMessageDate = nextMessage ? new Date(nextMessage.created_at).toDateString() : null;
-        const showDateHeader = currentMessageDate !== nextMessageDate;
-
-        return (
-            <View>
-                {showDateHeader && <DateHeader date={currentMessageDate} />}
-                <TouchableOpacity onLongPress={() => handleLongPressMessage(item)} activeOpacity={0.8}>
-                    <MessageBubble
-                        message={item}
-                        theme={theme}
-                        currentUser={user}
-                        recipientLastReadAt={recipientLastReadAt}
-                        allStickers={allStickersList}
-                        onReaction={(emoji) => {
-                            const hasReacted = item.message_reactions?.some(r => r.user_id === user.id && r.emoji === emoji);
-                            if (hasReacted) removeReaction(item.id, emoji);
-                            else addReaction(item.id, emoji);
-                        }}
-                    />
-                </TouchableOpacity>
-            </View>
-        );
-    };
-
-    return (
-        <KeyboardAvoidingView
-            style={[styles.container, { backgroundColor: theme.colors.background }]}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-        >
-            {/* Cleaner Header */}
-            <View style={[styles.chatHeader, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.cardBorder, borderBottomWidth: 1, zIndex: 10, paddingTop: 10 }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingHorizontal: 16 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, marginRight: 8 }}>
-                            <FontAwesomeIcon icon={faChevronLeft} size={20} color={theme.colors.text} />
-                        </TouchableOpacity>
-                        <AnimatedAvatarBorder
-                            avatarSource={avatar ? { uri: avatar } : defaultUserImage}
-                            size={36}
-                            borderStyle={equippedItem ? BORDER_STYLES[equippedItem.image_url] : {}}
-                            isRainbow={equippedItem && BORDER_STYLES[equippedItem.image_url]?.rainbow}
-                            isAnimated={equippedItem && BORDER_STYLES[equippedItem.image_url]?.animated}
-                        />
-                        <View style={{ marginLeft: 12, flex: 1 }}>
-                            <Text style={[styles.chatHeaderTitle, { color: theme.colors.text }]} numberOfLines={1}>{name}</Text>
-                            {Object.keys(typingUsers).length > 0 && (
-                                <Text style={{ fontSize: 10, color: theme.colors.typingIndicator, fontWeight: 'bold' }}>typing...</Text>
-                            )}
-                        </View>
-                    </View>
-                    <TouchableOpacity style={{ padding: 8 }} onPress={() => setIsSearching(!isSearching)}>
-                        <FontAwesomeIcon icon={isSearching ? faTimes : faSearch} size={18} color={theme.colors.placeholder} />
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-            <FlatList
-                ref={flatListRef}
-                data={uniqueMessages}
-                keyExtractor={item => item.id}
-                renderItem={renderMessage}
-                contentContainerStyle={[styles.listContent, { paddingBottom: 20 }]}
-                inverted
-                onEndReached={() => hasMoreMessages && fetchOlderMessages(channelId)}
-                onEndReachedThreshold={0.5}
-                removeClippedSubviews={Platform.OS === 'android'}
-                initialNumToRender={15}
-                maxToRenderPerBatch={10}
-                windowSize={10}
-            />
-
-            {/* Sticker Picker */}
-            {showStickerPicker && (
-                <View style={[styles.stickerPicker, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.cardBorder, borderTopWidth: 1 }]}>
-                    <View style={styles.stickerPickerHeader}>
-                        <Text style={[styles.stickerPickerTitle, { color: theme.colors.placeholder }]}>YOUR STICKERS</Text>
-                        <TouchableOpacity onPress={() => setShowStickerPicker(false)}>
-                            <FontAwesomeIcon icon={faTimes} size={16} color={theme.colors.placeholder} />
-                        </TouchableOpacity>
-                    </View>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        <View style={styles.stickerGrid}>
-                            {availableStickers.map((sticker, i) => (
-                                <TouchableOpacity key={i} onPress={() => handleSendSticker(sticker)} style={styles.stickerItem}>
-                                    <Text style={{ fontSize: 36 }}>{sticker}</Text>
-                                </TouchableOpacity>
-                            ))}
-                            {availableStickers.length === 0 && (
-                                <Text style={{ color: theme.colors.placeholder, fontStyle: 'italic', fontSize: 12 }}>Visit the shop to unlock stickers!</Text>
-                            )}
-                        </View>
-                    </ScrollView>
-                </View>
-            )}
-
-            {/* Attachment Preview */}
-            {attachment && (
-                <View style={[styles.attachmentPreview, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        {attachment.type === 'image' ? (
-                            <Image source={{ uri: attachment.uri }} style={{ width: 50, height: 50, borderRadius: 12, marginRight: 12 }} />
-                        ) : (
-                            <View style={{ width: 50, height: 50, borderRadius: 12, backgroundColor: theme.colors.primary + '15', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-                                <FontAwesomeIcon icon={faPaperclip} size={20} color={theme.colors.primary} />
-                            </View>
-                        )}
-                        <View style={{ flex: 1, marginRight: 10 }}>
-                            <Text style={{ color: theme.colors.text, fontWeight: 'bold', fontSize: 14 }} numberOfLines={1}>{attachment.name}</Text>
-                            <Text style={{ color: theme.colors.placeholder, fontSize: 11, marginTop: 2, fontWeight: '600' }}>
-                                {attachment.type.toUpperCase()}
-                            </Text>
-                        </View>
-                        <TouchableOpacity
-                            onPress={() => setAttachment(null)}
-                            style={{
-                                width: 32, height: 32,
-                                backgroundColor: theme.colors.background,
-                                borderRadius: 16,
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                borderWidth: 1,
-                                borderColor: theme.colors.cardBorder
-                            }}
-                        >
-                            <FontAwesomeIcon icon={faTimes} size={12} color={theme.colors.text} />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            )}
-
-            {/* Attach Menu */}
-            {showAttachMenu && (
-                <>
-                    <TouchableOpacity
-                        style={styles.menuBackdrop}
-                        activeOpacity={1}
-                        onPress={() => setShowAttachMenu(false)}
-                    />
-                    <View style={[styles.attachMenu, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                        <TouchableOpacity onPress={handlePickImage} style={styles.attachMenuItem}>
-                            <View style={[styles.attachIconBox, { backgroundColor: theme.colors.attachmentGallery }]}>
-                                <FontAwesomeIcon icon={faImage} size={22} color="#fff" />
-                            </View>
-                            <Text style={[styles.attachLabel, { color: theme.colors.text }]}>Gallery</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={handlePickDocument} style={styles.attachMenuItem}>
-                            <View style={[styles.attachIconBox, { backgroundColor: theme.colors.attachmentFile }]}>
-                                <FontAwesomeIcon icon={faPaperclip} size={22} color="#fff" />
-                            </View>
-                            <Text style={[styles.attachLabel, { color: theme.colors.text }]}>File</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => { setShowStickerPicker(true); setShowAttachMenu(false); }} style={styles.attachMenuItem}>
-                            <View style={[styles.attachIconBox, { backgroundColor: theme.colors.attachmentSticker }]}>
-                                <Text style={{ fontSize: 22 }}>✨</Text>
-                            </View>
-                            <Text style={[styles.attachLabel, { color: theme.colors.text }]}>Stickers</Text>
-                        </TouchableOpacity>
-                    </View>
-                </>
-            )}
-
-            {/* Input area */}
-            <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.cardBorder, borderTopWidth: 1, paddingBottom: Math.max(insets.bottom, 12), paddingTop: 12 }]}>
-                <TouchableOpacity onPress={() => setShowAttachMenu(!showAttachMenu)} style={styles.attachButton}>
-                    <View style={[styles.plusIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
-                        <FontAwesomeIcon icon={faPlus} size={18} color={theme.colors.primary} />
-                    </View>
-                </TouchableOpacity>
-                <TextInput
-                    style={[styles.input, { backgroundColor: theme.colors.background, color: theme.colors.text, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-                    placeholder="Type a message..."
-                    placeholderTextColor={theme.colors.placeholder}
-                    value={inputText}
-                    onChangeText={(text) => { setInputText(text); sendTypingEvent(channelId); }}
-                    multiline
-                />
-                <TouchableOpacity onPress={handleSend} style={[styles.sendButton, { backgroundColor: theme.colors.primary }]}>
-                    {sending ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                        <FontAwesomeIcon icon={faPaperPlane} size={14} color="#fff" />
-                    )}
-                </TouchableOpacity>
-            </View>
-
-            <MessageActionModal
-                visible={actionModalVisible}
-                onClose={() => setActionModalVisible(false)}
-                message={selectedMessage}
-                isMyMessage={selectedMessage?.sender_id === user?.id}
-                onEdit={(msg) => {
-                    setEditingMessage(msg);
-                    setInputText(msg.content);
-                }}
-                onDelete={(msg) => deleteMessage(msg.id)}
-                onPin={(msg) => pinMessage(msg.id, !msg.is_pinned)}
-                onReply={(msg) => setReplyingTo(msg)}
-                onReaction={(emoji) => {
-                    const hasReacted = selectedMessage?.message_reactions?.some(r => r.user_id === user.id && r.emoji === emoji);
-                    if (hasReacted) removeReaction(selectedMessage.id, emoji);
-                    else addReaction(selectedMessage.id, emoji);
-                }}
-                isAdmin={true}
-            />
-        </KeyboardAvoidingView>
-    );
-}
 
 const MessageBubble = React.memo(({ message, theme, currentUser, recipientLastReadAt, allStickers, onReaction }) => {
     if (message.is_system_message) return null;
@@ -598,6 +183,438 @@ const MessageBubble = React.memo(({ message, theme, currentUser, recipientLastRe
         </View>
     );
 });
+
+const ChatRoomScreen = ({ route, navigation }) => {
+    const { channelId, name, avatar, equippedItem } = route.params;
+    const { messages, user, loadingMessages, fetchMessages, fetchOlderMessages, editMessage, deleteMessage, pinMessage, searchMessages, addReaction, removeReaction, sendTypingEvent, subscribeToChannel, unsubscribeFromChannel, sendMessage, uploadAttachment, markAsRead } = useChat();
+    const { ownedStickerPacks } = useGamification();
+    const { theme } = useTheme();
+    const { showToast } = useToast();
+    const insets = useSafeAreaInsets();
+
+    const [inputText, setInputText] = useState('');
+    const [sending, setSending] = useState(false);
+    const [recipientLastReadAt, setRecipientLastReadAt] = useState(null);
+    const [showStickerPicker, setShowStickerPicker] = useState(false);
+    const [attachment, setAttachment] = useState(null);
+    const [showAttachMenu, setShowAttachMenu] = useState(false);
+
+    const [menuVisible, setMenuVisible] = useState(false);
+    const [participantsModalVisible, setParticipantsModalVisible] = useState(false);
+    const [participants, setParticipants] = useState([]);
+    const [loadingParticipants, setLoadingParticipants] = useState(false);
+    const [channelType, setChannelType] = useState(null);
+    const [processingAction, setProcessingAction] = useState(false);
+
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [showScrollBottom, setShowScrollBottom] = useState(false);
+    const [hasMoreMessages, setHasMoreMessages] = useState(true);
+
+    const [isSearching, setIsSearching] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+
+    const [selectedMessage, setSelectedMessage] = useState(null);
+    const [actionModalVisible, setActionModalVisible] = useState(false);
+    const [editingMessage, setEditingMessage] = useState(null);
+    const [replyingTo, setReplyingTo] = useState(null);
+
+    const [typingUsers, setTypingUsers] = useState({});
+
+    const flatListRef = useRef();
+
+    const allStickersList = useMemo(() => Object.values(STICKER_PACKS).flatMap(pack => pack.stickers), []);
+    const availableStickers = useMemo(() => ownedStickerPacks?.flatMap(pack => STICKER_PACKS[pack.image_url]?.stickers || []) || [], [ownedStickerPacks]);
+
+    const channelMessages = isSearching ? searchResults : (messages[channelId] || []);
+
+    const uniqueMessages = useMemo(() => {
+        const map = new Map();
+        channelMessages.forEach(m => map.set(m.id, m));
+        return Array.from(map.values());
+    }, [channelMessages]);
+
+    const pinnedMessages = useMemo(() => uniqueMessages.filter(m => m.is_pinned), [uniqueMessages]);
+
+    const fetchRecipientLastReadAt = useCallback(async () => {
+        const { data } = await supabase.from('channel_members').select('last_read_at').eq('channel_id', channelId).neq('user_id', user.id);
+        if (data && data.length === 1) setRecipientLastReadAt(data[0].last_read_at);
+    }, [channelId, user.id]);
+
+    const fetchChannelType = useCallback(async () => {
+        const { data } = await supabase.from('channels').select('type').eq('id', channelId).maybeSingle();
+        setChannelType(data?.type ?? null);
+    }, [channelId]);
+
+    useEffect(() => {
+        navigation.setOptions({ title: name });
+        fetchMessages(channelId, 0);
+        markAsRead(channelId);
+
+        subscribeToChannel(channelId, (payload) => {
+            if (payload.userId !== user.id) {
+                setTypingUsers(prev => {
+                    if (prev[payload.userId]?.timeoutId) clearTimeout(prev[payload.userId].timeoutId);
+                    const timeoutId = setTimeout(() => {
+                        setTypingUsers(current => {
+                            const newState = { ...current };
+                            delete newState[payload.userId];
+                            return newState;
+                        });
+                    }, 3000);
+                    return { ...prev, [payload.userId]: { fullName: payload.fullName, timeoutId } };
+                });
+            }
+        });
+
+        fetchRecipientLastReadAt();
+        fetchChannelType();
+
+        const memberSub = supabase
+            .channel(`member-status:${channelId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'channel_members',
+                    filter: `channel_id=eq.${channelId}`,
+                },
+                (payload) => {
+                    if (payload.new.user_id !== user.id) {
+                        setRecipientLastReadAt(payload.new.last_read_at);
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            unsubscribeFromChannel(channelId);
+            supabase.removeChannel(memberSub);
+        };
+    }, [channelId, fetchChannelType, fetchRecipientLastReadAt, fetchMessages, markAsRead, name, navigation, subscribeToChannel, unsubscribeFromChannel, user.id]);
+
+    const handlePickImage = useCallback(async () => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                quality: 0.8,
+            });
+
+            if (!result.canceled) {
+                setAttachment({
+                    uri: result.assets[0].uri,
+                    type: 'image',
+                    name: result.assets[0].fileName || 'image.jpg'
+                });
+                setShowAttachMenu(false);
+            }
+        } catch (error) {
+            console.error('Error picking image:', error);
+        }
+    }, []);
+
+    const handlePickDocument = useCallback(async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: '*/*',
+                copyToCacheDirectory: true,
+            });
+
+            if (result.assets && result.assets.length > 0) {
+                setAttachment({
+                    uri: result.assets[0].uri,
+                    type: 'file',
+                    name: result.assets[0].name,
+                    mimeType: result.assets[0].mimeType
+                });
+                setShowAttachMenu(false);
+            }
+        } catch (error) {
+            console.error('Error picking document:', error);
+        }
+    }, []);
+
+    const handleSend = useCallback(async () => {
+        if (!inputText.trim() && !attachment) return;
+
+        const content = inputText.trim() || (attachment ? (attachment.type === 'image' ? 'Sent an image' : 'Sent a file') : '');
+
+        if (editingMessage && !attachment) {
+            await editMessage(editingMessage.id, content);
+            setEditingMessage(null);
+            setInputText('');
+            return;
+        }
+
+        setInputText('');
+        setReplyingTo(null);
+        setSending(true);
+
+        try {
+            let attachments = [];
+            if (attachment) {
+                const uploaded = await uploadAttachment(attachment.uri, attachment.name, attachment.mimeType || (attachment.type === 'image' ? 'image/jpeg' : 'application/octet-stream'));
+                attachments.push(uploaded);
+            }
+
+            await sendMessage(channelId, content, attachments, replyingTo?.id);
+            setAttachment(null);
+            flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        } catch (error) {
+            console.error(error);
+            showToast('Failed to send message', 'error');
+        } finally {
+            setSending(false);
+        }
+    }, [inputText, attachment, editingMessage, editMessage, sendMessage, channelId, replyingTo, uploadAttachment, showToast]);
+
+    const handleSendSticker = useCallback(async (sticker) => {
+        setShowStickerPicker(false);
+        setSending(true);
+        try {
+            await sendMessage(channelId, sticker, []);
+            flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        } finally {
+            setSending(false);
+        }
+    }, [channelId, sendMessage]);
+
+    const handleLongPressMessage = useCallback((message) => {
+        setSelectedMessage(message);
+        setActionModalVisible(true);
+    }, []);
+
+    const handleReaction = useCallback((messageId, emoji) => {
+        const message = uniqueMessages.find(m => m.id === messageId);
+        const hasReacted = message?.message_reactions?.some(r => r.user_id === user.id && r.emoji === emoji);
+        if (hasReacted) removeReaction(messageId, emoji);
+        else addReaction(messageId, emoji);
+    }, [uniqueMessages, user.id, removeReaction, addReaction]);
+
+    const renderMessage = useCallback(({ item, index }) => {
+        const currentMessageDate = new Date(item.created_at).toDateString();
+        const nextMessage = channelMessages[index + 1];
+        const nextMessageDate = nextMessage ? new Date(nextMessage.created_at).toDateString() : null;
+        const showDateHeader = currentMessageDate !== nextMessageDate;
+
+        return (
+            <View>
+                {showDateHeader && <DateHeader date={currentMessageDate} />}
+                <TouchableOpacity onLongPress={() => handleLongPressMessage(item)} activeOpacity={0.8}>
+                    <MessageBubble
+                        message={item}
+                        theme={theme}
+                        currentUser={user}
+                        recipientLastReadAt={recipientLastReadAt}
+                        allStickers={allStickersList}
+                        onReaction={(emoji) => handleReaction(item.id, emoji)}
+                    />
+                </TouchableOpacity>
+            </View>
+        );
+    }, [channelMessages, theme, user, recipientLastReadAt, allStickersList, handleLongPressMessage, handleReaction]);
+
+    const handleActionModalReaction = useCallback((emoji) => {
+        if (selectedMessage) {
+            handleReaction(selectedMessage.id, emoji);
+        }
+    }, [selectedMessage, handleReaction]);
+
+    const handleActionModalEdit = useCallback((msg) => {
+        setEditingMessage(msg);
+        setInputText(msg.content);
+    }, []);
+
+    const handleActionModalDelete = useCallback((msg) => deleteMessage(msg.id), [deleteMessage]);
+    const handleActionModalPin = useCallback((msg) => pinMessage(msg.id, !msg.is_pinned), [pinMessage]);
+    const handleActionModalReply = useCallback((msg) => setReplyingTo(msg), []);
+
+    const toggleSearching = useCallback(() => setIsSearching(prev => !prev), []);
+    const toggleAttachMenu = useCallback(() => setShowAttachMenu(prev => !prev), []);
+    const closeStickerPicker = useCallback(() => setShowStickerPicker(false), []);
+    const openStickerPicker = useCallback(() => { setShowStickerPicker(true); setShowAttachMenu(false); }, []);
+    const clearAttachment = useCallback(() => setAttachment(null), []);
+
+    return (
+        <KeyboardAvoidingView
+            style={[styles.container, { backgroundColor: theme.colors.background }]}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        >
+            <View style={[styles.chatHeader, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.cardBorder, borderBottomWidth: 1, zIndex: 10, paddingTop: 10 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingHorizontal: 16 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, marginRight: 8 }}>
+                            <FontAwesomeIcon icon={faChevronLeft} size={20} color={theme.colors.text} />
+                        </TouchableOpacity>
+                        <AnimatedAvatarBorder
+                            avatarSource={avatar ? { uri: avatar } : defaultUserImage}
+                            size={36}
+                            borderStyle={equippedItem ? BORDER_STYLES[equippedItem.image_url] : {}}
+                            isRainbow={equippedItem && BORDER_STYLES[equippedItem.image_url]?.rainbow}
+                            isAnimated={equippedItem && BORDER_STYLES[equippedItem.image_url]?.animated}
+                        />
+                        <View style={{ marginLeft: 12, flex: 1 }}>
+                            <Text style={[styles.chatHeaderTitle, { color: theme.colors.text }]} numberOfLines={1}>{name}</Text>
+                            {Object.keys(typingUsers).length > 0 && (
+                                <Text style={{ fontSize: 10, color: theme.colors.typingIndicator, fontWeight: 'bold' }}>typing...</Text>
+                            )}
+                        </View>
+                    </View>
+                    <TouchableOpacity style={{ padding: 8 }} onPress={toggleSearching}>
+                        <FontAwesomeIcon icon={isSearching ? faTimes : faSearch} size={18} color={theme.colors.placeholder} />
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            {loadingMessages && uniqueMessages.length === 0 ? (
+                <ChatMessagesSkeleton />
+            ) : (
+                <FlatList
+                    ref={flatListRef}
+                    data={uniqueMessages}
+                    keyExtractor={item => item.id}
+                    renderItem={renderMessage}
+                    contentContainerStyle={[styles.listContent, { paddingBottom: 20 }]}
+                    inverted
+                    onEndReached={() => hasMoreMessages && fetchOlderMessages(channelId)}
+                    onEndReachedThreshold={0.5}
+                    removeClippedSubviews={Platform.OS === 'android'}
+                    initialNumToRender={15}
+                    maxToRenderPerBatch={10}
+                    windowSize={10}
+                />
+            )}
+
+            {showStickerPicker && (
+                <View style={[styles.stickerPicker, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.cardBorder, borderTopWidth: 1 }]}>
+                    <View style={styles.stickerPickerHeader}>
+                        <Text style={[styles.stickerPickerTitle, { color: theme.colors.placeholder }]}>YOUR STICKERS</Text>
+                        <TouchableOpacity onPress={closeStickerPicker}>
+                            <FontAwesomeIcon icon={faTimes} size={16} color={theme.colors.placeholder} />
+                        </TouchableOpacity>
+                    </View>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <View style={styles.stickerGrid}>
+                            {availableStickers.map((sticker, i) => (
+                                <TouchableOpacity key={i} onPress={() => handleSendSticker(sticker)} style={styles.stickerItem}>
+                                    <Text style={{ fontSize: 36 }}>{sticker}</Text>
+                                </TouchableOpacity>
+                            ))}
+                            {availableStickers.length === 0 && (
+                                <Text style={{ color: theme.colors.placeholder, fontStyle: 'italic', fontSize: 12 }}>Visit the shop to unlock stickers!</Text>
+                            )}
+                        </View>
+                    </ScrollView>
+                </View>
+            )}
+
+            {attachment && (
+                <View style={[styles.attachmentPreview, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        {attachment.type === 'image' ? (
+                            <Image source={{ uri: attachment.uri }} style={{ width: 50, height: 50, borderRadius: 12, marginRight: 12 }} />
+                        ) : (
+                            <View style={{ width: 50, height: 50, borderRadius: 12, backgroundColor: theme.colors.primary + '15', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                                <FontAwesomeIcon icon={faPaperclip} size={20} color={theme.colors.primary} />
+                            </View>
+                        )}
+                        <View style={{ flex: 1, marginRight: 10 }}>
+                            <Text style={{ color: theme.colors.text, fontWeight: 'bold', fontSize: 14 }} numberOfLines={1}>{attachment.name}</Text>
+                            <Text style={{ color: theme.colors.placeholder, fontSize: 11, marginTop: 2, fontWeight: '600' }}>
+                                {attachment.type.toUpperCase()}
+                            </Text>
+                        </View>
+                        <TouchableOpacity
+                            onPress={clearAttachment}
+                            style={{
+                                width: 32, height: 32,
+                                backgroundColor: theme.colors.background,
+                                borderRadius: 16,
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                borderWidth: 1,
+                                borderColor: theme.colors.cardBorder
+                            }}
+                        >
+                            <FontAwesomeIcon icon={faTimes} size={12} color={theme.colors.text} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
+
+            {showAttachMenu && (
+                <>
+                    <TouchableOpacity
+                        style={styles.menuBackdrop}
+                        activeOpacity={1}
+                        onPress={() => setShowAttachMenu(false)}
+                    />
+                    <View style={[styles.attachMenu, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                        <TouchableOpacity onPress={handlePickImage} style={styles.attachMenuItem}>
+                            <View style={[styles.attachIconBox, { backgroundColor: theme.colors.attachmentGallery }]}>
+                                <FontAwesomeIcon icon={faImage} size={22} color="#fff" />
+                            </View>
+                            <Text style={[styles.attachLabel, { color: theme.colors.text }]}>Gallery</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={handlePickDocument} style={styles.attachMenuItem}>
+                            <View style={[styles.attachIconBox, { backgroundColor: theme.colors.attachmentFile }]}>
+                                <FontAwesomeIcon icon={faPaperclip} size={22} color="#fff" />
+                            </View>
+                            <Text style={[styles.attachLabel, { color: theme.colors.text }]}>File</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={openStickerPicker} style={styles.attachMenuItem}>
+                            <View style={[styles.attachIconBox, { backgroundColor: theme.colors.attachmentSticker }]}>
+                                <Text style={{ fontSize: 22 }}>✨</Text>
+                            </View>
+                            <Text style={[styles.attachLabel, { color: theme.colors.text }]}>Stickers</Text>
+                        </TouchableOpacity>
+                    </View>
+                </>
+            )}
+
+            <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.cardBorder, borderTopWidth: 1, paddingBottom: Math.max(insets.bottom, 12), paddingTop: 12 }]}>
+                <TouchableOpacity onPress={toggleAttachMenu} style={styles.attachButton}>
+                    <View style={[styles.plusIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                        <FontAwesomeIcon icon={faPlus} size={18} color={theme.colors.primary} />
+                    </View>
+                </TouchableOpacity>
+                <TextInput
+                    style={[styles.input, { backgroundColor: theme.colors.background, color: theme.colors.text, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                    placeholder="Type a message..."
+                    placeholderTextColor={theme.colors.placeholder}
+                    value={inputText}
+                    onChangeText={(text) => { setInputText(text); sendTypingEvent(channelId); }}
+                    multiline
+                />
+                <TouchableOpacity onPress={handleSend} style={[styles.sendButton, { backgroundColor: theme.colors.primary }]}>
+                    {sending ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                        <FontAwesomeIcon icon={faPaperPlane} size={14} color="#fff" />
+                    )}
+                </TouchableOpacity>
+            </View>
+
+            <MessageActionModal
+                visible={actionModalVisible}
+                onClose={() => setActionModalVisible(false)}
+                message={selectedMessage}
+                isMyMessage={selectedMessage?.sender_id === user?.id}
+                onEdit={handleActionModalEdit}
+                onDelete={handleActionModalDelete}
+                onPin={handleActionModalPin}
+                onReply={handleActionModalReply}
+                onReaction={handleActionModalReaction}
+                isAdmin={true}
+            />
+        </KeyboardAvoidingView>
+    );
+}
+
+export default React.memo(ChatRoomScreen);
 
 const styles = StyleSheet.create({
     container: { flex: 1 },

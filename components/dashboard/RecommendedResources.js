@@ -2,16 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { 
-    faLightbulb, faThumbsUp, faChevronRight, faFileAlt, 
-    faGlobe, faFilePdf, faFileImage, faFileVideo, 
+import {
+    faLightbulb, faThumbsUp, faChevronRight, faFileAlt,
+    faGlobe, faFilePdf, faFileImage, faFileVideo,
     faFileWord, faFilePowerpoint, faStar
 } from '@fortawesome/free-solid-svg-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import WalkthroughTarget from '../WalkthroughTarget';
 
-export default function RecommendedResources({ id, schoolId, userId, role }) {
+const RecommendedResources = React.memo(({ id, schoolId, userId, role }) => {
     const navigation = useNavigation();
     const { theme } = useTheme();
     const [recommendations, setRecommendations] = useState([]);
@@ -39,7 +39,7 @@ export default function RecommendedResources({ id, schoolId, userId, role }) {
                     .from('parent_child_relationships')
                     .select('child_id')
                     .eq('parent_id', userId);
-                
+
                 const childIds = relationships?.map(r => r.child_id) || [];
                 if (childIds.length > 0) {
                     const { data: classMembers } = await supabase
@@ -58,7 +58,7 @@ export default function RecommendedResources({ id, schoolId, userId, role }) {
                 .select('*, users(full_name)')
                 .eq('school_id', schoolId)
                 .eq('is_personal', false);
-            
+
             if (uniqueSubjects.length > 0) {
                 query = query.in('category', uniqueSubjects);
             }
@@ -154,7 +154,7 @@ export default function RecommendedResources({ id, schoolId, userId, role }) {
 
                 <View style={styles.list}>
                     {recommendations.map((resource) => (
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             key={resource.id}
                             style={[styles.item, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
                             onPress={() => navigation.navigate('Resources', { openResourceId: resource.id })}
@@ -189,7 +189,7 @@ export default function RecommendedResources({ id, schoolId, userId, role }) {
             </View>
         </WalkthroughTarget>
     );
-}
+});
 
 const styles = StyleSheet.create({
     container: {
@@ -295,3 +295,5 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
 });
+
+export default RecommendedResources;

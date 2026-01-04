@@ -11,7 +11,7 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { SkeletonPiece } from '../skeletons/DashboardScreenSkeleton';
 
-const DailyOverview = ({ loading, todaySessions, navigation }) => {
+const DailyOverview = React.memo(({ loading, todaySessions, navigation }) => {
     const { theme } = useTheme();
 
     const renderTodaySchedule = () => {
@@ -96,7 +96,7 @@ const DailyOverview = ({ loading, todaySessions, navigation }) => {
             </View>
         </View>
     );
-};
+});
 
 const styles = StyleSheet.create({
     container: {

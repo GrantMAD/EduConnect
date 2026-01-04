@@ -5,7 +5,7 @@ import { faEdit, faTrash, faThumbtack, faReply, faCopy } from '@fortawesome/free
 import { useTheme } from '../context/ThemeContext';
 import * as Clipboard from 'expo-clipboard';
 
-const MessageActionModal = ({ visible, onClose, message, isMyMessage, onEdit, onDelete, onPin, onReply, onReaction, isAdmin }) => {
+const MessageActionModal = React.memo(({ visible, onClose, message, isMyMessage, onEdit, onDelete, onPin, onReply, onReaction, isAdmin }) => {
     const { theme } = useTheme();
 
     if (!message) return null;
@@ -103,7 +103,7 @@ const MessageActionModal = ({ visible, onClose, message, isMyMessage, onEdit, on
             </TouchableWithoutFeedback>
         </Modal>
     );
-};
+});
 
 const styles = StyleSheet.create({
     overlay: {

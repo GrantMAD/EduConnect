@@ -5,7 +5,7 @@ import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
 export { SkeletonPiece };
 
-const ProfileScreenSkeleton = () => {
+const ProfileScreenSkeleton = React.memo(() => {
   const { theme } = useTheme(); 
   return (
     <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]} showsVerticalScrollIndicator={false}>
@@ -47,7 +47,7 @@ const ProfileScreenSkeleton = () => {
       </View>
     </ScrollView>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 24, alignItems: 'center' },

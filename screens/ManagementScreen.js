@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -7,7 +7,24 @@ import { useTheme } from '../context/ThemeContext';
 import SettingsScreenSkeleton, { SkeletonPiece } from '../components/skeletons/SettingsScreenSkeleton';
 import LinearGradient from 'react-native-linear-gradient';
 
-export default function ManagementScreen({ navigation }) {
+const ManagementButton = React.memo(({ icon, title, description, onPress, color, theme }) => (
+    <TouchableOpacity
+        style={[styles.button, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+        onPress={onPress}
+        activeOpacity={0.7}
+    >
+        <View style={[styles.iconBox, { backgroundColor: (color || theme.colors.primary) + '15' }]}>
+            <FontAwesomeIcon icon={icon} size={18} color={color || theme.colors.primary} />
+        </View>
+        <View style={styles.buttonContent}>
+            <Text style={[styles.buttonText, { color: theme.colors.text }]}>{title}</Text>
+            <Text style={[styles.buttonDescription, { color: theme.colors.placeholder }]}>{description}</Text>
+        </View>
+        <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
+    </TouchableOpacity>
+));
+
+const ManagementScreen = ({ navigation }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const { theme } = useTheme();
@@ -31,22 +48,15 @@ export default function ManagementScreen({ navigation }) {
         fetchUser();
     }, []);
 
-    const ManagementButton = ({ icon, title, description, onPress, color }) => (
-        <TouchableOpacity
-            style={[styles.button, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-            onPress={onPress}
-            activeOpacity={0.7}
-        >
-            <View style={[styles.iconBox, { backgroundColor: (color || theme.colors.primary) + '15' }]}>
-                <FontAwesomeIcon icon={icon} size={18} color={color || theme.colors.primary} />
-            </View>
-            <View style={styles.buttonContent}>
-                <Text style={[styles.buttonText, { color: theme.colors.text }]}>{title}</Text>
-                <Text style={[styles.buttonDescription, { color: theme.colors.placeholder }]}>{description}</Text>
-            </View>
-            <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
-        </TouchableOpacity>
-    );
+    const navigateBack = useCallback(() => navigation.goBack(), [navigation]);
+    const navigateToUserManagement = useCallback(() => navigation.navigate('UserManagement'), [navigation]);
+    const navigateToClubList = useCallback(() => navigation.navigate('ClubList'), [navigation]);
+    const navigateToMyChildren = useCallback(() => navigation.navigate('My Children'), [navigation]);
+    const navigateToManageAnnouncements = useCallback(() => navigation.navigate('ManageAnnouncements'), [navigation]);
+    const navigateToMeetings = useCallback(() => navigation.navigate('Meetings'), [navigation]);
+    const navigateToSchoolData = useCallback(() => navigation.navigate('SchoolData'), [navigation]);
+    const navigateToEngagementInsights = useCallback(() => navigation.navigate('EngagementInsights'), [navigation]);
+    const navigateToManageMarketData = useCallback(() => navigation.navigate('ManageMarketData'), [navigation]);
 
     return (
         <ScrollView
@@ -62,7 +72,7 @@ export default function ManagementScreen({ navigation }) {
                 <View style={styles.heroContent}>
                     <View style={styles.heroTextContainer}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                            <TouchableOpacity onPress={navigateBack} style={styles.backButton}>
                                 <FontAwesomeIcon icon={faArrowLeft} size={18} color="#fff" />
                             </TouchableOpacity>
                             <Text style={styles.heroTitle}>Management Hub</Text>
@@ -94,7 +104,6 @@ export default function ManagementScreen({ navigation }) {
                 </View>
             ) : (
                 <View style={{ padding: 20 }}>
-                    {/* User Management - Admin Only */}
                     {user && user.role === 'admin' && (
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>USER MANAGEMENT</Text>
@@ -102,27 +111,29 @@ export default function ManagementScreen({ navigation }) {
                                 icon={faUsers}
                                 title="Manage Users"
                                 description="Add, edit, or remove users from your school"
-                                onPress={() => navigation.navigate('UserManagement')}
+                                onPress={navigateToUserManagement}
                                 color="#3b82f6"
+                                theme={theme}
                             />
                             <ManagementButton
                                 icon={faUserFriends}
                                 title="Manage Clubs & Teams"
                                 description="Organize extracurricular activities"
-                                onPress={() => navigation.navigate('ClubList')}
+                                onPress={navigateToClubList}
                                 color="#8b5cf6"
+                                theme={theme}
                             />
                             <ManagementButton
                                 icon={faUserFriends}
                                 title="Family Connections"
                                 description="Manage parent-child links across the school"
-                                onPress={() => navigation.navigate('My Children')}
+                                onPress={navigateToMyChildren}
                                 color="#a855f7"
+                                theme={theme}
                             />
                         </View>
                     )}
 
-                    {/* Announcements - Admin & Teacher */}
                     {user && (user.role === 'admin' || user.role === 'teacher') && (
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>COMMUNICATION</Text>
@@ -130,20 +141,21 @@ export default function ManagementScreen({ navigation }) {
                                 icon={faBullhorn}
                                 title="Manage Announcements"
                                 description="Create, edit, or delete announcements"
-                                onPress={() => navigation.navigate('ManageAnnouncements')}
+                                onPress={navigateToManageAnnouncements}
                                 color="#f43f5e"
+                                theme={theme}
                             />
                             <ManagementButton
                                 icon={faHandshake}
                                 title="Parent-Teacher Meetings"
                                 description="Manage availability and bookings"
-                                onPress={() => navigation.navigate('Meetings')}
+                                onPress={navigateToMeetings}
                                 color="#06b6d4"
+                                theme={theme}
                             />
                         </View>
                     )}
 
-                    {/* School Data - Admin Only */}
                     {user && user.role === 'admin' && (
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>SCHOOL DATA</Text>
@@ -151,28 +163,30 @@ export default function ManagementScreen({ navigation }) {
                                 icon={faSchool}
                                 title="Manage School Data"
                                 description="Update school-wide information and branding"
-                                onPress={() => navigation.navigate('SchoolData')}
+                                onPress={navigateToSchoolData}
                                 color="#10b981"
+                                theme={theme}
                             />
                             <ManagementButton
                                 icon={faChartLine}
                                 title="Engagement Audit"
                                 description="Track teacher activity and adoption"
-                                onPress={() => navigation.navigate('EngagementInsights')}
+                                onPress={navigateToEngagementInsights}
                                 color="#6366f1"
+                                theme={theme}
                             />
                         </View>
                     )}
 
-                    {/* Marketplace - All Users */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>MARKETPLACE</Text>
                         <ManagementButton
                             icon={faStore}
                             title="Manage Market Data"
                             description="Oversee marketplace items"
-                            onPress={() => navigation.navigate('ManageMarketData')}
+                            onPress={navigateToManageMarketData}
                             color="#f59e0b"
+                            theme={theme}
                         />
                     </View>
                 </View>
@@ -180,6 +194,8 @@ export default function ManagementScreen({ navigation }) {
         </ScrollView>
     );
 }
+
+export default React.memo(ManagementScreen);
 
 const styles = StyleSheet.create({
     container: {

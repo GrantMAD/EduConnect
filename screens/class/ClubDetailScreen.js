@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, FlatList, RefreshControl, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
@@ -16,7 +16,7 @@ import LinearGradient from 'react-native-linear-gradient';
 const { width } = Dimensions.get('window');
 const defaultUserImage = require('../../assets/user.png');
 
-export default function ClubDetailScreen({ route, navigation }) {
+const ClubDetailScreen = ({ route, navigation }) => {
     const { clubId } = route.params;
     const { theme } = useTheme();
     const { showToast } = useToast();
@@ -34,7 +34,7 @@ export default function ClubDetailScreen({ route, navigation }) {
     const [processingId, setProcessingId] = useState(null);
     const [isLeaving, setIsLeaving] = useState(false);
 
-    const fetchClubDetails = async () => {
+    const fetchClubDetails = useCallback(async () => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
@@ -109,21 +109,21 @@ export default function ClubDetailScreen({ route, navigation }) {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, [clubId, showToast]);
 
     useEffect(() => {
         fetchClubDetails();
-    }, [clubId]);
+    }, [fetchClubDetails]);
 
-    const onRefresh = () => {
+    const onRefresh = useCallback(() => {
         setRefreshing(true);
         fetchClubDetails();
-    };
+    }, [fetchClubDetails]);
 
-    const handleLeaveClub = async () => {
+    const handleLeaveClub = useCallback(async () => {
         Alert.alert(
             "Leave Club",
-            `Are you sure you want to leave ${clubData.name}?`,
+            `Are you sure you want to leave ${clubData?.name}?`,
             [
                 { text: "Cancel", style: "cancel" },
                 { 
@@ -157,9 +157,9 @@ export default function ClubDetailScreen({ route, navigation }) {
                 }
             ]
         );
-    };
+    }, [clubData, clubId, navigation, showToast]);
 
-    const handleRequestAction = async (request, accept) => {
+    const handleRequestAction = useCallback(async (request, accept) => {
         setProcessingId(request.id);
         try {
             if (accept) {
@@ -195,12 +195,12 @@ export default function ClubDetailScreen({ route, navigation }) {
         } finally {
             setProcessingId(null);
         }
-    };
+    }, [clubId, clubData, currentUserProfile, fetchClubDetails, showToast]);
 
-    const isCoordinator = currentUserProfile?.role === 'admin' || clubData?.teacher_id === currentUserProfile?.id;
-    const isMember = members.some(m => m.user_id === currentUserProfile?.id);
+    const isCoordinator = useMemo(() => currentUserProfile?.role === 'admin' || clubData?.teacher_id === currentUserProfile?.id, [currentUserProfile, clubData]);
+    const isMember = useMemo(() => members.some(m => m.user_id === currentUserProfile?.id), [members, currentUserProfile]);
 
-    const renderHeader = () => (
+    const renderHeader = useCallback(() => (
         <LinearGradient
             colors={['#9333ea', '#4f46e5']} 
             start={{ x: 0, y: 0 }}
@@ -268,9 +268,9 @@ export default function ClubDetailScreen({ route, navigation }) {
                 </View>
             </View>
         </LinearGradient>
-    );
+    ), [isCoordinator, isMember, clubData, members, navigation, handleLeaveClub, isLeaving]);
 
-    const renderTabs = () => (
+    const renderTabs = useCallback(() => (
         <View style={[styles.tabBar, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderBottomWidth: 1 }]}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
                 {[
@@ -290,9 +290,9 @@ export default function ClubDetailScreen({ route, navigation }) {
                 ))}
             </ScrollView>
         </View>
-    );
+    ), [isCoordinator, activeTab, theme.colors]);
 
-    const renderContent = () => {
+    const renderContent = useCallback(() => {
         if (loading) return <View style={{ padding: 20 }}><CardSkeleton /></View>;
 
         switch (activeTab) {
@@ -430,8 +430,10 @@ export default function ClubDetailScreen({ route, navigation }) {
                         )}
                     </View>
                 );
+            default:
+                return null;
         }
-    };
+    }, [loading, activeTab, theme, isCoordinator, navigation, clubId, announcements, members, schedules, requests, processingId, handleRequestAction]);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -446,6 +448,8 @@ export default function ClubDetailScreen({ route, navigation }) {
         </View>
     );
 }
+
+export default React.memo(ClubDetailScreen);
 
 const styles = StyleSheet.create({
     container: { flex: 1 },

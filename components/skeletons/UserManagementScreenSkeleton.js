@@ -5,7 +5,7 @@ import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
 export { SkeletonPiece };
 
-export const UserItemSkeleton = () => {
+export const UserItemSkeleton = React.memo(() => {
     const { theme } = useTheme(); 
     return (
         <View style={[styles.userItem, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
@@ -16,9 +16,9 @@ export const UserItemSkeleton = () => {
             </View>
         </View>
     );
-};
+});
 
-const UserManagementScreenSkeleton = () => {
+const UserManagementScreenSkeleton = React.memo(() => {
   const { theme } = useTheme(); 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -32,7 +32,7 @@ const UserManagementScreenSkeleton = () => {
       />
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

@@ -2,16 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { 
-    faChartLine, 
-    faTrophy, 
-    faGraduationCap, 
-    faExclamationCircle, 
-    faClipboardCheck 
+import {
+    faChartLine,
+    faTrophy,
+    faGraduationCap,
+    faExclamationCircle,
+    faClipboardCheck
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../../context/ThemeContext';
 
-export default function MeetingAgendaBrief({ studentId, isTeacher }) {
+const MeetingAgendaBrief = React.memo(({ studentId, isTeacher }) => {
     const { theme } = useTheme();
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState({
@@ -135,13 +135,13 @@ export default function MeetingAgendaBrief({ studentId, isTeacher }) {
             )}
         </View>
     );
-}
+});
 
 const styles = StyleSheet.create({
     container: { marginTop: 16 },
     loadingContainer: { padding: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 24 },
     loadingText: { marginTop: 12, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-    
+
     headerRow: { marginBottom: 16, paddingHorizontal: 4 },
     headerLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
 
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     statLabel: { fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
     statValue: { fontSize: 18, fontWeight: '900' },
     statUnit: { fontSize: 9, fontWeight: '800' },
-    
+
     marksSection: {
         padding: 20,
         borderRadius: 24,
@@ -176,13 +176,15 @@ const styles = StyleSheet.create({
     markValueBox: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
     markValue: { fontSize: 11, fontWeight: '900' },
 
-    tipBox: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        marginTop: 16, 
-        padding: 16, 
-        borderRadius: 20, 
+    tipBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 16,
+        padding: 16,
+        borderRadius: 20,
     },
     tipText: { fontSize: 11, fontWeight: '700', lineHeight: 16, flex: 1 },
     headerLine: { flex: 1, height: 1, opacity: 0.5 },
 });
+
+export default MeetingAgendaBrief;

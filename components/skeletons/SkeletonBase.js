@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
 import { useTheme } from '../../context/ThemeContext';
 
-const SkeletonBase = ({ style, duration = 1000, opacityRange = [0.5, 1], backgroundColor }) => {
+const SkeletonBase = React.memo(({ style, duration = 1000, opacityRange = [0.5, 1], backgroundColor }) => {
   const progress = useSharedValue(0);
   const { theme } = useTheme();
 
@@ -20,7 +20,7 @@ const SkeletonBase = ({ style, duration = 1000, opacityRange = [0.5, 1], backgro
   const finalBackgroundColor = backgroundColor || theme.colors.cardBorder;
 
   return <Animated.View style={[{ backgroundColor: finalBackgroundColor }, animatedStyle, style]} />;
-};
+});
 
 export const SkeletonPiece = SkeletonBase;
 export default SkeletonBase;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TextInput, FlatList, TouchableOpacity, Modal, Image, Dimensions } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { Picker } from '@react-native-picker/picker';
@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const defaultUserImage = require('../assets/user.png');
 
-export default function UserManagementScreen({ navigation, route }) {
+const UserManagementScreen = ({ navigation, route }) => {
   const { fromDashboard } = route?.params || {};
   const { schoolId } = useSchool();
   const { showToast } = useToast();
@@ -24,7 +24,7 @@ export default function UserManagementScreen({ navigation, route }) {
   const [selectedUser, setSelectedUser] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  const fetchUsersQuery = React.useCallback(({ from, to }) => {
+  const fetchUsersQuery = useCallback(({ from, to }) => {
     if (!schoolId) return Promise.resolve({ data: [], error: null });
 
     let query = supabase
@@ -62,21 +62,21 @@ export default function UserManagementScreen({ navigation, route }) {
     }
   );
 
-  const onRefresh = React.useCallback(() => {
+  const onRefresh = useCallback(() => {
     refetch();
   }, [refetch]);
 
-  const openModal = (user) => {
+  const openModal = useCallback((user) => {
     setSelectedUser(user);
     setIsModalVisible(true);
-  };
+  }, []);
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     setSelectedUser(null);
     setIsModalVisible(false);
-  };
+  }, []);
 
-  const handleRoleChange = async (newRole) => {
+  const handleRoleChange = useCallback(async (newRole) => {
     if (!selectedUser) return;
     if (selectedUser.role === newRole) return;
 
@@ -102,18 +102,18 @@ export default function UserManagementScreen({ navigation, route }) {
     } catch (err) {
       showToast('An unexpected error occurred.', 'error');
     }
-  };
+  }, [selectedUser, setUsers, showToast]);
 
-  const renderFooter = () => {
+  const renderFooter = useCallback(() => {
     if (!loadingMore) return null;
     return (
       <View style={{ paddingVertical: 20 }}>
         <ActivityIndicator size="small" color={theme.colors.primary} />
       </View>
     );
-  };
+  }, [loadingMore, theme.colors.primary]);
 
-  const ListHeader = () => (
+  const ListHeader = useMemo(() => (
     <View>
         <LinearGradient
             colors={['#4f46e5', '#7c3aed']} 
@@ -153,7 +153,39 @@ export default function UserManagementScreen({ navigation, route }) {
             </View>
         </View>
     </View>
-  );
+  ), [navigation, loading, users.length, theme, searchQuery]);
+
+  const renderItem = useCallback(({ item }) => loading ? (
+    <View style={{ paddingHorizontal: 20 }}><UserItemSkeleton /></View>
+  ) : (
+    <TouchableOpacity 
+      onPress={() => openModal(item)}
+      activeOpacity={0.7}
+      style={{ paddingHorizontal: 20 }}
+    >
+      <View style={[styles.userItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+        <View style={styles.itemLeft}>
+          <View style={[styles.avatarBox, { borderColor: theme.colors.cardBorder }]}>
+              <Image
+                  source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage}
+                  style={styles.avatar}
+              />
+          </View>
+          <View style={styles.userInfo}>
+              <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name || item.email}</Text>
+              <View style={[styles.roleBadge, { 
+                  backgroundColor: item.role === 'admin' ? '#fff1f2' : item.role === 'teacher' ? '#ecfdf5' : item.role === 'parent' ? '#fff7ed' : '#eef2ff'
+              }]}>
+                  <Text style={[styles.roleText, { 
+                      color: item.role === 'admin' ? '#e11d48' : item.role === 'teacher' ? '#059669' : item.role === 'parent' ? '#d97706' : '#4f46e5'
+                  }]}>{item.role.toUpperCase()}</Text>
+              </View>
+          </View>
+        </View>
+        <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.cardBorder} />
+      </View>
+    </TouchableOpacity>
+  ), [loading, theme, openModal]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -175,37 +207,7 @@ export default function UserManagementScreen({ navigation, route }) {
         maxToRenderPerBatch={10}
         windowSize={10}
         contentContainerStyle={{ paddingBottom: 40 }}
-        renderItem={({ item }) => loading ? (
-          <View style={{ paddingHorizontal: 20 }}><UserItemSkeleton /></View>
-        ) : (
-          <TouchableOpacity 
-            onPress={() => openModal(item)}
-            activeOpacity={0.7}
-            style={{ paddingHorizontal: 20 }}
-          >
-            <View style={[styles.userItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-              <View style={styles.itemLeft}>
-                <View style={[styles.avatarBox, { borderColor: theme.colors.cardBorder }]}>
-                    <Image
-                        source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage}
-                        style={styles.avatar}
-                    />
-                </View>
-                <View style={styles.userInfo}>
-                    <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name || item.email}</Text>
-                    <View style={[styles.roleBadge, { 
-                        backgroundColor: item.role === 'admin' ? '#fff1f2' : item.role === 'teacher' ? '#ecfdf5' : item.role === 'parent' ? '#fff7ed' : '#eef2ff'
-                    }]}>
-                        <Text style={[styles.roleText, { 
-                            color: item.role === 'admin' ? '#e11d48' : item.role === 'teacher' ? '#059669' : item.role === 'parent' ? '#d97706' : '#4f46e5'
-                        }]}>{item.role.toUpperCase()}</Text>
-                    </View>
-                </View>
-              </View>
-              <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.cardBorder} />
-            </View>
-          </TouchableOpacity>
-        )}
+        renderItem={renderItem}
         ListEmptyComponent={!loading && <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No users found.</Text>}
       />
 
@@ -257,6 +259,8 @@ export default function UserManagementScreen({ navigation, route }) {
     </View>
   );
 }
+
+export default React.memo(UserManagementScreen);
 
 const styles = StyleSheet.create({
   container: {

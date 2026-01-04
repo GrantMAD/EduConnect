@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, ActivityIndicator, StyleSheet, Alert, Animated, Easing, Image, Dimensions } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useNavigation } from '@react-navigation/native';
@@ -12,6 +12,60 @@ const AuthGate = () => {
   const [loading, setLoading] = useState(true);
   const { registerForPushNotificationsAsync } = usePushNotification();
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  const checkSchoolId = useCallback(async () => {
+    const { data: { user }, error } = await supabase.auth.getUser();
+
+    if (error) {
+      console.error('Error fetching user in AuthGate:', error.message);
+      await supabase.auth.signOut();
+      return;
+    }
+
+    if (user) {
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('school_id, role')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching user profile in AuthGate:', profileError.message);
+        await supabase.auth.signOut();
+        return;
+      }
+
+      if (userProfile) {
+        if (userProfile.role === 'server_admin') {
+          Alert.alert(
+            "Access Restricted",
+            "Server Administrator access is only available on the Web Application. Please log in there to manage the system.",
+            [
+              { 
+                text: "OK", 
+                onPress: async () => await supabase.auth.signOut() 
+              }
+            ]
+          );
+          return;
+        }
+
+        if (userProfile.school_id) {
+          await registerForPushNotificationsAsync();
+          navigation.replace('MainNavigation');
+        } else if (userProfile.role !== 'user') {
+          navigation.replace('SchoolSetup');
+        } else {
+          navigation.replace('RoleSelection');
+        }
+      } else {
+        navigation.replace('RoleSelection');
+      }
+    } else {
+      await supabase.auth.signOut();
+    }
+    setLoading(false);
+  }, [navigation, registerForPushNotificationsAsync]);
 
   useEffect(() => {
     // Start pulse animation
@@ -32,64 +86,10 @@ const AuthGate = () => {
       ])
     ).start();
 
-    const checkSchoolId = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser();
-
-      if (error) {
-        console.error('Error fetching user in AuthGate:', error.message);
-        await supabase.auth.signOut();
-        return;
-      }
-
-      if (user) {
-        const { data: userProfile, error: profileError } = await supabase
-          .from('users')
-          .select('school_id, role')
-          .eq('id', user.id)
-          .single();
-
-        if (profileError) {
-          console.error('Error fetching user profile in AuthGate:', profileError.message);
-          await supabase.auth.signOut();
-          return;
-        }
-
-        if (userProfile) {
-          if (userProfile.role === 'server_admin') {
-            Alert.alert(
-              "Access Restricted",
-              "Server Administrator access is only available on the Web Application. Please log in there to manage the system.",
-              [
-                { 
-                  text: "OK", 
-                  onPress: async () => await supabase.auth.signOut() 
-                }
-              ]
-            );
-            return;
-          }
-
-          if (userProfile.school_id) {
-            await registerForPushNotificationsAsync();
-            navigation.replace('MainNavigation');
-          } else if (userProfile.role !== 'user') {
-            navigation.replace('SchoolSetup');
-          } else {
-            navigation.replace('RoleSelection');
-          }
-        } else {
-          navigation.replace('RoleSelection');
-        }
-      } else {
-        await supabase.auth.signOut();
-      }
-      setLoading(false);
-    };
-
     // Keep the splash/logo visible for at least 2 seconds for effect
     const timer = setTimeout(checkSchoolId, 2000);
     return () => clearTimeout(timer);
-  }, []); 
+  }, [checkSchoolId, pulseAnim]); 
 
   if (loading) {
     return (
@@ -118,4 +118,4 @@ const styles = StyleSheet.create({
   }
 });
 
-export default AuthGate;
+export default React.memo(AuthGate);

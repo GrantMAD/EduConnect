@@ -7,7 +7,7 @@ import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 
-export default function FamilyLinksModal({ visible, onClose }) {
+const FamilyLinksModal = React.memo(({ visible, onClose }) => {
     const { theme } = useTheme();
     const { schoolId } = useSchool();
     const [loading, setLoading] = useState(true);
@@ -17,7 +17,7 @@ export default function FamilyLinksModal({ visible, onClose }) {
         if (visible) {
             fetchFamilyLinks();
         }
-    }, [visible]);
+    }, [visible, schoolId]); // Added schoolId to dependencies for safety
 
     const fetchFamilyLinks = async () => {
         setLoading(true);
@@ -164,7 +164,7 @@ export default function FamilyLinksModal({ visible, onClose }) {
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modal: {
@@ -311,3 +311,5 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 });
+
+export default FamilyLinksModal;

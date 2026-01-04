@@ -14,8 +14,9 @@ import {
     faComments
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { ActionButtonSkeleton } from '../skeletons/DashboardScreenSkeleton';
 
-const QuickActionButton = ({ icon, title, onPress, color }) => {
+const QuickActionButton = React.memo(({ icon, title, onPress, color }) => {
     const { theme } = useTheme();
     return (
         <TouchableOpacity
@@ -29,10 +30,22 @@ const QuickActionButton = ({ icon, title, onPress, color }) => {
             <Text style={[styles.actionButtonText, { color: theme.colors.text }]} numberOfLines={1}>{title}</Text>
         </TouchableOpacity>
     );
-};
+});
 
-const QuickActions = ({ navigation, userRole }) => {
+const QuickActions = React.memo(({ navigation, userRole, loading }) => {
     const { theme } = useTheme();
+
+    if (loading) {
+        return (
+            <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Quick Operations</Text>
+                <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>Efficiently manage common administrative tasks.</Text>
+                <View style={styles.actionsContainer}>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => <ActionButtonSkeleton key={i} />)}
+                </View>
+            </View>
+        );
+    }
 
     if (!['admin', 'teacher'].includes(userRole)) {
         return null;
@@ -94,7 +107,7 @@ const QuickActions = ({ navigation, userRole }) => {
             </View>
         </View>
     );
-};
+});
 
 const styles = StyleSheet.create({
     section: {
@@ -114,11 +127,11 @@ const styles = StyleSheet.create({
     actionsContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        marginHorizontal: -6,
+        justifyContent: 'space-between',
     },
     actionButton: {
-        width: '47%',
-        margin: '1.5%',
+        width: '48.5%',
+        marginBottom: 12,
         padding: 12,
         borderRadius: 20,
         flexDirection: 'row',

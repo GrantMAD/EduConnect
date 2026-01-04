@@ -33,7 +33,7 @@ const formatTimeAgo = (dateString) => {
     return Math.floor(seconds) + "s";
 };
 
-export default function ChatListScreen({ navigation }) {
+const ChatListScreen = ({ navigation }) => {
     const { channels, loading, fetchChannels, user } = useChat();
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
@@ -41,10 +41,10 @@ export default function ChatListScreen({ navigation }) {
     useFocusEffect(
         useCallback(() => {
             fetchChannels();
-        }, [])
+        }, [fetchChannels])
     );
 
-    const getChannelDisplayInfo = (channel) => {
+    const getChannelDisplayInfo = useCallback((channel) => {
         if (channel.type === 'direct' && user) {
             const otherMember = channel.channel_members?.find(m => m.user_id !== user.id);
             if (otherMember?.users) {
@@ -67,9 +67,9 @@ export default function ChatListScreen({ navigation }) {
             icon: icon,
             equippedItem: null
         };
-    };
+    }, [user]);
 
-    const renderItem = ({ item }) => {
+    const renderItem = useCallback(({ item }) => {
         const lastMessage = item.last_message?.[0];
         const timeString = lastMessage
             ? formatTimeAgo(lastMessage.created_at)
@@ -163,13 +163,15 @@ export default function ChatListScreen({ navigation }) {
                 </View>
             </TouchableOpacity>
         );
-    };
+    }, [theme, navigation, getChannelDisplayInfo]);
 
     const uniqueChannels = useMemo(() => {
         const map = new Map();
         channels.forEach(c => map.set(c.id, c));
         return Array.from(map.values());
     }, [channels]);
+
+    const navigateToNewChat = useCallback(() => navigation.navigate('NewChat'), [navigation]);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -188,7 +190,7 @@ export default function ChatListScreen({ navigation }) {
                     </View>
                     <TouchableOpacity
                         style={styles.heroButton}
-                        onPress={() => navigation.navigate('NewChat')}
+                        onPress={navigateToNewChat}
                     >
                         <FontAwesomeIcon icon={faPlus} size={14} color="#4f46e5" />
                         <Text style={styles.heroButtonText}>New</Text>
@@ -220,13 +222,15 @@ export default function ChatListScreen({ navigation }) {
 
             <TouchableOpacity
                 style={[styles.fab, { backgroundColor: theme.colors.primary, bottom: 20 + insets.bottom }]}
-                onPress={() => navigation.navigate('NewChat')}
+                onPress={navigateToNewChat}
             >
                 <FontAwesomeIcon icon={faPlus} size={24} color="#fff" />
             </TouchableOpacity>
         </View>
     );
 }
+
+export default React.memo(ChatListScreen);
 
 const styles = StyleSheet.create({
     container: {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Image, Dimensions } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -15,7 +15,24 @@ import StandardBottomModal from '../components/StandardBottomModal';
 
 const defaultUserImage = require('../assets/user.png');
 
-export default function EngagementInsightsScreen({ navigation }) {
+const AuditStat = React.memo(({ icon, label, count, color, theme }) => {
+    return (
+        <View style={[styles.auditStatItem, { backgroundColor: theme.colors.background }]}>
+            <View style={[styles.auditStatIcon, { backgroundColor: color + '15' }]}>
+                <FontAwesomeIcon icon={icon} color={color} size={14} />
+            </View>
+            <View style={{ flex: 1 }}>
+                <Text style={[styles.auditStatLabel, { color: theme.colors.placeholder }]}>{label.toUpperCase()}</Text>
+                <Text style={[styles.auditStatValue, { color: theme.colors.text }]}>{count}</Text>
+            </View>
+            <View style={[styles.miniProgressBg, { backgroundColor: theme.colors.cardBorder }]}>
+                <View style={[styles.miniProgressFill, { backgroundColor: color, width: `${Math.min(count * 10, 100)}%` }]} />
+            </View>
+        </View>
+    );
+});
+
+const EngagementInsightsScreen = ({ navigation }) => {
     const { theme } = useTheme();
     const { schoolId } = useSchool();
     const insets = useSafeAreaInsets();
@@ -27,13 +44,7 @@ export default function EngagementInsightsScreen({ navigation }) {
     const [selectedTeacher, setSelectedTeacher] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    useEffect(() => {
-        if (schoolId) {
-            fetchEngagementData();
-        }
-    }, [schoolId]);
-
-    const fetchEngagementData = async () => {
+    const fetchEngagementData = useCallback(async () => {
         setLoading(true);
         try {
             const { data: teacherList, error: teacherError } = await supabase
@@ -77,15 +88,23 @@ export default function EngagementInsightsScreen({ navigation }) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [schoolId]);
 
-    const handleSort = (key) => {
-        let direction = 'desc';
-        if (sortConfig.key === key && sortConfig.direction === 'desc') {
-            direction = 'asc';
+    useEffect(() => {
+        if (schoolId) {
+            fetchEngagementData();
         }
-        setSortConfig({ key, direction });
-    };
+    }, [schoolId, fetchEngagementData]);
+
+    const handleSort = useCallback((key) => {
+        setSortConfig(prev => {
+            let direction = 'desc';
+            if (prev.key === key && prev.direction === 'desc') {
+                direction = 'asc';
+            }
+            return { key, direction };
+        });
+    }, []);
 
     const sortedTeachers = useMemo(() => {
         const filtered = teachers.filter(t => 
@@ -104,15 +123,17 @@ export default function EngagementInsightsScreen({ navigation }) {
         });
     }, [teachers, searchTerm, sortConfig]);
 
-    const SortIcon = ({ column }) => {
+    const SortIcon = React.memo(({ column }) => {
         if (sortConfig.key !== column) return <FontAwesomeIcon icon={faSort} size={10} color={theme.colors.placeholder} style={{ opacity: 0.3, marginLeft: 4 }} />;
         return <FontAwesomeIcon icon={sortConfig.direction === 'asc' ? faSortUp : faSortDown} size={10} color="#fff" style={{ marginLeft: 4 }} />;
-    };
+    });
 
-    const handleTeacherPress = (teacher) => {
+    const handleTeacherPress = useCallback((teacher) => {
         setSelectedTeacher(teacher);
         setIsModalOpen(true);
-    };
+    }, []);
+
+    const closeIdModal = useCallback(() => setIsModalOpen(false), []);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -213,7 +234,7 @@ export default function EngagementInsightsScreen({ navigation }) {
 
             <StandardBottomModal
                 visible={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={closeIdModal}
                 title="Staff Engagement"
                 icon={faUserTie}
             >
@@ -231,9 +252,9 @@ export default function EngagementInsightsScreen({ navigation }) {
                         </View>
 
                         <View style={styles.activityStats}>
-                            <AuditStat icon={faBullhorn} label="Announcements" count={selectedTeacher.announcements} color="#F43F5E" />
-                            <AuditStat icon={faBook} label="Resources" count={selectedTeacher.resources} color="#8B5CF6" />
-                            <AuditStat icon={faChalkboardTeacher} label="Active Classes" count={selectedTeacher.classes} color="#10B981" />
+                            <AuditStat icon={faBullhorn} label="Announcements" count={selectedTeacher.announcements} color="#F43F5E" theme={theme} />
+                            <AuditStat icon={faBook} label="Resources" count={selectedTeacher.resources} color="#8B5CF6" theme={theme} />
+                            <AuditStat icon={faChalkboardTeacher} label="Active Classes" count={selectedTeacher.classes} color="#10B981" theme={theme} />
                         </View>
 
                         <View style={[styles.totalScoreBox, { backgroundColor: theme.colors.primary + '05', borderColor: theme.colors.primary + '10', borderWidth: 1 }]}>
@@ -250,23 +271,7 @@ export default function EngagementInsightsScreen({ navigation }) {
     );
 }
 
-function AuditStat({ icon, label, count, color }) {
-    const { theme } = useTheme();
-    return (
-        <View style={[styles.auditStatItem, { backgroundColor: theme.colors.background }]}>
-            <View style={[styles.auditStatIcon, { backgroundColor: color + '15' }]}>
-                <FontAwesomeIcon icon={icon} color={color} size={14} />
-            </View>
-            <View style={{ flex: 1 }}>
-                <Text style={[styles.auditStatLabel, { color: theme.colors.placeholder }]}>{label.toUpperCase()}</Text>
-                <Text style={[styles.auditStatValue, { color: theme.colors.text }]}>{count}</Text>
-            </View>
-            <View style={[styles.miniProgressBg, { backgroundColor: theme.colors.cardBorder }]}>
-                <View style={[styles.miniProgressFill, { backgroundColor: color, width: `${Math.min(count * 10, 100)}%` }]} />
-            </View>
-        </View>
-    );
-}
+export default React.memo(EngagementInsightsScreen);
 
 const styles = StyleSheet.create({
     container: { flex: 1 },

@@ -7,7 +7,7 @@ import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 
-export default function ChangePasswordModal({ visible, onClose }) {
+const ChangePasswordModal = React.memo(({ visible, onClose }) => {
     const { theme } = useTheme();
     const { showToast } = useToast();
     const [currentPassword, setCurrentPassword] = useState('');
@@ -255,7 +255,7 @@ export default function ChangePasswordModal({ visible, onClose }) {
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -374,3 +374,5 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
 });
+
+export default ChangePasswordModal;

@@ -6,7 +6,7 @@ import { faTimes, faTag, faUserCircle, faMoneyBillWave, faEdit, faTrash, faComme
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 
-export default function MarketplaceItemDetailModal({ visible, item, onClose, onViewSeller, onMessageSeller, onEdit, onDelete }) {
+const MarketplaceItemDetailModal = React.memo(({ visible, item, onClose, onViewSeller, onMessageSeller, onEdit, onDelete }) => {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
     const [loading, setLoading] = useState(false);
@@ -146,7 +146,7 @@ export default function MarketplaceItemDetailModal({ visible, item, onClose, onV
             </View >
         </Modal >
     );
-}
+});
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -341,3 +341,5 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
 });
+
+export default MarketplaceItemDetailModal;

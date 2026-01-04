@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useSchool } from '../../context/SchoolContext';
@@ -14,7 +14,7 @@ import { useChat } from '../../context/ChatContext';
 
 const defaultUserImage = require('../../assets/user.png');
 
-export default function LeaderboardScreen({ navigation }) {
+const LeaderboardScreen = ({ navigation }) => {
     const { theme } = useTheme();
     const { schoolId } = useSchool();
     const { createChannel } = useChat();
@@ -25,31 +25,10 @@ export default function LeaderboardScreen({ navigation }) {
     const [selectedUser, setSelectedUser] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
 
-    useEffect(() => {
-        if (schoolId) {
-            fetchLeaderboard();
-        }
-    }, [schoolId]);
-
-    const handleUserPress = (user) => {
-        setSelectedUser(user);
-        setIsModalVisible(true);
-    };
-
-    const handleMessageUser = async (user) => {
-        try {
-            const channel = await createChannel(user.full_name, 'direct', [user.id]);
-            navigation.navigate('Chat', { channelId: channel.id, channelName: user.full_name });
-        } catch (error) {
-            console.error('Error creating chat channel:', error);
-        }
-    };
-
-    const fetchLeaderboard = async () => {
+    const fetchLeaderboard = useCallback(async () => {
         if (!schoolId) return;
         setLoading(true);
         try {
-            // 1. Get all user IDs for this school first to bypass the missing join
             const { data: schoolUsers, error: schoolError } = await supabase
                 .from('users')
                 .select('id, full_name, avatar_url, email, role, number')
@@ -65,7 +44,6 @@ export default function LeaderboardScreen({ navigation }) {
 
             const schoolUserIds = schoolUsers.map(u => u.id);
 
-            // 2. Get top 50 scores for these specific user IDs
             const { data: scores, error: scoresError } = await supabase
                 .from('user_gamification')
                 .select('user_id, current_xp, current_level')
@@ -78,7 +56,6 @@ export default function LeaderboardScreen({ navigation }) {
             if (scores && scores.length > 0) {
                 const topScorerIds = scores.map(s => s.user_id);
 
-                // 3. Get equipped items separately
                 const { data: inventoryData } = await supabase
                     .from('user_inventory')
                     .select('user_id, shop_items(*)')
@@ -113,9 +90,29 @@ export default function LeaderboardScreen({ navigation }) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [schoolId]);
 
-    const renderUser = ({ item, index }) => {
+    useEffect(() => {
+        if (schoolId) {
+            fetchLeaderboard();
+        }
+    }, [schoolId, fetchLeaderboard]);
+
+    const handleUserPress = useCallback((user) => {
+        setSelectedUser(user);
+        setIsModalVisible(true);
+    }, []);
+
+    const handleMessageUser = useCallback(async (user) => {
+        try {
+            const channel = await createChannel(user.full_name, 'direct', [user.id]);
+            navigation.navigate('Chat', { channelId: channel.id, channelName: user.full_name });
+        } catch (error) {
+            console.error('Error creating chat channel:', error);
+        }
+    }, [createChannel, navigation]);
+
+    const renderUser = useCallback(({ item, index }) => {
         const nameColorStyle = item.equippedNameColor ? NAME_COLOR_STYLES[item.equippedNameColor.image_url] : null;
         const titleStyle = item.equippedTitle ? TITLE_STYLES[item.equippedTitle.image_url] : null;
         const isTop3 = index < 3;
@@ -172,7 +169,9 @@ export default function LeaderboardScreen({ navigation }) {
                 </View>
             </TouchableOpacity>
         );
-    };
+    }, [theme, handleUserPress]);
+
+    const topScore = useMemo(() => users[0]?.current_xp.toLocaleString() || '0', [users]);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -201,7 +200,7 @@ export default function LeaderboardScreen({ navigation }) {
                         <FontAwesomeIcon icon={faTrophy} size={20} color="#fcd34d" />
                         <View style={{ marginLeft: 8 }}>
                             <Text style={styles.topScoreLabel}>TOP SCORE</Text>
-                            <Text style={styles.topScoreValue}>{users[0]?.current_xp.toLocaleString() || '0'}</Text>
+                            <Text style={styles.topScoreValue}>{topScore}</Text>
                         </View>
                     </View>
                 </View>
@@ -231,6 +230,8 @@ export default function LeaderboardScreen({ navigation }) {
         </View>
     );
 }
+
+export default React.memo(LeaderboardScreen);
 
 const styles = StyleSheet.create({
     container: { flex: 1 },

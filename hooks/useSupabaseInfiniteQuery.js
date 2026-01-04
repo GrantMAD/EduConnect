@@ -24,22 +24,38 @@ export const useSupabaseInfiniteQuery = (key, queryBuilder, { pageSize = 20, dep
   const pageRef = useRef(0);
   const isFetching = useRef(false);
 
-  // Helper to load from cache
-  const loadFromCache = async () => {
-    try {
-      const cachedData = await offlineStorage.load(key);
-      if (cachedData && Array.isArray(cachedData)) {
-        setData(cachedData);
-        setIsOffline(true);
-        // If we loaded from cache, we assume there might be more on the server, 
-        // but since we are likely offline or failed fetch, we can't really paginate easily.
-        // For now, let's set hasMore to false if we are purely relying on cache.
-        setHasMore(false); 
+  // Initial fetch and cache loading
+  useEffect(() => {
+    let isMounted = true;
+
+    const initialize = async () => {
+      // 1. Try to load from cache immediately for this key
+      try {
+        const cachedData = await offlineStorage.load(key);
+        if (isMounted && cachedData && Array.isArray(cachedData)) {
+          setData(cachedData);
+          setIsOffline(true);
+          // If we have cache, we still want to fetch fresh data,
+          // but maybe we don't show the initial skeleton?
+          // We'll keep loading=true for now to indicate "refreshing background"
+          // but the screen can choose to show data if it exists.
+        }
+      } catch (err) {
+        console.warn(`[useSupabaseInfiniteQuery] Initial cache load failed for ${key}:`, err);
       }
-    } catch (err) {
-      console.warn(`[useSupabaseInfiniteQuery] Cache load failed for ${key}:`, err);
-    }
-  };
+
+      // 2. Perform initial fetch
+      if (isMounted) {
+        fetchData();
+      }
+    };
+
+    initialize();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [key, fetchData]);
 
   const fetchData = useCallback(async (isRefresh = false, isLoadMore = false) => {
     if (isLoadMore && (!hasMore || loadingMore)) return;
@@ -56,7 +72,10 @@ export const useSupabaseInfiniteQuery = (key, queryBuilder, { pageSize = 20, dep
     } else if (isLoadMore) {
       setLoadingMore(true);
     } else {
-      setLoading(true);
+      // Only show full loading if we have no data yet
+      if (data.length === 0) {
+        setLoading(true);
+      }
       pageRef.current = 0;
     }
 
@@ -71,7 +90,6 @@ export const useSupabaseInfiniteQuery = (key, queryBuilder, { pageSize = 20, dep
       const { data: newData, error: fetchError } = await query;
 
       if (fetchError) {
-        console.error(`[useSupabaseInfiniteQuery] Error fetching ${key}:`, fetchError);
         throw fetchError;
       }
       
@@ -94,9 +112,14 @@ export const useSupabaseInfiniteQuery = (key, queryBuilder, { pageSize = 20, dep
       console.warn(`[useSupabaseInfiniteQuery] Fetch failed for ${key}:`, err);
       setError(err);
       
-      // If initial load fails, try cache
-      if (!isLoadMore && !isRefresh && pageRef.current === 0) {
-        await loadFromCache();
+      // Fallback already handled by initial load, but if fetch fails 
+      // and we have nothing, we can try loading from cache again just in case
+      if (data.length === 0) {
+        const cached = await offlineStorage.load(key);
+        if (cached) {
+          setData(cached);
+          setIsOffline(true);
+        }
       }
     } finally {
       setLoading(false);
@@ -104,12 +127,10 @@ export const useSupabaseInfiniteQuery = (key, queryBuilder, { pageSize = 20, dep
       setLoadingMore(false);
       isFetching.current = false;
     }
-  }, [key, pageSize, ...dependencies]);
+  }, [key, pageSize, queryBuilder, ...dependencies]);
 
-  // Initial fetch when dependencies change
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const refetch = useCallback(() => fetchData(true), [fetchData]);
+  const loadMore = useCallback(() => fetchData(false, true), [fetchData]);
 
   return { 
     data, 
@@ -120,7 +141,7 @@ export const useSupabaseInfiniteQuery = (key, queryBuilder, { pageSize = 20, dep
     refreshing, 
     isOffline, 
     hasMore,
-    refetch: () => fetchData(true),
-    loadMore: () => fetchData(false, true)
+    refetch,
+    loadMore
   };
 };

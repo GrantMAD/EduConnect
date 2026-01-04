@@ -5,7 +5,7 @@ import { useTheme } from '../../context/ThemeContext';
 
 export { SkeletonPiece };
 
-const CalendarScreenSkeleton = () => {
+const CalendarScreenSkeleton = React.memo(() => {
   const { theme } = useTheme(); 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} contentContainerStyle={styles.scrollContent}>
@@ -28,7 +28,7 @@ const CalendarScreenSkeleton = () => {
       </View>
     </ScrollView>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

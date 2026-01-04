@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -24,7 +24,7 @@ import LinearGradient from 'react-native-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-export default function ManageMarketDataScreen({ navigation }) {
+const ManageMarketDataScreen = ({ navigation }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -35,14 +35,7 @@ export default function ManageMarketDataScreen({ navigation }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      fetchUserItems();
-    });
-    return unsubscribe;
-  }, [navigation]);
-
-  const fetchUserItems = async () => {
+  const fetchUserItems = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -56,14 +49,21 @@ export default function ManageMarketDataScreen({ navigation }) {
     if (error) console.error(error);
     else setItems(data || []);
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchUserItems();
+    });
+    return unsubscribe;
+  }, [navigation, fetchUserItems]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchUserItems().then(() => setRefreshing(false));
-  }, []);
+  }, [fetchUserItems]);
 
-  const handleDelete = (itemId) => {
+  const handleDelete = useCallback((itemId) => {
     Alert.alert(
       'Delete Item',
       'Are you sure you want to delete this item?',
@@ -85,14 +85,19 @@ export default function ManageMarketDataScreen({ navigation }) {
         },
       ]
     );
-  };
+  }, [fetchUserItems, showToast]);
 
-  const handleEdit = (item) => {
+  const handleEdit = useCallback((item) => {
     setModalVisible(false); 
     navigation.navigate('CreateMarketplaceItem', { item });
-  };
+  }, [navigation]);
 
-  const ListHeader = () => (
+  const handleItemPress = useCallback((selectedItem) => {
+    setSelectedItemForModal(selectedItem);
+    setModalVisible(true);
+  }, []);
+
+  const ListHeader = useMemo(() => (
     <View>
         <LinearGradient
             colors={['#9333ea', '#4f46e5']} 
@@ -118,7 +123,35 @@ export default function ManageMarketDataScreen({ navigation }) {
             </View>
         </LinearGradient>
     </View>
-  );
+  ), [navigation]);
+
+  const renderItem = useCallback(({ item }) => loading ? (
+    <View style={{ paddingHorizontal: 20 }}><CardSkeleton /></View>
+  ) : (
+    <View style={{ paddingHorizontal: 20 }}>
+      <ManageMarketItemListItem
+          item={item}
+          onPress={handleItemPress}
+      />
+    </View>
+  ), [loading, handleItemPress]);
+
+  const EmptyComponent = useCallback(() => !loading && (
+    <View style={styles.emptyContainer}>
+      <View style={[styles.emptyIconBox, { backgroundColor: theme.colors.cardBackground }]}>
+          <FontAwesomeIcon icon={faStore} size={40} color={theme.colors.placeholder} style={{ opacity: 0.2 }} />
+      </View>
+      <Text style={[styles.emptyText, { color: theme.colors.text }]}>You haven't listed any items yet.</Text>
+      <TouchableOpacity 
+          style={[styles.createItemButton, { backgroundColor: theme.colors.primary }]} 
+          onPress={() => navigation.navigate('CreateMarketplaceItem')}
+          activeOpacity={0.8}
+      >
+        <FontAwesomeIcon icon={faPlus} size={14} color="#fff" />
+        <Text style={styles.createItemButtonText}>List your first item!</Text>
+      </TouchableOpacity>
+    </View>
+  ), [loading, theme.colors, navigation]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -126,35 +159,8 @@ export default function ManageMarketDataScreen({ navigation }) {
         ListHeaderComponent={ListHeader}
         data={loading ? [1, 2, 3] : items}
         keyExtractor={(item, index) => loading ? index.toString() : item.id.toString()}
-        renderItem={({ item }) => loading ? (
-          <View style={{ paddingHorizontal: 20 }}><CardSkeleton /></View>
-        ) : (
-          <View style={{ paddingHorizontal: 20 }}>
-            <ManageMarketItemListItem
-                item={item}
-                onPress={(selectedItem) => {
-                setSelectedItemForModal(selectedItem);
-                setModalVisible(true);
-                }}
-            />
-          </View>
-        )}
-        ListEmptyComponent={() => !loading && (
-          <View style={styles.emptyContainer}>
-            <View style={[styles.emptyIconBox, { backgroundColor: theme.colors.cardBackground }]}>
-                <FontAwesomeIcon icon={faStore} size={40} color={theme.colors.placeholder} style={{ opacity: 0.2 }} />
-            </View>
-            <Text style={[styles.emptyText, { color: theme.colors.text }]}>You haven't listed any items yet.</Text>
-            <TouchableOpacity 
-                style={[styles.createItemButton, { backgroundColor: theme.colors.primary }]} 
-                onPress={() => navigation.navigate('CreateMarketplaceItem')}
-                activeOpacity={0.8}
-            >
-              <FontAwesomeIcon icon={faPlus} size={14} color="#fff" />
-              <Text style={styles.createItemButtonText}>List your first item!</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        renderItem={renderItem}
+        ListEmptyComponent={EmptyComponent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
         contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
       />
@@ -177,6 +183,8 @@ export default function ManageMarketDataScreen({ navigation }) {
     </View>
   );
 }
+
+export default React.memo(ManageMarketDataScreen);
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, Alert, Modal, ScrollView, Dimensions } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useGamification } from '../../context/GamificationContext';
@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
-const ShopItemSkeleton = () => {
+const ShopItemSkeleton = React.memo(() => {
     const { theme } = useTheme();
     return (
         <View style={[styles.itemCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
@@ -24,11 +24,11 @@ const ShopItemSkeleton = () => {
             </View>
         </View>
     );
-};
+});
 
 const defaultUserImage = require('../../assets/user.png');
 
-export default function ShopScreen({ navigation }) {
+const ShopScreen = ({ navigation }) => {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
     const { 
@@ -46,11 +46,7 @@ export default function ShopScreen({ navigation }) {
     const [activeTab, setActiveTab] = useState('all');
     const [fullName, setFullName] = useState('Student');
 
-    useEffect(() => {
-        fetchShopData();
-    }, []);
-
-    const fetchShopData = async () => {
+    const fetchShopData = useCallback(async () => {
         setLoading(true);
         try {
             const { data: itemsData, error: itemsError } = await supabase
@@ -88,9 +84,13 @@ export default function ShopScreen({ navigation }) {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const handlePurchase = async () => {
+    useEffect(() => {
+        fetchShopData();
+    }, [fetchShopData]);
+
+    const handlePurchase = useCallback(async () => {
         if (!selectedItem) return;
         setPurchasing(true);
         const success = await purchaseItem(selectedItem);
@@ -98,15 +98,15 @@ export default function ShopScreen({ navigation }) {
         if (success) {
             setInventory(prev => [...prev, selectedItem.id]);
         }
-    };
+    }, [selectedItem, purchaseItem]);
 
-    const handleEquip = async () => {
+    const handleEquip = useCallback(async () => {
         if (!selectedItem) return;
         const success = await equipItem(selectedItem);
         if (success) setSelectedItem(null);
-    };
+    }, [selectedItem, equipItem]);
 
-    const getActionDetails = (item) => {
+    const getActionDetails = useCallback((item) => {
         if (!item) return { label: '', action: () => {}, disabled: true };
         
         const isOwned = inventory.includes(item.id);
@@ -132,14 +132,14 @@ export default function ShopScreen({ navigation }) {
         const canAfford = coins >= item.cost;
 
         if (isEquipped) return { label: 'Equipped', action: () => {}, disabled: true };
-        if (isOwned) return { label: 'Equip', action: () => handleEquip(item), disabled: false };
+        if (isOwned) return { label: 'Equip', action: () => handleEquip(), disabled: false };
         if (isLocked) return { label: `Lvl ${item.min_level}`, action: () => {}, disabled: true };
         if (!canAfford) return { label: 'Not Enough Coins', action: () => {}, disabled: true };
         
         return { label: `Buy for ${item.cost}`, action: handlePurchase, disabled: false };
-    };
+    }, [inventory, current_level, ownedStickerPacks, coins, equippedBanner, equippedNameColor, equippedTitle, equippedBubbleStyle, equippedBorder, handlePurchase, handleEquip]);
 
-    const ItemPreview = ({ item, size = 80 }) => {
+    const ItemPreview = React.memo(({ item, size = 80 }) => {
         const cat = item.category;
 
         if (cat === 'banner') {
@@ -223,16 +223,18 @@ export default function ShopScreen({ navigation }) {
                 isAnimated={borderStyle.animated}
             />
         );
-    };
-
-    const filteredItems = items.filter(item => {
-        if (activeTab === 'all') return true;
-        const cat = item.category;
-        if (activeTab === 'border') return cat === 'avatar_border' || cat === 'border' || !cat;
-        return cat === activeTab;
     });
 
-    const tabs = [
+    const filteredItems = useMemo(() => {
+        return items.filter(item => {
+            if (activeTab === 'all') return true;
+            const cat = item.category;
+            if (activeTab === 'border') return cat === 'avatar_border' || cat === 'border' || !cat;
+            return cat === activeTab;
+        });
+    }, [items, activeTab]);
+
+    const tabs = useMemo(() => [
         { id: 'all', label: 'All', icon: faStore },
         { id: 'border', label: 'Borders', icon: faUserCircle },
         { id: 'banner', label: 'Banners', icon: faIdCard },
@@ -240,9 +242,9 @@ export default function ShopScreen({ navigation }) {
         { id: 'title', label: 'Titles', icon: faAward },
         { id: 'bubble_style', label: 'Bubbles', icon: faComments },
         { id: 'sticker_pack', label: 'Stickers', icon: faPalette },
-    ];
+    ], []);
 
-    const renderItem = ({ item }) => {
+    const renderItem = useCallback(({ item }) => {
         const details = getActionDetails(item);
         const isEquipped = details.label === 'Equipped' || details.label === 'Unlocked';
 
@@ -277,7 +279,38 @@ export default function ShopScreen({ navigation }) {
                 </View>
             </TouchableOpacity>
         );
-    };
+    }, [theme, current_level, getActionDetails]);
+
+    const renderTabItem = useCallback(({ item }) => (
+        <TouchableOpacity
+            style={[
+                styles.categoryChip,
+                activeTab === item.id
+                    ? { backgroundColor: theme.colors.primary }
+                    : { backgroundColor: theme.colors.cardBackground || theme.colors.surface, borderWidth: 1, borderColor: theme.colors.cardBorder },
+            ]}
+            onPress={() => setActiveTab(item.id)}
+        >
+            <FontAwesomeIcon 
+                icon={item.icon} 
+                size={12} 
+                color={activeTab === item.id ? '#FFF' : theme.colors.text} 
+                style={{ marginRight: 6 }}
+            />
+            <Text
+                style={[
+                    styles.categoryChipText,
+                    activeTab === item.id
+                        ? { color: '#FFF' }
+                        : { color: theme.colors.text },
+                ]}
+            >
+                {item.label}
+            </Text>
+        </TouchableOpacity>
+    ), [activeTab, theme.colors]);
+
+    const modalActionDetails = useMemo(() => getActionDetails(selectedItem), [selectedItem, getActionDetails]);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -287,6 +320,15 @@ export default function ShopScreen({ navigation }) {
                 end={{ x: 1, y: 1 }}
                 style={styles.heroContainer}
             >
+                {/* Back Button */}
+                <TouchableOpacity 
+                    onPress={() => navigation.navigate('Profile')} 
+                    style={[styles.backButtonContainer, { marginBottom: 16, paddingHorizontal: 0 }]}
+                >
+                    <FontAwesomeIcon icon={faArrowLeft} size={14} color="#fff" />
+                    <Text style={[styles.backButtonText, { color: "#fff" }]}>Back to Profile</Text>
+                </TouchableOpacity>
+
                 <View style={styles.heroContent}>
                     <View style={styles.heroTextContainer}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -309,12 +351,6 @@ export default function ShopScreen({ navigation }) {
                 </View>
             </LinearGradient>
 
-            {/* Back Button */}
-            <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.backButtonContainer}>
-                <FontAwesomeIcon icon={faArrowLeft} size={14} color={theme.colors.primary} />
-                <Text style={[styles.backButtonText, { color: theme.colors.primary }]}>Back to Profile</Text>
-            </TouchableOpacity>
-
             {/* Category Tabs (Market-style Filter) */}
             <View style={styles.filterContainer}>
                 <FlatList
@@ -323,34 +359,7 @@ export default function ShopScreen({ navigation }) {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.categoryScroll}
                     keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                        <TouchableOpacity
-                            style={[
-                                styles.categoryChip,
-                                activeTab === item.id
-                                    ? { backgroundColor: theme.colors.primary }
-                                    : { backgroundColor: theme.colors.cardBackground || theme.colors.surface, borderWidth: 1, borderColor: theme.colors.cardBorder },
-                            ]}
-                            onPress={() => setActiveTab(item.id)}
-                        >
-                            <FontAwesomeIcon 
-                                icon={item.icon} 
-                                size={12} 
-                                color={activeTab === item.id ? '#FFF' : theme.colors.text} 
-                                style={{ marginRight: 6 }}
-                            />
-                            <Text
-                                style={[
-                                    styles.categoryChipText,
-                                    activeTab === item.id
-                                        ? { color: '#FFF' }
-                                        : { color: theme.colors.text },
-                                ]}
-                            >
-                                {item.label}
-                            </Text>
-                        </TouchableOpacity>
-                    )}
+                    renderItem={renderTabItem}
                 />
             </View>
 
@@ -394,28 +403,23 @@ export default function ShopScreen({ navigation }) {
                                     {selectedItem.description}
                                 </Text>
 
-                                {(() => {
-                                    const details = getActionDetails(selectedItem);
-                                    return (
-                                        <TouchableOpacity
-                                            style={[styles.actionButton, { 
-                                                backgroundColor: details.disabled ? '#E5E7EB' : theme.colors.primary,
-                                                opacity: details.disabled && !details.label.includes('Equipped') ? 0.5 : 1
-                                            }]}
-                                            onPress={details.action}
-                                            disabled={details.disabled || purchasing}
-                                        >
-                                            {purchasing ? (
-                                                <ActivityIndicator color="#fff" />
-                                            ) : (
-                                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                                    <Text style={styles.actionButtonText}>{details.label}</Text>
-                                                    {details.label.includes('Buy') && <FontAwesomeIcon icon={faCoins} size={16} color="#FFD700" style={{ marginLeft: 8 }} />}
-                                                </View>
-                                            )}
-                                        </TouchableOpacity>
-                                    );
-                                })()}
+                                <TouchableOpacity
+                                    style={[styles.actionButton, { 
+                                        backgroundColor: modalActionDetails.disabled ? '#E5E7EB' : theme.colors.primary,
+                                        opacity: modalActionDetails.disabled && !modalActionDetails.label.includes('Equipped') ? 0.5 : 1
+                                    }]}
+                                    onPress={modalActionDetails.action}
+                                    disabled={modalActionDetails.disabled || purchasing}
+                                >
+                                    {purchasing ? (
+                                        <ActivityIndicator color="#fff" />
+                                    ) : (
+                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <Text style={styles.actionButtonText}>{modalActionDetails.label}</Text>
+                                            {modalActionDetails.label.includes('Buy') && <FontAwesomeIcon icon={faCoins} size={16} color="#FFD700" style={{ marginLeft: 8 }} />}
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
                             </>
                         )}
                     </View>
@@ -424,6 +428,8 @@ export default function ShopScreen({ navigation }) {
         </View>
     );
 }
+
+export default React.memo(ShopScreen);
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
@@ -476,7 +482,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingTop: 16,
         gap: 6,
     },
     backButtonText: {

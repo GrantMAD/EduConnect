@@ -7,7 +7,22 @@ import { useTheme } from '../../context/ThemeContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-export default function MarketplaceAnalytics({ items }) {
+const StatCard = React.memo(({ icon, label, value, color }) => {
+    const { theme } = useTheme();
+    return (
+        <View style={[styles.statCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+            <View style={[styles.statIcon, { backgroundColor: color + '15' }]}>
+                <FontAwesomeIcon icon={icon} color={color} size={14} />
+            </View>
+            <View style={styles.statInfo}>
+                <Text style={[styles.statValue, { color: theme.colors.text }]}>{value}</Text>
+                <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>{label}</Text>
+            </View>
+        </View>
+    );
+});
+
+const MarketplaceAnalytics = React.memo(({ items }) => {
     const { theme } = useTheme();
 
     const analyticsData = useMemo(() => {
@@ -18,7 +33,7 @@ export default function MarketplaceAnalytics({ items }) {
             const cat = item.category || 'Other';
             categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
         });
-        
+
         const sortedCats = Object.entries(categoryCounts)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 5);
@@ -48,7 +63,7 @@ export default function MarketplaceAnalytics({ items }) {
         const totalValue = items.reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0);
 
         return { barLabels, barValues, pieData, totalValue, totalItems: items.length };
-    }, [items, theme]);
+    }, [items, theme.colors.text]);
 
     if (!analyticsData) return null;
 
@@ -81,31 +96,31 @@ export default function MarketplaceAnalytics({ items }) {
 
             <View style={styles.kpiGrid}>
                 <View style={styles.kpiRow}>
-                    <StatCard 
-                        icon={faTag} 
-                        label="LISTINGS" 
-                        value={analyticsData.totalItems} 
-                        color="#4f46e5" 
+                    <StatCard
+                        icon={faTag}
+                        label="LISTINGS"
+                        value={analyticsData.totalItems}
+                        color="#4f46e5"
                     />
-                    <StatCard 
-                        icon={faWallet} 
-                        label="TOTAL VALUE" 
-                        value={`R${Math.round(analyticsData.totalValue)}`} 
-                        color="#10b981" 
+                    <StatCard
+                        icon={faWallet}
+                        label="TOTAL VALUE"
+                        value={`R${Math.round(analyticsData.totalValue)}`}
+                        color="#10b981"
                     />
                 </View>
                 <View style={styles.kpiRow}>
-                    <StatCard 
-                        icon={faStore} 
-                        label="OFFICIAL" 
-                        value={analyticsData.pieData[0].population} 
-                        color="#7c3aed" 
+                    <StatCard
+                        icon={faStore}
+                        label="OFFICIAL"
+                        value={analyticsData.pieData[0].population}
+                        color="#7c3aed"
                     />
-                    <StatCard 
-                        icon={faUsers} 
-                        label="COMMUNITY" 
-                        value={analyticsData.pieData[1].population} 
-                        color="#f59e0b" 
+                    <StatCard
+                        icon={faUsers}
+                        label="COMMUNITY"
+                        value={analyticsData.pieData[1].population}
+                        color="#f59e0b"
                     />
                 </View>
             </View>
@@ -148,44 +163,29 @@ export default function MarketplaceAnalytics({ items }) {
             </View>
         </View>
     );
-}
-
-function StatCard({ icon, label, value, color }) {
-    const { theme } = useTheme();
-    return (
-        <View style={[styles.statCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-            <View style={[styles.statIcon, { backgroundColor: color + '15' }]}>
-                <FontAwesomeIcon icon={icon} color={color} size={14} />
-            </View>
-            <View style={styles.statInfo}>
-                <Text style={[styles.statValue, { color: theme.colors.text }]}>{value}</Text>
-                <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>{label}</Text>
-            </View>
-        </View>
-    );
-}
+});
 
 const styles = StyleSheet.create({
-    container: { 
+    container: {
         paddingBottom: 24,
         marginTop: 16
     },
-    header: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        gap: 16, 
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
         marginBottom: 24
     },
-    headerIconContainer: { 
-        width: 44, 
-        height: 44, 
-        borderRadius: 14, 
-        alignItems: 'center', 
+    headerIconContainer: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        alignItems: 'center',
         justifyContent: 'center',
     },
     headerTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
     headerSubtitle: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
-    
+
     kpiGrid: {
         gap: 12,
         marginBottom: 24
@@ -194,30 +194,30 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: 12
     },
-    statCard: { 
+    statCard: {
         flex: 1,
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        padding: 16, 
-        borderRadius: 24, 
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 24,
     },
-    statIcon: { 
-        width: 36, 
-        height: 36, 
-        borderRadius: 10, 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        marginRight: 12 
+    statIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12
     },
     statInfo: {
         flex: 1
     },
     statValue: { fontSize: 15, fontWeight: '900' },
     statLabel: { fontSize: 8, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
-    
-    chartWrapper: { 
-        padding: 16, 
-        borderRadius: 32, 
+
+    chartWrapper: {
+        padding: 16,
+        borderRadius: 32,
         marginBottom: 16,
     },
     chartHeader: {
@@ -228,8 +228,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 8
     },
     chartTitle: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5 },
-    chart: { 
+    chart: {
         borderRadius: 16,
         paddingRight: 0
     },
 });
+
+export default MarketplaceAnalytics;

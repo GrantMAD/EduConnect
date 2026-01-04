@@ -12,7 +12,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Buffer } from 'buffer';
 import { useToast } from '../context/ToastContext';
 
-export default function EditProfileModal({ visible, onClose, currentUser }) {
+const EditProfileModal = React.memo(({ visible, onClose, currentUser }) => {
     const { theme } = useTheme();
     const { showToast } = useToast();
     const [fullName, setFullName] = useState('');
@@ -204,8 +204,8 @@ export default function EditProfileModal({ visible, onClose, currentUser }) {
                         {/* Country Picker */}
                         <View style={styles.inputSection}>
                             <Text style={[styles.label, { color: '#94a3b8' }]}>COUNTRY</Text>
-                            <View style={[styles.pickerWrapper, { 
-                                borderColor: theme.colors.cardBorder, 
+                            <View style={[styles.pickerWrapper, {
+                                borderColor: theme.colors.cardBorder,
                                 backgroundColor: theme.colors.card,
                                 borderWidth: 1
                             }]}>
@@ -240,7 +240,7 @@ export default function EditProfileModal({ visible, onClose, currentUser }) {
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -362,3 +362,5 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
 });
+
+export default EditProfileModal;

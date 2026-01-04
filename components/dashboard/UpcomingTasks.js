@@ -9,7 +9,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { SkeletonPiece } from '../skeletons/DashboardScreenSkeleton';
 import WalkthroughTarget from '../WalkthroughTarget';
 
-const UpcomingTasks = ({ loading, upcomingTasks, navigation, style }) => {
+const UpcomingTasks = React.memo(({ loading, upcomingTasks, navigation, style }) => {
     const { theme } = useTheme();
 
     const renderUpcomingTasks = () => {
@@ -76,7 +76,7 @@ const UpcomingTasks = ({ loading, upcomingTasks, navigation, style }) => {
             </WalkthroughTarget>
         </View>
     );
-};
+});
 
 const styles = StyleSheet.create({
     section: {

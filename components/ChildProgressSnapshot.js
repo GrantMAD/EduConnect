@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
 import { SkeletonPiece } from './skeletons/DashboardScreenSkeleton';
 
-export default function ChildProgressSnapshot() {
+const ChildProgressSnapshot = React.memo(() => {
     const { theme } = useTheme();
     const navigation = useNavigation();
     const [childrenData, setChildrenData] = useState([]);
@@ -25,12 +25,12 @@ export default function ChildProgressSnapshot() {
 
             // 1. Get linked children
             let childIds = [];
-            
+
             const { data: relData } = await supabase
                 .from('parent_child_relationships')
                 .select('child_id')
                 .eq('parent_id', user.id);
-            
+
             if (relData && relData.length > 0) {
                 childIds = relData.map(r => r.child_id);
             } else {
@@ -38,7 +38,7 @@ export default function ChildProgressSnapshot() {
                     .from('parent_student_links')
                     .select('student_id')
                     .eq('parent_id', user.id);
-                
+
                 if (linkData) {
                     childIds = linkData.map(l => l.student_id);
                 }
@@ -98,12 +98,12 @@ export default function ChildProgressSnapshot() {
                         .limit(1);
 
                     upcomingCount = (hwCount || 0) + (asgCount || 0);
-                    
+
                     const dates = [
                         hwData?.[0]?.due_date ? new Date(hwData[0].due_date) : null,
                         asgData?.[0]?.due_date ? new Date(asgData[0].due_date) : null
                     ].filter(Boolean);
-                    
+
                     if (dates.length > 0) {
                         nextDue = new Date(Math.min(...dates));
                     }
@@ -133,17 +133,17 @@ export default function ChildProgressSnapshot() {
     if (loading) {
         return (
             <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
-                 <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                     <SkeletonPiece style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12 }} />
                     <View>
                         <SkeletonPiece style={{ width: 100, height: 16, borderRadius: 4, marginBottom: 6 }} />
                         <SkeletonPiece style={{ width: 60, height: 12, borderRadius: 4 }} />
                     </View>
-                 </View>
-                 <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                     <SkeletonPiece style={{ width: '48%', height: 60, borderRadius: 8 }} />
                     <SkeletonPiece style={{ width: '48%', height: 60, borderRadius: 8 }} />
-                 </View>
+                </View>
             </View>
         );
     }
@@ -158,18 +158,18 @@ export default function ChildProgressSnapshot() {
                     <Text style={[styles.subtitle, { color: theme.colors.placeholder }]}>Real-time monitoring for your children.</Text>
                 </View>
             </View>
-            
+
             {childrenData.map((child) => (
-                <TouchableOpacity 
-                    key={child.id} 
+                <TouchableOpacity
+                    key={child.id}
                     style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
                     onPress={() => navigation.navigate('MyChildren')}
                     activeOpacity={0.7}
                 >
                     <View style={[styles.cardHeader, { borderBottomColor: theme.colors.cardBorder }]}>
                         <View style={styles.profileInfo}>
-                            <Image 
-                                source={child.avatar ? { uri: child.avatar } : require('../assets/user.png')} 
+                            <Image
+                                source={child.avatar ? { uri: child.avatar } : require('../assets/user.png')}
                                 style={styles.avatar}
                             />
                             <View>
@@ -217,7 +217,7 @@ export default function ChildProgressSnapshot() {
             ))}
         </View>
     );
-}
+});
 
 const styles = StyleSheet.create({
     header: {
@@ -318,3 +318,5 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     }
 });
+
+export default ChildProgressSnapshot;

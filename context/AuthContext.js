@@ -59,11 +59,15 @@ export const AuthProvider = ({ children }) => {
         return () => subscription.unsubscribe();
     }, []);
 
-    const signOut = async () => {
+    const signOut = React.useCallback(async () => {
         await supabase.auth.signOut();
         setProfile(null);
         setUser(null);
-    };
+    }, []);
+
+    const refreshProfile = React.useCallback(() => {
+        if (user) fetchProfile(user.id);
+    }, [user]);
 
     const value = useMemo(() => ({
         user,
@@ -71,8 +75,8 @@ export const AuthProvider = ({ children }) => {
         loading,
         signOut,
         setProfile,
-        refreshProfile: () => user && fetchProfile(user.id)
-    }), [user, profile, loading]);
+        refreshProfile
+    }), [user, profile, loading, signOut, refreshProfile]);
 
     return (
         <AuthContext.Provider value={value}>

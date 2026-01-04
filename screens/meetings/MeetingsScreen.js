@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -38,337 +38,17 @@ import LinearGradient from 'react-native-linear-gradient';
 
 const defaultUserImage = require('../../assets/user.png');
 
-export default function MeetingsScreen({ navigation }) {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const { showToast } = useToast();
-  const { theme } = useTheme();
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'availability' | 'browse'
-
-  useEffect(() => {
-    const getAuthData = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (authUser) {
-        setUser(authUser);
-        const { data: profileData } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', authUser.id)
-          .single();
-        setProfile(profileData);
-      }
-    };
-    getAuthData();
-  }, []);
-
-  const [slots, setSlots] = useState([]);
-  const [bookings, setBookings] = useState([]);
-  const [childrenTeachers, setChildrenTeachers] = useState([]);
-
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isBookModalOpen, setIsBookModalOpen] = useState(false);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedTeacher, setSelectedTeacher] = useState(null);
-  const [selectedBooking, setSelectedBooking] = useState(null);
-
-  const isTeacher = profile?.role === 'teacher' || profile?.role === 'admin';
-  const isParent = profile?.role === 'parent';
-
-  const fetchInitialData = async () => {
-    if (!user || !profile) return;
-    try {
-      if (isTeacher) {
-        await fetchTeacherData();
-      } else if (isParent) {
-        await fetchParentData();
-      }
-    } catch (error) {
-      console.error('Error fetching PTM data:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    if (user && profile) {
-      fetchInitialData();
-    }
-  }, [user, profile, activeTab]);
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    fetchInitialData();
-  }, [user, profile, activeTab]);
-
-  const fetchTeacherData = async () => {
-    const { data: slotsData } = await supabase
-      .from('ptm_slots')
-      .select('*')
-      .eq('teacher_id', user.id)
-      .order('start_time', { ascending: true });
-    setSlots(slotsData || []);
-
-    const { data: bookingsData } = await supabase
-      .from('ptm_bookings')
-      .select(`
-                *,
-                slot:ptm_slots(*),
-                parent:users!parent_id(full_name, email, avatar_url),
-                student:users!student_id(full_name, avatar_url)
-            `)
-      .eq('ptm_slots.teacher_id', user.id)
-      .order('created_at', { ascending: false });
-    setBookings(bookingsData || []);
-  };
-
-  const fetchParentData = async () => {
-    const { data: bookingsData } = await supabase
-      .from('ptm_bookings')
-      .select(`
-                *,
-                slot:ptm_slots(*, teacher:users!teacher_id(full_name, email, avatar_url)),
-                student:users!student_id(full_name, avatar_url)
-            `)
-      .eq('parent_id', user.id)
-      .order('created_at', { ascending: false });
-    setBookings(bookingsData || []);
-
-    const { data: relationships } = await supabase
-      .from('parent_child_relationships')
-      .select('child_id')
-      .eq('parent_id', user.id);
-
-    if (relationships && relationships.length > 0) {
-      const childIds = relationships.map(r => r.child_id);
-      const { data: teachersData } = await supabase
-        .from('class_members')
-        .select(`
-                    class_id,
-                    classes!inner(
-                        id, name,
-                        teacher:users!teacher_id(id, full_name, email, avatar_url)
-                    )
-                `)
-        .in('user_id', childIds);
-
-      const uniqueTeachers = [];
-      const teacherIds = new Set();
-      teachersData?.forEach(item => {
-        const teacher = item.classes?.teacher;
-        if (teacher && !teacherIds.has(teacher.id)) {
-          teacherIds.add(teacher.id);
-          uniqueTeachers.push(teacher);
-        }
-      });
-      setChildrenTeachers(uniqueTeachers);
-    }
-  };
-
-  const handleDeleteSlot = async (slotId) => {
-    Alert.alert(
-      'Remove Slot',
-      'Are you sure? Any existing booking for it will also be removed.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { data: existingBooking } = await supabase
-                .from('ptm_bookings')
-                .select('parent_id, student:users!student_id(full_name)')
-                .eq('slot_id', slotId)
-                .maybeSingle();
-
-              const { error } = await supabase.from('ptm_slots').delete().eq('id', slotId);
-              if (error) throw error;
-
-              if (existingBooking) {
-                await supabase.from('notifications').insert([{
-                  user_id: existingBooking.parent_id,
-                  type: 'ptm_cancellation',
-                  title: 'Meeting Cancelled',
-                  message: `The teacher has cancelled the meeting session regarding ${existingBooking.student.full_name}.`,
-                  related_user_id: user.id,
-                  is_read: false
-                }]);
-              }
-              setSlots(prev => prev.filter(s => s.id !== slotId));
-              showToast('Slot removed', 'success');
-            } catch (e) {
-              showToast('Failed to delete slot', 'error');
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  const handleCancelBooking = async (booking) => {
-    Alert.alert(
-      'Cancel Meeting',
-      'Are you sure you want to cancel this meeting?',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await supabase.from('ptm_bookings').delete().eq('id', booking.id);
-              if (error) throw error;
-
-              const notifyUserId = isTeacher ? booking.parent_id : booking.slot.teacher_id;
-              await supabase.from('notifications').insert([{
-                user_id: notifyUserId,
-                type: 'ptm_cancellation',
-                title: 'Meeting Cancelled',
-                message: `${profile.full_name} has cancelled the scheduled meeting regarding ${booking.student.full_name}.`,
-                related_user_id: user.id,
-                is_read: false
-              }]);
-
-              setBookings(prev => prev.filter(b => b.id !== booking.id));
-              showToast('Meeting cancelled', 'success');
-              onRefresh(); 
-            } catch (e) {
-              showToast('Failed to cancel meeting', 'error');
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  const renderTabButton = (id, label, icon) => (
-    <TouchableOpacity
-      onPress={() => setActiveTab(id)}
-      style={[
-        styles.tabButton,
-        activeTab === id && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }
-      ]}
-    >
-      <FontAwesomeIcon icon={icon} size={14} color={activeTab === id ? theme.colors.primary : theme.colors.placeholder} style={{ marginRight: 8 }} />
-      <Text style={[styles.tabText, { color: activeTab === id ? theme.colors.primary : theme.colors.placeholder }]}>{label}</Text>
-    </TouchableOpacity>
-  );
-
+const EmptyState = React.memo(({ icon, title, description, theme }) => {
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <LinearGradient
-        colors={['#0891b2', '#1d4ed8']} 
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.heroContainer}
-      >
-        <View style={styles.heroContent}>
-            <View style={styles.heroTextContainer}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                        <FontAwesomeIcon icon={faArrowLeft} size={18} color="#fff" />
-                    </TouchableOpacity>
-                    <Text style={styles.heroTitle}>Meetings</Text>
-                </View>
-                <Text style={styles.heroDescription}>
-                    Coordinate and manage check-ins between parents and teachers.
-                </Text>
-            </View>
-            {isTeacher && (
-                <TouchableOpacity
-                    style={styles.heroButton}
-                    onPress={() => setIsCreateModalOpen(true)}
-                >
-                    <FontAwesomeIcon icon={faPlus} size={14} color="#0891b2" />
-                    <Text style={styles.heroButtonText}>Slots</Text>
-                </TouchableOpacity>
-            )}
-        </View>
-      </LinearGradient>
-
-      <View style={styles.tabsContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
-          {renderTabButton('upcoming', 'Upcoming', faHandshake)}
-          {isTeacher && renderTabButton('availability', 'Availability', faCalendarAlt)}
-          {isParent && renderTabButton('browse', 'Book', faPlus)}
-        </ScrollView>
-      </View>
-
-      <View style={styles.scrollContent}>
-        {loading ? (
-          <ManagementListSkeleton />
-        ) : (
-          <ScrollView 
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-            showsVerticalScrollIndicator={false}
-          >
-            {activeTab === 'upcoming' && (
-              <UpcomingMeetingsView
-                bookings={bookings}
-                isTeacher={isTeacher}
-                onCancel={handleCancelBooking}
-                onView={(b) => {
-                  setSelectedBooking(b);
-                  setIsDetailModalOpen(true);
-                }}
-                theme={theme}
-              />
-            )}
-            {activeTab === 'availability' && isTeacher && (
-              <TeacherAvailabilityView
-                slots={slots}
-                onDelete={handleDeleteSlot}
-                theme={theme}
-              />
-            )}
-            {activeTab === 'browse' && isParent && (
-              <ParentBrowseView
-                teachers={childrenTeachers}
-                onSelect={(t) => {
-                  setSelectedTeacher(t);
-                  setIsBookModalOpen(true);
-                }}
-                theme={theme}
-              />
-            )}
-            <View style={{ height: 100 }} />
-          </ScrollView>
-        )}
-      </View>
-
-      <CreatePTMSlotsModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onRefresh={fetchTeacherData}
-      />
-
-      <BookPTMModal
-        isOpen={isBookModalOpen}
-        onClose={() => {
-          setIsBookModalOpen(false);
-          setSelectedTeacher(null);
-        }}
-        teacher={selectedTeacher}
-        onRefresh={fetchParentData}
-      />
-
-      <MeetingDetailModal
-        isOpen={isDetailModalOpen}
-        onClose={() => {
-          setIsDetailModalOpen(false);
-          setSelectedBooking(null);
-        }}
-        booking={selectedBooking}
-        isTeacher={isTeacher}
-      />
+    <View style={styles.emptyContainer}>
+      <FontAwesomeIcon icon={icon} size={48} color={theme.colors.placeholder} />
+      <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>{title}</Text>
+      <Text style={[styles.emptyDescription, { color: theme.colors.placeholder }]}>{description}</Text>
     </View>
   );
-}
+});
 
-function UpcomingMeetingsView({ bookings, isTeacher, onCancel, onView, theme }) {
+const UpcomingMeetingsView = React.memo(({ bookings, isTeacher, onCancel, onView, theme }) => {
   if (bookings.length === 0) {
     return <EmptyState icon={faHandshake} title="No meetings" description="Your upcoming sessions will appear here." theme={theme} />;
   }
@@ -431,9 +111,9 @@ function UpcomingMeetingsView({ bookings, isTeacher, onCancel, onView, theme }) 
       })}
     </View>
   );
-}
+});
 
-function TeacherAvailabilityView({ slots, onDelete, theme }) {
+const TeacherAvailabilityView = React.memo(({ slots, onDelete, theme }) => {
   if (slots.length === 0) {
     return <EmptyState icon={faCalendarAlt} title="No availability" description="Set your slots for parents to book." theme={theme} />;
   }
@@ -468,9 +148,9 @@ function TeacherAvailabilityView({ slots, onDelete, theme }) {
       ))}
     </View>
   );
-}
+});
 
-function ParentBrowseView({ teachers, onSelect, theme }) {
+const ParentBrowseView = React.memo(({ teachers, onSelect, theme }) => {
   if (teachers.length === 0) {
     return <EmptyState icon={faGraduationCap} title="No teachers" description="We couldn't find any teachers for your children." theme={theme} />;
   }
@@ -498,17 +178,365 @@ function ParentBrowseView({ teachers, onSelect, theme }) {
       ))}
     </View>
   );
-}
+});
 
-function EmptyState({ icon, title, description, theme }) {
+const MeetingsScreen = ({ navigation }) => {
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const { showToast } = useToast();
+  const { theme } = useTheme();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'past' | 'availability' | 'browse'
+
+  useEffect(() => {
+    const getAuthData = async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        setUser(authUser);
+        const { data: profileData } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
+        setProfile(profileData);
+      }
+    };
+    getAuthData();
+  }, []);
+
+  const [slots, setSlots] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [childrenTeachers, setChildrenTeachers] = useState([]);
+
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isBookModalOpen, setIsBookModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState(null);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+
+  const isTeacher = profile?.role === 'teacher' || profile?.role === 'admin';
+  const isParent = profile?.role === 'parent';
+
+  const { upcomingBookings, pastBookings } = useMemo(() => {
+    const now = new Date();
+    return bookings.reduce((acc, booking) => {
+      const startTime = new Date(booking.slot?.start_time);
+      if (startTime < now) {
+        acc.pastBookings.push(booking);
+      } else {
+        acc.upcomingBookings.push(booking);
+      }
+      return acc;
+    }, { upcomingBookings: [], pastBookings: [] });
+  }, [bookings]);
+
+  const fetchTeacherData = useCallback(async () => {
+    if (!user) return;
+    const { data: slotsData } = await supabase
+      .from('ptm_slots')
+      .select('*')
+      .eq('teacher_id', user.id)
+      .order('start_time', { ascending: true });
+    setSlots(slotsData || []);
+
+    const { data: bookingsData } = await supabase
+      .from('ptm_bookings')
+      .select(`
+                *,
+                slot:ptm_slots(*),
+                parent:users!parent_id(full_name, email, avatar_url),
+                student:users!student_id(full_name, avatar_url)
+            `)
+      .eq('ptm_slots.teacher_id', user.id)
+      .order('created_at', { ascending: false });
+    setBookings(bookingsData || []);
+  }, [user]);
+
+  const fetchParentData = useCallback(async () => {
+    if (!user) return;
+    const { data: bookingsData } = await supabase
+      .from('ptm_bookings')
+      .select(`
+                *,
+                slot:ptm_slots(*, teacher:users!teacher_id(full_name, email, avatar_url)),
+                student:users!student_id(full_name, avatar_url)
+            `)
+      .eq('parent_id', user.id)
+      .order('created_at', { ascending: false });
+    setBookings(bookingsData || []);
+
+    const { data: relationships } = await supabase
+      .from('parent_child_relationships')
+      .select('child_id')
+      .eq('parent_id', user.id);
+
+    if (relationships && relationships.length > 0) {
+      const childIds = relationships.map(r => r.child_id);
+      const { data: teachersData } = await supabase
+        .from('class_members')
+        .select(`
+                    class_id,
+                    classes!inner(
+                        id, name,
+                        teacher:users!teacher_id(id, full_name, email, avatar_url)
+                    )
+                `)
+        .in('user_id', childIds);
+
+      const uniqueTeachers = [];
+      const teacherIds = new Set();
+      teachersData?.forEach(item => {
+        const teacher = item.classes?.teacher;
+        if (teacher && !teacherIds.has(teacher.id)) {
+          teacherIds.add(teacher.id);
+          uniqueTeachers.push(teacher);
+        }
+      });
+      setChildrenTeachers(uniqueTeachers);
+    }
+  }, [user]);
+
+  const fetchInitialData = useCallback(async () => {
+    if (!user || !profile) return;
+    try {
+      if (isTeacher) {
+        await fetchTeacherData();
+      } else if (isParent) {
+        await fetchParentData();
+      }
+    } catch (error) {
+      console.error('Error fetching PTM data:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [user, profile, isTeacher, isParent, fetchTeacherData, fetchParentData]);
+
+  useEffect(() => {
+    if (user && profile) {
+      fetchInitialData();
+    }
+  }, [user, profile, activeTab, fetchInitialData]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchInitialData();
+  }, [fetchInitialData]);
+
+  const handleDeleteSlot = useCallback(async (slotId) => {
+    Alert.alert(
+      'Remove Slot',
+      'Are you sure? Any existing booking for it will also be removed.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { data: existingBooking } = await supabase
+                .from('ptm_bookings')
+                .select('parent_id, student:users!student_id(full_name)')
+                .eq('slot_id', slotId)
+                .maybeSingle();
+
+              const { error } = await supabase.from('ptm_slots').delete().eq('id', slotId);
+              if (error) throw error;
+
+              if (existingBooking) {
+                await supabase.from('notifications').insert([{
+                  user_id: existingBooking.parent_id,
+                  type: 'ptm_cancellation',
+                  title: 'Meeting Cancelled',
+                  message: `The teacher has cancelled the meeting session regarding ${existingBooking.student.full_name}.`,
+                  related_user_id: user.id,
+                  is_read: false
+                }]);
+              }
+              setSlots(prev => prev.filter(s => s.id !== slotId));
+              showToast('Slot removed', 'success');
+            } catch (e) {
+              showToast('Failed to delete slot', 'error');
+            }
+          }
+        }
+      ]
+    );
+  }, [user, showToast]);
+
+  const handleCancelBooking = useCallback(async (booking) => {
+    Alert.alert(
+      'Cancel Meeting',
+      'Are you sure you want to cancel this meeting?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase.from('ptm_bookings').delete().eq('id', booking.id);
+              if (error) throw error;
+
+              const notifyUserId = isTeacher ? booking.parent_id : booking.slot.teacher_id;
+              await supabase.from('notifications').insert([{
+                user_id: notifyUserId,
+                type: 'ptm_cancellation',
+                title: 'Meeting Cancelled',
+                message: `${profile.full_name} has cancelled the scheduled meeting regarding ${booking.student.full_name}.`,
+                related_user_id: user.id,
+                is_read: false
+              }]);
+
+              setBookings(prev => prev.filter(b => b.id !== booking.id));
+              showToast('Meeting cancelled', 'success');
+              onRefresh(); 
+            } catch (e) {
+              showToast('Failed to cancel meeting', 'error');
+            }
+          }
+        }
+      ]
+    );
+  }, [user, profile, isTeacher, showToast, onRefresh]);
+
+  const renderTabButton = useCallback((id, label, icon) => (
+    <TouchableOpacity
+      onPress={() => setActiveTab(id)}
+      style={[
+        styles.tabButton,
+        activeTab === id && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }
+      ]}
+    >
+      <FontAwesomeIcon icon={icon} size={14} color={activeTab === id ? theme.colors.primary : theme.colors.placeholder} style={{ marginRight: 8 }} />
+      <Text style={[styles.tabText, { color: activeTab === id ? theme.colors.primary : theme.colors.placeholder }]}>{label}</Text>
+    </TouchableOpacity>
+  ), [activeTab, theme.colors]);
+
+  const handleViewBooking = useCallback((b) => {
+    setSelectedBooking(b);
+    setIsDetailModalOpen(true);
+  }, []);
+
+  const handleSelectTeacher = useCallback((t) => {
+    setSelectedTeacher(t);
+    setIsBookModalOpen(true);
+  }, []);
+
   return (
-    <View style={styles.emptyContainer}>
-      <FontAwesomeIcon icon={icon} size={48} color={theme.colors.placeholder} />
-      <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>{title}</Text>
-      <Text style={[styles.emptyDescription, { color: theme.colors.placeholder }]}>{description}</Text>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <LinearGradient
+        colors={['#0891b2', '#1d4ed8']} 
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroContainer}
+      >
+        <View style={styles.heroContent}>
+            <View style={styles.heroTextContainer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={styles.heroTitle}>Meetings</Text>
+                </View>
+                <Text style={styles.heroDescription}>
+                    Coordinate and manage check-ins between parents and teachers.
+                </Text>
+            </View>
+            {isTeacher && (
+                <TouchableOpacity
+                    style={styles.heroButton}
+                    onPress={() => setIsCreateModalOpen(true)}
+                >
+                    <FontAwesomeIcon icon={faPlus} size={14} color="#0891b2" />
+                    <Text style={styles.heroButtonText}>Slots</Text>
+                </TouchableOpacity>
+            )}
+        </View>
+      </LinearGradient>
+
+      <View style={styles.tabsContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
+          {renderTabButton('upcoming', 'Upcoming', faHandshake)}
+          {renderTabButton('past', 'Past', faCalendarAlt)}
+          {isTeacher && renderTabButton('availability', 'Availability', faCalendarAlt)}
+          {isParent && renderTabButton('browse', 'Book', faPlus)}
+        </ScrollView>
+      </View>
+
+      <View style={styles.scrollContent}>
+        {loading ? (
+          <ManagementListSkeleton />
+        ) : (
+          <ScrollView 
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            showsVerticalScrollIndicator={false}
+          >
+            {activeTab === 'upcoming' && (
+              <UpcomingMeetingsView
+                bookings={upcomingBookings}
+                isTeacher={isTeacher}
+                onCancel={handleCancelBooking}
+                onView={handleViewBooking}
+                theme={theme}
+              />
+            )}
+            {activeTab === 'past' && (
+              <UpcomingMeetingsView
+                bookings={pastBookings}
+                isTeacher={isTeacher}
+                onCancel={() => {}} // Past meetings usually can't be cancelled in the same way, or maybe just hidden
+                onView={handleViewBooking}
+                theme={theme}
+              />
+            )}
+            {activeTab === 'availability' && isTeacher && (
+              <TeacherAvailabilityView
+                slots={slots}
+                onDelete={handleDeleteSlot}
+                theme={theme}
+              />
+            )}
+            {activeTab === 'browse' && isParent && (
+              <ParentBrowseView
+                teachers={childrenTeachers}
+                onSelect={handleSelectTeacher}
+                theme={theme}
+              />
+            )}
+            <View style={{ height: 100 }} />
+          </ScrollView>
+        )}
+      </View>
+
+      <CreatePTMSlotsModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onRefresh={fetchTeacherData}
+      />
+
+      <BookPTMModal
+        isOpen={isBookModalOpen}
+        onClose={() => {
+          setIsBookModalOpen(false);
+          setSelectedTeacher(null);
+        }}
+        teacher={selectedTeacher}
+        onRefresh={fetchParentData}
+      />
+
+      <MeetingDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedBooking(null);
+        }}
+        booking={selectedBooking}
+        isTeacher={isTeacher}
+      />
     </View>
   );
 }
+
+export default React.memo(MeetingsScreen);
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

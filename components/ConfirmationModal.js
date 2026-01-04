@@ -5,17 +5,17 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faExclamationTriangle, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
-export default function ConfirmationModal({ 
-    visible, 
-    onClose, 
-    onConfirm, 
-    title = "Confirm Action", 
-    message = "Are you sure you want to proceed?", 
-    confirmText = "Confirm", 
+const ConfirmationModal = React.memo(({
+    visible,
+    onClose,
+    onConfirm,
+    title = "Confirm Action",
+    message = "Are you sure you want to proceed?",
+    confirmText = "Confirm",
     cancelText = "Cancel",
     type = "danger", // "danger" or "primary"
-    isLoading = false 
-}) {
+    isLoading = false
+}) => {
     const { theme } = useTheme();
 
     const isDanger = type === 'danger';
@@ -48,8 +48,8 @@ export default function ConfirmationModal({
                 </View>
 
                 <View style={styles.buttonContainer}>
-                    <TouchableOpacity 
-                        style={[styles.button, styles.confirmButton, { backgroundColor: accentColor }]} 
+                    <TouchableOpacity
+                        style={[styles.button, styles.confirmButton, { backgroundColor: accentColor }]}
                         onPress={onConfirm}
                         disabled={isLoading}
                         activeOpacity={0.8}
@@ -60,9 +60,9 @@ export default function ConfirmationModal({
                             <Text style={styles.confirmText}>{confirmText.toUpperCase()}</Text>
                         )}
                     </TouchableOpacity>
-                    
-                    <TouchableOpacity 
-                        style={[styles.button, styles.cancelButton, { borderColor: theme.colors.cardBorder, borderWidth: 1 }]} 
+
+                    <TouchableOpacity
+                        style={[styles.button, styles.cancelButton, { borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
                         onPress={onClose}
                         disabled={isLoading}
                         activeOpacity={0.7}
@@ -73,7 +73,7 @@ export default function ConfirmationModal({
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -148,3 +148,5 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
 });
+
+export default ConfirmationModal;

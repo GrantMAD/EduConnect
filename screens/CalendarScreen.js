@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { supabase } from '../lib/supabase';
@@ -12,225 +12,7 @@ import { useTheme } from '../context/ThemeContext'; // Import useTheme
 import StandardBottomModal from '../components/StandardBottomModal';
 import LinearGradient from 'react-native-linear-gradient';
 
-export default function CalendarScreen({ navigation, route }) {
-  const [schedules, setSchedules] = useState([]);
-  const [markedDates, setMarkedDates] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedSchedule, setSelectedSchedule] = useState(null);
-  const [isModalVisible, setModalVisible] = useState(false);
-  const [dropdowns, setDropdowns] = useState({});
-  const [dayModalSchedules, setDayModalSchedules] = useState([]);
-  const [isDayModalVisible, setDayModalVisible] = useState(false);
-  const { showToast } = useToast();
-  const { theme } = useTheme(); // Use the theme hook
-
-  // Check for deep link params to open modal
-  useEffect(() => {
-    if (route.params?.openScheduleId && schedules.length > 0) {
-      const targetSchedule = schedules.find(s => s.id === route.params.openScheduleId);
-      if (targetSchedule) {
-        setSelectedSchedule(targetSchedule);
-        setModalVisible(true);
-        // Clear the param so it doesn't reopen if the user navigates away and back without a new selection
-        navigation.setParams({ openScheduleId: null });
-      }
-    }
-  }, [route.params?.openScheduleId, schedules]);
-
-  const dotColors = [theme.colors.primary, theme.colors.success, theme.colors.warning, theme.colors.error, '#5856d6', '#34c759', '#af52de', '#ffcc00'];
-
-  const fetchSchedules = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Fetch user's role
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('role, school_id')
-        .eq('id', user.id)
-        .single();
-      if (userError) throw userError;
-
-      const userRole = userData.role;
-      const userSchoolId = userData.school_id;
-      let classIds = [];
-
-      if (userRole === 'teacher' || userRole === 'admin') {
-        const { data: allClasses, error: allClassesError } = await supabase
-          .from('classes')
-          .select('id')
-          .eq('school_id', userSchoolId); // Filter by school_id
-        if (allClassesError) throw allClassesError;
-        classIds = allClasses.map(c => c.id);
-      } else {
-        // Fetch classes the user is directly a member of (student, parent, etc.)
-        const { data: directClasses, error: directClassesError } = await supabase
-          .from('class_members')
-          .select('class_id')
-          .eq('user_id', user.id);
-        if (directClassesError) throw directClassesError;
-        classIds = directClasses.map(c => c.class_id);
-
-        // If the user is a parent, also fetch their children's classes
-        if (userRole === 'parent') {
-          const { data: relationships, error: relError } = await supabase
-            .from('parent_child_relationships')
-            .select('child_id')
-            .eq('parent_id', user.id);
-          if (relError) throw relError;
-
-          const childIds = relationships.map(rel => rel.child_id);
-
-          if (childIds.length > 0) {
-            const { data: childrenClasses, error: childrenClassesError } = await supabase
-              .from('class_members')
-              .select('class_id')
-              .in('user_id', childIds);
-            if (childrenClassesError) throw childrenClassesError;
-
-            const childrenClassIds = childrenClasses.map(c => c.class_id);
-            classIds = [...new Set([...classIds, ...childrenClassIds])]; // Combine and remove duplicates
-          }
-        }
-      }
-
-      const allEvents = [];
-
-      // 1. Fetch Class Schedules
-      if (classIds.length > 0) {
-        const { data: classSchedules, error: schedulesError } = await supabase
-          .from('class_schedules')
-          .select('*, class:classes(id, name, subject)')
-          .in('class_id', classIds)
-          .order('start_time', { ascending: true });
-        if (schedulesError) throw schedulesError;
-        allEvents.push(...classSchedules.map(s => ({ ...s, eventType: 'class' })));
-      }
-
-      // 2. Fetch PTM Bookings
-      const isParent = userRole === 'parent';
-      let ptmQuery = supabase
-        .from('ptm_bookings')
-        .select(`
-            *,
-            slot:ptm_slots!inner(*, teacher:users!teacher_id(full_name)),
-            parent:users!parent_id(full_name),
-            student:users!student_id(full_name)
-        `);
-
-      if (isParent) {
-        ptmQuery = ptmQuery.eq('parent_id', user.id);
-      } else {
-        ptmQuery = ptmQuery.eq('ptm_slots.teacher_id', user.id);
-      }
-
-      const { data: ptmData, error: ptmError } = await ptmQuery;
-
-      if (!ptmError && ptmData) {
-        allEvents.push(...ptmData.map(b => ({
-          id: b.id,
-          start_time: b.slot.start_time,
-          end_time: b.slot.end_time,
-          title: `PTM: ${isParent ? b.slot.teacher.full_name : b.parent.full_name}`,
-          description: `Meeting regarding ${b.student.full_name}`,
-          eventType: 'meeting',
-          originalData: b,
-          class_id: b.slot.id // Use slot id as a dummy class_id for coloring
-        })));
-      }
-
-      // Assign colors
-      const classColorMap = {};
-      const uniqueIds = [...new Set(allEvents.map(e => e.class_id || e.id))];
-      uniqueIds.forEach((id, index) => {
-        classColorMap[id] = dotColors[index % dotColors.length];
-      });
-
-      // Build marked dates for the calendar
-      const formattedMarkedDates = {};
-      allEvents.forEach(event => {
-        const date = event.start_time.split('T')[0];
-        const isClub = event.class?.subject === 'Extracurricular';
-        const color = event.eventType === 'meeting' ? theme.colors.warning : isClub ? '#AF52DE' : classColorMap[event.class_id || event.id];
-        if (!formattedMarkedDates[date]) formattedMarkedDates[date] = { periods: [] };
-
-        // Avoid duplicate bars for the same category on the same day
-        const existingPeriod = formattedMarkedDates[date].periods.find(p => p.color === color);
-        if (!existingPeriod) {
-          formattedMarkedDates[date].periods.push({
-            startingDay: true,
-            endingDay: true,
-            color: color
-          });
-        }
-      });
-
-      // Prepare colored and descriptive schedules
-      const coloredSchedules = allEvents.map(e => {
-        const isClub = e.class?.subject === 'Extracurricular';
-        const color = e.eventType === 'meeting' ? theme.colors.warning : isClub ? '#AF52DE' : (classColorMap[e.class_id || e.id] || theme.colors.primary);
-        return {
-          ...e,
-          color: color,
-          badgeColor: color,
-          description: e.description || '',
-          class_info: e.class_info || '',
-        };
-      });
-
-      setSchedules(coloredSchedules);
-      setMarkedDates(formattedMarkedDates);
-    } catch (error) {
-      console.error('Error fetching schedules:', error.message);
-      showToast('Failed to fetch schedules.', 'error');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [theme.colors]);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchSchedules();
-    }, [fetchSchedules])
-  );
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    fetchSchedules(true);
-  }, [fetchSchedules]);
-
-  const upcomingClasses = schedules.filter(s => s.eventType === 'class' && new Date(s.start_time) >= new Date());
-  const pastEvents = schedules.filter(s => new Date(s.start_time) < new Date());
-  const upcomingMeetings = schedules.filter(s => s.eventType === 'meeting' && new Date(s.start_time) >= new Date());
-
-  const toggleDropdown = (title) => {
-    setDropdowns(prev => ({ ...prev, [title]: !prev[title] }));
-  };
-
-  const openScheduleModal = (schedule) => {
-    if (schedule.eventType === 'meeting') {
-      navigation.navigate('Meetings');
-    } else if (schedule.class?.subject === 'Extracurricular') {
-      navigation.navigate('ClubDetail', { clubId: schedule.class_id });
-    } else {
-      setSelectedSchedule(schedule);
-      setModalVisible(true);
-    }
-  };
-
-  const onDayPress = (day) => {
-    const daySchedules = schedules.filter(s => s.start_time.startsWith(day.dateString));
-    if (daySchedules.length > 0) {
-      setDayModalSchedules(daySchedules.sort((a, b) => new Date(a.start_time) - new Date(b.start_time)));
-      setDayModalVisible(true);
-    }
-  };
-
-  const renderEventCard = (item) => {
+const EventCard = React.memo(({ item, theme, onPress }) => {
     const isMeeting = item.eventType === 'meeting';
     const isClub = item.class?.subject === 'Extracurricular';
     const start = new Date(item.start_time);
@@ -238,8 +20,7 @@ export default function CalendarScreen({ navigation, route }) {
 
     return (
       <TouchableOpacity
-        key={item.id}
-        onPress={() => openScheduleModal(item)}
+        onPress={() => onPress(item)}
         style={[
           styles.eventCard,
           { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder },
@@ -282,7 +63,218 @@ export default function CalendarScreen({ navigation, route }) {
         <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.cardBorder} />
       </TouchableOpacity>
     );
-  };
+});
+
+const CalendarScreen = ({ navigation, route }) => {
+  const [schedules, setSchedules] = useState([]);
+  const [markedDates, setMarkedDates] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedSchedule, setSelectedSchedule] = useState(null);
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [dropdowns, setDropdowns] = useState({});
+  const [dayModalSchedules, setDayModalSchedules] = useState([]);
+  const [isDayModalVisible, setDayModalVisible] = useState(false);
+  const { showToast } = useToast();
+  const { theme } = useTheme(); // Use the theme hook
+
+  const dotColors = useMemo(() => [theme.colors.primary, theme.colors.success, theme.colors.warning, theme.colors.error, '#5856d6', '#34c759', '#af52de', '#ffcc00'], [theme.colors]);
+
+  const fetchSchedules = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role, school_id')
+        .eq('id', user.id)
+        .single();
+      if (userError) throw userError;
+
+      const userRole = userData.role;
+      const userSchoolId = userData.school_id;
+      let classIds = [];
+
+      if (userRole === 'teacher' || userRole === 'admin') {
+        const { data: allClasses, error: allClassesError } = await supabase
+          .from('classes')
+          .select('id')
+          .eq('school_id', userSchoolId);
+        if (allClassesError) throw allClassesError;
+        classIds = allClasses.map(c => c.id);
+      } else {
+        const { data: directClasses, error: directClassesError } = await supabase
+          .from('class_members')
+          .select('class_id')
+          .eq('user_id', user.id);
+        if (directClassesError) throw directClassesError;
+        classIds = directClasses.map(c => c.class_id);
+
+        if (userRole === 'parent') {
+          const { data: relationships, error: relError } = await supabase
+            .from('parent_child_relationships')
+            .select('child_id')
+            .eq('parent_id', user.id);
+          if (relError) throw relError;
+
+          const childIds = relationships.map(rel => rel.child_id);
+
+          if (childIds.length > 0) {
+            const { data: childrenClasses, error: childrenClassesError } = await supabase
+              .from('class_members')
+              .select('class_id')
+              .in('user_id', childIds);
+            if (childrenClassesError) throw childrenClassesError;
+
+            const childrenClassIds = childrenClasses.map(c => c.class_id);
+            classIds = [...new Set([...classIds, ...childrenClassIds])];
+          }
+        }
+      }
+
+      const allEvents = [];
+
+      if (classIds.length > 0) {
+        const { data: classSchedules, error: schedulesError } = await supabase
+          .from('class_schedules')
+          .select('*, class:classes(id, name, subject)')
+          .in('class_id', classIds)
+          .order('start_time', { ascending: true });
+        if (schedulesError) throw schedulesError;
+        allEvents.push(...classSchedules.map(s => ({ ...s, eventType: 'class' })));
+      }
+
+      const isParent = userRole === 'parent';
+      let ptmQuery = supabase
+        .from('ptm_bookings')
+        .select(`
+            *,
+            slot:ptm_slots!inner(*, teacher:users!teacher_id(full_name)),
+            parent:users!parent_id(full_name),
+            student:users!student_id(full_name)
+        `);
+
+      if (isParent) {
+        ptmQuery = ptmQuery.eq('parent_id', user.id);
+      } else {
+        ptmQuery = ptmQuery.eq('ptm_slots.teacher_id', user.id);
+      }
+
+      const { data: ptmData, error: ptmError } = await ptmQuery;
+
+      if (!ptmError && ptmData) {
+        allEvents.push(...ptmData.map(b => ({
+          id: b.id,
+          start_time: b.slot.start_time,
+          end_time: b.slot.end_time,
+          title: `PTM: ${isParent ? b.slot.teacher.full_name : b.parent.full_name}`,
+          description: `Meeting regarding ${b.student.full_name}`,
+          eventType: 'meeting',
+          originalData: b,
+          class_id: b.slot.id
+        })));
+      }
+
+      const classColorMap = {};
+      const uniqueIds = [...new Set(allEvents.map(e => e.class_id || e.id))];
+      uniqueIds.forEach((id, index) => {
+        classColorMap[id] = dotColors[index % dotColors.length];
+      });
+
+      const formattedMarkedDates = {};
+      allEvents.forEach(event => {
+        const date = event.start_time.split('T')[0];
+        const isClub = event.class?.subject === 'Extracurricular';
+        const color = event.eventType === 'meeting' ? theme.colors.warning : isClub ? '#AF52DE' : classColorMap[event.class_id || event.id];
+        if (!formattedMarkedDates[date]) formattedMarkedDates[date] = { periods: [] };
+
+        const existingPeriod = formattedMarkedDates[date].periods.find(p => p.color === color);
+        if (!existingPeriod) {
+          formattedMarkedDates[date].periods.push({
+            startingDay: true,
+            endingDay: true,
+            color: color
+          });
+        }
+      });
+
+      const coloredSchedules = allEvents.map(e => {
+        const isClub = e.class?.subject === 'Extracurricular';
+        const color = e.eventType === 'meeting' ? theme.colors.warning : isClub ? '#AF52DE' : (classColorMap[e.class_id || e.id] || theme.colors.primary);
+        return {
+          ...e,
+          color: color,
+          badgeColor: color,
+          description: e.description || '',
+          class_info: e.class_info || '',
+        };
+      });
+
+      setSchedules(coloredSchedules);
+      setMarkedDates(formattedMarkedDates);
+    } catch (error) {
+      console.error('Error fetching schedules:', error.message);
+      showToast('Failed to fetch schedules.', 'error');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [theme.colors, dotColors, showToast]);
+
+  useEffect(() => {
+    if (route.params?.openScheduleId && schedules.length > 0) {
+      const targetSchedule = schedules.find(s => s.id === route.params.openScheduleId);
+      if (targetSchedule) {
+        setSelectedSchedule(targetSchedule);
+        setModalVisible(true);
+        navigation.setParams({ openScheduleId: null });
+      }
+    }
+  }, [route.params?.openScheduleId, schedules, navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchSchedules();
+    }, [fetchSchedules])
+  );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchSchedules(true);
+  }, [fetchSchedules]);
+
+  const upcomingClasses = useMemo(() => schedules.filter(s => s.eventType === 'class' && new Date(s.start_time) >= new Date()), [schedules]);
+  const pastEvents = useMemo(() => schedules.filter(s => new Date(s.start_time) < new Date()), [schedules]);
+  const upcomingMeetings = useMemo(() => schedules.filter(s => s.eventType === 'meeting' && new Date(s.start_time) >= new Date()), [schedules]);
+
+  const toggleDropdown = useCallback((title) => {
+    setDropdowns(prev => ({ ...prev, [title]: !prev[title] }));
+  }, []);
+
+  const openScheduleModal = useCallback((schedule) => {
+    if (schedule.eventType === 'meeting') {
+      navigation.navigate('Meetings');
+    } else if (schedule.class?.subject === 'Extracurricular') {
+      navigation.navigate('ClubDetail', { clubId: schedule.class_id });
+    } else {
+      setSelectedSchedule(schedule);
+      setModalVisible(true);
+    }
+  }, [navigation]);
+
+  const onDayPress = useCallback((day) => {
+    const daySchedules = schedules.filter(s => s.start_time.startsWith(day.dateString));
+    if (daySchedules.length > 0) {
+      setDayModalSchedules(daySchedules.sort((a, b) => new Date(a.start_time) - new Date(b.start_time)));
+      setDayModalVisible(true);
+    }
+  }, [schedules]);
+
+  const renderEventCard = useCallback((item) => {
+    return <EventCard key={item.id} item={item} theme={theme} onPress={openScheduleModal} />;
+  }, [theme, openScheduleModal]);
 
   return (
     <ScrollView
@@ -495,6 +487,8 @@ export default function CalendarScreen({ navigation, route }) {
     </ScrollView>
   );
 }
+
+export default React.memo(CalendarScreen);
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Dimensions, ScrollView } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
@@ -9,6 +9,9 @@ const { width, height } = Dimensions.get('window');
 
 const WelcomeScreen = ({ navigation }) => {
     const { theme } = useTheme();
+
+    const navigateToSignIn = useCallback(() => navigation.navigate('SignIn'), [navigation]);
+    const navigateToSignUp = useCallback(() => navigation.navigate('SignUp'), [navigation]);
 
     return (
         <LinearGradient
@@ -43,7 +46,7 @@ const WelcomeScreen = ({ navigation }) => {
                 <View style={styles.actionSection}>
                     <TouchableOpacity
                         style={styles.primaryButton}
-                        onPress={() => navigation.navigate('SignIn')}
+                        onPress={navigateToSignIn}
                         activeOpacity={0.8}
                     >
                         <Text style={styles.primaryButtonText}>Sign In</Text>
@@ -51,30 +54,12 @@ const WelcomeScreen = ({ navigation }) => {
 
                     <TouchableOpacity
                         style={styles.secondaryButton}
-                        onPress={() => navigation.navigate('SignUp')}
+                        onPress={navigateToSignUp}
                         activeOpacity={0.8}
                     >
                         <Text style={styles.secondaryButtonText}>Create Account</Text>
                     </TouchableOpacity>
                 </View>
-
-                {/* Stats Row */}
-                {/* <View style={styles.statsRow}>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statVal}>50k+</Text>
-                        <Text style={styles.statLabel}>USERS</Text>
-                    </View>
-                    <View style={styles.statDivider} />
-                    <View style={styles.statItem}>
-                        <Text style={styles.statVal}>1.2k+</Text>
-                        <Text style={styles.statLabel}>SCHOOLS</Text>
-                    </View>
-                    <View style={styles.statDivider} />
-                    <View style={styles.statItem}>
-                        <Text style={styles.statVal}>99%</Text>
-                        <Text style={styles.statLabel}>HAPPY</Text>
-                    </View>
-                </View> */}
             </ScrollView>
         </LinearGradient>
     );
@@ -181,33 +166,7 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 17,
         fontWeight: '700',
-    },
-    statsRow: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 20,
-    },
-    statItem: {
-        alignItems: 'center',
-    },
-    statVal: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '900',
-    },
-    statLabel: {
-        color: 'rgba(255,255,255,0.6)',
-        fontSize: 8,
-        fontWeight: '900',
-        letterSpacing: 1,
-        marginTop: 2,
-    },
-    statDivider: {
-        width: 1,
-        height: 20,
-        backgroundColor: 'rgba(255,255,255,0.2)',
     }
 });
 
-export default WelcomeScreen;
+export default React.memo(WelcomeScreen);

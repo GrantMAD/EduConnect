@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase';
 import AnimatedAvatarBorder from './AnimatedAvatarBorder';
 import { BORDER_STYLES } from '../constants/GamificationStyles';
 
-export default function UserProfileModal({ visible, user, onClose, onMessageUser, equippedItem: propEquippedItem }) {
+const UserProfileModal = React.memo(({ visible, user, onClose, onMessageUser, equippedItem: propEquippedItem }) => {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
     const [loading, setLoading] = useState(false);
@@ -212,7 +212,7 @@ export default function UserProfileModal({ visible, user, onClose, onMessageUser
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -344,3 +344,5 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
 });
+
+export default UserProfileModal;

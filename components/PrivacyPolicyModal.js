@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faShieldAlt } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
-export default function PrivacyPolicyModal({ visible, onClose }) {
+const PrivacyPolicyModal = React.memo(({ visible, onClose }) => {
     const { theme } = useTheme();
 
     return (
@@ -78,7 +78,7 @@ export default function PrivacyPolicyModal({ visible, onClose }) {
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -165,3 +165,5 @@ const styles = StyleSheet.create({
         marginVertical: 24,
     },
 });
+
+export default PrivacyPolicyModal;

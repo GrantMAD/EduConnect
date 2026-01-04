@@ -5,7 +5,7 @@ import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
 export { SkeletonPiece };
 
-const StatCardSkeleton = () => {
+export const StatCardSkeleton = React.memo(() => {
     const { theme } = useTheme();
     return (
         <View
@@ -19,9 +19,9 @@ const StatCardSkeleton = () => {
             <SkeletonBase style={{ width: 80, height: 10, borderRadius: 4 }} />
         </View>
     );
-};
+});
 
-export const ActionButtonSkeleton = () => {
+export const ActionButtonSkeleton = React.memo(() => {
     const { theme } = useTheme();
     return (
         <View
@@ -34,9 +34,9 @@ export const ActionButtonSkeleton = () => {
             <SkeletonBase style={{ width: 100, height: 12, borderRadius: 4 }} />
         </View>
     );
-};
+});
 
-const DashboardScreenSkeleton = () => {
+const DashboardScreenSkeleton = React.memo(() => {
     const { theme } = useTheme();
 
     return (
@@ -92,7 +92,7 @@ const DashboardScreenSkeleton = () => {
             </View>
         </ScrollView>
     );
-};
+});
 
 const styles = StyleSheet.create({
     container: {

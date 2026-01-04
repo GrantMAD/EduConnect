@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Button, Platform, ScrollView, Image, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
@@ -14,7 +14,7 @@ import LinearGradient from 'react-native-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-export default function CreateClassScreen({ navigation, route }) {
+const CreateClassScreen = ({ navigation, route }) => {
   const { fromDashboard, fromManageClassesScreen } = route.params || {};
   const [className, setClassName] = useState('');
   const [subject, setSubject] = useState('');
@@ -34,24 +34,7 @@ export default function CreateClassScreen({ navigation, route }) {
   const { showToast } = useToast();
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    if (schoolId) {
-      fetchStudents();
-    }
-  }, [schoolId]);
-
-  useEffect(() => {
-    if (searchQuery === '') {
-      setStudents(allStudents);
-    } else {
-      const filtered = allStudents.filter(student =>
-        student.full_name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setStudents(filtered);
-    }
-  }, [searchQuery, allStudents]);
-
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     setFetchingStudents(false); 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -70,9 +53,26 @@ export default function CreateClassScreen({ navigation, route }) {
       console.error('Error fetching students:', error.message);
       showToast('Failed to fetch students.', 'error');
     }
-  };
+  }, [schoolId, showToast]);
 
-  const toggleStudentSelection = (studentId) => {
+  useEffect(() => {
+    if (schoolId) {
+      fetchStudents();
+    }
+  }, [schoolId, fetchStudents]);
+
+  useEffect(() => {
+    if (searchQuery === '') {
+      setStudents(allStudents);
+    } else {
+      const filtered = allStudents.filter(student =>
+        student.full_name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setStudents(filtered);
+    }
+  }, [searchQuery, allStudents]);
+
+  const toggleStudentSelection = useCallback((studentId) => {
     setSelectedStudents(prev => {
       const isSelected = prev.includes(studentId);
       if (isSelected) {
@@ -82,14 +82,14 @@ export default function CreateClassScreen({ navigation, route }) {
         return [...prev, studentId];
       }
     });
-  };
+  }, []);
 
-  const handleDayPress = (day) => {
+  const handleDayPress = useCallback((day) => {
     setSelectedDate(day.dateString);
     setModalVisible(true);
-  };
+  }, []);
 
-  const handleSaveSchedule = (startTimeStr, endTimeStr, infoStr) => {
+  const handleSaveSchedule = useCallback((startTimeStr, endTimeStr, infoStr) => {
     const [startHours, startMinutes] = startTimeStr.split(':').map(Number);
     const [endHours, endMinutes] = endTimeStr.split(':').map(Number);
 
@@ -104,15 +104,15 @@ export default function CreateClassScreen({ navigation, route }) {
     }
 
     const newSchedule = { date: selectedDate, startTime, endTime, info: infoStr };
-    setSchedules([...schedules, newSchedule]);
+    setSchedules(prev => [...prev, newSchedule]);
     setModalVisible(false);
-  };
+  }, [selectedDate, showToast]);
 
-  const handleRemoveSchedule = (indexToRemove) => {
+  const handleRemoveSchedule = useCallback((indexToRemove) => {
     setSchedules(prevSchedules => prevSchedules.filter((_, index) => index !== indexToRemove));
-  };
+  }, []);
 
-  const handleCreateClass = async () => {
+  const handleCreateClass = useCallback(async () => {
     if (!className || !subject) {
       showToast('Class Name and Subject cannot be empty.', 'error');
       return;
@@ -188,12 +188,12 @@ export default function CreateClassScreen({ navigation, route }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [className, subject, schoolId, selectedStudents, schedules, navigation, showToast]);
 
-  const markedDates = schedules.reduce((acc, sched) => {
+  const markedDates = useMemo(() => schedules.reduce((acc, sched) => {
     acc[sched.date] = { marked: true, dotColor: '#10b981' };
     return acc;
-  }, {});
+  }, {}), [schedules]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -361,6 +361,8 @@ export default function CreateClassScreen({ navigation, route }) {
     </View>
   );
 }
+
+export default React.memo(CreateClassScreen);
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

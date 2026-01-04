@@ -4,14 +4,14 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faBullhorn } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
-export default function AnnouncementCard({ announcement }) {
+const AnnouncementCard = React.memo(({ announcement }) => {
   const { theme } = useTheme();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
       <View style={styles.header}>
         <View style={[styles.iconBox, { backgroundColor: '#4f46e5' + '15' }]}>
-            <FontAwesomeIcon icon={faBullhorn} size={14} color="#4f46e5" />
+          <FontAwesomeIcon icon={faBullhorn} size={14} color="#4f46e5" />
         </View>
         <Text style={[styles.title, { color: theme.colors.text }]}>{announcement.title}</Text>
       </View>
@@ -19,13 +19,13 @@ export default function AnnouncementCard({ announcement }) {
         {announcement.message || announcement.content}
       </Text>
       <View style={styles.footer}>
-          <Text style={[styles.date, { color: theme.colors.placeholder }]}>
-              {new Date(announcement.created_at).toLocaleDateString()}
-          </Text>
+        <Text style={[styles.date, { color: theme.colors.placeholder }]}>
+          {new Date(announcement.created_at).toLocaleDateString()}
+        </Text>
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -57,11 +57,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   footer: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
   },
   date: {
-      fontSize: 11,
-      fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '600',
   }
 });
+
+export default AnnouncementCard;
+
+

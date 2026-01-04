@@ -5,7 +5,7 @@ import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
 export { SkeletonPiece };
 
-const SettingsScreenSkeleton = () => {
+const SettingsScreenSkeleton = React.memo(() => {
   const { theme } = useTheme(); 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -52,7 +52,7 @@ const SettingsScreenSkeleton = () => {
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

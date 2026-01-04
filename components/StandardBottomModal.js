@@ -6,7 +6,7 @@ import { faTimes } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export default function StandardBottomModal({ visible, onClose, title, icon, description, children, hideHeader }) {
+const StandardBottomModal = React.memo(({ visible, onClose, title, icon, description, children, hideHeader }) => {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
 
@@ -45,7 +45,7 @@ export default function StandardBottomModal({ visible, onClose, title, icon, des
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -101,3 +101,5 @@ const styles = StyleSheet.create({
         paddingBottom: 20,
     },
 });
+
+export default StandardBottomModal;

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Alert, ScrollView, Image, TouchableOpacity, Dimensions } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -18,7 +18,21 @@ import LinearGradient from 'react-native-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-export default function ProfileScreen({ navigation }) {
+const DetailItem = React.memo(({ icon, color, label, value, capitalize, theme }) => (
+    <View style={styles.detailItemRow}>
+        <View style={[styles.detailIconBox, { backgroundColor: color + '15' }]}>
+            <FontAwesomeIcon icon={icon} size={12} color={color} />
+        </View>
+        <View style={{ marginLeft: 12, flex: 1 }}>
+            <Text style={styles.detailLabel}>{label}</Text>
+            <Text style={[styles.detailValue, { color: theme.colors.text }, capitalize && { textTransform: 'capitalize' }]}>
+                {value}
+            </Text>
+        </View>
+    </View>
+));
+
+const ProfileScreen = ({ navigation }) => {
   const defaultUserImage = require('../assets/user.png');
   const { refreshProfile } = useAuth();
   const { 
@@ -55,11 +69,7 @@ export default function ProfileScreen({ navigation }) {
   const { theme } = useTheme();
   const { showToast } = useToast();
 
-  useEffect(() => {
-    fetchUserData();
-  }, []);
-
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -80,14 +90,32 @@ export default function ProfileScreen({ navigation }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
-  const bannerStyle = equippedBanner ? BANNER_STYLES[equippedBanner.image_url] : null;
-  const nameColorStyle = equippedNameColor ? NAME_COLOR_STYLES[equippedNameColor.image_url] : null;
-  const titleStyle = equippedTitle ? TITLE_STYLES[equippedTitle.image_url] : null;
+  useEffect(() => {
+    fetchUserData();
+  }, [fetchUserData]);
 
-  const borderStyle = equippedBorder ? BORDER_STYLES[equippedBorder.image_url] : { borderColor: theme.colors.primary, borderWidth: 2 };
-  const avatarSource = userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage;
+  const bannerStyle = useMemo(() => equippedBanner ? BANNER_STYLES[equippedBanner.image_url] : null, [equippedBanner]);
+  const nameColorStyle = useMemo(() => equippedNameColor ? NAME_COLOR_STYLES[equippedNameColor.image_url] : null, [equippedNameColor]);
+  const titleStyle = useMemo(() => equippedTitle ? TITLE_STYLES[equippedTitle.image_url] : null, [equippedTitle]);
+
+  const borderStyle = useMemo(() => equippedBorder ? BORDER_STYLES[equippedBorder.image_url] : { borderColor: theme.colors.primary, borderWidth: 2 }, [equippedBorder, theme.colors.primary]);
+  const avatarSource = useMemo(() => userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage, [userData.avatar_url, defaultUserImage]);
+
+  const toggleGamificationInfo = useCallback(() => setShowGamificationInfo(prev => !prev), []);
+  const openEditProfile = useCallback(() => setShowEditProfile(true), []);
+  const closeEditProfile = useCallback((updated) => {
+    setShowEditProfile(false);
+    if (updated) {
+      fetchUserData();
+      refreshProfile();
+      if (refreshGamificationState) refreshGamificationState();
+    }
+  }, [fetchUserData, refreshProfile, refreshGamificationState]);
+
+  const navigateToLeaderboard = useCallback(() => navigation.navigate('Leaderboard'), [navigation]);
+  const navigateToShop = useCallback(() => navigation.navigate('Shop'), [navigation]);
 
   return (
     <>
@@ -135,7 +163,7 @@ export default function ProfileScreen({ navigation }) {
                     }]}>{userData.role || 'User'}</Text>
                 </View>
                 <TouchableOpacity 
-                    onPress={() => setShowEditProfile(true)}
+                    onPress={openEditProfile}
                     style={[styles.editBtn, { backgroundColor: theme.colors.text, borderColor: theme.colors.text }]}
                 >
                     <FontAwesomeIcon icon={faPencilAlt} size={12} color={theme.colors.background} />
@@ -177,10 +205,10 @@ export default function ProfileScreen({ navigation }) {
                 <Text style={[styles.hubSubtitle, { color: theme.colors.placeholder }]}>Track your progress and achievements.</Text>
             </View>
             <View style={styles.hubActionGroup}>
-                <TouchableOpacity style={[styles.hubActionBtn, { backgroundColor: '#eef2ff' }]} onPress={() => navigation.navigate('Leaderboard')}>
+                <TouchableOpacity style={[styles.hubActionBtn, { backgroundColor: '#eef2ff' }]} onPress={navigateToLeaderboard}>
                     <FontAwesomeIcon icon={faChartBar} size={14} color="#4f46e5" />
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.hubActionBtn, { backgroundColor: '#fffbeb' }]} onPress={() => navigation.navigate('Shop')}>
+                <TouchableOpacity style={[styles.hubActionBtn, { backgroundColor: '#fffbeb' }]} onPress={navigateToShop}>
                     <FontAwesomeIcon icon={faStore} size={14} color="#d97706" />
                 </TouchableOpacity>
             </View>
@@ -285,17 +313,10 @@ export default function ProfileScreen({ navigation }) {
             </View>
         </View>
 
-        <GamificationInfoModal visible={showGamificationInfo} onClose={() => setShowGamificationInfo(false)} />
+        <GamificationInfoModal visible={showGamificationInfo} onClose={toggleGamificationInfo} />
         <EditProfileModal
           visible={showEditProfile}
-          onClose={(updated) => {
-            setShowEditProfile(false);
-            if (updated) {
-              fetchUserData();
-              refreshProfile();
-              if (refreshGamificationState) refreshGamificationState();
-            }
-          }}
+          onClose={closeEditProfile}
           currentUser={userData}
         />
         <View style={{ height: 40 }} />
@@ -304,19 +325,7 @@ export default function ProfileScreen({ navigation }) {
   );
 }
 
-const DetailItem = ({ icon, color, label, value, capitalize, theme }) => (
-    <View style={styles.detailItemRow}>
-        <View style={[styles.detailIconBox, { backgroundColor: color + '15' }]}>
-            <FontAwesomeIcon icon={icon} size={12} color={color} />
-        </View>
-        <View style={{ marginLeft: 12, flex: 1 }}>
-            <Text style={styles.detailLabel}>{label}</Text>
-            <Text style={[styles.detailValue, { color: theme.colors.text }, capitalize && { textTransform: 'capitalize' }]}>
-                {value}
-            </Text>
-        </View>
-    </View>
-);
+export default React.memo(ProfileScreen);
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 16, paddingBottom: 40 },

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -38,7 +38,7 @@ import LinearGradient from 'react-native-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-export default function CreateMarketplaceItemScreen({ route, navigation }) {
+const CreateMarketplaceItemScreen = ({ route, navigation }) => {
   const { item: existingItem, fromDashboard, fromMarketScreen } = route.params || {};
 
   const [title, setTitle] = useState(existingItem?.title || '');
@@ -52,7 +52,7 @@ export default function CreateMarketplaceItemScreen({ route, navigation }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const pickImage = async () => {
+  const pickImage = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -62,9 +62,9 @@ export default function CreateMarketplaceItemScreen({ route, navigation }) {
     });
 
     if (!result.canceled) setImage(result.assets[0]);
-  };
+  }, []);
 
-  const uploadImage = async (asset) => {
+  const uploadImage = useCallback(async (asset) => {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) throw userError || new Error("No user logged in");
@@ -89,9 +89,9 @@ export default function CreateMarketplaceItemScreen({ route, navigation }) {
       showToast('Failed to upload image.');
       return null;
     }
-  };
+  }, [showToast]);
 
-  const handleSaveItem = async () => {
+  const handleSaveItem = useCallback(async () => {
     if (!title || !price || !category) {
       showToast('Please fill in all required fields.', 'error');
       return;
@@ -144,7 +144,7 @@ export default function CreateMarketplaceItemScreen({ route, navigation }) {
     } finally {
       setUploading(false);
     }
-  };
+  }, [title, price, category, image, existingItem, uploadImage, navigation, showToast]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -156,10 +156,16 @@ export default function CreateMarketplaceItemScreen({ route, navigation }) {
       >
         <View style={styles.heroContent}>
           <View style={styles.heroTextContainer}>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}
+              activeOpacity={0.7}
+            >
+              <FontAwesomeIcon icon={faChevronLeft} size={14} color="#fff" />
+              <Text style={{ color: '#fff', marginLeft: 8, fontWeight: '700', fontSize: 14 }}>Back to Marketplace</Text>
+            </TouchableOpacity>
+
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
-                <FontAwesomeIcon icon={faChevronLeft} size={18} color="#fff" />
-              </TouchableOpacity>
               <Text style={styles.heroTitle}>{existingItem ? 'Edit Listing' : 'List Item'}</Text>
             </View>
             <Text style={styles.heroDescription}>
@@ -281,11 +287,13 @@ export default function CreateMarketplaceItemScreen({ route, navigation }) {
   );
 }
 
+export default React.memo(CreateMarketplaceItemScreen);
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   heroContainer: {
     padding: 24,
-    paddingTop: 40,
+    paddingTop: 16,
     elevation: 0,
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
@@ -311,7 +319,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  backButtonHero: { marginRight: 12 },
   iconBoxHero: {
     width: 48,
     height: 48,

@@ -6,7 +6,7 @@ import { useTheme } from '../../context/ThemeContext';
 
 export { SkeletonPiece };
 
-const CardListSkeleton = () => {
+const CardListSkeleton = React.memo(() => {
   const { theme } = useTheme();
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -19,7 +19,7 @@ const CardListSkeleton = () => {
         />
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
     container: {

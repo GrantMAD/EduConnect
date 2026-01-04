@@ -6,7 +6,7 @@ import { faTimes, faBullhorn, faSearch, faCalendar, faClipboardList, faChartBar,
 import { useTheme } from '../context/ThemeContext';
 import PollDetailsModal from './PollDetailsModal';
 
-export default function ContentListModal({ visible, items, type, onClose }) {
+const ContentListModal = React.memo(({ visible, items, type, onClose }) => {
     const { theme } = useTheme();
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedItems, setExpandedItems] = useState({});
@@ -109,7 +109,7 @@ export default function ContentListModal({ visible, items, type, onClose }) {
                                     </Text>
                                 </View>
                             )}
-                            
+
                             {item.price && (
                                 <Text style={[styles.priceText, { color: theme.colors.primary }]}>
                                     R {item.price.toFixed(2)}
@@ -202,7 +202,7 @@ export default function ContentListModal({ visible, items, type, onClose }) {
             />
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -371,3 +371,5 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 });
+
+export default ContentListModal;

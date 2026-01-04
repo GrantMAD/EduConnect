@@ -5,7 +5,7 @@ import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
 export { SkeletonPiece };
 
-const SchoolSetupScreenSkeleton = () => {
+const SchoolSetupScreenSkeleton = React.memo(() => {
   const { theme } = useTheme(); 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -30,7 +30,7 @@ const SchoolSetupScreenSkeleton = () => {
       <SkeletonBase style={{ width: '30%', height: 16, borderRadius: 4, alignSelf: 'center', marginTop: 20 }} />
     </ScrollView>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, paddingTop: 60 },

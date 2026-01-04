@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Animated } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
@@ -26,277 +26,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import { useApi } from '../hooks/useApi';
 
-export default function PollsScreen({ navigation, route }) {
-  const [polls, setPolls] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [userRole, setUserRole] = useState(null);
-  const [userId, setUserId] = useState(null);
-  const [selectedPoll, setSelectedPoll] = useState(null);
-  const [isVoteModalVisible, setIsVoteModalVisible] = useState(false);
-  const { execute: executeVote, loading: votingLoading } = useApi();
-  const [activeTab, setActiveTab] = useState('active');
-  const [infoModalVisible, setInfoModalVisible] = useState(false);
-
-  const tabAnim = useRef(new Animated.Value(0)).current;
-
-  const handleTabPress = (tab) => {
-    setActiveTab(tab);
-    Animated.timing(tabAnim, {
-      toValue: tab === 'active' ? 0 : 1,
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
-  };
-
-  const { schoolId } = useSchool();
-  const { theme } = useTheme();
-  const { showToast } = useToast();
-  const gamificationData = useGamification();
-  const { awardXP = () => { } } = gamificationData || {};
-  const insets = useSafeAreaInsets();
-
-  const initializeScreen = async () => {
-    setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-        const { data: userData } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-        setUserRole(userData?.role);
-      }
-
-      await fetchPolls();
-    } catch (error) {
-      console.error('Error initializing polls screen:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchPolls = async () => {
-    try {
-      const [pollsResult, userVotesResult] = await Promise.all([
-        supabase
-          .from('polls')
-          .select('id, question, options, end_date, created_at, users:created_by(full_name)')
-          .eq('school_id', schoolId)
-          .order('created_at', { ascending: false })
-          .limit(50),
-
-        userId ? supabase
-          .from('poll_votes')
-          .select('poll_id, selected_option')
-          .eq('user_id', userId)
-          : Promise.resolve({ data: [], error: null })
-      ]);
-
-      if (pollsResult.error) throw pollsResult.error;
-
-      const pollsWithUserVotes = (pollsResult.data || []).map(poll => ({
-        ...poll,
-        poll_votes: userVotesResult.data?.filter(v => v.poll_id === poll.id) || []
-      }));
-
-      setPolls(pollsWithUserVotes);
-    } catch (error) {
-      console.error('Error fetching polls:', error);
-    }
-  };
-
-  const onRefresh = React.useCallback(async () => {
-    setRefreshing(true);
-    await fetchPolls();
-    setRefreshing(false);
-  }, [schoolId, userId]);
-
-  useFocusEffect(
-    React.useCallback(() => {
-      initializeScreen();
-    }, [schoolId])
-  );
-
-  const handleVote = async (pollId, option) => {
-    await executeVote(async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      const { error } = await supabase.from('poll_votes').insert([
-        { poll_id: pollId, user_id: user.id, selected_option: option },
-      ]);
-
-      if (error) throw error;
-
-      awardXP('poll_vote', 5);
-      setIsVoteModalVisible(false);
-      initializeScreen();
-    }, {
-      successMessage: 'Vote cast successfully! +5 XP',
-      onError: (err) => {
-        if (err.code === '23505') {
-          showToast('You have already voted on this poll', 'info');
-          return true;
-        }
-        return false;
-      },
-      errorMessage: 'Failed to vote. Please try again.'
-    });
-  };
-
-  const getFilteredPolls = () => {
-    const now = new Date();
-    return polls.filter(poll => {
-      const endDate = poll.end_date ? new Date(poll.end_date) : null;
-      const isExpired = endDate && endDate < now;
-
-      if (activeTab === 'active') {
-        return !isExpired;
-      } else {
-        return isExpired;
-      }
-    });
-  };
-
-  const renderPollCard = (item) => {
-    if (loading) return <CardSkeleton />;
-
-    const isExpired = item.end_date ? new Date(item.end_date) < new Date() : false;
-
-    return (
-      <PollCard
-        item={item}
-        userId={userId}
-        theme={theme}
-        onVotePress={() => {
-          setSelectedPoll(item);
-          setIsVoteModalVisible(true);
-        }}
-        isExpired={isExpired}
-      />
-    );
-  };
-
-  return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <LinearGradient
-        colors={[theme.colors.heroGradientStart, theme.colors.heroGradientEnd]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.heroContainer}
-      >
-        <View style={styles.heroContent}>
-          <View style={styles.heroTextContainer}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={styles.heroTitle}>Polls</Text>
-              <TouchableOpacity onPress={() => setInfoModalVisible(true)} style={styles.infoButton}>
-                <FontAwesomeIcon icon={faInfoCircle} size={16} color="rgba(255,255,255,0.7)" />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.heroDescription}>
-              Participate in school polls and share your opinions.
-            </Text>
-          </View>
-          {(userRole === 'admin' || userRole === 'teacher') && (
-            <TouchableOpacity
-              style={styles.createButton}
-              onPress={() => navigation.navigate('CreatePoll')}
-            >
-              <FontAwesomeIcon icon={faPlus} size={14} color={theme.colors.primary} />
-              <Text style={styles.createButtonText}>New</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </LinearGradient>
-
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'active' && styles.activeTab]}
-          onPress={() => handleTabPress('active')}
-        >
-          <Text style={[styles.tabText, activeTab === 'active' && { color: theme.colors.primary, fontWeight: 'bold' }, { color: theme.colors.text }]}>Active</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'ended' && styles.activeTab]}
-          onPress={() => handleTabPress('ended')}
-        >
-          <Text style={[styles.tabText, activeTab === 'ended' && { color: theme.colors.primary, fontWeight: 'bold' }, { color: theme.colors.text }]}>Past</Text>
-        </TouchableOpacity>
-        <Animated.View
-          style={[
-            styles.tabIndicator,
-            {
-              backgroundColor: theme.colors.primary,
-              left: tabAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: ['0%', '50%']
-              })
-            }
-          ]}
-        />
-      </View>
-
-      <FlatList
-        data={loading ? [1, 2, 3] : getFilteredPolls()}
-        keyExtractor={(item, index) => loading ? index.toString() : item.id.toString()}
-        contentContainerStyle={{ paddingBottom: 80 + insets.bottom, paddingTop: 10, paddingHorizontal: 16 }}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        renderItem={({ item }) => renderPollCard(item)}
-        ListEmptyComponent={
-          !loading && (
-            <View style={styles.emptyState}>
-              <FontAwesomeIcon icon={faInbox} size={48} color={theme.colors.placeholder} />
-              <Text style={[styles.emptyStateText, { color: theme.colors.text }]}>
-                {activeTab === 'active' ? 'No active polls at the moment.' : 'No past polls found.'}
-              </Text>
-            </View>
-          )
-        }
-      />
-
-      {selectedPoll && (
-        <PollVoteModal
-          visible={isVoteModalVisible}
-          onClose={() => setIsVoteModalVisible(false)}
-          poll={selectedPoll}
-          onVote={handleVote}
-          description={selectedPoll.question}
-          loading={votingLoading}
-        />
-      )}
-
-      <StandardBottomModal
-        visible={infoModalVisible}
-        onClose={() => setInfoModalVisible(false)}
-        title="About Polls"
-        icon={faInfoCircle}
-      >
-        <View>
-          <Text style={styles.modalText}>
-            Make your voice heard! Here's how polls work:
-          </Text>
-          <Text style={styles.bulletPoint}>• <Text style={{ fontWeight: 'bold' }}>Vote:</Text> Participate in active polls to share your opinion.</Text>
-          <Text style={styles.bulletPoint}>• <Text style={{ fontWeight: 'bold' }}>Earn XP:</Text> Get +5 XP for every poll you vote in!</Text>
-          <Text style={styles.bulletPoint}>• <Text style={{ fontWeight: 'bold' }}>Results:</Text> See what others think once you've voted or when the poll ends.</Text>
-        </View>
-      </StandardBottomModal>
-    </View>
-  );
-}
-
-const PollCard = React.memo(function PollCard({ item, userId, theme, onVotePress, isExpired }) {
+const PollCard = React.memo(({ item, userId, theme, onVotePress, isExpired }) => {
   const [votes, setVotes] = useState([]);
   const [loadingVotes, setLoadingVotes] = useState(true);
 
-  useEffect(() => {
-    fetchVotes();
-  }, [item.id]);
-
-  const fetchVotes = async () => {
+  const fetchVotes = useCallback(async () => {
     const { data, error } = await supabase
       .from('poll_votes')
       .select('user_id, selected_option')
@@ -306,28 +40,33 @@ const PollCard = React.memo(function PollCard({ item, userId, theme, onVotePress
       setVotes(data);
     }
     setLoadingVotes(false);
-  };
+  }, [item.id]);
 
-  const userVote = votes.find(v => v.user_id === userId);
+  useEffect(() => {
+    fetchVotes();
+  }, [fetchVotes]);
+
+  const userVote = useMemo(() => votes.find(v => v.user_id === userId), [votes, userId]);
   const totalVotes = votes.length;
 
-  let winningOption = null;
-  let maxVotes = -1;
-
-  if (isExpired && totalVotes > 0) {
+  const winningOption = useMemo(() => {
+    if (!isExpired || totalVotes === 0) return null;
     const counts = {};
     item.options.forEach(opt => counts[opt] = 0);
     votes.forEach(v => {
       if (counts[v.selected_option] !== undefined) counts[v.selected_option]++;
     });
 
+    let maxVotes = -1;
+    let winner = null;
     Object.keys(counts).forEach(opt => {
       if (counts[opt] > maxVotes) {
         maxVotes = counts[opt];
-        winningOption = opt;
+        winner = opt;
       }
     });
-  }
+    return winner;
+  }, [isExpired, totalVotes, item.options, votes]);
 
   const canVote = !userVote && !isExpired;
 
@@ -412,6 +151,277 @@ const PollCard = React.memo(function PollCard({ item, userId, theme, onVotePress
     </View>
   );
 });
+
+const PollsScreen = ({ navigation, route }) => {
+  const [polls, setPolls] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+  const [userId, setUserId] = useState(null);
+  const [selectedPoll, setSelectedPoll] = useState(null);
+  const [isVoteModalVisible, setIsVoteModalVisible] = useState(false);
+  const { execute: executeVote, loading: votingLoading } = useApi();
+  const [activeTab, setActiveTab] = useState('active');
+  const [infoModalVisible, setInfoModalVisible] = useState(false);
+
+  const tabAnim = useRef(new Animated.Value(0)).current;
+
+  const { schoolId } = useSchool();
+  const { theme } = useTheme();
+  const { showToast } = useToast();
+  const gamificationData = useGamification();
+  const { awardXP = () => { } } = gamificationData || {};
+  const insets = useSafeAreaInsets();
+
+  const handleTabPress = useCallback((tab) => {
+    setActiveTab(tab);
+    Animated.timing(tabAnim, {
+      toValue: tab === 'active' ? 0 : 1,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  }, [tabAnim]);
+
+  const fetchPolls = useCallback(async () => {
+    try {
+      const [pollsResult, userVotesResult] = await Promise.all([
+        supabase
+          .from('polls')
+          .select('id, question, options, end_date, created_at, users:created_by(full_name)')
+          .eq('school_id', schoolId)
+          .order('created_at', { ascending: false })
+          .limit(50),
+
+        userId ? supabase
+          .from('poll_votes')
+          .select('poll_id, selected_option')
+          .eq('user_id', userId)
+          : Promise.resolve({ data: [], error: null })
+      ]);
+
+      if (pollsResult.error) throw pollsResult.error;
+
+      const pollsWithUserVotes = (pollsResult.data || []).map(poll => ({
+        ...poll,
+        poll_votes: userVotesResult.data?.filter(v => v.poll_id === poll.id) || []
+      }));
+
+      setPolls(pollsWithUserVotes);
+    } catch (error) {
+      console.error('Error fetching polls:', error);
+    }
+  }, [schoolId, userId]);
+
+  const initializeScreen = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        const { data: userData } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        setUserRole(userData?.role);
+      }
+
+      await fetchPolls();
+    } catch (error) {
+      console.error('Error initializing polls screen:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchPolls]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchPolls();
+    setRefreshing(false);
+  }, [fetchPolls]);
+
+  useFocusEffect(
+    useCallback(() => {
+      initializeScreen();
+    }, [initializeScreen])
+  );
+
+  const handleVote = useCallback(async (pollId, option) => {
+    await executeVote(async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase.from('poll_votes').insert([
+        { poll_id: pollId, user_id: user.id, selected_option: option },
+      ]);
+
+      if (error) throw error;
+
+      awardXP('poll_vote', 5);
+      setIsVoteModalVisible(false);
+      initializeScreen();
+    }, {
+      successMessage: 'Vote cast successfully! +5 XP',
+      onError: (err) => {
+        if (err.code === '23505') {
+          showToast('You have already voted on this poll', 'info');
+          return true;
+        }
+        return false;
+      },
+      errorMessage: 'Failed to vote. Please try again.'
+    });
+  }, [executeVote, awardXP, initializeScreen, showToast]);
+
+  const filteredPolls = useMemo(() => {
+    const now = new Date();
+    return polls.filter(poll => {
+      const endDate = poll.end_date ? new Date(poll.end_date) : null;
+      const isExpired = endDate && endDate < now;
+
+      if (activeTab === 'active') {
+        return !isExpired;
+      } else {
+        return isExpired;
+      }
+    });
+  }, [polls, activeTab]);
+
+  const handleVotePress = useCallback((poll) => {
+    setSelectedPoll(poll);
+    setIsVoteModalVisible(true);
+  }, []);
+
+  const renderPollCard = useCallback(({ item }) => {
+    if (loading) return <CardSkeleton />;
+
+    const isExpired = item.end_date ? new Date(item.end_date) < new Date() : false;
+
+    return (
+      <PollCard
+        item={item}
+        userId={userId}
+        theme={theme}
+        onVotePress={() => handleVotePress(item)}
+        isExpired={isExpired}
+      />
+    );
+  }, [loading, userId, theme, handleVotePress]);
+
+  const openInfoModal = useCallback(() => setInfoModalVisible(true), []);
+  const closeInfoModal = useCallback(() => setInfoModalVisible(false), []);
+  const closeVoteModal = useCallback(() => setIsVoteModalVisible(false), []);
+  const navigateToCreatePoll = useCallback(() => navigation.navigate('CreatePoll'), [navigation]);
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <LinearGradient
+        colors={[theme.colors.heroGradientStart, theme.colors.heroGradientEnd]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroContainer}
+      >
+        <View style={styles.heroContent}>
+          <View style={styles.heroTextContainer}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.heroTitle}>Polls</Text>
+              <TouchableOpacity onPress={openInfoModal} style={styles.infoButton}>
+                <FontAwesomeIcon icon={faInfoCircle} size={16} color="rgba(255,255,255,0.7)" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.heroDescription}>
+              Participate in school polls and share your opinions.
+            </Text>
+          </View>
+          {(userRole === 'admin' || userRole === 'teacher') && (
+            <TouchableOpacity
+              style={styles.createButton}
+              onPress={navigateToCreatePoll}
+            >
+              <FontAwesomeIcon icon={faPlus} size={14} color={theme.colors.primary} />
+              <Text style={styles.createButtonText}>New</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </LinearGradient>
+
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'active' && styles.activeTab]}
+          onPress={() => handleTabPress('active')}
+        >
+          <Text style={[styles.tabText, activeTab === 'active' && { color: theme.colors.primary, fontWeight: 'bold' }, { color: theme.colors.text }]}>Active</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'ended' && styles.activeTab]}
+          onPress={() => handleTabPress('ended')}
+        >
+          <Text style={[styles.tabText, activeTab === 'ended' && { color: theme.colors.primary, fontWeight: 'bold' }, { color: theme.colors.text }]}>Past</Text>
+        </TouchableOpacity>
+        <Animated.View
+          style={[
+            styles.tabIndicator,
+            {
+              backgroundColor: theme.colors.primary,
+              left: tabAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0%', '50%']
+              })
+            }
+          ]}
+        />
+      </View>
+
+      <FlatList
+        data={loading ? [1, 2, 3] : filteredPolls}
+        keyExtractor={(item, index) => loading ? index.toString() : item.id.toString()}
+        contentContainerStyle={{ paddingBottom: 80 + insets.bottom, paddingTop: 10, paddingHorizontal: 16 }}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        renderItem={renderPollCard}
+        ListEmptyComponent={
+          !loading && (
+            <View style={styles.emptyState}>
+              <FontAwesomeIcon icon={faInbox} size={48} color={theme.colors.placeholder} />
+              <Text style={[styles.emptyStateText, { color: theme.colors.text }]}>
+                {activeTab === 'active' ? 'No active polls at the moment.' : 'No past polls found.'}
+              </Text>
+            </View>
+          )
+        }
+      />
+
+      {selectedPoll && (
+        <PollVoteModal
+          visible={isVoteModalVisible}
+          onClose={closeVoteModal}
+          poll={selectedPoll}
+          onVote={handleVote}
+          description={selectedPoll.question}
+          loading={votingLoading}
+        />
+      )}
+
+      <StandardBottomModal
+        visible={infoModalVisible}
+        onClose={closeInfoModal}
+        title="About Polls"
+        icon={faInfoCircle}
+      >
+        <View>
+          <Text style={styles.modalText}>
+            Make your voice heard! Here's how polls work:
+          </Text>
+          <Text style={styles.bulletPoint}>• <Text style={{ fontWeight: 'bold' }}>Vote:</Text> Participate in active polls to share your opinion.</Text>
+          <Text style={styles.bulletPoint}>• <Text style={{ fontWeight: 'bold' }}>Earn XP:</Text> Get +5 XP for every poll you vote in!</Text>
+          <Text style={styles.bulletPoint}>• <Text style={{ fontWeight: 'bold' }}>Results:</Text> See what others think once you've voted or when the poll ends.</Text>
+        </View>
+      </StandardBottomModal>
+    </View>
+  );
+}
+
+export default React.memo(PollsScreen);
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

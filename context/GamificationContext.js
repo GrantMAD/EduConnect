@@ -250,7 +250,7 @@ export const GamificationProvider = ({ children, session }) => {
         }
     }, [session, fetchGamificationState, showToast]);
 
-    const awardXP = async (actionType, xpAmount, metadata = {}) => {
+    const awardXP = useCallback(async (actionType, xpAmount, metadata = {}) => {
         if (!session?.user) return;
 
         try {
@@ -290,9 +290,9 @@ export const GamificationProvider = ({ children, session }) => {
             console.error('[GamificationContext] Error awarding XP:', error);
             showToast('Failed to award XP', 'error');
         }
-    };
+    }, [session?.user?.id, showToast, fetchGamificationState]);
 
-    const purchaseItem = async (item) => {
+    const purchaseItem = useCallback(async (item) => {
         if ((gamificationState.coins || 0) < item.cost) {
             showToast('Not enough coins!', 'error');
             return false;
@@ -332,9 +332,9 @@ export const GamificationProvider = ({ children, session }) => {
             showToast('Failed to purchase item.', 'error');
             return false;
         }
-    };
+    }, [session?.user?.id, gamificationState.coins, showToast, fetchGamificationState]);
 
-    const equipItem = async (item) => {
+    const equipItem = useCallback(async (item) => {
         if (!session?.user) return;
         const category = typeof item === 'object' ? (item.category || 'border') : 'border';
         const itemId = typeof item === 'object' ? item.id : item;
@@ -378,17 +378,19 @@ export const GamificationProvider = ({ children, session }) => {
             showToast('Failed to equip item.', 'error');
             return false;
         }
-    };
+    }, [session?.user?.id, showToast, fetchGamificationState]);
+
+    const value = React.useMemo(() => ({
+        ...gamificationState,
+        awardXP,
+        purchaseItem,
+        equipItem,
+        loading,
+        refreshGamificationState: fetchGamificationState
+    }), [gamificationState, awardXP, purchaseItem, equipItem, loading, fetchGamificationState]);
 
     return (
-        <GamificationContext.Provider value={{
-            ...gamificationState,
-            awardXP,
-            purchaseItem,
-            equipItem,
-            loading,
-            refreshGamificationState: fetchGamificationState
-        }}>
+        <GamificationContext.Provider value={value}>
             {children}
         </GamificationContext.Provider>
     );

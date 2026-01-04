@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, SectionList, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, ScrollView, Linking, RefreshControl } from 'react-native';
 import { supabase } from '../lib/supabase';
 import NotificationCardSkeleton, { SkeletonPiece } from '../components/skeletons/NotificationCardSkeleton';
@@ -7,7 +7,7 @@ import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext'; 
 import LinearGradient from 'react-native-linear-gradient';
 
-export default function NotificationsScreen({ route, navigation }) {
+const NotificationsScreen = ({ route, navigation }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -17,7 +17,7 @@ export default function NotificationsScreen({ route, navigation }) {
   const { showToast } = useToast();
   const { theme } = useTheme();
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!refreshing) setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -39,18 +39,18 @@ export default function NotificationsScreen({ route, navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [refreshing, showToast]);
 
   useEffect(() => {
     fetchNotifications();
-  }, []);
+  }, [fetchNotifications]);
 
-  const onRefresh = React.useCallback(() => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchNotifications();
-  }, []);
+  }, [fetchNotifications]);
 
-  const handleNotificationPress = async (notification) => {
+  const handleNotificationPress = useCallback(async (notification) => {
     const { data, type } = notification;
     let itemId, tableName, selectFields = '*';
 
@@ -146,10 +146,10 @@ export default function NotificationsScreen({ route, navigation }) {
     } finally {
       setModalLoading(false);
     }
-  };
+  }, [navigation, showToast]);
 
 
-  const handleClearAll = async () => {
+  const handleClearAll = useCallback(async () => {
     Alert.alert(
       'Clear All Notifications',
       'Are you sure you want to delete all of your notifications?',
@@ -181,9 +181,9 @@ export default function NotificationsScreen({ route, navigation }) {
       ],
       { cancelable: true }
     );
-  };
+  }, [showToast]);
 
-  const handleJoinResponse = async (notification, accept) => {
+  const handleJoinResponse = useCallback(async (notification, accept) => {
     try {
       const { error } = await supabase.rpc('handle_join_request', {
         p_notification_id: notification.id,
@@ -205,9 +205,9 @@ export default function NotificationsScreen({ route, navigation }) {
       console.error('Error handling join response:', err);
       showToast('Could not process the request.', 'error');
     }
-  };
+  }, [showToast]);
 
-  const handleDelete = async (notificationId) => {
+  const handleDelete = useCallback(async (notificationId) => {
     try {
       const { error } = await supabase
         .from('notifications')
@@ -222,9 +222,9 @@ export default function NotificationsScreen({ route, navigation }) {
       console.error('Error deleting notification:', err);
       showToast('Could not delete notification.', 'error');
     }
-  };
+  }, [showToast]);
 
-  const handleParentChildResponse = async (notification, accept) => {
+  const handleParentChildResponse = useCallback(async (notification, accept) => {
     try {
       if (accept) {
         const { error: insertError } = await supabase
@@ -280,9 +280,9 @@ export default function NotificationsScreen({ route, navigation }) {
       console.error('Error handling parent-child response:', err);
       showToast('Could not process the request: ' + err.message, 'error');
     }
-  };
+  }, [showToast]);
 
-  const handleMarkAsRead = async (notificationId) => {
+  const handleMarkAsRead = useCallback(async (notificationId) => {
     try {
       const { error } = await supabase
         .from('notifications')
@@ -299,9 +299,9 @@ export default function NotificationsScreen({ route, navigation }) {
       console.error('Error marking as read:', err);
       showToast('Could not mark as read.', 'error');
     }
-  };
+  }, [showToast]);
 
-  const handleMarkAllAsRead = async () => {
+  const handleMarkAllAsRead = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -320,9 +320,9 @@ export default function NotificationsScreen({ route, navigation }) {
       console.error('Error marking all as read:', err);
       showToast('Could not mark all as read.', 'error');
     }
-  };
+  }, [showToast]);
 
-  const groupNotifications = (notifs) => {
+  const sections = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const yesterday = new Date(today);
@@ -334,7 +334,7 @@ export default function NotificationsScreen({ route, navigation }) {
       Older: []
     };
 
-    notifs.forEach(n => {
+    notifications.forEach(n => {
       const date = new Date(n.created_at);
       date.setHours(0, 0, 0, 0);
 
@@ -350,11 +350,9 @@ export default function NotificationsScreen({ route, navigation }) {
     return Object.entries(groups)
       .filter(([_, items]) => items.length > 0)
       .map(([title, data]) => ({ title, data }));
-  };
+  }, [notifications]);
 
-  const sections = groupNotifications(notifications);
-
-  const renderNotification = ({ item }) => {
+  const renderNotification = useCallback(({ item }) => {
     const isUnread = !item.is_read;
     const typeInfo = {
       new_general_announcement: { icon: 'bullhorn', color: '#007AFF', label: 'Announcement' },
@@ -415,7 +413,6 @@ export default function NotificationsScreen({ route, navigation }) {
             <Text style={[styles.message, { color: theme.colors.textSecondary }]} numberOfLines={2}>{item.message}</Text>
             <Text style={[styles.date, { color: theme.colors.placeholder }]}>{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
 
-            {/* Specialized Actions for Requests */}
             {(item.type === 'school_join_request' || item.type === 'parent_child_request') && isUnread && (
               <View style={styles.buttonsRow}>
                 <TouchableOpacity
@@ -447,7 +444,7 @@ export default function NotificationsScreen({ route, navigation }) {
         </View>
       </View>
     );
-  };
+  }, [theme, handleNotificationPress, handleJoinResponse, handleParentChildResponse, handleMarkAsRead, handleDelete]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -570,6 +567,8 @@ export default function NotificationsScreen({ route, navigation }) {
     </View>
   );
 }
+
+export default React.memo(NotificationsScreen);
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

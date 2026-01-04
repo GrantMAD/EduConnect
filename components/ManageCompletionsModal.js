@@ -23,12 +23,12 @@ import { useToast } from '../context/ToastContext';
 
 const defaultUserImage = require('../assets/user.png');
 
-export default function ManageCompletionsModal({
+const ManageCompletionsModal = React.memo(({
     visible,
     onClose,
     item,
     type // 'homework' or 'assignment'
-}) {
+}) => {
     const { theme } = useTheme();
     const { showToast } = useToast();
     const [loading, setLoading] = useState(true);
@@ -40,7 +40,7 @@ export default function ManageCompletionsModal({
         if (visible && item) {
             fetchData();
         }
-    }, [visible, item]);
+    }, [visible, item, type]); // Added type to dependencies
 
     const fetchData = async () => {
         setLoading(true);
@@ -203,7 +203,7 @@ export default function ManageCompletionsModal({
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modal: {
@@ -318,3 +318,5 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
 });
+
+export default ManageCompletionsModal;

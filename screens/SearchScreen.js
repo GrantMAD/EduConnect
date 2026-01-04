@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -78,7 +78,7 @@ const STATIC_PAGES = [
   { id: 'create-poll', title: 'Create New Poll', screen: 'CreatePoll', icon: faBullhorn, description: 'Start a new school survey' },
 ];
 
-export default function SearchScreen({ navigation }) {
+const SearchScreen = ({ navigation }) => {
   const { theme } = useTheme();
   const { schoolId } = useSchool();
   const insets = useSafeAreaInsets();
@@ -90,29 +90,7 @@ export default function SearchScreen({ navigation }) {
   const [activeFilter, setActiveFilter] = useState('all'); 
   const [isSearching, setIsSearching] = useState(false);
 
-  useEffect(() => {
-    loadRecentSearches();
-    const params = navigation.getState()?.routes[navigation.getState().index]?.params;
-    if (params?.initialQuery) {
-      setSearchQuery(params.initialQuery);
-    }
-  }, []);
-
-  // Automatic search with debounce
-  useEffect(() => {
-    const timer = setTimeout(() => {
-        if (searchQuery.trim().length > 0) {
-            handleSearch(searchQuery);
-        } else {
-            setResults([]);
-            setIsSearching(false);
-        }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery, activeFilter]);
-
-  const loadRecentSearches = async () => {
+  const loadRecentSearches = useCallback(async () => {
     try {
       const stored = await AsyncStorage.getItem(RECENT_SEARCHES_KEY);
       if (stored) {
@@ -121,23 +99,17 @@ export default function SearchScreen({ navigation }) {
     } catch (e) {
       console.error('Failed to load recent searches');
     }
-  };
+  }, []);
 
-  const saveSearch = async (query) => {
-    if (!query.trim()) return;
-    const updated = [
-      query.trim(),
-      ...recentSearches.filter((s) => s !== query.trim()),
-    ].slice(0, 10);
-    setRecentSearches(updated);
-    try {
-      await AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
-    } catch (e) {
-      console.error('Failed to save search');
+  useEffect(() => {
+    loadRecentSearches();
+    const params = navigation.getState()?.routes[navigation.getState().index]?.params;
+    if (params?.initialQuery) {
+      setSearchQuery(params.initialQuery);
     }
-  };
+  }, [loadRecentSearches, navigation]);
 
-  const handleSearch = async (query = searchQuery) => {
+  const handleSearch = useCallback(async (query = searchQuery) => {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) {
         setResults([]);
@@ -152,7 +124,6 @@ export default function SearchScreen({ navigation }) {
       const searchTasks = [];
       const term = `%${trimmedQuery}%`;
 
-      // Always allow searching static pages
       if (activeFilter === 'all' || activeFilter === 'pages') {
         const filteredPages = STATIC_PAGES.filter(p =>
           p.title.toLowerCase().includes(trimmedQuery.toLowerCase()) ||
@@ -254,21 +225,48 @@ export default function SearchScreen({ navigation }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchQuery, activeFilter, schoolId]);
 
-  const clearSearch = () => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        if (searchQuery.trim().length > 0) {
+            handleSearch(searchQuery);
+        } else {
+            setResults([]);
+            setIsSearching(false);
+        }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, activeFilter, handleSearch]);
+
+  const saveSearch = useCallback(async (query) => {
+    if (!query.trim()) return;
+    const updated = [
+      query.trim(),
+      ...recentSearches.filter((s) => s !== query.trim()),
+    ].slice(0, 10);
+    setRecentSearches(updated);
+    try {
+      await AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.error('Failed to save search');
+    }
+  }, [recentSearches]);
+
+  const clearSearch = useCallback(() => {
     setSearchQuery('');
     setResults([]);
     setIsSearching(false);
-  };
+  }, []);
 
-  const removeRecentSearch = async (item) => {
+  const removeRecentSearch = useCallback(async (item) => {
     const updated = recentSearches.filter(s => s !== item);
     setRecentSearches(updated);
     await AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
-  };
+  }, [recentSearches]);
 
-  const getResultIcon = (type, item) => {
+  const getResultIcon = useCallback((type, item) => {
     switch (type) {
       case 'announcement': return faBullhorn;
       case 'homework': return faBookOpen;
@@ -279,9 +277,10 @@ export default function SearchScreen({ navigation }) {
       case 'class': return faChalkboardTeacher;
       default: return faSearch;
     }
-  };
+  }, []);
 
-  const navigateToResult = (item) => {
+  const navigateToResult = useCallback((item) => {
+    saveSearch(item.title || '');
     switch (item.type) {
       case 'announcement':
         navigation.navigate('HomeTabs', { screen: 'Announcements' });
@@ -305,22 +304,22 @@ export default function SearchScreen({ navigation }) {
         navigation.navigate('ManageUsersInClass', { classId: item.id, className: item.title });
         break;
     }
-  };
+  }, [navigation, saveSearch]);
 
-  const getResultColor = (type, item) => {
+  const getResultColor = useCallback((type, item) => {
     switch (type) {
-      case 'announcement': return '#e11d48'; // Rose
-      case 'homework': return '#10b981';     // Emerald
-      case 'assignment': return '#4f46e5';   // Indigo
-      case 'resource': return '#2563eb';     // Blue
-      case 'user': return '#06b6d4';         // Cyan
-      case 'page': return '#8b5cf6';         // Violet
-      case 'class': return '#f59e0b';        // Amber
+      case 'announcement': return '#e11d48';
+      case 'homework': return '#10b981';
+      case 'assignment': return '#4f46e5';
+      case 'resource': return '#2563eb';
+      case 'user': return '#06b6d4';
+      case 'page': return '#8b5cf6';
+      case 'class': return '#f59e0b';
       default: return theme.colors.primary;
     }
-  };
+  }, [theme.colors.primary]);
 
-  const renderResultItem = ({ item }) => {
+  const renderResultItem = useCallback(({ item }) => {
     const itemColor = getResultColor(item.type, item);
     return (
       <TouchableOpacity
@@ -340,21 +339,15 @@ export default function SearchScreen({ navigation }) {
         <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.cardBorder} />
       </TouchableOpacity>
     );
-  };
+  }, [theme, getResultColor, getResultIcon, navigateToResult]);
 
-  const filters = [
-    { id: 'all', label: 'All' },
-    { id: 'pages', label: 'Pages' },
-    { id: 'classes', label: 'Classes' },
-    { id: 'announcements', label: 'News' },
-    { id: 'homework', label: 'Homework' },
-    { id: 'resources', label: 'Resources' },
-    { id: 'users', label: 'People' },
-  ];
+  const clearRecentSearches = useCallback(async () => {
+    setRecentSearches([]);
+    await AsyncStorage.removeItem(RECENT_SEARCHES_KEY);
+  }, []);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Modern Search Header with Gradient background */}
       <LinearGradient
         colors={['#4f46e5', '#4338ca']}
         start={{ x: 0, y: 0 }}
@@ -383,7 +376,6 @@ export default function SearchScreen({ navigation }) {
         </View>
       </LinearGradient>
 
-      {/* Search Description */}
       <View style={[styles.descriptionContainer, { backgroundColor: '#4f46e5' + '08' }]}>
         <Text style={[styles.descriptionText, { color: '#4f46e5' }]}>
           Find classes, people, announcements, resources, and app pages instantly.
@@ -399,7 +391,7 @@ export default function SearchScreen({ navigation }) {
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Recent Searches</Text>
             {recentSearches.length > 0 && (
-              <TouchableOpacity onPress={async () => { setRecentSearches([]); await AsyncStorage.removeItem(RECENT_SEARCHES_KEY); }}>
+              <TouchableOpacity onPress={clearRecentSearches}>
                 <Text style={{ color: theme.colors.primary, fontWeight: '700', fontSize: 12 }}>CLEAR ALL</Text>
               </TouchableOpacity>
             )}
@@ -442,6 +434,8 @@ export default function SearchScreen({ navigation }) {
     </View>
   );
 }
+
+export default React.memo(SearchScreen);
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 
 const WalkthroughContext = createContext({});
 
@@ -43,53 +43,59 @@ export const WalkthroughProvider = ({ children }) => {
         });
     }, []);
 
-    const startWalkthrough = (newSteps) => {
+    const startWalkthrough = useCallback((newSteps) => {
         setSteps(newSteps);
         setCurrentStepIndex(0);
         setIsOpen(true);
-    };
+    }, []);
 
-    const nextStep = () => {
+    const nextStep = useCallback(() => {
         if (currentStepIndex < steps.length - 1) {
             setCurrentStepIndex(prev => prev + 1);
         } else {
             finishWalkthrough();
         }
-    };
+    }, [currentStepIndex, steps.length, finishWalkthrough]);
 
-    const prevStep = () => {
+    const prevStep = useCallback(() => {
         if (currentStepIndex > 0) {
             setCurrentStepIndex(prev => prev - 1);
         }
-    };
+    }, [currentStepIndex]);
 
-    const finishWalkthrough = () => {
+    const finishWalkthrough = useCallback(() => {
         setIsOpen(false);
         // Reset after animation could be better but this is fine
         setTimeout(() => {
             setCurrentStepIndex(0);
             setSteps([]);
         }, 300);
-    };
+    }, []);
+
+    const value = useMemo(() => ({
+        targets,
+        targetRefs, // Export refs
+        registerTarget,
+        registerTargetRef,
+        reMeasureTarget,
+        unregisterTarget,
+        isOpen,
+        currentStep: steps[currentStepIndex],
+        currentStepIndex,
+        totalSteps: steps.length,
+        startWalkthrough,
+        nextStep,
+        prevStep,
+        finishWalkthrough,
+        setIsOpen
+    }), [
+        targets, targetRefs, registerTarget, registerTargetRef, reMeasureTarget,
+        unregisterTarget, isOpen, steps, currentStepIndex, startWalkthrough,
+        nextStep, prevStep, finishWalkthrough
+    ]);
 
     return (
-        <WalkthroughContext.Provider value={{
-            targets,
-            targetRefs, // Export refs
-            registerTarget,
-            registerTargetRef,
-            reMeasureTarget,
-            unregisterTarget,
-            isOpen,
-            currentStep: steps[currentStepIndex],
-            currentStepIndex,
-            totalSteps: steps.length,
-            startWalkthrough,
-            nextStep,
-            prevStep,
-            finishWalkthrough,
-            setIsOpen
-        }}>
+        <WalkthroughContext.Provider value={value}>
             {children}
         </WalkthroughContext.Provider>
     );

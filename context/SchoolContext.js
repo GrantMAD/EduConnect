@@ -74,8 +74,16 @@ export const SchoolProvider = ({ children }) => {
     };
   }, []);
 
+  const value = React.useMemo(() => ({ 
+    schoolId, 
+    schoolData, 
+    loadingSchool, 
+    setSchoolId, 
+    setSchoolData 
+  }), [schoolId, schoolData, loadingSchool]);
+
   return (
-    <SchoolContext.Provider value={{ schoolId, schoolData, loadingSchool, setSchoolId, setSchoolData }}>
+    <SchoolContext.Provider value={value}>
       {children}
     </SchoolContext.Provider>
   );

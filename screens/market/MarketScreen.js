@@ -1,6 +1,6 @@
 // FULL UPDATED MARKET SCREEN WITH FIXED HORIZONTAL SCROLLING AND ANALYTICS
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -41,10 +41,31 @@ import { useChat } from '../../context/ChatContext';
 import { useToast } from '../../context/ToastContext';
 import LinearGradient from 'react-native-linear-gradient';
 
-export default function MarketScreen({ navigation }) {
+const CategoryChip = React.memo(({ item, selected, onPress, theme }) => (
+    <TouchableOpacity
+        style={[
+        styles.categoryChip,
+        selected === item
+            ? { backgroundColor: theme.colors.primary }
+            : { backgroundColor: theme.colors.cardBackground, borderWidth: 1, borderColor: theme.colors.cardBorder },
+        ]}
+        onPress={() => onPress(item)}
+    >
+        <Text
+        style={[
+            styles.categoryChipText,
+            selected === item
+            ? { color: theme.colors.buttonPrimaryText }
+            : { color: theme.colors.text },
+        ]}
+        >
+        {item}
+        </Text>
+    </TouchableOpacity>
+));
+
+const MarketScreen = ({ navigation }) => {
   const [allItems, setAllItems] = useState([]);
-  const [filteredItems, setFilteredItems] = useState([]);
-  const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,28 +83,7 @@ export default function MarketScreen({ navigation }) {
   const { createChannel, channels, user } = useChat();
   const { showToast } = useToast();
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      fetchUserRole();
-      fetchItems();
-    });
-    return unsubscribe;
-  }, [navigation]);
-
-  useEffect(() => {
-    applyFiltersAndSort();
-  }, [allItems, searchQuery, selectedCategory, sortBy, viewMode]);
-
-  const fetchUserRole = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase.from('users').select('role').eq('id', user.id).single();
-      setUserRole(data?.role || '');
-    } catch (e) {}
-  };
-
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     const { data, error } = await supabase
       .from('marketplace_items')
       .select('id, created_at, title, description, price, image_url, category, seller_id, seller:users!seller_id(id, full_name, email, avatar_url, role)')
@@ -92,9 +92,37 @@ export default function MarketScreen({ navigation }) {
 
     if (!error) setAllItems(data || []);
     setLoading(false);
-  };
+  }, []);
 
-  const applyFiltersAndSort = () => {
+  const fetchUserRole = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from('users').select('role').eq('id', user.id).single();
+      setUserRole(data?.role || '');
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchUserRole();
+      fetchItems();
+    });
+    return unsubscribe;
+  }, [navigation, fetchUserRole, fetchItems]);
+
+  const categories = useMemo(() => ['All', 'Books', 'Electronics', 'Stationery', 'Furniture', 'Clothing', 'Other'], []);
+  const categoryIcons = useMemo(() => ({ Books: faBook, Electronics: faLaptop, Stationery: faPen, Furniture: faCouch, Clothing: faTshirt, Other: faBox }), []);
+  const categoryDescriptions = useMemo(() => ({
+    Books: 'Find your textbooks and reading materials here.',
+    Electronics: 'Find tech items here.',
+    Stationery: 'Pens, books & supplies.',
+    Furniture: 'Desks, chairs and more.',
+    Clothing: 'Uniforms & apparel.',
+    Other: 'Misc. items.',
+  }), []);
+
+  const processedData = useMemo(() => {
     let result = [...allItems];
 
     if (searchQuery) {
@@ -117,7 +145,7 @@ export default function MarketScreen({ navigation }) {
     }
 
     if (viewMode === 'grid') {
-      setFilteredItems(result);
+      return { filteredItems: result, sections: [] };
     } else {
       const groupedItems = result.reduce((acc, item) => {
         const category = item.category || 'Other';
@@ -128,50 +156,37 @@ export default function MarketScreen({ navigation }) {
         return acc;
       }, {});
 
-      const newSections = Object.keys(groupedItems).map(category => ({
+      const sections = Object.keys(groupedItems).map(category => ({
         title: category,
         data: [groupedItems[category]],
       }));
 
-      setSections(newSections);
+      return { filteredItems: [], sections };
     }
-  };
+  }, [allItems, searchQuery, selectedCategory, sortBy, viewMode]);
+
+  const { filteredItems, sections } = processedData;
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchItems().then(() => setRefreshing(false));
+  }, [fetchItems]);
+
+  const toggleSort = useCallback(() => {
+    setSortBy(prev => {
+        if (prev === 'newest') return 'price_asc';
+        if (prev === 'price_asc') return 'price_desc';
+        return 'newest';
+    });
   }, []);
 
-  const toggleSort = () => {
-    if (sortBy === 'newest') setSortBy('price_asc');
-    else if (sortBy === 'price_asc') setSortBy('price_desc');
-    else setSortBy('newest');
-  };
+  const sortInfo = useMemo(() => {
+    if (sortBy === 'price_asc') return { icon: faSortAmountUp, label: 'Price: Low' };
+    if (sortBy === 'price_desc') return { icon: faSortAmountDown, label: 'Price: High' };
+    return { icon: faSortAmountDown, label: 'Newest' };
+  }, [sortBy]);
 
-  const getSortIcon = () => {
-    if (sortBy === 'price_asc') return faSortAmountUp;
-    if (sortBy === 'price_desc') return faSortAmountDown;
-    return faSortAmountDown;
-  };
-
-  const getSortLabel = () => {
-    if (sortBy === 'price_asc') return 'Price: Low';
-    if (sortBy === 'price_desc') return 'Price: High';
-    return 'Newest';
-  };
-
-  const categories = ['All', 'Books', 'Electronics', 'Stationery', 'Furniture', 'Clothing', 'Other'];
-  const categoryIcons = { Books: faBook, Electronics: faLaptop, Stationery: faPen, Furniture: faCouch, Clothing: faTshirt, Other: faBox };
-  const categoryDescriptions = {
-    Books: 'Find your textbooks and reading materials here.',
-    Electronics: 'Find tech items here.',
-    Stationery: 'Pens, books & supplies.',
-    Furniture: 'Desks, chairs and more.',
-    Clothing: 'Uniforms & apparel.',
-    Other: 'Misc. items.',
-  };
-
-  const handleMessageSeller = async (seller) => {
+  const handleMessageSeller = useCallback(async (seller) => {
     if (!user) {
       showToast('You must be logged in to message sellers', 'error');
       return;
@@ -198,9 +213,19 @@ export default function MarketScreen({ navigation }) {
       console.error('Error starting chat:', error);
       showToast('Failed to start chat', 'error');
     }
-  };
+  }, [user, channels, createChannel, navigation, showToast]);
 
-  const ListHeader = () => (
+  const handleItemPress = useCallback((item) => {
+    setSelectedItem(item);
+    setItemDetailModalVisible(true);
+  }, []);
+
+  const handleViewSeller = useCallback((seller) => {
+    setSelectedSeller(seller);
+    setModalVisible(true);
+  }, []);
+
+  const ListHeader = useCallback(() => (
     <View>
       <LinearGradient
         colors={['#9333ea', '#4f46e5']} 
@@ -226,12 +251,10 @@ export default function MarketScreen({ navigation }) {
       </LinearGradient>
 
       <View style={{ paddingHorizontal: 16 }}>
-        {/* Admin Analytics */}
         {!loading && userRole === 'admin' && (
             <MarketplaceAnalytics items={allItems} />
         )}
 
-        {/* Search */}
         <View style={styles.searchContainerWrapper}>
             <View style={[styles.searchContainer, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
             <FontAwesomeIcon icon={faSearch} size={16} color={theme.colors.placeholder} style={styles.searchIcon} />
@@ -249,7 +272,6 @@ export default function MarketScreen({ navigation }) {
             </View>
         </View>
 
-        {/* CATEGORY FILTER — FIXED HORIZONTAL SCROLL */}
         <View style={styles.filterContainer}>
             {loading ? (
             <View style={{ flexDirection: 'row' }}>
@@ -264,37 +286,22 @@ export default function MarketScreen({ navigation }) {
                 showsHorizontalScrollIndicator={false}
                 keyExtractor={(item) => item}
                 renderItem={({ item }) => (
-                <TouchableOpacity
-                    style={[
-                    styles.categoryChip,
-                    selectedCategory === item
-                        ? { backgroundColor: theme.colors.primary }
-                        : { backgroundColor: theme.colors.cardBackground, borderWidth: 1, borderColor: theme.colors.cardBorder },
-                    ]}
-                    onPress={() => setSelectedCategory(item)}
-                >
-                    <Text
-                    style={[
-                        styles.categoryChipText,
-                        selectedCategory === item
-                        ? { color: theme.colors.buttonPrimaryText }
-                        : { color: theme.colors.text },
-                    ]}
-                    >
-                    {item}
-                    </Text>
-                </TouchableOpacity>
+                    <CategoryChip 
+                        item={item} 
+                        selected={selectedCategory} 
+                        onPress={setSelectedCategory} 
+                        theme={theme} 
+                    />
                 )}
             />
             )}
         </View>
 
-        {/* CONTROLS */}
         {!loading && (
             <View style={styles.controlsRow}>
             <TouchableOpacity style={styles.controlButton} onPress={toggleSort}>
-                <FontAwesomeIcon icon={getSortIcon()} size={14} color={theme.colors.text} style={{ marginRight: 6 }} />
-                <Text style={[styles.controlText, { color: theme.colors.text }]}>{getSortLabel()}</Text>
+                <FontAwesomeIcon icon={sortInfo.icon} size={14} color={theme.colors.text} style={{ marginRight: 6 }} />
+                <Text style={[styles.controlText, { color: theme.colors.text }]}>{sortInfo.label}</Text>
             </TouchableOpacity>
 
             <View style={{ flexDirection: 'row' }}>
@@ -316,7 +323,47 @@ export default function MarketScreen({ navigation }) {
         )}
       </View>
     </View>
-  );
+  ), [loading, userRole, allItems, theme, searchQuery, selectedCategory, categories, toggleSort, sortInfo, viewMode, navigation]);
+
+  const renderGridItem = useCallback(({ item }) => (
+    <View style={{ flex: 0.5, paddingHorizontal: 8 }}>
+      <MarketplaceItemCard
+        item={item}
+        onViewSeller={() => handleItemPress(item)}
+      />
+    </View>
+  ), [handleItemPress]);
+
+  const renderSectionHeader = useCallback(({ section: { title } }) => (
+    <View style={styles.sectionHeaderContainer}>
+      <FontAwesomeIcon icon={categoryIcons[title]} size={18} color={theme.colors.primary} style={styles.sectionHeaderIcon} />
+      <View>
+        <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>{title}</Text>
+        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>{categoryDescriptions[title]}</Text>
+      </View>
+    </View>
+  ), [theme, categoryIcons, categoryDescriptions]);
+
+  const renderSectionItem = useCallback(({ item }) => (
+    <FlatList
+      data={item}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ paddingLeft: 16, paddingRight: 8 }}
+      keyExtractor={(item) => item.id.toString()}
+      nestedScrollEnabled={true}
+      removeClippedSubviews={false}
+      keyboardShouldPersistTaps="handled"
+      renderItem={({ item }) => (
+        <View style={{ width: 200, marginRight: 16 }}>
+          <MarketplaceItemCard
+            item={item}
+            onViewSeller={() => handleItemPress(item)}
+          />
+        </View>
+      )}
+    />
+  ), [handleItemPress]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -341,17 +388,7 @@ export default function MarketScreen({ navigation }) {
           data={filteredItems}
           keyExtractor={(item) => item.id.toString()}
           numColumns={2}
-          renderItem={({ item }) => (
-            <View style={{ flex: 0.5, paddingHorizontal: 8 }}>
-              <MarketplaceItemCard
-                item={item}
-                onViewSeller={() => {
-                  setSelectedItem(item);
-                  setItemDetailModalVisible(true);
-                }}
-              />
-            </View>
-          )}
+          renderItem={renderGridItem}
           contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 80 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           removeClippedSubviews={true}
@@ -366,42 +403,11 @@ export default function MarketScreen({ navigation }) {
           keyExtractor={(item, index) => index.toString()}
           contentContainerStyle={{ paddingBottom: 80 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          renderSectionHeader={({ section: { title } }) => (
-            <View style={styles.sectionHeaderContainer}>
-              <FontAwesomeIcon icon={categoryIcons[title]} size={18} color={theme.colors.primary} style={styles.sectionHeaderIcon} />
-              <View>
-                <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>{title}</Text>
-                <Text style={[styles.sectionDescription, { color: theme.colors.placeholder }]}>{categoryDescriptions[title]}</Text>
-              </View>
-            </View>
-          )}
-          renderItem={({ item }) => (
-            <FlatList
-              data={item}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingLeft: 16, paddingRight: 8 }}
-              keyExtractor={(item) => item.id.toString()}
-              nestedScrollEnabled={true}
-              removeClippedSubviews={false}
-              keyboardShouldPersistTaps="handled"
-              renderItem={({ item }) => (
-                <View style={{ width: 200, marginRight: 16 }}>
-                  <MarketplaceItemCard
-                    item={item}
-                    onViewSeller={() => {
-                      setSelectedItem(item);
-                      setItemDetailModalVisible(true);
-                    }}
-                  />
-                </View>
-              )}
-            />
-          )}
+          renderSectionHeader={renderSectionHeader}
+          renderItem={renderSectionItem}
         />
       )}
 
-      {/* FAB */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: theme.colors.primary }]}
         onPress={() => navigation.navigate('CreateMarketplaceItem', { fromMarketScreen: true })}
@@ -412,10 +418,7 @@ export default function MarketScreen({ navigation }) {
       <MarketplaceItemDetailModal
         visible={itemDetailModalVisible}
         item={selectedItem}
-        onViewSeller={(seller) => {
-          setSelectedSeller(seller);
-          setModalVisible(true);
-        }}
+        onViewSeller={handleViewSeller}
         onMessageSeller={handleMessageSeller}
         onClose={() => setItemDetailModalVisible(false)}
       />
@@ -428,6 +431,8 @@ export default function MarketScreen({ navigation }) {
     </View>
   );
 }
+
+export default React.memo(MarketScreen);
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

@@ -6,7 +6,7 @@ import { faTimes, faClock, faCalendarAlt, faCheck } from '@fortawesome/free-soli
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 
-export default function ClassScheduleModal({ visible, onClose, selectedDate, onSave }) {
+const ClassScheduleModal = React.memo(({ visible, onClose, selectedDate, onSave }) => {
     const { theme } = useTheme();
     const { showToast } = useToast();
     const [startTime, setStartTime] = useState('');
@@ -133,7 +133,7 @@ export default function ClassScheduleModal({ visible, onClose, selectedDate, onS
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -254,3 +254,5 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
 });
+
+export default ClassScheduleModal;

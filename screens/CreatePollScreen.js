@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
@@ -13,7 +13,7 @@ import LinearGradient from 'react-native-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-export default function CreatePollScreen({ navigation, route }) {
+const CreatePollScreen = ({ navigation, route }) => {
   const { fromDashboard } = route.params || {};
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
@@ -26,23 +26,27 @@ export default function CreatePollScreen({ navigation, route }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const handleOptionChange = (text, index) => {
-    const newOptions = [...options];
-    newOptions[index] = text;
-    setOptions(newOptions);
-  };
+  const handleOptionChange = useCallback((text, index) => {
+    setOptions(prevOptions => {
+        const newOptions = [...prevOptions];
+        newOptions[index] = text;
+        return newOptions;
+    });
+  }, []);
 
-  const addOption = () => {
-    setOptions([...options, '']);
-  };
+  const addOption = useCallback(() => {
+    setOptions(prevOptions => [...prevOptions, '']);
+  }, []);
 
-  const removeOption = (index) => {
-    const newOptions = [...options];
-    newOptions.splice(index, 1);
-    setOptions(newOptions);
-  };
+  const removeOption = useCallback((index) => {
+    setOptions(prevOptions => {
+        const newOptions = [...prevOptions];
+        newOptions.splice(index, 1);
+        return newOptions;
+    });
+  }, []);
 
-  const handleCreatePoll = async () => {
+  const handleCreatePoll = useCallback(async () => {
     if (!question.trim() || options.some(opt => !opt.trim())) {
       showToast('Please fill out the question and all options.', 'error');
       return;
@@ -109,7 +113,9 @@ export default function CreatePollScreen({ navigation, route }) {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [question, options, endDate, schoolId, awardXP, navigation, showToast]);
+
+  const handleDayPress = useCallback((day) => setEndDate(day.dateString), []);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -191,7 +197,7 @@ export default function CreatePollScreen({ navigation, route }) {
         <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 20 }]}>
             <Text style={styles.cardSectionLabel}>POLL DURATION</Text>
             <Calendar
-                onDayPress={(day) => setEndDate(day.dateString)}
+                onDayPress={handleDayPress}
                 hideExtraDays={true}
                 markedDates={{
                     [endDate]: { selected: true, marked: true, selectedColor: theme.colors.primary },
@@ -244,6 +250,8 @@ export default function CreatePollScreen({ navigation, route }) {
     </View>
   );
 }
+
+export default React.memo(CreatePollScreen);
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -308,113 +316,4 @@ const styles = StyleSheet.create({
   createBtnContainer: { marginBottom: 20 },
   createBtn: { height: 60, borderRadius: 20, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   createBtnText: { color: '#fff', fontSize: 16, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  header: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    marginLeft: 10,
-  },
-  description: {
-    fontSize: 16,
-    marginBottom: 24,
-    marginLeft: 10,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  icon: {
-    marginRight: 12,
-    marginTop: 2,
-  },
-  label: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  optionWrapper: {
-    marginBottom: 12,
-  },
-  optionContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  optionCharCount: {
-    fontSize: 10,
-    textAlign: 'right',
-    marginTop: 2,
-    marginRight: 12,
-  },
-  optionInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-    marginRight: 12,
-  },
-  removeOptionButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addOptionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginTop: 10,
-  },
-  addOptionButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  createButton: {
-    alignItems: 'center',
-    padding: 18,
-    borderRadius: 12,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.30,
-    shadowRadius: 4.65,
-    elevation: 8,
-  },
-  selectedDateCard: {
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  selectedDateText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  backButton: {
-    marginBottom: 10,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '500',
-  },
 });

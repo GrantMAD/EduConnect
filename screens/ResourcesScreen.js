@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl, Dimensions } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { 
   faBook, faPlus, faFileAlt, faThumbsUp, faThumbsDown, faBookmark, 
   faSortAmountDown, faFilter, faInfoCircle, faFolder, faFolderOpen,
-  faFilePdf, faFileImage, faFileWord, faFileExcel, faArrowLeft
+  faFilePdf, faFileImage, faFileWord, faFileExcel, faArrowLeft, faCopy, faCamera
 } from '@fortawesome/free-solid-svg-icons';
 import CreateResourceModal from '../components/CreateResourceModal';
 import ResourceDetailModal from '../components/ResourceDetailModal';
@@ -22,7 +22,7 @@ import LinearGradient from 'react-native-linear-gradient';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-export default function ResourcesScreen() {
+const ResourcesScreen = () => {
   const { schoolId } = useSchool();
   const { theme } = useTheme();
   const { showToast } = useToast();
@@ -47,13 +47,7 @@ export default function ResourcesScreen() {
   
   const [currentFolder, setCurrentFolder] = useState(null);
 
-  useEffect(() => {
-    fetchUserRole();
-    fetchResources();
-    fetchBookmarks();
-  }, [schoolId, activeTab]);
-
-  const fetchBookmarks = async () => {
+  const fetchBookmarks = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -69,9 +63,9 @@ export default function ResourcesScreen() {
     } catch (error) {
       console.error('Error fetching bookmarks:', error);
     }
-  };
+  }, []);
 
-  const toggleBookmark = async (resourceId) => {
+  const toggleBookmark = useCallback(async (resourceId) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -107,15 +101,15 @@ export default function ResourcesScreen() {
       console.error('Error toggling bookmark:', error);
       showToast('Failed to toggle bookmark', 'error');
     }
-  };
+  }, [bookmarkedIds, showToast]);
 
-  const handleEditPress = (resource) => {
+  const handleEditPress = useCallback((resource) => {
     setDetailModalVisible(false);
     setEditingResource(resource);
     setShowCreateModal(true);
-  };
+  }, []);
 
-  const fetchUserRole = async () => {
+  const fetchUserRole = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -131,9 +125,9 @@ export default function ResourcesScreen() {
     } catch (error) {
       console.error('Error fetching user role:', error);
     }
-  };
+  }, []);
 
-  const fetchResources = async (silent = false) => {
+  const fetchResources = useCallback(async (silent = false) => {
     if (!schoolId) return;
 
     if (!silent) setLoading(true);
@@ -178,15 +172,21 @@ export default function ResourcesScreen() {
     } finally {
       if (!silent) setLoading(false);
     }
-  };
+  }, [schoolId, activeTab]);
 
-  const onRefresh = React.useCallback(async () => {
+  useEffect(() => {
+    fetchUserRole();
+    fetchResources();
+    fetchBookmarks();
+  }, [schoolId, activeTab, fetchUserRole, fetchResources, fetchBookmarks]);
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([fetchResources(true), fetchBookmarks()]);
     setRefreshing(false);
-  }, [schoolId, activeTab]);
+  }, [fetchResources, fetchBookmarks]);
 
-  const getFileIcon = (fileUrl) => {
+  const getFileIcon = useCallback((fileUrl) => {
     if (!fileUrl) return faFileAlt;
     const lowerUrl = fileUrl.toLowerCase();
     if (lowerUrl.endsWith('.pdf')) return faFilePdf;
@@ -194,9 +194,9 @@ export default function ResourcesScreen() {
     if (lowerUrl.match(/\.(doc|docx)$/)) return faFileWord;
     if (lowerUrl.match(/\.(xls|xlsx)$/)) return faFileExcel;
     return faFileAlt;
-  };
+  }, []);
 
-  const processResources = () => {
+  const filteredResources = useMemo(() => {
     let processed = [...resources];
 
     if (searchTerm) {
@@ -222,17 +222,14 @@ export default function ResourcesScreen() {
     });
 
     return processed;
-  };
+  }, [resources, searchTerm, showBookmarkedOnly, bookmarkedIds, currentFolder, sortBy]);
 
-  const getCategories = () => {
+  const categories = useMemo(() => {
     const cats = new Set(resources.map(r => r.category || 'General'));
     return Array.from(cats).sort();
-  };
+  }, [resources]);
 
-  const filteredResources = processResources();
-  const categories = getCategories();
-
-  const renderResourceItem = (item) => (
+  const renderResourceItem = useCallback((item) => (
     <View key={item.id.toString()} style={styles.resourceItemContainer}>
       <TouchableOpacity
         onPress={() => {
@@ -271,7 +268,16 @@ export default function ResourcesScreen() {
         />
       </TouchableOpacity>
     </View>
-  );
+  ), [theme, getFileIcon, toggleBookmark, bookmarkedIds]);
+
+  const openInfoModal = useCallback(() => setInfoModalVisible(true), []);
+  const closeInfoModal = useCallback(() => setInfoModalVisible(false), []);
+  const openCreateModal = useCallback(() => setShowCreateModal(true), []);
+  const closeCreateModal = useCallback(() => {
+    setShowCreateModal(false);
+    setEditingResource(null);
+    fetchResources();
+  }, [fetchResources]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -283,13 +289,24 @@ export default function ResourcesScreen() {
       >
         <View style={styles.heroContent}>
             <View style={styles.heroTextContainer}>
+                {currentFolder && !searchTerm && (
+                    <TouchableOpacity 
+                        onPress={() => setCurrentFolder(null)} 
+                        style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}
+                    >
+                        <FontAwesomeIcon icon={faArrowLeft} size={14} color="#fff" />
+                        <Text style={{ color: '#fff', marginLeft: 8, fontSize: 14, fontWeight: '600' }}>Back to Folders</Text>
+                    </TouchableOpacity>
+                )}
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                      <Text style={styles.heroTitle}>
                         {currentFolder && !searchTerm ? currentFolder : 'Resources'}
                     </Text>
-                    <TouchableOpacity onPress={() => setInfoModalVisible(true)} style={styles.infoButton}>
-                        <FontAwesomeIcon icon={faInfoCircle} size={16} color="rgba(255,255,255,0.7)" />
-                    </TouchableOpacity>
+                    {!currentFolder && (
+                        <TouchableOpacity onPress={openInfoModal} style={styles.infoButton}>
+                            <FontAwesomeIcon icon={faInfoCircle} size={16} color="rgba(255,255,255,0.7)" />
+                        </TouchableOpacity>
+                    )}
                 </View>
                 {!currentFolder && (
                     <Text style={styles.heroDescription}>
@@ -300,7 +317,7 @@ export default function ResourcesScreen() {
                 )}
             </View>
              {(userRole === 'teacher' || userRole === 'admin') && (
-                <TouchableOpacity style={styles.addButton} onPress={() => setShowCreateModal(true)}>
+                <TouchableOpacity style={styles.addButton} onPress={openCreateModal}>
                     <FontAwesomeIcon icon={faPlus} size={14} color="#4f46e5" />
                     <Text style={styles.addButtonText}>New</Text>
                 </TouchableOpacity>
@@ -308,7 +325,6 @@ export default function ResourcesScreen() {
         </View>
       </LinearGradient>
 
-      {/* Tabs - Only show when at root and not searching */}
       {(!currentFolder && !searchTerm) && (userRole === 'teacher' || userRole === 'admin') && (
         <View style={styles.tabContainer}>
           <TouchableOpacity
@@ -332,18 +348,16 @@ export default function ResourcesScreen() {
         </View>
       )}
 
-      {/* Breadcrumb / Back Navigation */}
       {(currentFolder && !searchTerm) && (
-        <TouchableOpacity style={styles.backButton} onPress={() => setCurrentFolder(null)}>
-          <FontAwesomeIcon icon={faArrowLeft} size={16} color={theme.colors.primary} />
-          <Text style={[styles.backButtonText, { color: theme.colors.primary }]}>Back to Folders</Text>
-        </TouchableOpacity>
+        <View style={{ height: 10 }} />
       )}
 
       {loading ? (
-        <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8, marginBottom: 20 }} />
+        <View style={{ paddingHorizontal: 16, marginBottom: 20, marginTop: 20 }}>
+            <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8 }} />
+        </View>
       ) : (
-        <View style={{ paddingHorizontal: 16 }}>
+        <View style={{ paddingHorizontal: 16, marginTop: 20 }}>
              <TextInput
             style={[styles.searchInput, { color: theme.colors.text, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.inputBackground }]}
             placeholder="Search resources..."
@@ -357,7 +371,6 @@ export default function ResourcesScreen() {
         </View>
       )}
 
-      {/* Controls - Only show in file list view (search or inside folder) */}
       {(searchTerm || currentFolder) && (
         <View style={styles.controlsContainer}>
           <TouchableOpacity
@@ -395,7 +408,6 @@ export default function ResourcesScreen() {
           [1, 2, 3].map(i => <ResourceCardSkeleton key={i} />)
         ) : (
           <>
-            {/* View: Folder Grid */}
             {!currentFolder && !searchTerm && (
               <View style={styles.folderGrid}>
                 {categories.length === 0 ? (
@@ -418,7 +430,6 @@ export default function ResourcesScreen() {
               </View>
             )}
 
-            {/* View: File List (Inside Folder or Search Results) */}
             {(currentFolder || searchTerm) && (
               <View>
                 {filteredResources.length === 0 ? (
@@ -436,11 +447,7 @@ export default function ResourcesScreen() {
       <CreateResourceModal
         visible={showCreateModal}
         initialData={editingResource}
-        onClose={() => {
-          setShowCreateModal(false);
-          setEditingResource(null);
-          fetchResources();
-        }}
+        onClose={closeCreateModal}
       />
 
       <ResourceDetailModal
@@ -454,7 +461,7 @@ export default function ResourcesScreen() {
 
       <StandardBottomModal
         visible={infoModalVisible}
-        onClose={() => setInfoModalVisible(false)}
+        onClose={closeInfoModal}
         title="About Resources"
         icon={faInfoCircle}
       >
@@ -474,6 +481,8 @@ export default function ResourcesScreen() {
     </View>
   );
 }
+
+export default React.memo(ResourcesScreen);
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
@@ -603,7 +612,6 @@ const styles = StyleSheet.create({
   modalText: { fontSize: 16, color: '#333', marginBottom: 10 },
   bulletPoint: { fontSize: 15, color: '#555', marginBottom: 8, marginLeft: 10 },
   
-  // Folder Styles
   folderGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

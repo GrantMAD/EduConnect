@@ -10,7 +10,8 @@ import {
   FlatList,
   TextInput,
   Dimensions,
-  RefreshControl
+  RefreshControl,
+  Modal
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
@@ -36,7 +37,11 @@ import {
   faClock,
   faComment,
   faQuoteLeft,
-  faUserFriends
+  faUserFriends,
+  faFileSignature,
+  faUserEdit,
+  faCalendarAlt,
+  faExclamationCircle
 } from '@fortawesome/free-solid-svg-icons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -48,7 +53,110 @@ const defaultUserImage = require('../assets/user.png');
 
 // --- Helper Components ---
 
-const AttendancePill = ({ status, date, theme }) => {
+const GradeDetailModal = React.memo(({ visible, onClose, mark, theme }) => {
+  if (!mark) return null;
+
+  let displayValue = mark.mark;
+  let percentage = null;
+
+  if (mark.score !== null && mark.total_possible !== null && mark.total_possible > 0) {
+    percentage = Math.round((mark.score / mark.total_possible) * 100);
+    displayValue = percentage + '%';
+  } else if (mark.mark && mark.mark.length > 5) {
+    const parsed = parseFloat(mark.mark);
+    if (!isNaN(parsed)) {
+      percentage = Math.round(parsed);
+      displayValue = percentage + '%';
+    }
+  }
+
+  const assessmentName = mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[1].trim() : mark.assessment_name;
+  const assessmentType = mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[0] : 'Assessment';
+
+  return (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <TouchableOpacity 
+        style={styles.modalOverlay} 
+        activeOpacity={1} 
+        onPress={onClose}
+      >
+        <TouchableOpacity 
+          activeOpacity={1} 
+          style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}
+        >
+          <View style={[styles.modalHeader, { borderBottomColor: theme.colors.cardBorder }]}>
+            <View style={[styles.modalIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+              <FontAwesomeIcon icon={faFileSignature} size={20} color={theme.colors.primary} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 16 }}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Grade Details</Text>
+              <Text style={[styles.modalSubtitle, { color: theme.colors.placeholder }]}>{assessmentType}</Text>
+            </View>
+          </View>
+
+          <ScrollView style={styles.modalBody}>
+            <View style={styles.detailCard}>
+              <Text style={[styles.detailLabel, { color: theme.colors.placeholder }]}>ASSESSMENT NAME</Text>
+              <Text style={[styles.detailValue, { color: theme.colors.text }]}>{assessmentName}</Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <View style={[styles.detailCard, { flex: 1, marginRight: 8 }]}>
+                <Text style={[styles.detailLabel, { color: theme.colors.placeholder }]}>SCORE</Text>
+                <Text style={[styles.detailValue, { color: theme.colors.text }]}>
+                  {mark.score !== null && mark.total_possible !== null ? `${mark.score} / ${mark.total_possible}` : mark.mark || 'N/A'}
+                </Text>
+              </View>
+              <View style={[styles.detailCard, { flex: 1, marginLeft: 8 }]}>
+                <Text style={[styles.detailLabel, { color: theme.colors.placeholder }]}>PERCENTAGE</Text>
+                <Text style={[styles.detailValue, { color: theme.colors.primary }]}>{displayValue}</Text>
+              </View>
+            </View>
+
+            {mark.teacher_feedback && (
+              <View style={[styles.detailCard, { backgroundColor: theme.colors.primary + '05', borderWidth: 1, borderColor: theme.colors.primary + '10' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <FontAwesomeIcon icon={faComment} size={14} color={theme.colors.primary} />
+                  <Text style={[styles.detailLabel, { color: theme.colors.primary, marginLeft: 8, marginBottom: 0 }]}>TEACHER FEEDBACK</Text>
+                </View>
+                <Text style={[styles.feedbackTextLarge, { color: theme.colors.text }]}>"{mark.teacher_feedback}"</Text>
+              </View>
+            )}
+
+            <View style={[styles.detailCard, { marginTop: 8 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <FontAwesomeIcon icon={faCalendarAlt} size={14} color={theme.colors.placeholder} />
+                    <Text style={[styles.detailLabel, { color: theme.colors.placeholder, marginLeft: 8, marginBottom: 0 }]}>RECORDED ON</Text>
+                </View>
+                <Text style={[styles.dateText, { color: theme.colors.text, marginTop: 4 }]}>
+                    {new Date(mark.created_at || new Date()).toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    })}
+                </Text>
+            </View>
+          </ScrollView>
+
+          <TouchableOpacity 
+            style={[styles.modalCloseBtn, { backgroundColor: theme.colors.primary }]} 
+            onPress={onClose}
+          >
+            <Text style={styles.modalCloseBtnText}>Close</Text>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+  );
+});
+
+const AttendancePill = React.memo(({ status, date, theme }) => {
   const config = {
     present: { icon: faCheckCircle, color: theme.colors.success, bg: theme.colors.success + '15' },
     absent: { icon: faTimesCircle, color: theme.colors.error, bg: theme.colors.error + '15' },
@@ -66,9 +174,12 @@ const AttendancePill = ({ status, date, theme }) => {
       </Text>
     </View>
   );
-};
+});
 
-const MarkRow = ({ mark, theme }) => {
+const MarkRow = React.memo(({ mark, theme }) => {
+  const [modalVisible, setModalVisible] = useState(false);
+  const toggleModal = useCallback(() => setModalVisible(prev => !prev), []);
+
   let displayValue = mark.mark;
 
   if (mark.score !== null && mark.total_possible !== null && mark.total_possible > 0) {
@@ -78,40 +189,49 @@ const MarkRow = ({ mark, theme }) => {
     if (!isNaN(parsed)) displayValue = Math.round(parsed) + '%';
   }
 
-  return (
-    <View style={{ marginBottom: 12 }}>
-      <View style={[styles.markRow, { borderBottomColor: theme.colors.cardBorder }]}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.markAssessment, { color: theme.colors.text }]} numberOfLines={1}>
-            {mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[1].trim() : mark.assessment_name}
-          </Text>
-          <Text style={[styles.markType, { color: theme.colors.primary }]}>
-            {mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[0] : 'Assessment'}
-          </Text>
-          {(mark.score !== null && mark.total_possible !== null) && (
-            <Text style={{ fontSize: 11, color: theme.colors.placeholder, marginTop: 2, fontWeight: '500' }}>
-              Score: {mark.score}/{mark.total_possible}
-            </Text>
-          )}
-        </View>
-        <View style={[styles.markBadge, { backgroundColor: theme.colors.background, width: 'auto', minWidth: 44, paddingHorizontal: 8, borderWidth: 1, borderColor: theme.colors.cardBorder }]}>
-          <Text style={[styles.markValue, { color: theme.colors.text, fontSize: 13 }]}>{displayValue}</Text>
-        </View>
-      </View>
-      {mark.teacher_feedback && (
-        <View style={[styles.feedbackContainer, { backgroundColor: theme.colors.primary + '05', borderColor: theme.colors.primary + '10', borderWidth: 1 }]}>
-          <FontAwesomeIcon icon={faComment} size={10} color={theme.colors.primary} style={{ marginRight: 6, marginTop: 2 }} />
-          <Text style={[styles.feedbackText, { color: theme.colors.placeholder }]}>
-            {mark.teacher_feedback}
-          </Text>
-        </View>
-      )}
-    </View>
-  );
-};
+  const assessmentName = mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[1].trim() : mark.assessment_name;
+  const assessmentType = mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[0] : 'Assessment';
 
-const ClassCard = ({ classInfo, theme }) => {
+  return (
+    <>
+      <TouchableOpacity 
+        style={[styles.markRowContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+        onPress={toggleModal}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.markTypeBadge, { backgroundColor: theme.colors.primary + '10' }]}>
+            <Text style={[styles.markTypeText, { color: theme.colors.primary }]}>{assessmentType.substring(0, 4).toUpperCase()}</Text>
+        </View>
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={[styles.markAssessment, { color: theme.colors.text }]} numberOfLines={1}>
+            {assessmentName}
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+            <FontAwesomeIcon icon={faCalendarAlt} size={10} color={theme.colors.placeholder} />
+            <Text style={{ fontSize: 11, color: theme.colors.placeholder, marginLeft: 4, fontWeight: '500' }}>
+              {new Date(mark.created_at || new Date()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </Text>
+          </View>
+        </View>
+        <View style={[styles.markValueBadge, { backgroundColor: theme.colors.background }]}>
+          <Text style={[styles.markValue, { color: theme.colors.text }]}>{displayValue}</Text>
+          <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.placeholder} style={{ marginLeft: 8 }} />
+        </View>
+      </TouchableOpacity>
+
+      <GradeDetailModal 
+        visible={modalVisible} 
+        onClose={toggleModal} 
+        mark={mark} 
+        theme={theme} 
+      />
+    </>
+  );
+});
+
+const ClassCard = React.memo(({ classInfo, theme }) => {
   const [expanded, setExpanded] = useState(false);
+  const toggleExpanded = useCallback(() => setExpanded(prev => !prev), []);
 
   const attendanceStats = useMemo(() => classInfo.fullAttendance?.reduce((acc, curr) => {
     if (curr.status === 'present') acc.present++;
@@ -148,7 +268,7 @@ const ClassCard = ({ classInfo, theme }) => {
 
   return (
     <View style={[styles.clsCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-      <TouchableOpacity onPress={() => setExpanded(!expanded)} style={styles.clsCardHeader}>
+      <TouchableOpacity onPress={toggleExpanded} style={styles.clsCardHeader}>
         <View style={styles.clsIconNameRow}>
           <View style={[styles.clsIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
             <FontAwesomeIcon icon={faChalkboardTeacher} size={18} color={theme.colors.primary} />
@@ -204,11 +324,9 @@ const ClassCard = ({ classInfo, theme }) => {
       )}
     </View>
   );
-};
+});
 
-// --- Student Dashboard ---
-
-const StudentDashboard = ({ student, theme, refreshTrigger }) => {
+const StudentDashboard = React.memo(({ student, theme, refreshTrigger }) => {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -238,7 +356,7 @@ const StudentDashboard = ({ student, theme, refreshTrigger }) => {
 
         const { data: allMarks } = await supabase
           .from('student_marks')
-          .select('class_id, assessment_name, mark, teacher_feedback, score, total_possible')
+          .select('class_id, assessment_name, mark, teacher_feedback, score, total_possible, created_at')
           .eq('student_id', student.id)
           .in('class_id', classIds)
           .order('created_at', { ascending: false });
@@ -338,11 +456,9 @@ const StudentDashboard = ({ student, theme, refreshTrigger }) => {
       {classes.map((cls, idx) => <ClassCard key={idx} classInfo={cls} theme={theme} />)}
     </View>
   );
-};
+});
 
-// --- Admin Components ---
-
-const AdminFamilyCard = ({ parentData, onClick, theme }) => (
+const AdminFamilyCard = React.memo(({ parentData, onClick, theme }) => (
   <TouchableOpacity
     onPress={onClick}
     activeOpacity={0.9}
@@ -368,9 +484,9 @@ const AdminFamilyCard = ({ parentData, onClick, theme }) => (
       <Text style={[styles.viewAll, { color: '#4F46E5' }]}>View Family Overview →</Text>
     </View>
   </TouchableOpacity>
-);
+));
 
-const AdminFamilyDetail = ({ parentData, onBack, theme }) => (
+const AdminFamilyDetail = React.memo(({ parentData, onBack, theme }) => (
   <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
     <TouchableOpacity onPress={onBack} style={styles.backBtn}>
       <FontAwesomeIcon icon={faArrowLeft} color={theme.colors.placeholder} size={16} />
@@ -409,11 +525,9 @@ const AdminFamilyDetail = ({ parentData, onBack, theme }) => (
       ))}
     </View>
   </ScrollView>
-);
+));
 
-// --- Main Page ---
-
-export default function MyChildrenScreen({ navigation }) {
+const MyChildrenScreen = ({ navigation }) => {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const [children, setChildren] = useState([]);
@@ -427,11 +541,7 @@ export default function MyChildrenScreen({ navigation }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedParent, setSelectedParent] = useState(null);
 
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
-
-  const fetchInitialData = async (silent = false) => {
+  const fetchInitialData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -477,15 +587,54 @@ export default function MyChildrenScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     setRefreshTrigger(prev => prev + 1);
     fetchInitialData(true);
-  }, []);
+  }, [fetchInitialData]);
 
-  if (loading) return <MyChildrenScreenSkeleton />;
+  const selectParent = useCallback((parent) => setSelectedParent(parent), []);
+  const clearSelectedParent = useCallback(() => setSelectedParent(null), []);
+  const selectChild = useCallback((childId) => setSelectedChildId(childId), []);
+
+  if (loading) {
+    return (
+        <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+                <LinearGradient
+                    colors={['#4f46e5', '#7c3aed']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.heroContainer}
+                >
+                    <View style={styles.heroContent}>
+                        <View style={styles.heroTextContainer}>
+                            <Text style={styles.heroTitle}>My Children</Text>
+                            <Text style={styles.heroDescription}>
+                                Academic performance and attendance overview.
+                            </Text>
+                        </View>
+                        <View style={[styles.heroActionBtn, { opacity: 0.5 }]}>
+                            <FontAwesomeIcon icon={faUserPlus} size={14} color="#4f46e5" />
+                        </View>
+                    </View>
+                </LinearGradient>
+
+                <View style={{ padding: 20 }}>
+                    <ChildCardSkeleton />
+                    <ChildCardSkeleton />
+                    <ChildCardSkeleton />
+                </View>
+            </ScrollView>
+        </View>
+    );
+  }
 
   if (userRole === 'admin') {
     const filtered = parents.filter(p => p.parent.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || p.parent.email.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -493,12 +642,12 @@ export default function MyChildrenScreen({ navigation }) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
         {selectedParent ? (
-          <AdminFamilyDetail parentData={selectedParent} onBack={() => setSelectedParent(null)} theme={theme} />
+          <AdminFamilyDetail parentData={selectedParent} onBack={clearSelectedParent} theme={theme} />
         ) : (
           <FlatList
             data={filtered}
             keyExtractor={item => item.parent.id}
-            renderItem={({ item }) => <AdminFamilyCard parentData={item} onClick={() => setSelectedParent(item)} theme={theme} />}
+            renderItem={({ item }) => <AdminFamilyCard parentData={item} onClick={() => selectParent(item)} theme={theme} />}
             contentContainerStyle={{ paddingBottom: 40 }}
             refreshing={refreshing}
             onRefresh={onRefresh}
@@ -592,7 +741,7 @@ export default function MyChildrenScreen({ navigation }) {
               {children.map(child => (
                 <TouchableOpacity
                   key={child.id}
-                  onPress={() => setSelectedChildId(child.id)}
+                  onPress={() => selectChild(child.id)}
                   style={[styles.childBtn, {
                     backgroundColor: selectedChildId === child.id ? theme.colors.primary : theme.colors.card,
                     borderColor: selectedChildId === child.id ? theme.colors.primary : theme.colors.cardBorder
@@ -623,7 +772,7 @@ export default function MyChildrenScreen({ navigation }) {
       </ScrollView>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   heroContainer: {
@@ -761,4 +910,113 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     flex: 1,
   },
+  // New Styles
+  markRowContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 16,
+    marginBottom: 8,
+  },
+  markTypeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    minWidth: 45,
+    alignItems: 'center',
+  },
+  markTypeText: {
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  markValueBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    borderRadius: 24,
+    padding: 24,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    marginBottom: 20,
+  },
+  modalIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 2,
+    textTransform: 'uppercase',
+  },
+  modalBody: {
+    marginBottom: 20,
+  },
+  detailCard: {
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    marginBottom: 0,
+  },
+  detailLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    marginBottom: 6,
+    letterSpacing: 1,
+  },
+  detailValue: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  feedbackTextLarge: {
+    fontSize: 15,
+    fontStyle: 'italic',
+    lineHeight: 22,
+    fontWeight: '500',
+  },
+  dateText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalCloseBtn: {
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  modalCloseBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+  },
 });
+
+export default React.memo(MyChildrenScreen);

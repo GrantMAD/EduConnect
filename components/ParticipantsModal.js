@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faUsers, faUserCircle } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
-export default function ParticipantsModal({ visible, onClose, participants }) {
+const ParticipantsModal = React.memo(({ visible, onClose, participants }) => {
     const { theme } = useTheme();
 
     const renderParticipant = ({ item }) => (
@@ -63,7 +63,7 @@ export default function ParticipantsModal({ visible, onClose, participants }) {
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -147,3 +147,5 @@ const styles = StyleSheet.create({
         paddingVertical: 40,
     }
 });
+
+export default ParticipantsModal;

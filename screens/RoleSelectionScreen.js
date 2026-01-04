@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, ScrollView, Dimensions } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -9,7 +9,7 @@ import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
-const RoleCard = ({ title, description, icon, onPress, loading, color, theme }) => (
+const RoleCard = React.memo(({ title, description, icon, onPress, loading, color, theme }) => (
   <TouchableOpacity 
     style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]} 
     onPress={onPress} 
@@ -25,15 +25,15 @@ const RoleCard = ({ title, description, icon, onPress, loading, color, theme }) 
     </View>
     {loading && <ActivityIndicator color={color} style={styles.cardSpinner} />}
   </TouchableOpacity>
-);
+));
 
-export default function RoleSelectionScreen({ navigation }) {
+const RoleSelectionScreen = ({ navigation }) => {
   const [loadingRole, setLoadingRole] = useState(null);
   const [signingOut, setSigningOut] = useState(false);
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
 
-  const updateUserRole = async (role) => {
+  const updateUserRole = useCallback(async (role) => {
     setLoadingRole(role);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -49,16 +49,16 @@ export default function RoleSelectionScreen({ navigation }) {
       }
     }
     setLoadingRole(null);
-  };
+  }, [navigation]);
 
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     setSigningOut(true);
     const { error } = await supabase.auth.signOut();
     if (error) {
       Alert.alert('Error', error.message);
       setSigningOut(false);
     }
-  };
+  }, []);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -129,6 +129,8 @@ export default function RoleSelectionScreen({ navigation }) {
     </View>
   );
 }
+
+export default React.memo(RoleSelectionScreen);
 
 const styles = StyleSheet.create({
   container: {

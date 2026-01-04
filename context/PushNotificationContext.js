@@ -71,7 +71,7 @@ export const PushNotificationProvider = ({ children }) => {
         );
     };
 
-    const registerForPushNotificationsAsync = async () => {
+    const registerForPushNotificationsAsync = React.useCallback(async () => {
         let token;
 
         // Only register on physical devices, not simulators/emulators
@@ -143,9 +143,9 @@ export const PushNotificationProvider = ({ children }) => {
         }
 
         return token;
-    };
+    }, []);
 
-    const clearPushToken = async () => {
+    const clearPushToken = React.useCallback(async () => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
@@ -163,12 +163,12 @@ export const PushNotificationProvider = ({ children }) => {
         } catch (error) {
             console.error('❌ Error in clearPushToken:', error);
         }
-    };
+    }, []);
 
-    const value = {
+    const value = React.useMemo(() => ({
         registerForPushNotificationsAsync,
         clearPushToken,
-    };
+    }), [registerForPushNotificationsAsync, clearPushToken]);
 
     return (
         <PushNotificationContext.Provider value={value}>

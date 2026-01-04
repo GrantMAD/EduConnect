@@ -5,7 +5,7 @@ import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
 export { SkeletonPiece };
 
-export const MarketplaceItemCardSkeleton = () => {
+export const MarketplaceItemCardSkeleton = React.memo(() => {
     const { theme } = useTheme(); 
     return (
         <View style={[styles.cardContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
@@ -16,9 +16,9 @@ export const MarketplaceItemCardSkeleton = () => {
             </View>
         </View>
     );
-};
+});
 
-const MarketScreenSkeleton = () => {
+const MarketScreenSkeleton = React.memo(() => {
   const { theme } = useTheme(); 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} showsVerticalScrollIndicator={false}>
@@ -43,7 +43,7 @@ const MarketScreenSkeleton = () => {
         ))}
     </ScrollView>
   );
-};
+});
 
 const styles = StyleSheet.create({
     container: { flex: 1, padding: 20 },

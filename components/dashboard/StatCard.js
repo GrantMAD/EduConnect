@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { useTheme } from '../../context/ThemeContext';
 import { SkeletonPiece } from '../skeletons/DashboardScreenSkeleton';
 
-const StatCard = ({ icon, title, value, color, onPress, style, loading }) => {
+const StatCard = React.memo(({ icon, title, value, color, onPress, style, loading }) => {
     const { theme } = useTheme();
 
     return (
@@ -32,7 +32,7 @@ const StatCard = ({ icon, title, value, color, onPress, style, loading }) => {
             <Text style={[styles.statTitle, { color: '#94a3b8' }]}>{title.toUpperCase()}</Text>
         </TouchableOpacity>
     );
-};
+});
 
 const styles = StyleSheet.create({
     statCard: {

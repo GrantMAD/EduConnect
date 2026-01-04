@@ -19,7 +19,7 @@ import { faCloudUploadAlt } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 
-export default function CreateResourceModal({ visible, onClose, initialData }) {
+const CreateResourceModal = React.memo(({ visible, onClose, initialData }) => {
   const { showToast } = useToast();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
@@ -160,63 +160,63 @@ export default function CreateResourceModal({ visible, onClose, initialData }) {
     >
       <View style={styles.content}>
         <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: '#94a3b8' }]}>TITLE</Text>
-            <TextInput
-                style={[styles.input, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, color: theme.colors.text }]}
-                placeholder="Enter resource title"
-                placeholderTextColor={theme.colors.placeholder}
-                value={title}
-                onChangeText={setTitle}
-            />
+          <Text style={[styles.label, { color: '#94a3b8' }]}>TITLE</Text>
+          <TextInput
+            style={[styles.input, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, color: theme.colors.text }]}
+            placeholder="Enter resource title"
+            placeholderTextColor={theme.colors.placeholder}
+            value={title}
+            onChangeText={setTitle}
+          />
         </View>
 
         <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: '#94a3b8' }]}>DESCRIPTION</Text>
-            <TextInput
-                style={[styles.input, styles.descInput, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, color: theme.colors.text }]}
-                placeholder="Details about this resource..."
-                placeholderTextColor={theme.colors.placeholder}
-                multiline
-                value={description}
-                onChangeText={setDescription}
-            />
+          <Text style={[styles.label, { color: '#94a3b8' }]}>DESCRIPTION</Text>
+          <TextInput
+            style={[styles.input, styles.descInput, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, color: theme.colors.text }]}
+            placeholder="Details about this resource..."
+            placeholderTextColor={theme.colors.placeholder}
+            multiline
+            value={description}
+            onChangeText={setDescription}
+          />
         </View>
 
         <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: '#94a3b8' }]}>CATEGORY</Text>
-            <View style={[styles.pickerContainer, { borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.card, borderWidth: 1 }]}>
-                <Picker
-                    selectedValue={category}
-                    onValueChange={(itemValue) => setCategory(itemValue)}
-                    style={[styles.picker, { color: theme.colors.text }]}
-                    dropdownIconColor={theme.colors.text}
-                >
-                    <Picker.Item label="General Overview" value="General" />
-                    <Picker.Item label="Homework Related" value="Homework" />
-                    <Picker.Item label="Study Material" value="Study Guide" />
-                    <Picker.Item label="Class Notes" value="Notes" />
-                    <Picker.Item label="Custom Category" value="custom" />
-                </Picker>
-            </View>
+          <Text style={[styles.label, { color: '#94a3b8' }]}>CATEGORY</Text>
+          <View style={[styles.pickerContainer, { borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.card, borderWidth: 1 }]}>
+            <Picker
+              selectedValue={category}
+              onValueChange={(itemValue) => setCategory(itemValue)}
+              style={[styles.picker, { color: theme.colors.text }]}
+              dropdownIconColor={theme.colors.text}
+            >
+              <Picker.Item label="General Overview" value="General" />
+              <Picker.Item label="Homework Related" value="Homework" />
+              <Picker.Item label="Study Material" value="Study Guide" />
+              <Picker.Item label="Class Notes" value="Notes" />
+              <Picker.Item label="Custom Category" value="custom" />
+            </Picker>
+          </View>
         </View>
 
         {category === 'custom' && (
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: '#94a3b8' }]}>CUSTOM LABEL</Text>
             <TextInput
-                style={[styles.input, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, color: theme.colors.text }]}
-                placeholder="Enter custom category name"
-                placeholderTextColor={theme.colors.placeholder}
-                value={customCategory}
-                onChangeText={setCustomCategory}
+              style={[styles.input, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, color: theme.colors.text }]}
+              placeholder="Enter custom category name"
+              placeholderTextColor={theme.colors.placeholder}
+              value={customCategory}
+              onChangeText={setCustomCategory}
             />
           </View>
         )}
 
         <TouchableOpacity
-            style={[styles.toggleCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-            onPress={() => setIsPersonal(!isPersonal)}
-            activeOpacity={0.7}
+          style={[styles.toggleCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+          onPress={() => setIsPersonal(!isPersonal)}
+          activeOpacity={0.7}
         >
           <View style={{ flex: 1 }}>
             <Text style={[styles.toggleTitle, { color: theme.colors.text }]}>Personal Resource</Text>
@@ -233,47 +233,47 @@ export default function CreateResourceModal({ visible, onClose, initialData }) {
         </TouchableOpacity>
 
         <View style={styles.actionRow}>
-            <TouchableOpacity
-                style={[styles.fileBtn, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-                onPress={pickDocument}
-            >
-                <Text style={[styles.fileBtnText, { color: theme.colors.text }]} numberOfLines={1}>
-                    {file ? file.name.toUpperCase() : 'SELECT DOCUMENT'}
-                </Text>
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.fileBtn, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+            onPress={pickDocument}
+          >
+            <Text style={[styles.fileBtnText, { color: theme.colors.text }]} numberOfLines={1}>
+              {file ? file.name.toUpperCase() : 'SELECT DOCUMENT'}
+            </Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-                style={[styles.uploadBtn, { backgroundColor: theme.colors.primary }]}
-                onPress={handleUpload}
-                disabled={isUploading}
-                activeOpacity={0.8}
-            >
-                {isUploading ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                    <Text style={styles.uploadBtnText}>
-                        {initialData ? 'SAVE CHANGES' : 'PUBLISH'}
-                    </Text>
-                )}
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.uploadBtn, { backgroundColor: theme.colors.primary }]}
+            onPress={handleUpload}
+            disabled={isUploading}
+            activeOpacity={0.8}
+          >
+            {isUploading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.uploadBtnText}>
+                {initialData ? 'SAVE CHANGES' : 'PUBLISH'}
+              </Text>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
     </StandardBottomModal>
   );
-}
+});
 
 const styles = StyleSheet.create({
   content: {
     paddingTop: 16,
   },
   inputGroup: {
-      marginBottom: 20,
+    marginBottom: 20,
   },
   label: {
-      fontSize: 9,
-      fontWeight: '900',
-      marginBottom: 8,
-      letterSpacing: 1.5,
+    fontSize: 9,
+    fontWeight: '900',
+    marginBottom: 8,
+    letterSpacing: 1.5,
   },
   input: {
     borderRadius: 16,
@@ -311,9 +311,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   actionRow: {
-      flexDirection: 'row',
-      gap: 12,
-      marginTop: 8,
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
   },
   fileBtn: {
     flex: 1,
@@ -342,3 +342,5 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
 });
+
+export default CreateResourceModal;

@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faEdit, faSave } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
-export default function EditAnnouncementModal({ visible, announcement, onClose, onSave }) {
+const EditAnnouncementModal = React.memo(({ visible, announcement, onClose, onSave }) => {
     const { theme } = useTheme();
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
@@ -106,7 +106,7 @@ export default function EditAnnouncementModal({ visible, announcement, onClose, 
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -185,3 +185,5 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
 });
+
+export default EditAnnouncementModal;

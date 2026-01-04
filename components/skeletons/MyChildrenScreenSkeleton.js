@@ -5,7 +5,7 @@ import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
 export { SkeletonPiece };
 
-export const ChildCardSkeleton = () => {
+export const ChildCardSkeleton = React.memo(() => {
   return (
     <View style={styles.childCard}>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -17,9 +17,9 @@ export const ChildCardSkeleton = () => {
       </View>
     </View>
   );
-};
+});
 
-const MyChildrenScreenSkeleton = () => {
+const MyChildrenScreenSkeleton = React.memo(() => {
   const { theme } = useTheme();
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -31,7 +31,7 @@ const MyChildrenScreenSkeleton = () => {
       <ChildCardSkeleton />
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

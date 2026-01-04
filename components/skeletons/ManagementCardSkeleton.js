@@ -5,7 +5,7 @@ import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
 export { SkeletonPiece };
 
-const ManagementCardSkeleton = () => {
+const ManagementCardSkeleton = React.memo(() => {
   const { theme } = useTheme(); 
   return (
     <View style={[styles.cardContainer, { backgroundColor: theme.colors.cardBackground, shadowColor: theme.colors.text }]}>
@@ -20,7 +20,7 @@ const ManagementCardSkeleton = () => {
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   cardContainer: {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, Image, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import AnnouncementCardSkeleton from '../components/skeletons/AnnouncementCardSkeleton';
 import { supabase } from '../lib/supabase';
@@ -36,180 +36,9 @@ const timeSince = (date) => {
   return Math.floor(seconds) + " seconds ago";
 };
 
-export default function AnnouncementsScreen({ navigation }) {
-  const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState(null);
-  const [userClasses, setUserClasses] = useState([]); 
-  const [allClasses, setAllClasses] = useState([]);
-  const [showModal, setShowModal] = useState(false);
-  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
-
-  const { schoolId, loadingSchool, schoolData } = useSchool();
-  const { theme } = useTheme(); 
-
-  const fetchAnnouncementsQuery = React.useCallback(({ from, to }) => {
-    if (!schoolId) return Promise.resolve({ data: [], error: null });
-
-    let query = supabase.from('announcements')
-      .select('*, author:users(full_name), class:classes(name)')
-      .eq('school_id', schoolId)
-      .order('created_at', { ascending: false })
-      .range(from, to);
-
-    if (userRole === 'admin') {
-      // Admin sees all
-    } else if (['teacher', 'student', 'parent'].includes(userRole)) {
-      if (userClasses.length > 0) {
-        query = query.or(`class_id.is.null,class_id.in.(${userClasses.join(',')})`);
-      } else {
-        query = query.is('class_id', null);
-      }
-    } else {
-      query = query.is('class_id', null);
-    }
-    
-    return query;
-  }, [schoolId, userRole, userClasses]);
-
-  const { 
-    data: announcementsData, 
-    loading: announcementsLoading, 
-    loadingMore,
-    refreshing: announcementsRefreshing, 
-    isOffline, 
-    hasMore,
-    refetch,
-    loadMore
-  } = useSupabaseInfiniteQuery(
-    `announcements_${schoolId}_${userRole}`, 
-    fetchAnnouncementsQuery,
-    {
-      pageSize: 15,
-      dependencies: [schoolId, userRole, userClasses.length]
-    }
-  );
-
-  const announcements = announcementsData || [];
-  const isLoading = loading || loadingSchool || announcementsLoading;
-
-  useEffect(() => {
-    const initializeUserAndClasses = async () => {
-      if (loadingSchool) return; 
-
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: userData, error: userError } = await supabase.from('users').select('role').eq('id', user.id).single();
-        if (userData) {
-          setUserRole(userData.role);
-        }
-      }
-      await fetchUserClasses();
-      await fetchAllClasses();
-
-      if (schoolData?.logo_url) {
-        await Image.prefetch(schoolData.logo_url);
-      }
-
-      setLoading(false);
-    };
-
-    initializeUserAndClasses();
-  }, [schoolId, loadingSchool, schoolData]);
-
-  const fetchUserClasses = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !schoolId) {
-      setUserClasses([]);
-      return;
-    }
-
-    try {
-      const { data: userData, error: userError } = await supabase.from('users').select('role').eq('id', user.id).single();
-      if (userError) throw userError;
-      const role = userData?.role;
-
-      let associatedClassIds = [];
-
-      const { data: memberClasses, error: memberError } = await supabase
-        .from('class_members')
-        .select('class_id')
-        .eq('user_id', user.id);
-      if (memberError) throw memberError;
-      if (memberClasses) {
-        associatedClassIds.push(...memberClasses.map(m => m.class_id));
-      }
-
-      if (role === 'parent') {
-        const { data: children, error: childrenError } = await supabase
-          .from('parent_child_relationships')
-          .select('child_id')
-          .eq('parent_id', user.id);
-        if (childrenError) throw childrenError;
-
-        if (children && children.length > 0) {
-          const childIds = children.map(c => c.child_id);
-          const { data: childClasses, error: childClassesError } = await supabase
-            .from('class_members')
-            .select('class_id')
-            .in('user_id', childIds);
-          if (childClassesError) throw childClassesError;
-          if (childClasses) {
-            associatedClassIds.push(...childClasses.map(m => m.class_id));
-          }
-        }
-      }
-
-      const uniqueClassIds = [...new Set(associatedClassIds)];
-      setUserClasses(uniqueClassIds);
-
-    } catch (error) {
-      console.error('Error fetching user classes:', error.message);
-      setUserClasses([]);
-    }
-  };
-
-  const fetchAllClasses = async () => {
-    if (!schoolId) return;
-    try {
-      const { data, error } = await supabase
-        .from('classes')
-        .select('id, name')
-        .eq('school_id', schoolId);
-      if (error) throw error;
-      setAllClasses(data);
-    } catch (error) {
-      console.error('Error fetching all classes:', error.message);
-    }
-  };
-
-  useFocusEffect(
-    React.useCallback(() => {
-      if (schoolId && userRole !== null && userClasses !== null && allClasses !== null) {
-        refetch();
-      }
-    }, [schoolId, userRole, userClasses, allClasses])
-  );
-
-  const onRefresh = React.useCallback(async () => {
-    refetch();
-  }, [refetch]);
-
-  const handleCardPress = (announcement) => {
-    setSelectedAnnouncement(announcement);
-    setShowModal(true);
-  };
-
-  const renderAnnouncementItem = ({ item }) => {
-    if (isLoading) {
-      return <AnnouncementCardSkeleton />;
-    }
-
-    const isNew = (new Date() - new Date(item.created_at)) / (1000 * 60 * 60 * 24) < 3;
-
-    return (
-      <TouchableOpacity 
-        onPress={() => handleCardPress(item)} 
+const AnnouncementItem = React.memo(({ item, theme, onPress, isNew }) => (
+    <TouchableOpacity 
+        onPress={() => onPress(item)} 
         style={[styles.cardContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
         activeOpacity={0.9}
       >
@@ -266,17 +95,197 @@ export default function AnnouncementsScreen({ navigation }) {
           </View>
         </View>
       </TouchableOpacity>
-    );
-  };
+));
 
-  const renderFooter = () => {
+const AnnouncementsScreen = ({ navigation }) => {
+  const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState(null);
+  const [userClasses, setUserClasses] = useState([]); 
+  const [allClasses, setAllClasses] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+
+  const { schoolId, loadingSchool, schoolData } = useSchool();
+  const { theme } = useTheme(); 
+
+  const fetchAnnouncementsQuery = useCallback(({ from, to }) => {
+    if (!schoolId) return Promise.resolve({ data: [], error: null });
+
+    let query = supabase.from('announcements')
+      .select('*, author:users(full_name), class:classes(name)')
+      .eq('school_id', schoolId)
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (userRole === 'admin') {
+      // Admin sees all
+    } else if (['teacher', 'student', 'parent'].includes(userRole)) {
+      if (userClasses.length > 0) {
+        query = query.or(`class_id.is.null,class_id.in.(${userClasses.join(',')})`);
+      } else {
+        query = query.is('class_id', null);
+      }
+    } else {
+      query = query.is('class_id', null);
+    }
+    
+    return query;
+  }, [schoolId, userRole, userClasses]);
+
+  const { 
+    data: announcementsData, 
+    loading: announcementsLoading, 
+    loadingMore,
+    refreshing: announcementsRefreshing, 
+    isOffline, 
+    hasMore,
+    refetch,
+    loadMore
+  } = useSupabaseInfiniteQuery(
+    `announcements_${schoolId}_${userRole}`, 
+    fetchAnnouncementsQuery,
+    {
+      pageSize: 15,
+      dependencies: [schoolId, userRole, userClasses.length]
+    }
+  );
+
+  const announcements = announcementsData || [];
+  const isLoading = loading || loadingSchool || announcementsLoading;
+
+  const fetchUserClasses = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !schoolId) {
+      setUserClasses([]);
+      return;
+    }
+
+    try {
+      const { data: userData, error: userError } = await supabase.from('users').select('role').eq('id', user.id).single();
+      if (userError) throw userError;
+      const role = userData?.role;
+
+      let associatedClassIds = [];
+
+      const { data: memberClasses, error: memberError } = await supabase
+        .from('class_members')
+        .select('class_id')
+        .eq('user_id', user.id);
+      if (memberError) throw memberError;
+      if (memberClasses) {
+        associatedClassIds.push(...memberClasses.map(m => m.class_id));
+      }
+
+      if (role === 'parent') {
+        const { data: children, error: childrenError } = await supabase
+          .from('parent_child_relationships')
+          .select('child_id')
+          .eq('parent_id', user.id);
+        if (childrenError) throw childrenError;
+
+        if (children && children.length > 0) {
+          const childIds = children.map(c => c.child_id);
+          const { data: childClasses, error: childClassesError } = await supabase
+            .from('class_members')
+            .select('class_id')
+            .in('user_id', childIds);
+          if (childClassesError) throw childClassesError;
+          if (childClasses) {
+            associatedClassIds.push(...childClasses.map(m => m.class_id));
+          }
+        }
+      }
+
+      const uniqueClassIds = [...new Set(associatedClassIds)];
+      setUserClasses(uniqueClassIds);
+
+    } catch (error) {
+      console.error('Error fetching user classes:', error.message);
+      setUserClasses([]);
+    }
+  }, [schoolId]);
+
+  const fetchAllClasses = useCallback(async () => {
+    if (!schoolId) return;
+    try {
+      const { data, error } = await supabase
+        .from('classes')
+        .select('id, name')
+        .eq('school_id', schoolId);
+      if (error) throw error;
+      setAllClasses(data);
+    } catch (error) {
+      console.error('Error fetching all classes:', error.message);
+    }
+  }, [schoolId]);
+
+  useEffect(() => {
+    const initializeUserAndClasses = async () => {
+      if (loadingSchool) return; 
+
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: userData, error: userError } = await supabase.from('users').select('role').eq('id', user.id).single();
+        if (userData) {
+          setUserRole(userData.role);
+        }
+      }
+      await fetchUserClasses();
+      await fetchAllClasses();
+
+      if (schoolData?.logo_url) {
+        await Image.prefetch(schoolData.logo_url);
+      }
+
+      setLoading(false);
+    };
+
+    initializeUserAndClasses();
+  }, [schoolId, loadingSchool, schoolData, fetchUserClasses, fetchAllClasses]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (schoolId && userRole !== null && userClasses !== null && allClasses !== null) {
+        refetch();
+      }
+    }, [schoolId, userRole, userClasses, allClasses, refetch])
+  );
+
+  const onRefresh = useCallback(async () => {
+    refetch();
+  }, [refetch]);
+
+  const handleCardPress = useCallback((announcement) => {
+    setSelectedAnnouncement(announcement);
+    setShowModal(true);
+  }, []);
+
+  const renderAnnouncementItem = useCallback(({ item }) => {
+    if (isLoading) {
+      return <AnnouncementCardSkeleton />;
+    }
+
+    const isNew = (new Date() - new Date(item.created_at)) / (1000 * 60 * 60 * 24) < 3;
+
+    return (
+      <AnnouncementItem 
+        item={item} 
+        theme={theme} 
+        onPress={handleCardPress} 
+        isNew={isNew} 
+      />
+    );
+  }, [isLoading, theme, handleCardPress]);
+
+  const renderFooter = useCallback(() => {
     if (!loadingMore) return null;
     return (
       <View style={{ paddingVertical: 20 }}>
         <ActivityIndicator size="small" color={theme.colors.primary} />
       </View>
     );
-  };
+  }, [loadingMore, theme.colors.primary]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -356,7 +365,7 @@ export default function AnnouncementsScreen({ navigation }) {
       />
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -551,3 +560,5 @@ const styles = StyleSheet.create({
       fontSize: 14,
   }
 });
+
+export default React.memo(AnnouncementsScreen);

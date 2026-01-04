@@ -19,7 +19,7 @@ import StatCard from './StatCard';
 import { StatCardSkeleton, SkeletonPiece } from '../skeletons/DashboardScreenSkeleton';
 import WalkthroughTarget from '../WalkthroughTarget';
 
-const DashboardStats = ({ 
+const DashboardStats = React.memo(({ 
     loading, 
     userRole, 
     stats, 
@@ -154,7 +154,7 @@ const DashboardStats = ({
             </View>
         </>
     );
-};
+});
 
 const styles = StyleSheet.create({
     section: {

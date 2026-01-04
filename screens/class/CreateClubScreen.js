@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Image, FlatList, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
@@ -14,7 +14,7 @@ import LinearGradient from 'react-native-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-export default function CreateClubScreen({ navigation, route }) {
+const CreateClubScreen = ({ navigation, route }) => {
   const { clubToEdit = null } = route.params || {};
   const [name, setName] = useState(clubToEdit?.name || '');
   const [loading, setLoading] = useState(false);
@@ -33,17 +33,7 @@ export default function CreateClubScreen({ navigation, route }) {
   const { showToast } = useToast();
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    if (schoolId) {
-      fetchUsers();
-      if (clubToEdit) {
-          fetchExistingMembers(clubToEdit.id);
-          fetchExistingSchedules(clubToEdit.id);
-      }
-    }
-  }, [schoolId]);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setFetchingUsers(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -63,9 +53,9 @@ export default function CreateClubScreen({ navigation, route }) {
     } finally {
       setFetchingUsers(false);
     }
-  };
+  }, [schoolId, showToast]);
 
-  const fetchExistingMembers = async (clubId) => {
+  const fetchExistingMembers = useCallback(async (clubId) => {
       try {
           const { data } = await supabase
               .from('class_members')
@@ -75,9 +65,9 @@ export default function CreateClubScreen({ navigation, route }) {
               setSelectedUserIds(data.map(m => m.user_id));
           }
       } catch (e) { console.error(e); }
-  };
+  }, []);
 
-  const fetchExistingSchedules = async (clubId) => {
+  const fetchExistingSchedules = useCallback(async (clubId) => {
       try {
           const { data } = await supabase
               .from('class_schedules')
@@ -93,21 +83,31 @@ export default function CreateClubScreen({ navigation, route }) {
               })));
           }
       } catch (e) { console.error(e); }
-  };
+  }, []);
 
-  const toggleUserSelection = (userId) => {
+  useEffect(() => {
+    if (schoolId) {
+      fetchUsers();
+      if (clubToEdit) {
+          fetchExistingMembers(clubToEdit.id);
+          fetchExistingSchedules(clubToEdit.id);
+      }
+    }
+  }, [schoolId, clubToEdit, fetchUsers, fetchExistingMembers, fetchExistingSchedules]);
+
+  const toggleUserSelection = useCallback((userId) => {
     setSelectedUserIds(prev => {
       if (prev.includes(userId)) return prev.filter(id => id !== userId);
       return [...prev, userId];
     });
-  };
+  }, []);
 
-  const handleDayPress = (day) => {
+  const handleDayPress = useCallback((day) => {
     setSelectedDate(day.dateString);
     setModalVisible(true);
-  };
+  }, []);
 
-  const handleSaveSchedule = (startTimeStr, endTimeStr, infoStr) => {
+  const handleSaveSchedule = useCallback((startTimeStr, endTimeStr, infoStr) => {
     const [startHours, startMinutes] = startTimeStr.split(':').map(Number);
     const [endHours, endMinutes] = endTimeStr.split(':').map(Number);
 
@@ -121,15 +121,15 @@ export default function CreateClubScreen({ navigation, route }) {
       return;
     }
 
-    setSchedules([...schedules, { date: selectedDate, startTime, endTime, info: infoStr }]);
+    setSchedules(prev => [...prev, { date: selectedDate, startTime, endTime, info: infoStr }]);
     setModalVisible(false);
-  };
+  }, [selectedDate, showToast]);
 
-  const handleRemoveSchedule = (index) => {
-    setSchedules(schedules.filter((_, i) => i !== index));
-  };
+  const handleRemoveSchedule = useCallback((index) => {
+    setSchedules(prev => prev.filter((_, i) => i !== index));
+  }, []);
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!name) return showToast('Please enter a club name.', 'error');
 
     setLoading(true);
@@ -205,11 +205,17 @@ export default function CreateClubScreen({ navigation, route }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [name, clubToEdit, schoolId, selectedUserIds, allUsers, schedules, navigation, showToast]);
 
-  const filteredUsers = allUsers.filter(u => u.full_name.toLowerCase().includes(searchQuery.toLowerCase()));
-  const availableUsers = filteredUsers.filter(u => !selectedUserIds.includes(u.id));
-  const selectedUsers = allUsers.filter(u => selectedUserIds.includes(u.id));
+  const { availableUsers, selectedUsers } = useMemo(() => {
+    const filtered = allUsers.filter(u => u.full_name.toLowerCase().includes(searchQuery.toLowerCase()));
+    return {
+        availableUsers: filtered.filter(u => !selectedUserIds.includes(u.id)),
+        selectedUsers: allUsers.filter(u => selectedUserIds.includes(u.id))
+    };
+  }, [allUsers, searchQuery, selectedUserIds]);
+
+  const markedDates = useMemo(() => schedules.reduce((acc, s) => ({...acc, [s.date]: {marked: true, dotColor: '#9333ea'}}), {}), [schedules]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -285,7 +291,7 @@ export default function CreateClubScreen({ navigation, route }) {
                     <TouchableOpacity key={item.id} style={styles.userCircle} onPress={() => toggleUserSelection(item.id)}>
                         <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={[styles.userAvatar, { borderColor: '#9333ea' }]} />
                         <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name.split(' ')[0]}</Text>
-                        <View style={styles.addBadge}><FontAwesomeIcon icon={faMinusCircle} size={12} color="#ef4444" /></View>
+                        <View style={styles.addBadge}><FontAwesomeIcon icon={faPlusCircle} size={12} color="#ef4444" /></View>
                     </TouchableOpacity>
                 ))}
             </ScrollView>
@@ -296,7 +302,7 @@ export default function CreateClubScreen({ navigation, route }) {
             <Calendar 
                 onDayPress={handleDayPress} 
                 hideExtraDays={true}
-                markedDates={schedules.reduce((acc, s) => ({...acc, [s.date]: {marked: true, dotColor: '#9333ea'}}), {})}
+                markedDates={markedDates}
                 theme={{
                     backgroundColor: theme.colors.card,
                     calendarBackground: theme.colors.card,
@@ -365,6 +371,8 @@ export default function CreateClubScreen({ navigation, route }) {
     </View>
   );
 }
+
+export default React.memo(CreateClubScreen);
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

@@ -6,7 +6,7 @@ import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
 export { SkeletonPiece };
 
-const ManagementListSkeleton = () => {
+const ManagementListSkeleton = React.memo(() => {
   const { theme } = useTheme(); 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -22,7 +22,7 @@ const ManagementListSkeleton = () => {
         />
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
     container: {

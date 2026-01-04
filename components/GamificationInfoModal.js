@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faInfoCircle, faTrophy, faCoins, faFire, faMedal } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
-export default function GamificationInfoModal({ visible, onClose }) {
+const GamificationInfoModal = React.memo(({ visible, onClose }) => {
     const { theme } = useTheme();
 
     return (
@@ -99,7 +99,7 @@ export default function GamificationInfoModal({ visible, onClose }) {
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -189,3 +189,5 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
 });
+
+export default GamificationInfoModal;

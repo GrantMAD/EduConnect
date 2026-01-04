@@ -26,7 +26,7 @@ const timeSince = (date) => {
   return Math.floor(seconds) + "s ago";
 };
 
-export default function AnnouncementDetailModal({ visible, onClose, announcement }) {
+const AnnouncementDetailModal = React.memo(({ visible, onClose, announcement }) => {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const { showToast } = useToast();
@@ -62,7 +62,7 @@ export default function AnnouncementDetailModal({ visible, onClose, announcement
     >
       <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
         <View style={styles.swipeIndicator} />
-        
+
         <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
           <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
             <FontAwesomeIcon icon={faBullhorn} size={20} color={theme.colors.primary} />
@@ -70,22 +70,22 @@ export default function AnnouncementDetailModal({ visible, onClose, announcement
           <Text style={[styles.modalTitle, { color: theme.colors.text }]}>{announcement.title}</Text>
           <View style={styles.headerActions}>
             <TouchableOpacity onPress={shareAnnouncement} style={styles.actionBtn}>
-                <FontAwesomeIcon icon={faShareAlt} size={18} color={theme.colors.placeholder} />
+              <FontAwesomeIcon icon={faShareAlt} size={18} color={theme.colors.placeholder} />
             </TouchableOpacity>
             <TouchableOpacity onPress={copyToClipboard} style={styles.actionBtn}>
-                <FontAwesomeIcon icon={faCopy} size={18} color={theme.colors.placeholder} />
+              <FontAwesomeIcon icon={faCopy} size={18} color={theme.colors.placeholder} />
             </TouchableOpacity>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
+              <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
             </TouchableOpacity>
           </View>
         </View>
 
-        <ScrollView 
-          showsVerticalScrollIndicator={false} 
-          contentContainerStyle={{ 
-            paddingTop: 24, 
-            paddingBottom: Math.max(insets.bottom, 24) 
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingTop: 24,
+            paddingBottom: Math.max(insets.bottom, 24)
           }}
         >
           <View style={styles.messageWrapper}>
@@ -117,7 +117,7 @@ export default function AnnouncementDetailModal({ visible, onClose, announcement
       </View>
     </Modal>
   );
-}
+});
 
 const styles = StyleSheet.create({
   modalContent: {
@@ -128,12 +128,12 @@ const styles = StyleSheet.create({
     maxHeight: '85%',
   },
   swipeIndicator: {
-      width: 40,
-      height: 4,
-      backgroundColor: '#cbd5e1',
-      borderRadius: 2,
-      alignSelf: 'center',
-      marginBottom: 20,
+    width: 40,
+    height: 4,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
   },
   header: {
     flexDirection: 'row',
@@ -142,12 +142,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   iconBox: {
-      width: 44,
-      height: 44,
-      borderRadius: 14,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
   },
   modalTitle: {
     fontSize: 20,
@@ -156,8 +156,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   headerActions: {
-      flexDirection: 'row',
-      alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   actionBtn: {
     width: 36,
@@ -167,11 +167,11 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   closeBtn: {
-      width: 36,
-      height: 36,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginLeft: 8,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
   messageWrapper: {
     marginBottom: 32,
@@ -198,10 +198,10 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   metaLabel: {
-      fontSize: 9,
-      fontWeight: '900',
-      letterSpacing: 1,
-      marginBottom: 2,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 2,
   },
   metaValue: {
     fontSize: 14,
@@ -213,3 +213,5 @@ const styles = StyleSheet.create({
     marginLeft: 48,
   },
 });
+
+export default AnnouncementDetailModal;

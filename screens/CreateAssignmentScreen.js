@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -49,6 +49,25 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
   const [isTemplatesModalVisible, setIsTemplatesModalVisible] = useState(false);
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
+  const fetchTemplates = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('templates')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('type', 'assignment')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setTemplates(data || []);
+    } catch (error) {
+      console.error('Error fetching templates:', error);
+    }
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -72,28 +91,9 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
 
     fetchData();
     fetchTemplates();
-  }, []);
+  }, [fetchTemplates, showToast]);
 
-  const fetchTemplates = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('templates')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('type', 'assignment')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setTemplates(data || []);
-    } catch (error) {
-      console.error('Error fetching templates:', error);
-    }
-  };
-
-  const handleSaveTemplate = async () => {
+  const handleSaveTemplate = useCallback(async () => {
     if (!title || !description) {
       showToast('Title and description are required for a template.', 'error');
       return;
@@ -123,16 +123,16 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
     } finally {
       setIsSavingTemplate(false);
     }
-  };
+  }, [title, description, schoolId, fetchTemplates, showToast]);
 
-  const applyTemplate = (template) => {
+  const applyTemplate = useCallback((template) => {
     setTitle(template.title || '');
     setDescription(template.description || '');
     setIsTemplatesModalVisible(false);
     showToast('Template applied!', 'success');
-  };
+  }, [showToast]);
 
-  const deleteTemplate = async (templateId) => {
+  const deleteTemplate = useCallback(async (templateId) => {
     try {
       const { error } = await supabase
         .from('templates')
@@ -140,15 +140,15 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
         .eq('id', templateId);
 
       if (error) throw error;
-      setTemplates(templates.filter(t => t.id !== templateId));
+      setTemplates(prev => prev.filter(t => t.id !== templateId));
       showToast('Template deleted.', 'success');
     } catch (error) {
       console.error('Error deleting template:', error);
       showToast('Failed to delete template.', 'error');
     }
-  };
+  }, [showToast]);
 
-  const handleCreate = async () => {
+  const handleCreate = useCallback(async () => {
     if (!selectedClass || !title || !description || !dueDate) {
       showToast('Please fill in all fields.', 'error');
       return;
@@ -234,8 +234,8 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
                 return !prefs || prefs.homework !== false;
               });
 
-              const notifications = finalRecipients.map(userId => ({
-                user_id: userId.id,
+              const notifications = finalRecipients.map(recipient => ({
+                user_id: recipient.id,
                 type: 'new_assignment',
                 title: `New Assignment for ${classInfo.name}`,
                 message: `A new assignment has been posted: "${newAssignment.title}"`,
@@ -261,9 +261,9 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
     } finally {
       setIsCreating(false);
     }
-  };
+  }, [selectedClass, title, description, dueDate, file, schoolId, awardXP, navigation, showToast]);
 
-  const pickDocument = async () => {
+  const pickDocument = useCallback(async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: '*/*',
@@ -276,7 +276,11 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
     } catch (err) {
       console.error('Error picking document:', err);
     }
-  };
+  }, []);
+
+  const openTemplatesModal = useCallback(() => setIsTemplatesModalVisible(true), []);
+  const closeTemplatesModal = useCallback(() => setIsTemplatesModalVisible(false), []);
+  const onDayPress = useCallback((day) => setDueDate(day.dateString), []);
 
   if (loading) {
     return <CreateAssignmentScreenSkeleton />;
@@ -304,7 +308,7 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
             </View>
             <TouchableOpacity
                 style={styles.heroButton}
-                onPress={() => setIsTemplatesModalVisible(true)}
+                onPress={openTemplatesModal}
             >
                 <FontAwesomeIcon icon={faFolderOpen} size={14} color="#4f46e5" />
                 <Text style={styles.heroButtonText}>Templates</Text>
@@ -376,7 +380,7 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
             <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>SELECT DEADLINE</Text>
                 <Calendar
-                    onDayPress={(day) => setDueDate(day.dateString)}
+                    onDayPress={onDayPress}
                     hideExtraDays={true}
                     markedDates={{
                         [dueDate]: { selected: true, marked: true, selectedColor: theme.colors.primary },
@@ -451,13 +455,13 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
         visible={isTemplatesModalVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setIsTemplatesModalVisible(false)}
+        onRequestClose={closeTemplatesModal}
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
             <View style={[styles.modalHeader, { borderBottomColor: theme.colors.cardBorder }]}>
               <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Assignment Templates</Text>
-              <TouchableOpacity onPress={() => setIsTemplatesModalVisible(false)}>
+              <TouchableOpacity onPress={closeTemplatesModal}>
                 <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
               </TouchableOpacity>
             </View>
@@ -677,4 +681,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CreateAssignmentScreen;
+export default React.memo(CreateAssignmentScreen);

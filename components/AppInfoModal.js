@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faGraduationCap, faUsers, faTrophy, faStore } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
-export default function AppInfoModal({ visible, onClose }) {
+const AppInfoModal = React.memo(({ visible, onClose }) => {
     const { theme } = useTheme();
 
     return (
@@ -93,7 +93,7 @@ export default function AppInfoModal({ visible, onClose }) {
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -219,3 +219,5 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
 });
+
+export default AppInfoModal;

@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef, useCallback } from 'react';
 import { AppState } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useToast } from './ToastContext';
@@ -94,45 +94,45 @@ export const ChatProvider = ({ children, session }) => {
     }
   }, [user]);
 
-  const fetchEquippedItemsMap = async (userIds) => {
+  const fetchEquippedItemsMap = useCallback(async (userIds) => {
     const validUserIds = userIds?.filter(id => id != null) || []
     if (validUserIds.length === 0) return {}
-    
+
     try {
-        const { data, error } = await supabase
-            .from('user_inventory')
-            .select('user_id, item_id, shop_items(*)')
-            .in('user_id', validUserIds)
-            .eq('is_equipped', true)
+      const { data, error } = await supabase
+        .from('user_inventory')
+        .select('user_id, item_id, shop_items(*)')
+        .in('user_id', validUserIds)
+        .eq('is_equipped', true)
 
-        if (error) return {}
+      if (error) return {}
 
-        const resultMap = data.reduce((acc, curr) => {
-            if (!acc[curr.user_id]) acc[curr.user_id] = {}
-            
-            const itemData = Array.isArray(curr.shop_items) ? curr.shop_items[0] : curr.shop_items
-            if (itemData) {
-                const cat = itemData.category
-                if (cat === 'avatar_border' || cat === 'border' || !cat) {
-                    acc[curr.user_id].border = itemData
-                } else if (cat === 'name_color') {
-                    acc[curr.user_id].nameColor = itemData
-                } else if (cat === 'title') {
-                    acc[curr.user_id].title = itemData
-                } else if (cat === 'bubble_style') {
-                    acc[curr.user_id].bubbleStyle = itemData
-                }
-            }
-            return acc
-        }, {})
-        
-        return resultMap
+      const resultMap = data.reduce((acc, curr) => {
+        if (!acc[curr.user_id]) acc[curr.user_id] = {}
+
+        const itemData = Array.isArray(curr.shop_items) ? curr.shop_items[0] : curr.shop_items
+        if (itemData) {
+          const cat = itemData.category
+          if (cat === 'avatar_border' || cat === 'border' || !cat) {
+            acc[curr.user_id].border = itemData
+          } else if (cat === 'name_color') {
+            acc[curr.user_id].nameColor = itemData
+          } else if (cat === 'title') {
+            acc[curr.user_id].title = itemData
+          } else if (cat === 'bubble_style') {
+            acc[curr.user_id].bubbleStyle = itemData
+          }
+        }
+        return acc
+      }, {})
+
+      return resultMap
     } catch (error) {
-        return {}
+      return {}
     }
-  }
+  }, []);
 
-  const fetchChannels = async () => {
+  const fetchChannels = useCallback(async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -230,9 +230,9 @@ export const ChatProvider = ({ children, session }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id, fetchEquippedItemsMap, showToast]);
 
-  const fetchMessages = async (channelId, start = 0, limit = 20) => {
+  const fetchMessages = useCallback(async (channelId, start = 0, limit = 20) => {
     try {
       if (start === 0) {
         setLoadingMessages(prev => ({ ...prev, [channelId]: true }));
@@ -294,15 +294,15 @@ export const ChatProvider = ({ children, session }) => {
         setLoadingMessages(prev => ({ ...prev, [channelId]: false }));
       }
     }
-  };
+  }, [fetchEquippedItemsMap, showToast]);
 
-  const fetchOlderMessages = async (channelId) => {
+  const fetchOlderMessages = useCallback(async (channelId) => {
     const currentMessages = messages[channelId] || [];
     const start = currentMessages.length;
     return await fetchMessages(channelId, start);
-  };
+  }, [messages, fetchMessages]);
 
-  const editMessage = async (messageId, newContent) => {
+  const editMessage = useCallback(async (messageId, newContent) => {
     try {
       // Optimistic update
       setMessages(prev => {
@@ -330,9 +330,9 @@ export const ChatProvider = ({ children, session }) => {
       showToast('Failed to edit message', 'error');
       throw error;
     }
-  };
+  }, [user?.id, showToast]);
 
-  const deleteMessage = async (messageId) => {
+  const deleteMessage = useCallback(async (messageId) => {
     try {
       setMessages(prev => {
         const updatedMessages = {};
@@ -359,9 +359,9 @@ export const ChatProvider = ({ children, session }) => {
       showToast('Failed to delete message', 'error');
       throw error;
     }
-  };
+  }, [user?.id, showToast]);
 
-  const pinMessage = async (messageId, isPinned) => {
+  const pinMessage = useCallback(async (messageId, isPinned) => {
     try {
       setMessages(prev => {
         const updatedMessages = {};
@@ -387,9 +387,9 @@ export const ChatProvider = ({ children, session }) => {
       showToast('Failed to pin message', 'error');
       throw error;
     }
-  };
+  }, [showToast]);
 
-  const searchMessages = async (channelId, query) => {
+  const searchMessages = useCallback(async (channelId, query) => {
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -411,9 +411,9 @@ export const ChatProvider = ({ children, session }) => {
       console.error('Error searching messages:', error);
       return [];
     }
-  };
+  }, []);
 
-  const markAsRead = async (channelId) => {
+  const markAsRead = useCallback(async (channelId) => {
     try {
       if (!user) return;
       const now = new Date().toISOString();
@@ -424,7 +424,7 @@ export const ChatProvider = ({ children, session }) => {
       }));
 
       setUnreadCount(prev => {
-        const channel = channels.find(c => c.id === channelId);
+        const channel = channelsRef.current.find(c => c.id === channelId);
         if (channel && channel.hasUnread) return Math.max(0, prev - 1);
         return prev;
       });
@@ -439,9 +439,9 @@ export const ChatProvider = ({ children, session }) => {
     } catch (error) {
       console.error('Error marking as read:', error);
     }
-  };
+  }, [user?.id]);
 
-  const addReaction = async (messageId, emoji) => {
+  const addReaction = useCallback(async (messageId, emoji) => {
     try {
       setMessages(prev => {
         const updatedMessages = {};
@@ -476,9 +476,9 @@ export const ChatProvider = ({ children, session }) => {
       console.error('Error adding reaction:', error);
       showToast('Failed to add reaction', 'error');
     }
-  };
+  }, [user?.id, showToast]);
 
-  const removeReaction = async (messageId, emoji) => {
+  const removeReaction = useCallback(async (messageId, emoji) => {
     try {
       setMessages(prev => {
         const updatedMessages = {};
@@ -509,9 +509,9 @@ export const ChatProvider = ({ children, session }) => {
       console.error('Error removing reaction:', error);
       showToast('Failed to remove reaction', 'error');
     }
-  };
+  }, [user?.id, showToast]);
 
-  const sendTypingEvent = async (channelId) => {
+  const sendTypingEvent = useCallback(async (channelId) => {
     try {
       if (subscriptions.current[channelId]) {
         await subscriptions.current[channelId].send({
@@ -526,9 +526,9 @@ export const ChatProvider = ({ children, session }) => {
     } catch (error) {
       console.error('Error sending typing event:', error);
     }
-  };
+  }, [user?.id, userProfile]);
 
-  const subscribeToChannel = (channelId, onTyping) => {
+  const subscribeToChannel = useCallback((channelId, onTyping) => {
     if (subscriptions.current[channelId]) return;
 
     const sub = supabase
@@ -555,9 +555,9 @@ export const ChatProvider = ({ children, session }) => {
           const message = {
             ...newMsg,
             sender: senderData ? {
-                ...senderData,
-                equippedItems: equippedItemsMap[newMsg.sender_id] || {},
-                equipped_item: equippedItemsMap[newMsg.sender_id]?.border
+              ...senderData,
+              equippedItems: equippedItemsMap[newMsg.sender_id] || {},
+              equipped_item: equippedItemsMap[newMsg.sender_id]?.border
             } : { id: newMsg.sender_id, full_name: 'Unknown' },
             message_reactions: []
           };
@@ -595,16 +595,16 @@ export const ChatProvider = ({ children, session }) => {
       .subscribe();
 
     subscriptions.current[channelId] = sub;
-  };
+  }, [fetchEquippedItemsMap]);
 
-  const unsubscribeFromChannel = (channelId) => {
+  const unsubscribeFromChannel = useCallback((channelId) => {
     if (subscriptions.current[channelId]) {
       supabase.removeChannel(subscriptions.current[channelId]);
       delete subscriptions.current[channelId];
     }
-  };
+  }, []);
 
-  const sendMessage = async (channelId, content, attachments = [], replyToMessageId = null) => {
+  const sendMessage = useCallback(async (channelId, content, attachments = [], replyToMessageId = null) => {
     const tempId = `temp-${Date.now()}`;
 
     try {
@@ -693,9 +693,9 @@ export const ChatProvider = ({ children, session }) => {
       }));
       throw error;
     }
-  };
+  }, [user, userProfile, messages, fetchEquippedItemsMap, showToast]);
 
-  const createChannel = async (name, type, memberIds = [], classId = null) => {
+  const createChannel = useCallback(async (name, type, memberIds = [], classId = null) => {
     try {
       if (!user) throw new Error('Not authenticated');
 
@@ -732,9 +732,9 @@ export const ChatProvider = ({ children, session }) => {
       showToast('Failed to create channel', 'error');
       throw error;
     }
-  };
+  }, [user, fetchChannels, showToast]);
 
-  const uploadAttachment = async (uri, fileName, type) => {
+  const uploadAttachment = useCallback(async (uri, fileName, type) => {
     try {
       const formData = new FormData();
       formData.append('file', { uri, name: fileName, type });
@@ -763,33 +763,42 @@ export const ChatProvider = ({ children, session }) => {
       showToast('Failed to upload file', 'error');
       throw error;
     }
-  }
+  }, [user?.id, showToast]);
+
+  const value = React.useMemo(() => ({
+    channels,
+    messages,
+    loading,
+    loadingMessages,
+    user,
+    unreadCount,
+    fetchChannels,
+    fetchMessages,
+    fetchOlderMessages,
+    editMessage,
+    deleteMessage,
+    pinMessage,
+    searchMessages,
+    addReaction,
+    removeReaction,
+    sendTypingEvent,
+    subscribeToChannel,
+    unsubscribeFromChannel,
+    sendMessage,
+    createChannel,
+    uploadAttachment,
+    markAsRead
+  }), [
+    channels, messages, loading, loadingMessages, user, unreadCount,
+    fetchChannels, fetchMessages, fetchOlderMessages, editMessage,
+    deleteMessage, pinMessage, searchMessages, addReaction,
+    removeReaction, sendTypingEvent, subscribeToChannel,
+    unsubscribeFromChannel, sendMessage, createChannel,
+    uploadAttachment, markAsRead
+  ]);
 
   return (
-    <ChatContext.Provider value={{
-      channels,
-      messages,
-      loading,
-      loadingMessages,
-      user,
-      unreadCount,
-      fetchChannels,
-      fetchMessages,
-      fetchOlderMessages,
-      editMessage,
-      deleteMessage,
-      pinMessage,
-      searchMessages,
-      addReaction,
-      removeReaction,
-      sendTypingEvent,
-      subscribeToChannel,
-      unsubscribeFromChannel,
-      sendMessage,
-      createChannel,
-      uploadAttachment,
-      markAsRead
-    }}>
+    <ChatContext.Provider value={value}>
       {children}
     </ChatContext.Provider>
   );

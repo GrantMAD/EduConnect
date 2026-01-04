@@ -12,7 +12,7 @@ import Toast from './Toast';
 
 const defaultUserImage = require("../assets/user.png");
 
-const MarksModal = ({ visible, onClose, classId, classMembers }) => {
+const MarksModal = React.memo(({ visible, onClose, classId, classMembers }) => {
   const { theme } = useTheme();
   const { showToast } = useToast();
   const { toast, hideToast } = useToastState();
@@ -264,7 +264,7 @@ const MarksModal = ({ visible, onClose, classId, classMembers }) => {
       </View>
     </Modal>
   );
-}
+});
 
 const styles = StyleSheet.create({
   modalContent: {

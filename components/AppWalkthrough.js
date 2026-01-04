@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabase';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-export default function AppWalkthrough() {
+const AppWalkthrough = React.memo(() => {
     const {
         isOpen,
         currentStep,
@@ -171,7 +171,7 @@ export default function AppWalkthrough() {
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modal: {
@@ -294,3 +294,5 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     }
 });
+
+export default AppWalkthrough;

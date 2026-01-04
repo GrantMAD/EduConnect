@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTag } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
 
-const ManageMarketItemListItem = ({ item, onPress }) => {
+const ManageMarketItemListItem = React.memo(({ item, onPress }) => {
   const { theme } = useTheme();
 
   return (
@@ -28,7 +28,7 @@ const ManageMarketItemListItem = ({ item, onPress }) => {
       </View>
     </TouchableOpacity>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

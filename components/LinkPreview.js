@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Linking, StyleSheet, Image } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 
-const LinkPreview = ({ text, previewData: externalPreviewData }) => {
+const LinkPreview = React.memo(({ text, previewData: externalPreviewData }) => {
     const { theme } = useTheme();
     const [previewData, setPreviewData] = useState(externalPreviewData || null);
     const [url, setUrl] = useState(externalPreviewData?.url || null);
@@ -84,13 +84,13 @@ const LinkPreview = ({ text, previewData: externalPreviewData }) => {
             </View>
         </TouchableOpacity>
     );
-};
+});
 
 const styles = StyleSheet.create({
     container: {
         marginTop: 8,
         borderRadius: 16,
-        borderLeftWidth: 4, 
+        borderLeftWidth: 4,
         overflow: 'hidden',
         flexDirection: 'row',
     },

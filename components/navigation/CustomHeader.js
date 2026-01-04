@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, TouchableOpacity, Text, Animated, Alert, ScrollView, Image, AppState } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -8,7 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { useChat } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
 
-const CustomHeader = ({ navigation, showActions = false }) => {
+const CustomHeader = React.memo(({ navigation, showActions = false }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [hasUnread, setHasUnread] = useState(false);
@@ -17,7 +17,7 @@ const CustomHeader = ({ navigation, showActions = false }) => {
   const { theme } = useTheme();
   const { unreadCount } = useChat();
 
-  const toggleDropdown = () => setShowDropdown(!showDropdown);
+  const toggleDropdown = useCallback(() => setShowDropdown(prev => !prev), []);
 
   // Pulsing animation for unread notifications AND messages
   useEffect(() => {
@@ -203,7 +203,7 @@ const CustomHeader = ({ navigation, showActions = false }) => {
                 transform: [{ scale: pulseAnim }],
               }}
             >
-                <Text style={{ color: '#fff', fontSize: 8, fontWeight: '900' }}>{unreadCount}</Text>
+              <Text style={{ color: '#fff', fontSize: 8, fontWeight: '900' }}>{unreadCount}</Text>
             </Animated.View>
           )}
         </TouchableOpacity>
@@ -257,14 +257,14 @@ const CustomHeader = ({ navigation, showActions = false }) => {
                 </Text>
               </View>
               <View style={{ backgroundColor: theme.colors.primary + '15', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
-                  <Text style={{ color: theme.colors.primary, fontSize: 10, fontWeight: '900' }}>{notifications.filter(n => !n.is_read).length} NEW</Text>
+                <Text style={{ color: theme.colors.primary, fontSize: 10, fontWeight: '900' }}>{notifications.filter(n => !n.is_read).length} NEW</Text>
               </View>
             </View>
-            
+
             <ScrollView style={{ flexGrow: 0, maxHeight: 350 }} showsVerticalScrollIndicator={false}>
               {notifications.length === 0 ? (
                 <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-                    <Text style={{ color: theme.colors.placeholder, fontWeight: '700', fontSize: 13 }}>CLEAR INBOX</Text>
+                  <Text style={{ color: theme.colors.placeholder, fontWeight: '700', fontSize: 13 }}>CLEAR INBOX</Text>
                 </View>
               ) : (
                 notifications.slice(0, 6).map((n) => (
@@ -310,6 +310,6 @@ const CustomHeader = ({ navigation, showActions = false }) => {
       </View>
     </View>
   );
-};
+});
 
 export default CustomHeader;

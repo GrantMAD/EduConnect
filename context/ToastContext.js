@@ -14,8 +14,10 @@ export const ToastProvider = ({ children }) => {
     setToast(null);
   }, []);
 
+  const value = React.useMemo(() => ({ showToast, toast, hideToast }), [showToast, toast, hideToast]);
+
   return (
-    <ToastContext.Provider value={{ showToast, toast, hideToast }}>
+    <ToastContext.Provider value={value}>
       {children}
       {toast && (
         <Toast

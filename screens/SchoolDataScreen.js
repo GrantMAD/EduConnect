@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Image, TouchableOpacity, Platform, TextInput, ScrollView } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import SchoolDataScreenSkeleton from '../components/skeletons/SchoolDataScreenSkeleton';
 import { SkeletonPiece } from '../components/skeletons/SettingsScreenSkeleton';
-import { faImage, faArrowLeft, faBuilding, faMapMarkerAlt, faEnvelope, faPhone, faGraduationCap, faChevronDown, faSchool, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faImage, faArrowLeft, faBuilding, faMapMarkerAlt, faEnvelope, faPhone, faGraduationCap, faChevronDown, faSchool, faTimes, faCopy, faCamera } from '@fortawesome/free-solid-svg-icons';
 import Modal from 'react-native-modal';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
@@ -12,8 +12,10 @@ import { Buffer } from 'buffer';
 import * as Clipboard from 'expo-clipboard';
 import { useSchool } from '../context/SchoolContext';
 import { useToast } from '../context/ToastContext';
+import { useTheme } from '../context/ThemeContext';
+import LinearGradient from 'react-native-linear-gradient';
 
-export default function SchoolDataScreen({ navigation, route }) {
+const SchoolDataScreen = ({ navigation, route }) => {
   const { fromDashboard } = route?.params || {};
   const { schoolId, loadingSchool } = useSchool();
   const [schoolData, setSchoolData] = useState(null);
@@ -33,17 +35,7 @@ export default function SchoolDataScreen({ navigation, route }) {
   const { showToast } = useToast();
   const { theme } = useTheme();
 
-  useEffect(() => {
-    if (loadingSchool) return;
-
-    if (schoolId) {
-      fetchSchoolData();
-    } else {
-      setLoading(false);
-    }
-  }, [schoolId, loadingSchool]);
-
-  const fetchSchoolData = async () => {
+  const fetchSchoolData = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -65,15 +57,25 @@ export default function SchoolDataScreen({ navigation, route }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [schoolId, showToast]);
 
-  const copySchoolId = async () => {
+  useEffect(() => {
+    if (loadingSchool) return;
+
+    if (schoolId) {
+      fetchSchoolData();
+    } else {
+      setLoading(false);
+    }
+  }, [schoolId, loadingSchool, fetchSchoolData]);
+
+  const copySchoolId = useCallback(async () => {
     if (!schoolId) return;
     await Clipboard.setStringAsync(schoolId);
     showToast('School ID copied to clipboard!', 'success');
-  };
+  }, [schoolId, showToast]);
 
-  const pickImage = async () => {
+  const pickImage = useCallback(async () => {
     if (Platform.OS !== 'web') {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
@@ -92,9 +94,9 @@ export default function SchoolDataScreen({ navigation, route }) {
     if (!result.canceled && result.assets && result.assets.length > 0) {
       setLogoLocalUri(result.assets[0].uri);
     }
-  };
+  }, [showToast]);
 
-  const uploadLogo = async (uri) => {
+  const uploadLogo = useCallback(async (uri) => {
     setUploading(true);
     try {
       const base64 = await FileSystem.readAsStringAsync(uri, {
@@ -122,12 +124,12 @@ export default function SchoolDataScreen({ navigation, route }) {
     } finally {
       setUploading(false);
     }
-  };
+  }, [schoolId, showToast]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      let logoUrl = schoolData.logo_url;
+      let logoUrl = schoolData?.logo_url;
       if (logoLocalUri) {
         const uploadedUrl = await uploadLogo(logoLocalUri);
         if (uploadedUrl) logoUrl = uploadedUrl;
@@ -153,7 +155,10 @@ export default function SchoolDataScreen({ navigation, route }) {
     } finally {
       setSaving(false);
     }
-  };
+  }, [schoolId, schoolData, logoLocalUri, uploadLogo, name, address, contactEmail, contactPhone, schoolType, showToast]);
+
+  const closeTypePicker = useCallback(() => setShowTypePicker(false), []);
+  const openTypePicker = useCallback(() => setShowTypePicker(true), []);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -230,7 +235,7 @@ export default function SchoolDataScreen({ navigation, route }) {
                 <Text style={styles.inputLabel}>SCHOOL TYPE</Text>
                 <TouchableOpacity
                     style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-                    onPress={() => setShowTypePicker(true)}
+                    onPress={openTypePicker}
                 >
                     <FontAwesomeIcon icon={faGraduationCap} size={14} color={theme.colors.primary} />
                     <Text style={[styles.input, { color: theme.colors.text, lineHeight: 20, paddingTop: 12 }]}>{schoolType}</Text>
@@ -309,7 +314,7 @@ export default function SchoolDataScreen({ navigation, route }) {
 
       <Modal
         isVisible={showTypePicker}
-        onBackdropPress={() => setShowTypePicker(false)}
+        onBackdropPress={closeTypePicker}
         animationIn="slideInUp"
         animationOut="slideOutDown"
         backdropOpacity={0.5}
@@ -319,7 +324,7 @@ export default function SchoolDataScreen({ navigation, route }) {
           <View style={[styles.modalHeader, { borderBottomColor: theme.colors.cardBorder }]}>
             <FontAwesomeIcon icon={faGraduationCap} size={20} color={theme.colors.primary} />
             <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Institution Type</Text>
-            <TouchableOpacity onPress={() => setShowTypePicker(false)}>
+            <TouchableOpacity onPress={closeTypePicker}>
               <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
             </TouchableOpacity>
           </View>
@@ -352,136 +357,81 @@ export default function SchoolDataScreen({ navigation, route }) {
   );
 }
 
+export default React.memo(SchoolDataScreen);
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: '#f8f9fa',
+  container: { flex: 1 },
+  heroContainer: {
+    padding: 24,
+    paddingTop: 40,
+    elevation: 0,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 10,
+  heroContent: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
   },
-  description: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 20,
+  heroTextContainer: {
+      flex: 1,
+      paddingRight: 10,
   },
-  section: {
-    marginBottom: 24,
+  heroTitle: {
+      color: '#fff',
+      fontSize: 28,
+      fontWeight: '900',
+      marginBottom: 8,
+      letterSpacing: -1,
   },
-  sectionHeader: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
+  heroDescription: {
+      color: '#d1fae5',
+      fontSize: 14,
+      fontWeight: '500',
   },
-  sectionDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 16,
+  backButtonHero: { marginRight: 12 },
+  copyBadge: {
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.2)',
   },
-  logo: {
-    width: '100%',
-    height: 150,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    marginBottom: 16,
+  copyBadgeText: {
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: '900',
+      marginLeft: 6,
   },
-  logoPlaceholder: {
-    width: '100%',
-    height: 150,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    marginBottom: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#e9ecef',
+  formCard: { padding: 24, borderRadius: 32 },
+  cardSectionLabel: {
+      fontSize: 10,
+      fontWeight: '900',
+      color: '#94a3b8',
+      letterSpacing: 1.5,
+      marginBottom: 20,
   },
-  logoPlaceholderText: {
-    color: '#6c757d',
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 12,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  copyButton: {
-    backgroundColor: '#e9ecef',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-  },
-  copyButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#007AFF',
-  },
-  backButton: {
-    marginBottom: 10,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '500',
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  inputLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  dropdownButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-  },
-  dropdownButtonText: {
-    fontSize: 16,
-    color: '#333',
-  },
+  logoContainer: { height: 180, borderRadius: 24, overflow: 'hidden', position: 'relative' },
+  logoImage: { width: '100%', height: '100%' },
+  logoPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  cameraOverlay: { position: 'absolute', bottom: 12, right: 12, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  imageHint: { fontSize: 10, textAlign: 'center', marginTop: 12, fontWeight: '600' },
+  inputGroup: { marginBottom: 16 },
+  inputLabel: { fontSize: 10, fontWeight: '900', color: '#94a3b8', letterSpacing: 1, marginBottom: 8, marginLeft: 4 },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, borderRadius: 16, height: 56 },
+  input: { flex: 1, fontSize: 15, fontWeight: '700', marginLeft: 12 },
+  saveBtnContainer: { marginBottom: 20 },
+  saveBtn: { height: 60, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '900' },
   modalContent: {
-    backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 30,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     maxHeight: '70%',
   },
   modalHeader: {
@@ -489,33 +439,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
     marginBottom: 10,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: '900',
     marginLeft: 15,
     flex: 1,
-    color: '#333',
-  },
-  modalCloseButton: {
-    padding: 5,
   },
   modalItem: {
-    paddingVertical: 16,
+    paddingVertical: 18,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   modalItemText: {
     fontSize: 16,
-    color: '#333',
-  },
-  modalItemTextSelected: {
-    color: '#007AFF',
     fontWeight: '600',
-  },
+  }
 });

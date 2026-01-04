@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, Dimensions } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useSchool } from '../../context/SchoolContext';
@@ -13,7 +13,7 @@ import LinearGradient from 'react-native-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-export default function ClubListScreen({ navigation }) {
+const ClubListScreen = ({ navigation }) => {
   const { theme } = useTheme();
   const { schoolId } = useSchool();
   const { showToast } = useToast();
@@ -26,7 +26,7 @@ export default function ClubListScreen({ navigation }) {
   const [userProfile, setUserProfile] = useState(null);
   const [applyingId, setApplyingId] = useState(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -62,21 +62,22 @@ export default function ClubListScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [schoolId, showToast]);
 
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
       fetchData();
-    }, [schoolId])
+    }, [fetchData])
   );
 
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchData();
-  };
+  }, [fetchData]);
 
-  const handleJoinRequest = async (club) => {
+  const handleJoinRequest = useCallback(async (club) => {
+    if (!userProfile) return;
     setApplyingId(club.id);
     try {
       if (userClubIds.has(club.id)) return;
@@ -98,15 +99,20 @@ export default function ClubListScreen({ navigation }) {
     } finally {
       setApplyingId(null);
     }
-  };
+  }, [userProfile, userClubIds, showToast]);
 
-  const isAdmin = userProfile?.role === 'admin';
-  const myClubs = clubs.filter(c => isAdmin || userClubIds.has(c.id) || c.teacher_id === userProfile?.id);
-  const availableClubs = clubs.filter(c => !isAdmin && !userClubIds.has(c.id) && c.teacher_id !== userProfile?.id);
+  const isAdmin = useMemo(() => userProfile?.role === 'admin', [userProfile]);
+  
+  const { myClubs, availableClubs } = useMemo(() => {
+    return {
+        myClubs: clubs.filter(c => isAdmin || userClubIds.has(c.id) || c.teacher_id === userProfile?.id),
+        availableClubs: clubs.filter(c => !isAdmin && !userClubIds.has(c.id) && c.teacher_id !== userProfile?.id)
+    };
+  }, [clubs, isAdmin, userClubIds, userProfile]);
 
-  const currentClubs = activeTab === 'my-clubs' ? myClubs : availableClubs;
+  const currentClubs = useMemo(() => activeTab === 'my-clubs' ? myClubs : availableClubs, [activeTab, myClubs, availableClubs]);
 
-  const renderClubCard = ({ item }) => (
+  const renderClubCard = useCallback(({ item }) => (
     <TouchableOpacity
       style={[styles.clubCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
       onPress={() => activeTab === 'my-clubs' ? navigation.navigate('ClubDetail', { clubId: item.id }) : null}
@@ -155,7 +161,7 @@ export default function ClubListScreen({ navigation }) {
         </TouchableOpacity>
       )}
     </TouchableOpacity>
-  );
+  ), [theme, activeTab, navigation, applyingId, handleJoinRequest]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -168,9 +174,6 @@ export default function ClubListScreen({ navigation }) {
         <View style={styles.heroContent}>
             <View style={styles.heroTextContainer}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
-                        <FontAwesomeIcon icon={faArrowLeft} size={18} color="#fff" />
-                    </TouchableOpacity>
                     <Text style={styles.heroTitle}>Clubs & Teams</Text>
                 </View>
                 <Text style={styles.heroDescription}>
@@ -241,6 +244,8 @@ export default function ClubListScreen({ navigation }) {
   );
 }
 
+export default React.memo(ClubListScreen);
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -273,7 +278,6 @@ const styles = StyleSheet.create({
       fontSize: 14,
       fontWeight: '500',
   },
-  backButtonHero: { marginRight: 12 },
   heroButton: {
       backgroundColor: '#fff',
       flexDirection: 'row',
@@ -401,16 +405,6 @@ const styles = StyleSheet.create({
   exploreButton: {
     marginTop: 20,
     padding: 12,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  backButton: {
-    padding: 8,
   },
   title: {
     fontSize: 24,

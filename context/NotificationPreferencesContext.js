@@ -49,30 +49,29 @@ export const NotificationPreferencesProvider = ({ children }) => {
         }
     };
 
-    const updatePreference = async (key, value) => {
+    const updatePreference = React.useCallback(async (key, value) => {
         try {
-            const newPreferences = { ...preferences, [key]: value };
-            setPreferences(newPreferences); // Optimistic update
+            setPreferences(prev => {
+                const newPrefs = { ...prev, [key]: value };
+                
+                supabase.auth.getUser().then(({ data: { user } }) => {
+                    if (user) {
+                        supabase
+                            .from('users')
+                            .update({ notification_preferences: newPrefs })
+                            .eq('id', user.id)
+                            .catch(err => console.error('Error saving notification preferences:', err));
+                    }
+                });
 
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { error } = await supabase
-                    .from('users')
-                    .update({ notification_preferences: newPreferences })
-                    .eq('id', user.id);
-
-                if (error) {
-                    throw error;
-                }
-            }
+                return newPrefs;
+            });
         } catch (error) {
-            console.error('Error saving notification preferences:', error);
-            // Revert on error (optional, but good practice)
-            // setPreferences(preferences); 
+            console.error('Error in updatePreference:', error);
         }
-    };
+    }, []);
 
-    const resetPreferences = async () => {
+    const resetPreferences = React.useCallback(async () => {
         try {
             setPreferences(DEFAULT_PREFERENCES);
             const { data: { user } } = await supabase.auth.getUser();
@@ -85,10 +84,10 @@ export const NotificationPreferencesProvider = ({ children }) => {
         } catch (error) {
             console.error('Error resetting preferences:', error);
         }
-    };
+    }, []);
 
     // Check if notifications should be sent based on quiet hours
-    const shouldSendNotification = () => {
+    const shouldSendNotification = React.useCallback(() => {
         if (!preferences.quietHoursEnabled) return true;
 
         const now = new Date();
@@ -102,15 +101,15 @@ export const NotificationPreferencesProvider = ({ children }) => {
         }
 
         return currentTime < quietHoursStart || currentTime >= quietHoursEnd;
-    };
+    }, [preferences]);
 
-    const value = {
+    const value = React.useMemo(() => ({
         preferences,
         loading,
         updatePreference,
         resetPreferences,
         shouldSendNotification,
-    };
+    }), [preferences, loading, updatePreference, resetPreferences, shouldSendNotification]);
 
     return (
         <NotificationPreferencesContext.Provider value={value}>

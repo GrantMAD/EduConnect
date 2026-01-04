@@ -5,7 +5,7 @@ import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
 export { SkeletonPiece };
 
-const CreateHomeworkScreenSkeleton = () => {
+const CreateHomeworkScreenSkeleton = React.memo(() => {
     const { theme } = useTheme();
 
     return (
@@ -41,7 +41,7 @@ const CreateHomeworkScreenSkeleton = () => {
 
         </ScrollView>
     );
-};
+});
 
 const styles = StyleSheet.create({
     container: {

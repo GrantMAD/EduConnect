@@ -5,7 +5,7 @@ import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
 export { SkeletonPiece };
 
-const LeaderboardSkeleton = () => {
+const LeaderboardSkeleton = React.memo(() => {
     const { theme } = useTheme();
 
     const renderItem = (i) => (
@@ -37,7 +37,7 @@ const LeaderboardSkeleton = () => {
             {[1, 2, 3, 4, 5, 6, 7, 8].map(i => renderItem(i))}
         </View>
     );
-};
+});
 
 const styles = StyleSheet.create({
     container: {

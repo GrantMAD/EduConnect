@@ -10,13 +10,8 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
 
-const AssignmentCard = ({ assignment, onPress, onTrackPress }) => {
+const AssignmentCard = React.memo(({ assignment, onPress, onTrackPress, userId }) => {
   const { theme } = useTheme();
-  const [user, setUser] = React.useState(null);
-
-  React.useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
-  }, []);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -24,14 +19,14 @@ const AssignmentCard = ({ assignment, onPress, onTrackPress }) => {
     return date.toLocaleDateString('en-GB', options);
   };
 
-  const isTeacher = user?.id === assignment.assigned_by;
+  const isTeacher = userId === assignment.assigned_by;
   const isCompleted = assignment.student_completions?.length > 0;
 
   return (
-    <TouchableOpacity 
-        onPress={onPress} 
-        style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-        activeOpacity={0.7}
+    <TouchableOpacity
+      onPress={onPress}
+      style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+      activeOpacity={0.7}
     >
       <View style={styles.header}>
         <View style={styles.row}>
@@ -64,13 +59,13 @@ const AssignmentCard = ({ assignment, onPress, onTrackPress }) => {
           </TouchableOpacity>
         ) : (
           <View style={styles.openRow}>
-              <Text style={[styles.tapToOpen, { color: theme.colors.primary }]}>VIEW DETAILS</Text>
+            <Text style={[styles.tapToOpen, { color: theme.colors.primary }]}>VIEW DETAILS</Text>
           </View>
         )}
       </View>
     </TouchableOpacity>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -91,12 +86,12 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   iconBox: {
-      width: 36,
-      height: 36,
-      borderRadius: 12,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   title: {
     fontWeight: '900',
@@ -104,19 +99,19 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   dateRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 10,
-      alignSelf: 'flex-start',
-      marginBottom: 20,
-      gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+    marginBottom: 20,
+    gap: 8,
   },
   dateText: {
-      fontSize: 10,
-      fontWeight: '900',
-      letterSpacing: 0.5,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   badge: {
     flexDirection: 'row',
@@ -149,8 +144,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   openRow: {
-      alignItems: 'center',
-      paddingTop: 4,
+    alignItems: 'center',
+    paddingTop: 4,
   },
   tapToOpen: {
     fontSize: 11,
@@ -160,3 +155,5 @@ const styles = StyleSheet.create({
 });
 
 export default AssignmentCard;
+
+

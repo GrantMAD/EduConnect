@@ -26,7 +26,7 @@ import StandardBottomModal from '../StandardBottomModal';
 
 const defaultUserImage = require('../../assets/user.png');
 
-export default function BookPTMModal({ isOpen, onClose, teacher, onRefresh }) {
+const BookPTMModal = React.memo(({ isOpen, onClose, teacher, onRefresh }) => {
   const [user, setUser] = useState(null);
   const { showToast } = useToast();
   const { theme } = useTheme();
@@ -129,135 +129,137 @@ export default function BookPTMModal({ isOpen, onClose, teacher, onRefresh }) {
 
   if (!isOpen || !teacher) return null;
 
-      return (
-      <StandardBottomModal
-        visible={isOpen}
-        onClose={onClose}
-        title={`Session with ${teacher.full_name}`}
-        icon={faCalendarAlt}
-      >
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Child Selection */}
-          <Text style={[styles.sectionTitle, { color: '#94a3b8' }]}>STUDENT REPRESENTATIVE</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.childScroll}>
-            {children.map(child => (
+  return (
+    <StandardBottomModal
+      visible={isOpen}
+      onClose={onClose}
+      title={`Session with ${teacher.full_name}`}
+      icon={faCalendarAlt}
+    >
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Child Selection */}
+        <Text style={[styles.sectionTitle, { color: '#94a3b8' }]}>STUDENT REPRESENTATIVE</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.childScroll}>
+          {children.map(child => (
+            <TouchableOpacity
+              key={child.id}
+              onPress={() => setSelectedChildId(child.id)}
+              style={[
+                styles.childCard,
+                { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 },
+                selectedChildId === child.id && { borderColor: theme.colors.primary, borderWidth: 2 }
+              ]}
+              activeOpacity={0.7}
+            >
+              <Image
+                source={child.avatar_url ? { uri: child.avatar_url } : defaultUserImage}
+                style={styles.childAvatar}
+              />
+              <Text style={[styles.childName, { color: theme.colors.text }]} numberOfLines={1}>{child.full_name}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Slot Selection */}
+        <Text style={[styles.sectionTitle, { color: '#94a3b8' }]}>SELECT TIME SLOT</Text>
+        {fetchingSlots ? (
+          <ActivityIndicator color={theme.colors.primary} style={{ marginVertical: 40 }} />
+        ) : slots.length === 0 ? (
+          <View style={[styles.emptyBox, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+            <Text style={{ color: theme.colors.placeholder, fontWeight: '700' }}>NO SLOTS AVAILABLE</Text>
+          </View>
+        ) : (
+          <View style={styles.slotsGrid}>
+            {slots.map(slot => (
               <TouchableOpacity
-                key={child.id}
-                onPress={() => setSelectedChildId(child.id)}
+                key={slot.id}
+                onPress={() => setSelectedSlotId(slot.id)}
                 style={[
-                  styles.childCard,
+                  styles.slotBtn,
                   { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 },
-                  selectedChildId === child.id && { borderColor: theme.colors.primary, borderWidth: 2 }
+                  selectedSlotId === slot.id && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }
                 ]}
                 activeOpacity={0.7}
               >
-                <Image
-                  source={child.avatar_url ? { uri: child.avatar_url } : defaultUserImage}
-                  style={styles.childAvatar}
-                />
-                <Text style={[styles.childName, { color: theme.colors.text }]} numberOfLines={1}>{child.full_name}</Text>
+                <Text style={[styles.slotDate, { color: selectedSlotId === slot.id ? '#fff' : theme.colors.placeholder }]}>
+                  {new Date(slot.start_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()}
+                </Text>
+                <Text style={[styles.slotTime, { color: selectedSlotId === slot.id ? '#fff' : theme.colors.text }]}>
+                  {new Date(slot.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
-  
-          {/* Slot Selection */}
-          <Text style={[styles.sectionTitle, { color: '#94a3b8' }]}>SELECT TIME SLOT</Text>
-          {fetchingSlots ? (
-            <ActivityIndicator color={theme.colors.primary} style={{ marginVertical: 40 }} />
-          ) : slots.length === 0 ? (
-            <View style={[styles.emptyBox, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-              <Text style={{ color: theme.colors.placeholder, fontWeight: '700' }}>NO SLOTS AVAILABLE</Text>
-            </View>
-          ) : (
-            <View style={styles.slotsGrid}>
-              {slots.map(slot => (
-                <TouchableOpacity
-                  key={slot.id}
-                  onPress={() => setSelectedSlotId(slot.id)}
-                  style={[
-                    styles.slotBtn,
-                    { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 },
-                    selectedSlotId === slot.id && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.slotDate, { color: selectedSlotId === slot.id ? '#fff' : theme.colors.placeholder }]}>
-                    {new Date(slot.start_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()}
-                  </Text>
-                  <Text style={[styles.slotTime, { color: selectedSlotId === slot.id ? '#fff' : theme.colors.text }]}>
-                    {new Date(slot.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-  
-          {/* Notes */}
-          <Text style={[styles.sectionTitle, { color: '#94a3b8' }]}>AGENDA / TOPICS</Text>
-          <View style={[styles.notesContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-            <TextInput
-              style={[styles.notesInput, { color: theme.colors.text }]}
-              placeholder="Specify topics for discussion..."
-              placeholderTextColor={theme.colors.placeholder}
-              multiline
-              numberOfLines={3}
-              value={notes}
-              onChangeText={setNotes}
-            />
           </View>
-  
-          <TouchableOpacity
-            onPress={handleBook}
-            disabled={loading || !selectedSlotId || !selectedChildId}
-            style={[styles.submitBtn, { backgroundColor: theme.colors.primary, opacity: (loading || !selectedSlotId || !selectedChildId) ? 0.6 : 1 }]}
-            activeOpacity={0.8}
-          >
-            {loading ? <ActivityIndicator color="#fff" /> : (
-              <Text style={styles.submitBtnText}>CONFIRM BOOKING</Text>
-            )}
-          </TouchableOpacity>
-        </ScrollView>
-      </StandardBottomModal>
-    );
-  }
-  
-  const styles = StyleSheet.create({
-    content: { padding: 16 },
-    sectionTitle: { fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 16, marginLeft: 4 },
-    childScroll: { marginBottom: 24 },
-    childCard: {
-      width: 110,
-      padding: 16,
-      borderRadius: 24,
-      alignItems: 'center',
-      marginRight: 12
-    },
-    childAvatar: { width: 44, height: 44, borderRadius: 14, marginBottom: 12 },
-    childName: { fontSize: 13, fontWeight: '800' },
-    slotsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
-    slotBtn: {
-      width: '31%',
-      padding: 12,
-      borderRadius: 16,
-      alignItems: 'center',
-      marginBottom: 4
-    },
-    slotDate: { fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
-    slotTime: { fontSize: 14, fontWeight: '900', marginTop: 2 },
-    emptyBox: { padding: 32, borderRadius: 24, alignItems: 'center', marginBottom: 24 },
-    notesContainer: {
-      borderRadius: 20,
-      padding: 16,
-      marginBottom: 32,
-    },
-    notesInput: { flex: 1, fontSize: 14, fontWeight: '600', textAlignVertical: 'top', minHeight: 80 },
-    submitBtn: {
-      height: 56,
-      borderRadius: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 40
-    },
-    submitBtnText: { color: '#fff', fontWeight: '900', fontSize: 13, letterSpacing: 1 },
-    notesIcon: { marginTop: 4, marginRight: 8 },
-  });
+        )}
+
+        {/* Notes */}
+        <Text style={[styles.sectionTitle, { color: '#94a3b8' }]}>AGENDA / TOPICS</Text>
+        <View style={[styles.notesContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+          <TextInput
+            style={[styles.notesInput, { color: theme.colors.text }]}
+            placeholder="Specify topics for discussion..."
+            placeholderTextColor={theme.colors.placeholder}
+            multiline
+            numberOfLines={3}
+            value={notes}
+            onChangeText={setNotes}
+          />
+        </View>
+
+        <TouchableOpacity
+          onPress={handleBook}
+          disabled={loading || !selectedSlotId || !selectedChildId}
+          style={[styles.submitBtn, { backgroundColor: theme.colors.primary, opacity: (loading || !selectedSlotId || !selectedChildId) ? 0.6 : 1 }]}
+          activeOpacity={0.8}
+        >
+          {loading ? <ActivityIndicator color="#fff" /> : (
+            <Text style={styles.submitBtnText}>CONFIRM BOOKING</Text>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
+    </StandardBottomModal>
+  );
+});
+
+const styles = StyleSheet.create({
+  content: { padding: 16 },
+  sectionTitle: { fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 16, marginLeft: 4 },
+  childScroll: { marginBottom: 24 },
+  childCard: {
+    width: 110,
+    padding: 16,
+    borderRadius: 24,
+    alignItems: 'center',
+    marginRight: 12
+  },
+  childAvatar: { width: 44, height: 44, borderRadius: 14, marginBottom: 12 },
+  childName: { fontSize: 13, fontWeight: '800' },
+  slotsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
+  slotBtn: {
+    width: '31%',
+    padding: 12,
+    borderRadius: 16,
+    alignItems: 'center',
+    marginBottom: 4
+  },
+  slotDate: { fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
+  slotTime: { fontSize: 14, fontWeight: '900', marginTop: 2 },
+  emptyBox: { padding: 32, borderRadius: 24, alignItems: 'center', marginBottom: 24 },
+  notesContainer: {
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 32,
+  },
+  notesInput: { flex: 1, fontSize: 14, fontWeight: '600', textAlignVertical: 'top', minHeight: 80 },
+  submitBtn: {
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 40
+  },
+  submitBtnText: { color: '#fff', fontWeight: '900', fontSize: 13, letterSpacing: 1 },
+  notesIcon: { marginTop: 4, marginRight: 8 },
+});
+
+export default BookPTMModal;

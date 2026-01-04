@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, Dimensions } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -19,7 +19,7 @@ import { useToast } from '../context/ToastContext';
 import { useWalkthrough } from '../context/WalkthroughContext';
 import UserListModal from '../components/UserListModal';
 import FamilyLinksModal from '../components/FamilyLinksModal';
-import DashboardSkeleton from '../components/skeletons/DashboardScreenSkeleton';
+import DashboardSkeleton, { StatCardSkeleton, SkeletonPiece } from '../components/skeletons/DashboardScreenSkeleton';
 import ChildProgressSnapshot from '../components/ChildProgressSnapshot';
 import { useGamification } from '../context/GamificationContext';
 import LinearGradient from 'react-native-linear-gradient';
@@ -27,8 +27,8 @@ import WalkthroughTarget from '../components/WalkthroughTarget';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-export default function DashboardScreen({ navigation }) {
-    const { theme } = useTheme();
+const DashboardScreen = ({ navigation }) => {
+    const { theme, isDarkTheme } = useTheme();
     const { schoolId, schoolLogo } = useSchool();
     const { showToast } = useToast();
     const { startWalkthrough } = useWalkthrough();
@@ -59,17 +59,7 @@ export default function DashboardScreen({ navigation }) {
     const [selectedUserCategory, setSelectedUserCategory] = useState('');
     const [showFamilyLinksModal, setShowFamilyLinksModal] = useState(false);
 
-    useEffect(() => {
-        if (schoolId) {
-            fetchDashboardData();
-        } else {
-            setLoading(false);
-        }
-        checkUserAccessAndWalkthrough();
-        handleDailyCheckIn();
-    }, [schoolId]);
-
-    const handleDailyCheckIn = async () => {
+    const handleDailyCheckIn = useCallback(async () => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
@@ -89,64 +79,9 @@ export default function DashboardScreen({ navigation }) {
                 awardXP('daily_check_in', 5);
             }
         } catch (e) { }
-    };
+    }, [awardXP]);
 
-    const fetchDashboardData = async () => {
-        if (!schoolId) return;
-
-        setLoading(true);
-        try {
-            // 1. Fetch Stats
-            const { data: statsData, error: statsError } = await supabase.rpc('get_dashboard_stats', { target_school_id: schoolId });
-            if (statsError) throw statsError;
-
-            const { data: { user } } = await supabase.auth.getUser();
-            const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
-
-            let linkCount = 0;
-            if (profile?.role === 'admin') {
-                const { count } = await supabase
-                    .from('parent_child_relationships')
-                    .select('*, parent:users!parent_id!inner(school_id)', { count: 'exact', head: true })
-                    .eq('parent.school_id', schoolId);
-                linkCount = count || 0;
-            }
-
-            const { count: clubs } = await supabase
-                .from('classes')
-                .select('*', { count: 'exact', head: true })
-                .eq('school_id', schoolId)
-                .eq('subject', 'Extracurricular');
-
-            if (statsData) {
-                setStats({
-                    totalUsers: statsData.totalUsers || 0,
-                    adminCount: statsData.adminCount || 0,
-                    teacherCount: statsData.teacherCount || 0,
-                    studentCount: statsData.studentCount || 0,
-                    parentCount: statsData.parentCount || 0,
-                    classCount: (statsData.classCount || 0) - (clubs || 0),
-                    clubCount: clubs || 0,
-                    assignmentCount: statsData.assignmentCount || 0,
-                    pollCount: statsData.pollCount || 0,
-                    parentChildLinkCount: linkCount
-                });
-            }
-
-            // 2. Fetch Data
-            await Promise.all([
-                fetchUpcomingTasks(user.id, profile?.role),
-                fetchTodaySessions(user.id, profile?.role)
-            ]);
-
-        } catch (error) {
-            console.error('Error fetching dashboard data:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchUpcomingTasks = async (userId, role) => {
+    const fetchUpcomingTasks = useCallback(async (userId, role) => {
         try {
             let homeworkQuery = supabase.from('homework').select('*');
             let assignmentQuery = supabase.from('assignments').select('*');
@@ -191,9 +126,9 @@ export default function DashboardScreen({ navigation }) {
 
             setUpcomingTasks(combined);
         } catch (e) { }
-    };
+    }, [schoolId]);
 
-    const fetchTodaySessions = async (userId, role) => {
+    const fetchTodaySessions = useCallback(async (userId, role) => {
         try {
             const today = new Date();
             const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
@@ -252,16 +187,71 @@ export default function DashboardScreen({ navigation }) {
                     id: p.id,
                     start_time: p.slot.start_time,
                     end_time: p.slot.end_time,
-                    title: `Meeting: ${p.notes || 'PTM'}`,
+                    title: `Meeting: ${p.notes || 'PTM'}`, 
                     eventType: 'meeting'
                 }))
             ].sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 
             setTodaySessions(combined);
         } catch (e) { }
-    };
+    }, [schoolId]);
 
-    const checkUserAccessAndWalkthrough = async () => {
+    const fetchDashboardData = useCallback(async () => {
+        if (!schoolId) return;
+
+        setLoading(true);
+        try {
+            // 1. Fetch Stats
+            const { data: statsData, error: statsError } = await supabase.rpc('get_dashboard_stats', { target_school_id: schoolId });
+            if (statsError) throw statsError;
+
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
+
+            let linkCount = 0;
+            if (profile?.role === 'admin') {
+                const { count } = await supabase
+                    .from('parent_child_relationships')
+                    .select('*, parent:users!parent_id!inner(school_id)', { count: 'exact', head: true })
+                    .eq('parent.school_id', schoolId);
+                linkCount = count || 0;
+            }
+
+            const { count: clubs } = await supabase
+                .from('classes')
+                .select('*', { count: 'exact', head: true })
+                .eq('school_id', schoolId)
+                .eq('subject', 'Extracurricular');
+
+            if (statsData) {
+                setStats({
+                    totalUsers: statsData.totalUsers || 0,
+                    adminCount: statsData.adminCount || 0,
+                    teacherCount: statsData.teacherCount || 0,
+                    studentCount: statsData.studentCount || 0,
+                    parentCount: statsData.parentCount || 0,
+                    classCount: (statsData.classCount || 0) - (clubs || 0),
+                    clubCount: clubs || 0,
+                    assignmentCount: statsData.assignmentCount || 0,
+                    pollCount: statsData.pollCount || 0,
+                    parentChildLinkCount: linkCount
+                });
+            }
+
+            // 2. Fetch Data
+            await Promise.all([
+                fetchUpcomingTasks(user.id, profile?.role),
+                fetchTodaySessions(user.id, profile?.role)
+            ]);
+
+        } catch (error) {
+            console.error('Error fetching dashboard data:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [schoolId, fetchUpcomingTasks, fetchTodaySessions]);
+
+    const checkUserAccessAndWalkthrough = useCallback(async () => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
@@ -325,15 +315,15 @@ export default function DashboardScreen({ navigation }) {
             showToast('Failed to verify access.', 'error');
             navigation.goBack();
         }
-    };
+    }, [navigation, showToast, startWalkthrough]);
 
-    const onRefresh = async () => {
+    const onRefresh = useCallback(async () => {
         setRefreshing(true);
         await Promise.all([fetchDashboardData(), checkUserAccessAndWalkthrough()]);
         setRefreshing(false);
-    };
+    }, [fetchDashboardData, checkUserAccessAndWalkthrough]);
 
-    const fetchUsersByCategory = async (category) => {
+    const fetchUsersByCategory = useCallback(async (category) => {
         try {
             let query = supabase
                 .from('users')
@@ -355,18 +345,19 @@ export default function DashboardScreen({ navigation }) {
             console.error('Error fetching users:', error);
             showToast('Failed to load user list', 'error');
         }
-    };
+    }, [schoolId, showToast]);
 
-    if (loading && !refreshing) {
-        return <DashboardSkeleton />;
-    }
+    useEffect(() => {
+        if (schoolId) {
+            fetchDashboardData();
+        } else {
+            setLoading(false);
+        }
+        checkUserAccessAndWalkthrough();
+        handleDailyCheckIn();
+    }, [schoolId, fetchDashboardData, checkUserAccessAndWalkthrough, handleDailyCheckIn]);
 
-    const getGreeting = () => {
-        const hour = new Date().getHours();
-        if (hour < 12) return 'Good Morning';
-        if (hour < 17) return 'Good Afternoon';
-        return 'Good Evening';
-    };
+    const greeting = new Date().getHours() < 12 ? 'Good Morning' : new Date().getHours() < 17 ? 'Good Afternoon' : 'Good Evening';
 
     return (
         <ScrollView
@@ -381,12 +372,16 @@ export default function DashboardScreen({ navigation }) {
                     <View style={styles.headerLeft}>
                         <View style={[styles.greetingBadge, { backgroundColor: theme.colors.primary + '15' }]}>
                             <Text style={[styles.greetingText, { color: theme.colors.primary }]}>
-                                {getGreeting()}
+                                {greeting}
                             </Text>
                         </View>
-                        <Text style={[styles.userNameLarge, { color: theme.colors.text }]}>
-                            {userProfile?.full_name?.split(' ')[0] || 'User'}
-                        </Text>
+                        {userProfile ? (
+                            <Text style={[styles.userNameLarge, { color: theme.colors.text }]}>
+                                {userProfile.full_name?.split(' ')[0]}
+                            </Text>
+                        ) : (
+                            <SkeletonPiece style={{ width: 140, height: 34, borderRadius: 8, marginTop: 4, marginLeft: 4 }} />
+                        )}
                     </View>
                     <View style={[styles.dateBadgeFull, { backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '20', borderWidth: 1 }]}>
                         <Text style={[styles.dateTextFull, { color: theme.colors.primary }]}>
@@ -435,12 +430,12 @@ export default function DashboardScreen({ navigation }) {
 
                 {/* Role Specific Widgets */}
                 {userRole === 'parent' && (
-                    <ChildProgressSnapshot id="dashboard-parent-child" />
+                    <ChildProgressSnapshot id="dashboard-parent-child" loading={loading} />
                 )}
 
-                {['admin', 'teacher'].includes(userRole) && (
-                    <QuickActions id="dashboard-quick-actions" />
-                )}
+                {['admin', 'teacher'].includes(userRole) || loading ? (
+                    <QuickActions id="dashboard-quick-actions" navigation={navigation} userRole={userRole} loading={loading} />
+                ) : null}
 
                 {/* Tasks & Events */}
                 <View style={styles.row}>
@@ -468,87 +463,114 @@ export default function DashboardScreen({ navigation }) {
                             A comprehensive overview of your school's community and reach.
                         </Text>
 
-                        <View style={styles.statsGrid}>
-                            <StatCard
-                                icon={faUsers}
-                                title="Total Users"
-                                value={stats.totalUsers}
-                                color="#007AFF"
-                                onPress={() => fetchUsersByCategory('total')}
-                            />
-                            <StatCard
-                                icon={faUserTie}
-                                title="Admins"
-                                value={stats.adminCount}
-                                color="#FF3B30"
-                                onPress={() => fetchUsersByCategory('admin')}
-                            />
-                            <StatCard
-                                icon={faChalkboardTeacher}
-                                title="Teachers"
-                                value={stats.teacherCount}
-                                color="#34C759"
-                                onPress={() => fetchUsersByCategory('teacher')}
-                            />
-                            <StatCard
-                                icon={faUserGraduate}
-                                title="Students"
-                                value={stats.studentCount}
-                                color="#5856D6"
-                                onPress={() => fetchUsersByCategory('student')}
-                            />
-                            <StatCard
-                                icon={faChild}
-                                title="Parents"
-                                value={stats.parentCount}
-                                color="#FF9500"
-                                onPress={() => fetchUsersByCategory('parent')}
-                            />
-                            {userRole === 'admin' && (
+                        {loading ? (
+                            <View style={styles.statsGrid}>
+                                {[1, 2, 3, 4].map((item) => (
+                                    <StatCardSkeleton key={item} />
+                                ))}
+                            </View>
+                        ) : (
+                            <View style={styles.statsGrid}>
                                 <StatCard
-                                    icon={faUserFriends}
-                                    title="Family Links"
-                                    value={stats.parentChildLinkCount}
-                                    color="#AF52DE"
-                                    onPress={() => setShowFamilyLinksModal(true)}
+                                    icon={faUsers}
+                                    title="Total Users"
+                                    value={stats.totalUsers}
+                                    color="#007AFF"
+                                    onPress={() => fetchUsersByCategory('total')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
                                 />
-                            )}
-                        </View>
+                                <StatCard
+                                    icon={faUserTie}
+                                    title="Admins"
+                                    value={stats.adminCount}
+                                    color="#FF3B30"
+                                    onPress={() => fetchUsersByCategory('admin')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                />
+                                <StatCard
+                                    icon={faChalkboardTeacher}
+                                    title="Teachers"
+                                    value={stats.teacherCount}
+                                    color="#34C759"
+                                    onPress={() => fetchUsersByCategory('teacher')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                />
+                                <StatCard
+                                    icon={faUserGraduate}
+                                    title="Students"
+                                    value={stats.studentCount}
+                                    color="#5856D6"
+                                    onPress={() => fetchUsersByCategory('student')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                />
+                                <StatCard
+                                    icon={faChild}
+                                    title="Parents"
+                                    value={stats.parentCount}
+                                    color="#FF9500"
+                                    onPress={() => fetchUsersByCategory('parent')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                />
+                                {userRole === 'admin' && (
+                                    <StatCard
+                                        icon={faUserFriends}
+                                        title="Family Links"
+                                        value={stats.parentChildLinkCount}
+                                        color="#AF52DE"
+                                        onPress={() => setShowFamilyLinksModal(true)}
+                                        style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                    />
+                                )}
+                            </View>
+                        )}
 
                         <Text style={[styles.sectionTitle, { color: theme.colors.text, marginTop: 24 }]}>Content & Activity</Text>
                         <Text style={[styles.sectionDescription, { color: theme.colors.placeholder, marginTop: -12, marginBottom: 16 }]}>
                             Monitor educational materials and engagement across the platform.
                         </Text>
-                        <View style={styles.statsGrid}>
-                            <StatCard
-                                icon={faBookOpen}
-                                title="Classes"
-                                value={stats.classCount}
-                                color="#007AFF"
-                                onPress={() => navigation.navigate('ManageClasses')}
-                            />
-                            <StatCard
-                                icon={faUserFriends}
-                                title="Clubs"
-                                value={stats.clubCount}
-                                color="#FF9500"
-                                onPress={() => navigation.navigate('ClubList')}
-                            />
-                            <StatCard
-                                icon={faClipboardList}
-                                title="Assignments"
-                                value={stats.assignmentCount}
-                                color="#5856D6"
-                                onPress={() => navigation.navigate('Homework')}
-                            />
-                            <StatCard
-                                icon={faPoll}
-                                title="Active Polls"
-                                value={stats.pollCount}
-                                color="#FF9500"
-                                onPress={() => navigation.navigate('Polls')}
-                            />
-                        </View>
+                        
+                        {loading ? (
+                            <View style={styles.statsGrid}>
+                                {[1, 2, 3, 4].map((item) => (
+                                    <StatCardSkeleton key={item} />
+                                ))}
+                            </View>
+                        ) : (
+                            <View style={styles.statsGrid}>
+                                <StatCard
+                                    icon={faBookOpen}
+                                    title="Classes"
+                                    value={stats.classCount}
+                                    color="#007AFF"
+                                    onPress={() => navigation.navigate('ManageClasses')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                />
+                                <StatCard
+                                    icon={faUserFriends}
+                                    title="Clubs"
+                                    value={stats.clubCount}
+                                    color="#FF9500"
+                                    onPress={() => navigation.navigate('ClubList')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                />
+                                <StatCard
+                                    icon={faClipboardList}
+                                    title="Assignments"
+                                    value={stats.assignmentCount}
+                                    color="#5856D6"
+                                    onPress={() => navigation.navigate('Homework')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                />
+                                <StatCard
+                                    icon={faPoll}
+                                    title="Active Polls"
+                                    value={stats.pollCount}
+                                    color="#FF9500"
+                                    onPress={() => navigation.navigate('Polls')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                />
+                            </View>
+                        )}
                     </View>
                 )}
             </View>
@@ -566,7 +588,9 @@ export default function DashboardScreen({ navigation }) {
             />
         </ScrollView>
     );
-}
+};
+
+export default React.memo(DashboardScreen);
 
 const styles = StyleSheet.create({
     container: { flex: 1 },

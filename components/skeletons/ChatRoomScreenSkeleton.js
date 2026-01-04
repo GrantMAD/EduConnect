@@ -5,7 +5,7 @@ import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
 export { SkeletonPiece };
 
-const ChatMessageSkeleton = ({ align }) => {
+const ChatMessageSkeleton = React.memo(({ align }) => {
     const { theme } = useTheme();
     const isRight = align === 'right';
 
@@ -28,9 +28,9 @@ const ChatMessageSkeleton = ({ align }) => {
             </View>
         </View>
     );
-};
+});
 
-const ChatRoomScreenSkeleton = () => {
+const ChatRoomScreenSkeleton = React.memo(() => {
     const { theme } = useTheme();
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -59,7 +59,7 @@ const ChatRoomScreenSkeleton = () => {
             </View>
         </View>
     );
-};
+});
 
 const styles = StyleSheet.create({
     container: {

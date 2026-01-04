@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, Text, Image, ActivityIndicator, ScrollView, Dimensions } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -9,7 +9,7 @@ import LinearGradient from 'react-native-linear-gradient';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
-export default function SignUpScreen({ navigation }) {
+const SignUpScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -18,7 +18,7 @@ export default function SignUpScreen({ navigation }) {
   const { showToast } = useToast();
   const { theme } = useTheme();
 
-  const handleSignUp = async () => {
+  const handleSignUp = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
@@ -36,11 +36,13 @@ export default function SignUpScreen({ navigation }) {
     } else if (data && data.user) {
       showToast('Successfully signed up', 'success');
     }
-  };
+  }, [email, password, fullName, showToast]);
+
+  const toggleShowPassword = useCallback(() => setShowPassword(prev => !prev), []);
+  const navigateToSignIn = useCallback(() => navigation.navigate('SignIn'), [navigation]);
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} contentContainerStyle={{ flexGrow: 1 }}>
-      {/* Top Branding Section */}
       <LinearGradient
         colors={['#4f46e5', '#9333ea']}
         start={{ x: 0, y: 0 }}
@@ -56,7 +58,6 @@ export default function SignUpScreen({ navigation }) {
         </View>
       </LinearGradient>
 
-      {/* Form Section */}
       <View style={[styles.formSection, { backgroundColor: theme.colors.background }]}>
         <View style={styles.formHeader}>
             <Text style={[styles.title, { color: theme.colors.text }]}>Create Account</Text>
@@ -105,7 +106,7 @@ export default function SignUpScreen({ navigation }) {
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
                 />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+                <TouchableOpacity onPress={toggleShowPassword} style={styles.eyeIcon}>
                     <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} size={18} color={theme.colors.placeholder} />
                 </TouchableOpacity>
             </View>
@@ -131,7 +132,7 @@ export default function SignUpScreen({ navigation }) {
             </LinearGradient>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => navigation.navigate('SignIn')} style={styles.signInLink}>
+        <TouchableOpacity onPress={navigateToSignIn} style={styles.signInLink}>
             <Text style={[styles.linkText, { color: theme.colors.placeholder }]}>
                 Already have an account? <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>Sign in here</Text>
             </Text>
@@ -140,6 +141,8 @@ export default function SignUpScreen({ navigation }) {
     </ScrollView>
   );
 }
+
+export default React.memo(SignUpScreen);
 
 const styles = StyleSheet.create({
   container: {

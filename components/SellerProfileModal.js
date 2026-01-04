@@ -5,8 +5,11 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faEnvelope, faPhone, faUserCircle } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
-export default function SellerProfileModal({ visible, seller, onClose }) {
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const SellerProfileModal = React.memo(({ visible, seller, onClose }) => {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   if (!seller) return null;
 
@@ -35,7 +38,7 @@ export default function SellerProfileModal({ visible, seller, onClose }) {
         backdropOpacity={0.4}
         style={{ justifyContent: 'flex-end', margin: 0 }}
       >
-        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets?.bottom || 0, 40) }]}>
+        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 40) }]}>
           <View style={styles.swipeIndicator} />
           <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
             <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
@@ -86,9 +89,9 @@ export default function SellerProfileModal({ visible, seller, onClose }) {
         </View>
       </Modal>
     );
-  }
-  
-  const styles = StyleSheet.create({
+});
+
+const styles = StyleSheet.create({
     modalContent: {
       paddingHorizontal: 24,
       paddingTop: 8,
@@ -196,4 +199,6 @@ export default function SellerProfileModal({ visible, seller, onClose }) {
       textAlign: 'center',
       letterSpacing: 0.5,
     },
-  });
+});
+
+export default SellerProfileModal;

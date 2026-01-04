@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Modal, FlatList, Pressable, Switch, Dimensions } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useNavigation } from '@react-navigation/native';
@@ -16,7 +16,7 @@ import LinearGradient from 'react-native-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-export default function CreateHomeworkScreen({ route }) {
+const CreateHomeworkScreen = ({ route }) => {
   const { fromDashboard } = route.params || {};
   const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState(null);
@@ -38,6 +38,25 @@ export default function CreateHomeworkScreen({ route }) {
   const insets = useSafeAreaInsets();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
+
+  const fetchTemplates = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('templates')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('type', 'homework')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setTemplates(data || []);
+    } catch (error) {
+      console.error('Error fetching templates:', error);
+    }
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -61,28 +80,9 @@ export default function CreateHomeworkScreen({ route }) {
 
     fetchData();
     fetchTemplates();
-  }, []);
+  }, [fetchTemplates, showToast]);
 
-  const fetchTemplates = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('templates')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('type', 'homework')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setTemplates(data || []);
-    } catch (error) {
-      console.error('Error fetching templates:', error);
-    }
-  };
-
-  const handleSaveTemplate = async () => {
+  const handleSaveTemplate = useCallback(async () => {
     if (!subject || !description) {
       showToast('Subject and description are required for a template.', 'error');
       return;
@@ -113,16 +113,16 @@ export default function CreateHomeworkScreen({ route }) {
     } finally {
       setIsSavingTemplate(false);
     }
-  };
+  }, [subject, description, schoolId, fetchTemplates, showToast]);
 
-  const applyTemplate = (template) => {
+  const applyTemplate = useCallback((template) => {
     setSubject(template.subject || template.title || '');
     setDescription(template.description || '');
     setIsTemplatesModalVisible(false);
     showToast('Template applied!', 'success');
-  };
+  }, [showToast]);
 
-  const deleteTemplate = async (templateId) => {
+  const deleteTemplate = useCallback(async (templateId) => {
     try {
       const { error } = await supabase
         .from('templates')
@@ -130,17 +130,17 @@ export default function CreateHomeworkScreen({ route }) {
         .eq('id', templateId);
 
       if (error) throw error;
-      setTemplates(templates.filter(t => t.id !== templateId));
+      setTemplates(prev => prev.filter(t => t.id !== templateId));
       showToast('Template deleted.', 'success');
     } catch (error) {
       console.error('Error deleting template:', error);
       showToast('Failed to delete template.', 'error');
     }
-  };
+  }, [showToast]);
 
   useEffect(() => {
     if (selectedClass) {
-      const fetchSchedules = async () => {
+      const fetchClassSchedules = async () => {
         const { data, error } = await supabase
           .from('class_schedules')
           .select('id, start_time, title')
@@ -152,11 +152,11 @@ export default function CreateHomeworkScreen({ route }) {
           setSchedules(data || []);
         }
       };
-      fetchSchedules();
+      fetchClassSchedules();
     }
-  }, [selectedClass]);
+  }, [selectedClass, showToast]);
 
-  const handleCreate = async () => {
+  const handleCreate = useCallback(async () => {
     if (!selectedClass || !subject || !description || !dueDate) {
       showToast('Please fill in all fields.', 'error');
       return;
@@ -234,7 +234,10 @@ export default function CreateHomeworkScreen({ route }) {
     } finally {
       setIsCreating(false);
     }
-  };
+  }, [selectedClass, subject, description, dueDate, schoolId, awardXP, navigation, showToast]);
+
+  const openTemplatesModal = useCallback(() => setIsTemplatesModalVisible(true), []);
+  const closeTemplatesModal = useCallback(() => setIsTemplatesModalVisible(false), []);
 
   if (loading) {
     return <CreateHomeworkScreenSkeleton />;
@@ -262,7 +265,7 @@ export default function CreateHomeworkScreen({ route }) {
             </View>
             <TouchableOpacity
                 style={styles.heroButton}
-                onPress={() => setIsTemplatesModalVisible(true)}
+                onPress={openTemplatesModal}
             >
                 <FontAwesomeIcon icon={faFolderOpen} size={14} color="#059669" />
                 <Text style={styles.heroButtonText}>Templates</Text>
@@ -432,13 +435,13 @@ export default function CreateHomeworkScreen({ route }) {
         visible={isTemplatesModalVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setIsTemplatesModalVisible(false)}
+        onRequestClose={closeTemplatesModal}
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
             <View style={[styles.modalHeader, { borderBottomColor: theme.colors.cardBorder }]}>
               <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Homework Templates</Text>
-              <TouchableOpacity onPress={() => setIsTemplatesModalVisible(false)}>
+              <TouchableOpacity onPress={closeTemplatesModal}>
                 <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
               </TouchableOpacity>
             </View>
@@ -472,6 +475,8 @@ export default function CreateHomeworkScreen({ route }) {
     </View>
   );
 }
+
+export default React.memo(CreateHomeworkScreen);
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

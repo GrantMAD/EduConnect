@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, Image, ActivityIndicator, Dimensions } from 'react-native';
 import { useChat } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -14,7 +14,7 @@ import LinearGradient from 'react-native-linear-gradient';
 const { width } = Dimensions.get('window');
 const defaultUserImage = require('../../assets/user.png');
 
-export default function NewChatScreen({ navigation }) {
+const NewChatScreen = ({ navigation }) => {
     const { createChannel } = useChat();
     const { theme } = useTheme();
     const { showToast } = useToast();
@@ -28,11 +28,7 @@ export default function NewChatScreen({ navigation }) {
     const [groupName, setGroupName] = useState('');
     const [selectedUsers, setSelectedUsers] = useState(new Set());
 
-    useEffect(() => {
-        fetchUsers();
-    }, []);
-
-    const fetchUsers = async () => {
+    const fetchUsers = useCallback(async () => {
         setLoading(true);
         try {
             const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -93,9 +89,13 @@ export default function NewChatScreen({ navigation }) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [searchQuery]);
 
-    const handleUserPress = async (selectedUser) => {
+    useEffect(() => {
+        fetchUsers();
+    }, [fetchUsers]);
+
+    const handleUserPress = useCallback(async (selectedUser) => {
         if (isGroupMode) {
             setSelectedUsers(prev => {
                 const newSet = new Set(prev);
@@ -118,9 +118,9 @@ export default function NewChatScreen({ navigation }) {
                 setCreating(false);
             }
         }
-    };
+    }, [isGroupMode, createChannel, navigation]);
 
-    const handleCreateGroup = async () => {
+    const handleCreateGroup = useCallback(async () => {
         if (!groupName.trim()) {
             showToast('Please enter a group name', 'error');
             return;
@@ -141,9 +141,9 @@ export default function NewChatScreen({ navigation }) {
         } finally {
             setCreating(false);
         }
-    };
+    }, [groupName, selectedUsers, createChannel, navigation, showToast]);
 
-    const getRoleColor = (role) => {
+    const getRoleColor = useCallback((role) => {
         switch (role?.toLowerCase()) {
             case 'admin': return '#e11d48';
             case 'teacher': return '#4f46e5';
@@ -151,9 +151,9 @@ export default function NewChatScreen({ navigation }) {
             case 'parent': return '#f59e0b';
             default: return theme.colors.placeholder;
         }
-    };
+    }, [theme.colors]);
 
-    const renderItem = ({ item }) => {
+    const renderItem = useCallback(({ item }) => {
         const isSelected = selectedUsers.has(item.id);
         const roleColor = getRoleColor(item.role);
 
@@ -197,7 +197,13 @@ export default function NewChatScreen({ navigation }) {
                 )}
             </TouchableOpacity>
         );
-    };
+    }, [isGroupMode, selectedUsers, getRoleColor, handleUserPress, creating, theme.colors]);
+
+    const toggleMode = useCallback(() => {
+        setIsGroupMode(prev => !prev);
+        setSelectedUsers(new Set());
+        setGroupName('');
+    }, []);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -209,22 +215,24 @@ export default function NewChatScreen({ navigation }) {
             >
                 <View style={styles.heroContent}>
                     <View style={styles.heroTextContainer}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
-                                <FontAwesomeIcon icon={faChevronLeft} size={18} color="#fff" />
-                            </TouchableOpacity>
-                            <Text style={styles.heroTitle}>{isGroupMode ? 'New Group' : 'New Chat'}</Text>
-                        </View>
+                        <TouchableOpacity 
+                            onPress={() => navigation.goBack()} 
+                            style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingTop: 16 }}
+                            activeOpacity={0.7}
+                        >
+                            <FontAwesomeIcon icon={faChevronLeft} size={14} color="#fff" />
+                            <Text style={{ color: '#fff', marginLeft: 8, fontWeight: '700', fontSize: 14 }}>Back to Chat list</Text>
+                        </TouchableOpacity>
+                        
+                        <Text style={styles.heroTitle}>{isGroupMode ? 'New Group' : 'New Chat'}</Text>
                         <Text style={styles.heroDescription}>
-                            {isGroupMode ? 'Name your group and add members.' : 'Select a user to start a conversation.'}
+                            {isGroupMode 
+                                ? 'Name your group and select members to get started.' 
+                                : 'Select a user to start a conversation, or tap the Group button to create a group chat.'}
                         </Text>
                     </View>
                     <TouchableOpacity
-                        onPress={() => {
-                            setIsGroupMode(!isGroupMode);
-                            setSelectedUsers(new Set());
-                            setGroupName('');
-                        }}
+                        onPress={toggleMode}
                         style={styles.modeToggleBtn}
                     >
                         <FontAwesomeIcon icon={isGroupMode ? faPlus : faUsers} size={14} color="#4f46e5" />
@@ -307,11 +315,13 @@ export default function NewChatScreen({ navigation }) {
     );
 }
 
+export default React.memo(NewChatScreen);
+
 const styles = StyleSheet.create({
     container: { flex: 1 },
     heroContainer: {
         padding: 24,
-        paddingTop: 40,
+        paddingTop: 10,
         elevation: 0,
         borderBottomLeftRadius: 32,
         borderBottomRightRadius: 32,
@@ -337,7 +347,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '500',
     },
-    backButtonHero: { marginRight: 12 },
     modeToggleBtn: {
         backgroundColor: '#fff',
         flexDirection: 'row',

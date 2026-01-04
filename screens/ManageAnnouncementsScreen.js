@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert, TouchableOpacity, Dimensions } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
@@ -11,7 +11,7 @@ import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
 
-export default function ManageAnnouncementsScreen({ navigation }) {
+const ManageAnnouncementsScreen = ({ navigation }) => {
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -37,7 +37,7 @@ export default function ManageAnnouncementsScreen({ navigation }) {
     getUserData();
   }, []);
 
-  const fetchAnnouncements = async () => {
+  const fetchAnnouncements = useCallback(async () => {
     if (!schoolId || userRole === null || currentUserId === null) {
       setLoading(false);
       setRefreshing(false);
@@ -62,22 +62,22 @@ export default function ManageAnnouncementsScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [schoolId, userRole, currentUserId, showToast]);
 
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       if (userRole !== null && currentUserId !== null) {
         fetchAnnouncements();
       }
-    }, [schoolId, userRole, currentUserId])
+    }, [userRole, currentUserId, fetchAnnouncements])
   );
 
-  const onRefresh = React.useCallback(() => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchAnnouncements();
-  }, [schoolId, userRole, currentUserId]);
+  }, [fetchAnnouncements]);
 
-  const handleDelete = async (id) => {
+  const handleDelete = useCallback(async (id) => {
     Alert.alert(
       'Delete Announcement',
       'Are you sure you want to delete this announcement?',
@@ -100,14 +100,14 @@ export default function ManageAnnouncementsScreen({ navigation }) {
       ],
       { cancelable: true }
     );
-  };
+  }, [fetchAnnouncements, showToast]);
 
-  const handleEdit = (announcement) => {
+  const handleEdit = useCallback((announcement) => {
     setEditingAnnouncement(announcement);
     setShowEditModal(true);
-  };
+  }, []);
 
-  const handleSaveEdit = async (id, title, message) => {
+  const handleSaveEdit = useCallback(async (id, title, message) => {
     if (!title || !message) {
       showToast('Title and Message cannot be empty.', 'error');
       return;
@@ -126,14 +126,14 @@ export default function ManageAnnouncementsScreen({ navigation }) {
     } catch (error) {
       showToast('Failed to update announcement.', 'error');
     }
-  };
+  }, [fetchAnnouncements, showToast]);
 
-  const handleCancelEdit = () => {
+  const handleCancelEdit = useCallback(() => {
     setShowEditModal(false);
     setEditingAnnouncement(null);
-  };
+  }, []);
 
-  const renderItem = ({ item }) => {
+  const renderItem = useCallback(({ item }) => {
     if (loading) return <ManagementCardSkeleton />;
 
     return (
@@ -158,7 +158,7 @@ export default function ManageAnnouncementsScreen({ navigation }) {
         </View>
       </View>
     );
-  };
+  }, [loading, theme, handleEdit, handleDelete]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -209,6 +209,8 @@ export default function ManageAnnouncementsScreen({ navigation }) {
     </View>
   );
 }
+
+export default React.memo(ManageAnnouncementsScreen);
 
 const styles = StyleSheet.create({
   container: {

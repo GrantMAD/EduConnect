@@ -4,10 +4,11 @@ import { useGamification } from '../../context/GamificationContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faCoins, faFire, faTrophy, faArrowUp } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { SkeletonPiece } from '../skeletons/DashboardScreenSkeleton';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-export default function GamificationHub() {
+const GamificationHub = React.memo(() => {
     const { theme } = useTheme();
     const { current_xp, current_level, coins, streak, nextBadge, loading } = useGamification();
 
@@ -15,7 +16,25 @@ export default function GamificationHub() {
     const xpForNextLevel = 1000;
     const progress = Math.min(((current_xp || 0) % xpForNextLevel) / xpForNextLevel, 1);
 
-    if (loading) return null;
+    if (loading) {
+        return (
+            <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                <SkeletonPiece style={{ width: 100, height: 18, borderRadius: 4, marginBottom: 6 }} />
+                <SkeletonPiece style={{ width: 150, height: 10, borderRadius: 4, marginBottom: 24 }} />
+                <View style={styles.mainRow}>
+                    <View style={styles.xpSection}>
+                        <SkeletonPiece style={{ width: '100%', height: 40, borderRadius: 8, marginBottom: 16 }} />
+                        <SkeletonPiece style={{ width: '100%', height: 10, borderRadius: 5, marginBottom: 20 }} />
+                        <View style={styles.statsGrid}>
+                            <SkeletonPiece style={{ flex: 1, height: 40, borderRadius: 16 }} />
+                            <SkeletonPiece style={{ flex: 1, height: 40, borderRadius: 16 }} />
+                        </View>
+                    </View>
+                    <SkeletonPiece style={{ width: 100, height: 140, borderRadius: 24 }} />
+                </View>
+            </View>
+        );
+    }
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
@@ -96,7 +115,7 @@ export default function GamificationHub() {
             </View>
         </View>
     );
-}
+});
 
 const styles = StyleSheet.create({
     container: {
@@ -220,3 +239,5 @@ const styles = StyleSheet.create({
         fontWeight: '900',
     },
 });
+
+export default GamificationHub;

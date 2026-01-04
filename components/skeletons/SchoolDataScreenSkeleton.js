@@ -5,7 +5,7 @@ import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
 export { SkeletonPiece };
 
-const SchoolDataScreenSkeleton = () => {
+const SchoolDataScreenSkeleton = React.memo(() => {
   const { theme } = useTheme(); 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -25,7 +25,7 @@ const SchoolDataScreenSkeleton = () => {
       <SkeletonBase style={{ width: '100%', height: 40, borderRadius: 8, marginTop: 20 }} />
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

@@ -5,24 +5,37 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faEnvelope, faQuestionCircle, faBook } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
-export default function HelpSupportModal({ visible, onClose }) {
+/* ---------------- FAQ ITEM ---------------- */
+
+const FAQItem = React.memo(({ question, answer, theme }) => (
+    <View
+        style={[
+            styles.faqItem,
+            {
+                backgroundColor: theme.colors.card,
+                borderColor: theme.colors.cardBorder,
+                borderWidth: 1,
+            },
+        ]}
+    >
+        <View style={styles.questionContainer}>
+            <View style={[styles.faqIconBox, { backgroundColor: theme.colors.primary + '10' }]}>
+                <FontAwesomeIcon icon={faQuestionCircle} size={12} color={theme.colors.primary} />
+            </View>
+            <Text style={[styles.question, { color: theme.colors.text }]}>{question}</Text>
+        </View>
+        <Text style={[styles.answer, { color: theme.colors.text }]}>{answer}</Text>
+    </View>
+));
+
+/* ---------------- MAIN MODAL ---------------- */
+
+const HelpSupportModal = React.memo(({ visible, onClose }) => {
     const { theme } = useTheme();
 
     const handleEmailSupport = () => {
         Linking.openURL('mailto:EduLink3321@gmail.com?subject=ClassConnect Support Request');
     };
-
-    const FAQItem = ({ question, answer }) => (
-        <View style={[styles.faqItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-            <View style={styles.questionContainer}>
-                <View style={[styles.faqIconBox, { backgroundColor: theme.colors.primary + '10' }]}>
-                    <FontAwesomeIcon icon={faQuestionCircle} size={12} color={theme.colors.primary} />
-                </View>
-                <Text style={[styles.question, { color: theme.colors.text }]}>{question}</Text>
-            </View>
-            <Text style={[styles.answer, { color: theme.colors.text }]}>{answer}</Text>
-        </View>
-    );
 
     return (
         <Modal
@@ -37,11 +50,14 @@ export default function HelpSupportModal({ visible, onClose }) {
         >
             <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: 40 }]}>
                 <View style={styles.swipeIndicator} />
+
                 <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
                     <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
                         <FontAwesomeIcon icon={faBook} size={18} color={theme.colors.primary} />
                     </View>
-                    <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>Support Center</Text>
+                    <Text style={[styles.modalTitle, { color: theme.colors.text }]} numberOfLines={1}>
+                        Support Center
+                    </Text>
                     <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
                         <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
                     </TouchableOpacity>
@@ -51,8 +67,16 @@ export default function HelpSupportModal({ visible, onClose }) {
                     <View style={styles.contentContainer}>
                         <View style={styles.section}>
                             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>DIRECT ASSISTANCE</Text>
+
                             <TouchableOpacity
-                                style={[styles.contactButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                                style={[
+                                    styles.contactButton,
+                                    {
+                                        backgroundColor: theme.colors.card,
+                                        borderColor: theme.colors.cardBorder,
+                                        borderWidth: 1,
+                                    },
+                                ]}
                                 onPress={handleEmailSupport}
                                 activeOpacity={0.7}
                             >
@@ -61,25 +85,32 @@ export default function HelpSupportModal({ visible, onClose }) {
                                 </View>
                                 <View style={styles.contactInfo}>
                                     <Text style={[styles.contactTitle, { color: theme.colors.text }]}>Email Support Team</Text>
-                                    <Text style={[styles.contactDetail, { color: theme.colors.placeholder }]}>Response within 24 hours</Text>
+                                    <Text style={[styles.contactDetail, { color: theme.colors.placeholder }]}>
+                                        Response within 24 hours
+                                    </Text>
                                 </View>
                             </TouchableOpacity>
                         </View>
 
                         <View style={styles.section}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text, marginTop: 16 }]}>FREQUENTLY ASKED QUESTIONS</Text>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text, marginTop: 16 }]}>
+                                FREQUENTLY ASKED QUESTIONS
+                            </Text>
 
                             <FAQItem
+                                theme={theme}
                                 question="How do I reset my password?"
                                 answer="Navigate to Settings > Account > Security to initiate a password change request."
                             />
 
                             <FAQItem
+                                theme={theme}
                                 question="How do I enable notifications?"
                                 answer="Access Settings > Notifications to customize your alert preferences for all events."
                             />
 
                             <FAQItem
+                                theme={theme}
                                 question="Can parents view academic progress?"
                                 answer="Yes. Once linked, parents have real-time access to grades, homework, and session attendance."
                             />
@@ -89,7 +120,9 @@ export default function HelpSupportModal({ visible, onClose }) {
             </View>
         </Modal>
     );
-}
+});
+
+/* ---------------- STYLES ---------------- */
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -144,7 +177,6 @@ const styles = StyleSheet.create({
         fontWeight: '900',
         marginBottom: 16,
         letterSpacing: 1.5,
-        color: '#94a3b8',
     },
     contactButton: {
         flexDirection: 'row',
@@ -201,3 +233,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 });
+
+export default HelpSupportModal;
+

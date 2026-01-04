@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, Text, Image, ActivityIndicator, ScrollView, Dimensions } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -9,7 +9,7 @@ import LinearGradient from 'react-native-linear-gradient';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
-export default function SignInScreen({ navigation }) {
+const SignInScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -17,7 +17,7 @@ export default function SignInScreen({ navigation }) {
   const { showToast } = useToast();
   const { theme } = useTheme();
 
-  const handleSignIn = async () => {
+  const handleSignIn = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -38,11 +38,14 @@ export default function SignInScreen({ navigation }) {
         showToast('Signed in successfully!', 'success');
       }
     }
-  };
+  }, [email, password, showToast]);
+
+  const toggleShowPassword = useCallback(() => setShowPassword(prev => !prev), []);
+  const navigateToForgotPassword = useCallback(() => navigation.navigate('ForgotPassword'), [navigation]);
+  const navigateToSignUp = useCallback(() => navigation.navigate('SignUp'), [navigation]);
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} contentContainerStyle={{ flexGrow: 1 }}>
-      {/* Top Branding Section */}
       <LinearGradient
         colors={['#4f46e5', '#9333ea']}
         start={{ x: 0, y: 0 }}
@@ -58,7 +61,6 @@ export default function SignInScreen({ navigation }) {
         </View>
       </LinearGradient>
 
-      {/* Form Section */}
       <View style={[styles.formSection, { backgroundColor: theme.colors.background }]}>
         <View style={styles.formHeader}>
             <Text style={[styles.title, { color: theme.colors.text }]}>Welcome Back</Text>
@@ -84,7 +86,7 @@ export default function SignInScreen({ navigation }) {
         <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
                 <Text style={[styles.label, { color: theme.colors.text }]}>Password</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+                <TouchableOpacity onPress={navigateToForgotPassword}>
                     <Text style={[styles.forgotPassword, { color: theme.colors.primary }]}>Forgot Password?</Text>
                 </TouchableOpacity>
             </View>
@@ -98,7 +100,7 @@ export default function SignInScreen({ navigation }) {
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
                 />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+                <TouchableOpacity onPress={toggleShowPassword} style={styles.eyeIcon}>
                     <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} size={18} color={theme.colors.placeholder} />
                 </TouchableOpacity>
             </View>
@@ -124,7 +126,7 @@ export default function SignInScreen({ navigation }) {
             </LinearGradient>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => navigation.navigate('SignUp')} style={styles.signUpLink}>
+        <TouchableOpacity onPress={navigateToSignUp} style={styles.signUpLink}>
             <Text style={[styles.linkText, { color: theme.colors.placeholder }]}>
                 Don't have an account? <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>Create one now</Text>
             </Text>
@@ -133,6 +135,8 @@ export default function SignInScreen({ navigation }) {
     </ScrollView>
   );
 }
+
+export default React.memo(SignInScreen);
 
 const styles = StyleSheet.create({
   container: {

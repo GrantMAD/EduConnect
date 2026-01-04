@@ -37,22 +37,6 @@ const AppStack = () => (
 
 import AppProviders from './components/AppProviders';
 
-import * as Linking from 'expo-linking';
-
-const linking = {
-  prefixes: [Linking.createURL('/'), 'classconnect://'],
-  config: {
-    screens: {
-      Auth: {
-        screens: {
-          UpdatePassword: 'update-password',
-          SignIn: 'login',
-        },
-      },
-    },
-  },
-};
-
 const AppContent = () => {
   const { user, loading } = useAuth();
 
@@ -69,7 +53,7 @@ const AppContent = () => {
   return (
     <AppProviders session={session}>
       <ErrorBoundary>
-        <NavigationContainer linking={linking}>
+        <NavigationContainer>
           <StatusBar style="auto" />
           {user ? <AppStack /> : <AuthStack />}
           <AppWalkthrough />

@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Image, Animated, StyleSheet } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 
-const AnimatedAvatarBorder = ({
+const AnimatedAvatarBorder = React.memo(({
     avatarSource,
     size = 80,
     borderStyle = {},
@@ -152,7 +152,7 @@ const AnimatedAvatarBorder = ({
             />
         </View>
     );
-};
+});
 
 const styles = StyleSheet.create({
     container: {

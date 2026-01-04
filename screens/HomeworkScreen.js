@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -22,7 +22,6 @@ import {
   faPen,
   faTrash,
 } from '@fortawesome/free-solid-svg-icons';
-import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 
@@ -39,7 +38,7 @@ const Tab = createMaterialTopTabNavigator();
 /* =========================
    HOMEWORK TAB
 ========================= */
-const HomeworkList = () => {
+const HomeworkList = React.memo(() => {
   const [homework, setHomework] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -55,17 +54,12 @@ const HomeworkList = () => {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    if (isFocused) fetchHomework();
-    fetchUser();
-  }, [isFocused]);
-
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) setCurrentUserId(user.id);
-  };
+  }, []);
 
-  const fetchHomework = async () => {
+  const fetchHomework = useCallback(async () => {
     if (!refreshing) setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -134,21 +128,26 @@ const HomeworkList = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [refreshing]);
 
-  const onRefresh = React.useCallback(() => {
+  useEffect(() => {
+    if (isFocused) fetchHomework();
+    fetchUser();
+  }, [isFocused, fetchHomework, fetchUser]);
+
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchHomework();
-  }, []);
+  }, [fetchHomework]);
 
-  const formatDate = (date) =>
+  const formatDate = useCallback((date) =>
     new Date(date).toLocaleDateString('en-GB', {
       day: '2-digit',
       month: 'long',
       year: 'numeric',
-    });
+    }), []);
 
-  const handleUpdate = async () => {
+  const handleUpdate = useCallback(async () => {
     const { error } = await supabase
       .from('homework')
       .update({
@@ -163,9 +162,9 @@ const HomeworkList = () => {
       setIsEditing(false);
       fetchHomework();
     }
-  };
+  }, [selectedHomework, fetchHomework, showToast]);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     Alert.alert('Delete Homework', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -179,7 +178,24 @@ const HomeworkList = () => {
         },
       },
     ]);
-  };
+  }, [selectedHomework, fetchHomework, showToast]);
+
+  const renderItem = useCallback(({ item }) =>
+    loading ? <CardSkeleton /> : (
+      <HomeworkCard
+        homework={item}
+        userId={currentUserId}
+        onPress={() => {
+          setSelectedHomework(item);
+          setModalVisible(true);
+          setIsEditing(false);
+        }}
+        onTrackPress={() => {
+          setCurrentTrackItem(item);
+          setManageModalVisible(true);
+        }}
+      />
+    ), [loading]);
 
   return (
     <View style={[styles.listContainer, { backgroundColor: theme.colors.background }]}>
@@ -261,22 +277,7 @@ const HomeworkList = () => {
         initialNumToRender={10}
         maxToRenderPerBatch={5}
         windowSize={5}
-        renderItem={({ item }) =>
-          loading ? <CardSkeleton /> : (
-            <HomeworkCard
-              homework={item}
-              onPress={() => {
-                setSelectedHomework(item);
-                setModalVisible(true);
-                setIsEditing(false);
-              }}
-              onTrackPress={() => {
-                setCurrentTrackItem(item);
-                setManageModalVisible(true);
-              }}
-            />
-          )
-        }
+        renderItem={renderItem}
         ListEmptyComponent={!loading && (
           <View style={styles.emptyContainer}>
             <FontAwesomeIcon icon={faBook} size={40} color={theme.colors.placeholder} style={{ marginBottom: 10, opacity: 0.5 }} />
@@ -293,26 +294,28 @@ const HomeworkList = () => {
       />
     </View>
   );
-};
+});
 
 /* =========================
    ASSIGNMENTS TAB
 ========================= */
-const AssignmentsList = () => {
+const AssignmentsList = React.memo(() => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [manageModalVisible, setManageModalVisible] = useState(false);
   const [currentTrackItem, setCurrentTrackItem] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   const isFocused = useIsFocused();
   const { theme } = useTheme();
 
-  useEffect(() => {
-    if (isFocused) fetchAssignments();
-  }, [isFocused]);
+  const fetchUser = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) setCurrentUserId(user.id);
+  }, []);
 
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async () => {
     if (!refreshing) setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -379,12 +382,31 @@ const AssignmentsList = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [refreshing]);
 
-  const onRefresh = React.useCallback(() => {
+  useEffect(() => {
+    if (isFocused) {
+        fetchAssignments();
+        fetchUser();
+    }
+  }, [isFocused, fetchAssignments, fetchUser]);
+
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchAssignments();
-  }, []);
+  }, [fetchAssignments]);
+
+  const renderItem = useCallback(({ item }) =>
+    loading ? <CardSkeleton /> : (
+      <AssignmentCard
+        assignment={item}
+        userId={currentUserId}
+        onTrackPress={() => {
+          setCurrentTrackItem(item);
+          setManageModalVisible(true);
+        }}
+      />
+    ), [loading, currentUserId]);
 
   return (
     <View style={[styles.listContainer, { backgroundColor: theme.colors.background }]}>
@@ -397,17 +419,7 @@ const AssignmentsList = () => {
         initialNumToRender={10}
         maxToRenderPerBatch={5}
         windowSize={5}
-        renderItem={({ item }) =>
-          loading ? <CardSkeleton /> : (
-            <AssignmentCard
-              assignment={item}
-              onTrackPress={() => {
-                setCurrentTrackItem(item);
-                setManageModalVisible(true);
-              }}
-            />
-          )
-        }
+        renderItem={renderItem}
         ListEmptyComponent={!loading && (
           <View style={styles.emptyContainer}>
             <FontAwesomeIcon icon={faClipboardList} size={40} color={theme.colors.placeholder} style={{ marginBottom: 10, opacity: 0.5 }} />
@@ -424,12 +436,12 @@ const AssignmentsList = () => {
       />
     </View>
   );
-};
+});
 
 /* =========================
    MAIN SCREEN
 ========================= */
-export default function HomeworkScreen() {
+const HomeworkScreen = () => {
   const navigation = useNavigation();
   const { theme } = useTheme();
   const [userRole, setUserRole] = useState(null);
@@ -499,6 +511,8 @@ export default function HomeworkScreen() {
     </Provider>
   );
 }
+
+export default React.memo(HomeworkScreen);
 
 /* =========================
    STYLES

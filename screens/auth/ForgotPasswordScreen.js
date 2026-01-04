@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Dimensions } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -9,14 +9,14 @@ import LinearGradient from 'react-native-linear-gradient';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
-export default function ForgotPasswordScreen({ navigation }) {
+const ForgotPasswordScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState(null);
     const { showToast } = useToast();
     const { theme } = useTheme();
 
-    const handleResetPassword = async () => {
+    const handleResetPassword = useCallback(async () => {
         setLoading(true);
         setMessage(null);
 
@@ -34,7 +34,9 @@ export default function ForgotPasswordScreen({ navigation }) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [email, showToast]);
+
+    const navigateToSignIn = useCallback(() => navigation.navigate('SignIn'), [navigation]);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -53,7 +55,7 @@ export default function ForgotPasswordScreen({ navigation }) {
                     <View style={[styles.messageBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
                         <Text style={[styles.messageTitle, { color: theme.colors.text }]}>Check your email</Text>
                         <Text style={[styles.messageText, { color: theme.colors.placeholder }]}>{message}</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('SignIn')}>
+                        <TouchableOpacity onPress={navigateToSignIn}>
                             <Text style={[styles.returnLink, { color: theme.colors.primary }]}>Return to Sign In</Text>
                         </TouchableOpacity>
                     </View>
@@ -95,7 +97,7 @@ export default function ForgotPasswordScreen({ navigation }) {
                             </LinearGradient>
                         </TouchableOpacity>
 
-                        <TouchableOpacity onPress={() => navigation.navigate('SignIn')} style={styles.backLink}>
+                        <TouchableOpacity onPress={navigateToSignIn} style={styles.backLink}>
                             <FontAwesomeIcon icon={faArrowLeft} size={14} color={theme.colors.placeholder} style={{ marginRight: 8 }} />
                             <Text style={{ color: theme.colors.placeholder, fontWeight: '600' }}>Back to Sign In</Text>
                         </TouchableOpacity>
@@ -105,6 +107,8 @@ export default function ForgotPasswordScreen({ navigation }) {
         </View>
     );
 }
+
+export default React.memo(ForgotPasswordScreen);
 
 const styles = StyleSheet.create({
     container: {

@@ -5,7 +5,7 @@ import SkeletonBase, { SkeletonPiece } from './SkeletonBase';
 
 export { SkeletonPiece };
 
-const NotificationCardSkeleton = () => {
+const NotificationCardSkeleton = React.memo(() => {
   const { theme } = useTheme(); 
   return (
     <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
@@ -17,7 +17,7 @@ const NotificationCardSkeleton = () => {
         </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
     card: {

@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faBookOpen, faSearch, faClock, faInfoCircle, faAlignLeft, faCalendarAlt, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
-export default function ClassListModal({ visible, classes, onClose }) {
+const ClassListModal = React.memo(({ visible, classes, onClose }) => {
     const { theme } = useTheme();
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedSchedules, setExpandedSchedules] = useState({});
@@ -205,7 +205,7 @@ export default function ClassListModal({ visible, classes, onClose }) {
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -378,3 +378,5 @@ const styles = StyleSheet.create({
         marginTop: 16,
     },
 });
+
+export default ClassListModal;

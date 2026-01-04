@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch, ActivityIndicator, Dimensions } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useNavigation } from '@react-navigation/native';
@@ -13,7 +13,7 @@ import LinearGradient from 'react-native-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-export default function CreateAnnouncementScreen({ route }) {
+const CreateAnnouncementScreen = ({ route }) => {
   const { fromDashboard, classId: initialClassId } = route.params || {};
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
@@ -47,9 +47,9 @@ export default function CreateAnnouncementScreen({ route }) {
       }
     };
     fetchClasses();
-  }, [schoolId]);
+  }, [schoolId, selectedClass]);
 
-  const handleCreate = async () => {
+  const handleCreate = useCallback(async () => {
     if (!title.trim() || !message.trim()) {
       showToast('Title and Message cannot be empty.', 'error');
       return;
@@ -101,8 +101,8 @@ export default function CreateAnnouncementScreen({ route }) {
             return !prefs || prefs.announcements !== false;
           });
 
-          const notifications = recipients.map(u => ({
-            user_id: u.id,
+          const notifications = recipients.map(recipient => ({
+            user_id: recipient.id,
             type: 'new_general_announcement',
             title: 'New School Announcement',
             message: `A new announcement has been posted: "${newAnnouncementData.title}"`,
@@ -151,8 +151,8 @@ export default function CreateAnnouncementScreen({ route }) {
             });
 
             const newAnnouncementData = newAnnouncements[0];
-            const notifications = finalRecipients.map(u => ({
-              user_id: u.id,
+            const notifications = finalRecipients.map(recipient => ({
+              user_id: recipient.id,
               type: 'new_class_announcement',
               title: `New Announcement in ${classInfo?.name || 'Class'}`,
               message: `A new announcement has been posted: "${newAnnouncementData.title}"`,
@@ -176,7 +176,7 @@ export default function CreateAnnouncementScreen({ route }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [title, message, isClassSpecific, selectedClass, schoolId, targetRoles, showToast, navigation]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -334,6 +334,8 @@ export default function CreateAnnouncementScreen({ route }) {
     </View>
   );
 }
+
+export default React.memo(CreateAnnouncementScreen);
 
 const styles = StyleSheet.create({
   container: {

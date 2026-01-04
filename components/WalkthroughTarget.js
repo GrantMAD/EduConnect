@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { View } from 'react-native';
 import { useWalkthrough } from '../context/WalkthroughContext';
 
-export default function WalkthroughTarget({ id, children, style }) {
+const WalkthroughTarget = React.memo(({ id, children, style }) => {
     const { registerTarget, unregisterTarget, registerTargetRef } = useWalkthrough();
     const viewRef = useRef(null);
 
@@ -36,4 +36,6 @@ export default function WalkthroughTarget({ id, children, style }) {
             {children}
         </View>
     );
-}
+});
+
+export default WalkthroughTarget;

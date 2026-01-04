@@ -7,7 +7,7 @@ import { useTheme } from '../context/ThemeContext';
 
 const defaultUserImage = require('../assets/user.png');
 
-export default function UserListModal({ visible, users, category, onClose, onUserPress }) {
+const UserListModal = React.memo(({ visible, users, category, onClose, onUserPress }) => {
     const { theme } = useTheme();
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -125,7 +125,7 @@ export default function UserListModal({ visible, users, category, onClose, onUse
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -243,3 +243,5 @@ const styles = StyleSheet.create({
         marginTop: 16,
     },
 });
+
+export default UserListModal;

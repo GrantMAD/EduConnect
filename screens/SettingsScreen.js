@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking, Alert } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -23,7 +23,36 @@ import ChangePasswordModal from '../components/ChangePasswordModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import LinearGradient from 'react-native-linear-gradient';
 
-export default function SettingsScreen({ navigation }) {
+const SettingRow = React.memo(({ icon, label, value, onValueChange, color, theme }) => (
+    <View style={[styles.settingRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+      <View style={styles.settingLeft}>
+        <View style={[styles.iconBox, { backgroundColor: (color || theme.colors.primary) + '15' }]}>
+            <FontAwesomeIcon icon={icon} size={16} color={color || theme.colors.primary} />
+        </View>
+        <Text style={[styles.settingLabel, { color: theme.colors.text }]}>{label}</Text>
+      </View>
+      <Switch value={value} onValueChange={onValueChange} color={theme.colors.primary} />
+    </View>
+));
+
+const LinkButton = React.memo(({ icon, title, onPress, color, description, theme }) => (
+    <TouchableOpacity
+      style={[styles.linkButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.iconBox, { backgroundColor: (color || theme.colors.primary) + '15' }]}>
+        <FontAwesomeIcon icon={icon} size={16} color={color || theme.colors.primary} />
+      </View>
+      <View style={{ flex: 1, marginLeft: 12 }}>
+        <Text style={[styles.linkButtonTitle, { color: theme.colors.text }]}>{title}</Text>
+        {description && <Text style={[styles.linkButtonDesc, { color: theme.colors.placeholder }]}>{description}</Text>}
+      </View>
+      <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
+    </TouchableOpacity>
+));
+
+const SettingsScreen = ({ navigation }) => {
   const [user, setUser] = useState(null);
   const [fullUser, setFullUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -74,7 +103,7 @@ export default function SettingsScreen({ navigation }) {
     })();
   }, []);
 
-  const handleLeaveSchool = async () => {
+  const handleLeaveSchool = useCallback(async () => {
     if (!fullUser || !fullUser.school_id) return;
 
     setIsProcessingLeave(true);
@@ -151,36 +180,39 @@ export default function SettingsScreen({ navigation }) {
       Alert.alert("Error", "Failed to leave school: " + error.message);
       setIsProcessingLeave(false);
     }
-  };
+  }, [fullUser, navigation, showToast]);
 
-  const SettingRow = ({ icon, label, value, onValueChange, color }) => (
-    <View style={[styles.settingRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-      <View style={styles.settingLeft}>
-        <View style={[styles.iconBox, { backgroundColor: (color || theme.colors.primary) + '15' }]}>
-            <FontAwesomeIcon icon={icon} size={16} color={color || theme.colors.primary} />
-        </View>
-        <Text style={[styles.settingLabel, { color: theme.colors.text }]}>{label}</Text>
-      </View>
-      <Switch value={value} onValueChange={onValueChange} color={theme.colors.primary} />
-    </View>
-  );
+  const handleEditProfileClose = useCallback((updated) => {
+    setShowEditProfile(false);
+    if (updated) {
+      const refreshUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: fullUserData } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+          setFullUser(fullUserData);
+        }
+      };
+      refreshUser();
+    }
+  }, []);
 
-  const LinkButton = ({ icon, title, onPress, color, description }) => (
-    <TouchableOpacity
-      style={[styles.linkButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <View style={[styles.iconBox, { backgroundColor: (color || theme.colors.primary) + '15' }]}>
-        <FontAwesomeIcon icon={icon} size={16} color={color || theme.colors.primary} />
-      </View>
-      <View style={{ flex: 1, marginLeft: 12 }}>
-        <Text style={[styles.linkButtonTitle, { color: theme.colors.text }]}>{title}</Text>
-        {description && <Text style={[styles.linkButtonDesc, { color: theme.colors.placeholder }]}>{description}</Text>}
-      </View>
-      <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
-    </TouchableOpacity>
-  );
+  const openAppInfo = useCallback(() => setShowAppInfo(true), []);
+  const closeAppInfo = useCallback(() => setShowAppInfo(false), []);
+  const openHelpSupport = useCallback(() => setShowHelpSupport(true), []);
+  const closeHelpSupport = useCallback(() => setShowHelpSupport(false), []);
+  const openTerms = useCallback(() => setShowTerms(true), []);
+  const closeTerms = useCallback(() => setShowTerms(false), []);
+  const openPrivacy = useCallback(() => setShowPrivacy(true), []);
+  const closePrivacy = useCallback(() => setShowPrivacy(false), []);
+  const openEditProfile = useCallback(() => setShowEditProfile(true), []);
+  const openChangePassword = useCallback(() => setShowChangePassword(true), []);
+  const closeChangePassword = useCallback(() => setShowChangePassword(false), []);
+  const openLeaveSchoolConfirm = useCallback(() => setShowLeaveSchoolConfirm(true), []);
+  const closeLeaveSchoolConfirm = useCallback(() => { setShowLeaveSchoolConfirm(false); setIsProcessingLeave(false); }, []);
 
   return (
     <ScrollView
@@ -208,23 +240,26 @@ export default function SettingsScreen({ navigation }) {
           icon={faUser}
           title="Edit Profile"
           description="Update your personal information"
-          onPress={() => setShowEditProfile(true)}
+          onPress={openEditProfile}
           color="#4f46e5"
+          theme={theme}
         />
         <LinkButton
           icon={faLock}
           title="Change Password"
           description="Manage your account security"
-          onPress={() => setShowChangePassword(true)}
+          onPress={openChangePassword}
           color="#f59e0b"
+          theme={theme}
         />
         {fullUser && fullUser.school_id && (
           <LinkButton
             icon={faDoorOpen}
             title="Leave School"
             description="Disassociate your account from this school"
-            onPress={() => setShowLeaveSchoolConfirm(true)}
+            onPress={openLeaveSchoolConfirm}
             color="#e11d48"
+            theme={theme}
           />
         )}
       </View>
@@ -238,6 +273,7 @@ export default function SettingsScreen({ navigation }) {
           value={isDarkTheme}
           onValueChange={toggleTheme}
           color={isDarkTheme ? '#fbbf24' : '#f59e0b'}
+          theme={theme}
         />
         
         <View style={{ marginTop: 8 }}>
@@ -247,17 +283,18 @@ export default function SettingsScreen({ navigation }) {
                 value={preferences.pushNotificationsEnabled}
                 onValueChange={(value) => updatePreference('pushNotificationsEnabled', value)}
                 color="#4f46e5"
+                theme={theme}
             />
         </View>
 
         {preferences.pushNotificationsEnabled && (
           <View style={styles.subSettings}>
-            <SettingRow icon={faBullhorn} label="Announcements" value={preferences.announcements} onValueChange={(v) => updatePreference('announcements', v)} color="#e11d48" />
-            <SettingRow icon={faBookOpen} label="Homework" value={preferences.homework} onValueChange={(v) => updatePreference('homework', v)} color="#10b981" />
-            <SettingRow icon={faPoll} label="Polls" value={preferences.polls} onValueChange={(v) => updatePreference('polls', v)} color="#f59e0b" />
-            <SettingRow icon={faCalendar} label="Class Schedule" value={preferences.classSchedule} onValueChange={(v) => updatePreference('classSchedule', v)} color="#6366f1" />
-            <SettingRow icon={faStore} label="Marketplace" value={preferences.marketplace} onValueChange={(v) => updatePreference('marketplace', v)} color="#ec4899" />
-            <SettingRow icon={faTrophy} label="Gamification" value={preferences.gamification} onValueChange={(v) => updatePreference('gamification', v)} color="#fbbf24" />
+            <SettingRow icon={faBullhorn} label="Announcements" value={preferences.announcements} onValueChange={(v) => updatePreference('announcements', v)} color="#e11d48" theme={theme} />
+            <SettingRow icon={faBookOpen} label="Homework" value={preferences.homework} onValueChange={(v) => updatePreference('homework', v)} color="#10b981" theme={theme} />
+            <SettingRow icon={faPoll} label="Polls" value={preferences.polls} onValueChange={(v) => updatePreference('polls', v)} color="#f59e0b" theme={theme} />
+            <SettingRow icon={faCalendar} label="Class Schedule" value={preferences.classSchedule} onValueChange={(v) => updatePreference('classSchedule', v)} color="#6366f1" theme={theme} />
+            <SettingRow icon={faStore} label="Marketplace" value={preferences.marketplace} onValueChange={(v) => updatePreference('marketplace', v)} color="#ec4899" theme={theme} />
+            <SettingRow icon={faTrophy} label="Gamification" value={preferences.gamification} onValueChange={(v) => updatePreference('gamification', v)} color="#fbbf24" theme={theme} />
           </View>
         )}
       </View>
@@ -272,6 +309,7 @@ export default function SettingsScreen({ navigation }) {
             description="Manage users, content, and school data"
             onPress={() => navigation.navigate('Management')}
             color="#4f46e5"
+            theme={theme}
           />
         </View>
       )}
@@ -279,10 +317,10 @@ export default function SettingsScreen({ navigation }) {
       {/* Information Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>INFORMATION</Text>
-        <LinkButton icon={faInfoCircle} title="About ClassConnect" onPress={() => setShowAppInfo(true)} color="#3b82f6" />
-        <LinkButton icon={faQuestionCircle} title="Help & Support" onPress={() => setShowHelpSupport(true)} color="#10b981" />
-        <LinkButton icon={faFileContract} title="Terms of Service" onPress={() => setShowTerms(true)} color="#6366f1" />
-        <LinkButton icon={faShieldAlt} title="Privacy Policy" onPress={() => setShowPrivacy(true)} color="#f59e0b" />
+        <LinkButton icon={faInfoCircle} title="About ClassConnect" onPress={openAppInfo} color="#3b82f6" theme={theme} />
+        <LinkButton icon={faQuestionCircle} title="Help & Support" onPress={openHelpSupport} color="#10b981" theme={theme} />
+        <LinkButton icon={faFileContract} title="Terms of Service" onPress={openTerms} color="#6366f1" theme={theme} />
+        <LinkButton icon={faShieldAlt} title="Privacy Policy" onPress={openPrivacy} color="#f59e0b" theme={theme} />
       </View>
 
       <Text style={[styles.versionText, { color: theme.colors.placeholder }]}>
@@ -290,38 +328,19 @@ export default function SettingsScreen({ navigation }) {
       </Text>
 
       {/* Modals */}
-      <AppInfoModal visible={showAppInfo} onClose={() => setShowAppInfo(false)} />
-      <HelpSupportModal visible={showHelpSupport} onClose={() => setShowHelpSupport(false)} />
-      <TermsOfServiceModal visible={showTerms} onClose={() => setShowTerms(false)} />
-      <PrivacyPolicyModal visible={showPrivacy} onClose={() => setShowPrivacy(false)} />
+      <AppInfoModal visible={showAppInfo} onClose={closeAppInfo} />
+      <HelpSupportModal visible={showHelpSupport} onClose={closeHelpSupport} />
+      <TermsOfServiceModal visible={showTerms} onClose={closeTerms} />
+      <PrivacyPolicyModal visible={showPrivacy} onClose={closePrivacy} />
       <EditProfileModal
         visible={showEditProfile}
-        onClose={(updated) => {
-          setShowEditProfile(false);
-          if (updated) {
-            const refreshUser = async () => {
-              const { data: { user } } = await supabase.auth.getUser();
-              if (user) {
-                const { data: fullUserData } = await supabase
-                  .from('users')
-                  .select('*')
-                  .eq('id', user.id)
-                  .single();
-                setFullUser(fullUserData);
-              }
-            };
-            refreshUser();
-          }
-        }}
+        onClose={handleEditProfileClose}
         currentUser={fullUser}
       />
-      <ChangePasswordModal visible={showChangePassword} onClose={() => setShowChangePassword(false)} />
+      <ChangePasswordModal visible={showChangePassword} onClose={closeChangePassword} />
       <ConfirmationModal
         visible={showLeaveSchoolConfirm}
-        onClose={() => {
-          setShowLeaveSchoolConfirm(false);
-          setIsProcessingLeave(false);
-        }}
+        onClose={closeLeaveSchoolConfirm}
         onConfirm={handleLeaveSchool}
         isLoading={isProcessingLeave}
         title="Leave School"
@@ -332,6 +351,8 @@ export default function SettingsScreen({ navigation }) {
     </ScrollView>
   );
 }
+
+export default React.memo(SettingsScreen);
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

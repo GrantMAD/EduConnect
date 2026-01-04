@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faEdit, faTrash, faBox, faBook, faLaptop, faPencilAlt, faChair, faTshirt } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
 
-const MarketplaceItemCard = ({ item, onViewSeller, onEdit, onDelete }) => {
+const MarketplaceItemCard = React.memo(({ item, onViewSeller, onEdit, onDelete }) => {
   const { theme } = useTheme(); // Use the theme hook
   const CardWrapper = onViewSeller ? TouchableOpacity : View;
 
@@ -86,7 +86,7 @@ const MarketplaceItemCard = ({ item, onViewSeller, onEdit, onDelete }) => {
       )}
     </CardWrapper>
   );
-};
+});
 
 const styles = StyleSheet.create({
   card: {
@@ -184,4 +184,5 @@ const styles = StyleSheet.create({
 });
 
 export default MarketplaceItemCard;
+
 

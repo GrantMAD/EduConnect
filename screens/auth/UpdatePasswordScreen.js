@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Dimensions } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -7,7 +7,7 @@ import { useToast } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
 
-export default function UpdatePasswordScreen({ navigation }) {
+const UpdatePasswordScreen = ({ navigation }) => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -15,7 +15,7 @@ export default function UpdatePasswordScreen({ navigation }) {
     const { showToast } = useToast();
     const { theme } = useTheme();
 
-    const handleUpdatePassword = async () => {
+    const handleUpdatePassword = useCallback(async () => {
         if (password !== confirmPassword) {
             showToast("Passwords don't match", 'error');
             return;
@@ -40,7 +40,9 @@ export default function UpdatePasswordScreen({ navigation }) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [password, confirmPassword, navigation, showToast]);
+
+    const toggleShowPassword = useCallback(() => setShowPassword(prev => !prev), []);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -67,7 +69,7 @@ export default function UpdatePasswordScreen({ navigation }) {
                             onChangeText={setPassword}
                             secureTextEntry={!showPassword}
                         />
-                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+                        <TouchableOpacity onPress={toggleShowPassword} style={styles.eyeIcon}>
                             <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} size={18} color={theme.colors.placeholder} />
                         </TouchableOpacity>
                     </View>
@@ -111,6 +113,8 @@ export default function UpdatePasswordScreen({ navigation }) {
         </View>
     );
 }
+
+export default React.memo(UpdatePasswordScreen);
 
 const styles = StyleSheet.create({
     container: {

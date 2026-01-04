@@ -19,6 +19,7 @@ const CustomDefaultTheme = {
     backdrop: 'rgba(0, 0, 0, 0.5)',
     notification: '#f0f0f0',
     // Custom colors for specific elements
+    card: '#ffffff',
     cardBackground: '#ffffff',
     cardBorder: '#e0e0e0',
     headerBackground: '#ffffff',
@@ -59,6 +60,7 @@ const CustomDarkTheme = {
     backdrop: 'rgba(0, 0, 0, 0.7)',
     notification: '#2c2c2c',
     // Custom colors for specific elements
+    card: '#1e1e1e',
     cardBackground: '#1e1e1e',
     cardBorder: '#333333',
     headerBackground: '#1e1e1e',
@@ -165,13 +167,15 @@ export const ThemeProvider = ({ children, session }) => { // Accept session prop
 
   const theme = isDarkTheme ? CustomDarkTheme : CustomDefaultTheme;
 
+  const value = React.useMemo(() => ({ isDarkTheme, toggleTheme, theme }), [isDarkTheme, toggleTheme, theme]);
+
   // Only render children once theme is loaded to prevent flickering
   if (!isThemeLoaded) {
     return null;
   }
 
   return (
-    <ThemeContext.Provider value={{ isDarkTheme, toggleTheme, theme }}>
+    <ThemeContext.Provider value={value}>
       <PaperProvider theme={theme}>
         {children}
       </PaperProvider>

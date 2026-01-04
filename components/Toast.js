@@ -4,7 +4,7 @@ import { useTheme } from '../context/ThemeContext'; // Import useTheme
 
 const { height } = Dimensions.get('window');
 
-const Toast = ({ message, type = 'default', duration = 3000, onHide }) => {
+const Toast = React.memo(({ message, type = 'default', duration = 3000, onHide }) => {
   const [isVisible, setIsVisible] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current; // Initial value for opacity: 0
   const { theme } = useTheme(); // Use the theme hook
@@ -55,12 +55,12 @@ const Toast = ({ message, type = 'default', duration = 3000, onHide }) => {
       <Text style={[styles.toastText, { color: '#fff' }]}>{message}</Text>
     </Animated.View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   toastContainer: {
     position: 'absolute',
-    bottom: 40, 
+    bottom: 40,
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 24,

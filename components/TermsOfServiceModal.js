@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faFileContract } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
-export default function TermsOfServiceModal({ visible, onClose }) {
+const TermsOfServiceModal = React.memo(({ visible, onClose }) => {
     const { theme } = useTheme();
 
     return (
@@ -73,7 +73,7 @@ export default function TermsOfServiceModal({ visible, onClose }) {
             </View>
         </Modal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     modalContent: {
@@ -160,3 +160,5 @@ const styles = StyleSheet.create({
         marginVertical: 24,
     },
 });
+
+export default TermsOfServiceModal;

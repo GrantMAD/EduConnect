@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -62,7 +62,7 @@ const getDateString = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-export default function ManageUsersInClassScreen({ navigation }) {
+const ManageUsersInClassScreen = ({ navigation }) => {
   const route = useRoute();
   const { classId, className } = route.params;
 
@@ -101,10 +101,12 @@ export default function ManageUsersInClassScreen({ navigation }) {
   const [newClassInfo, setNewClassInfo] = useState('');
   const [classSubject, setClassSubject] = useState('');
 
-  const classStudentIds = classMembers.map((member) => member.users.id);
-  const availableStudents = allStudents.filter(
-    (student) => !classStudentIds.includes(student.id)
-  );
+  const availableStudents = useMemo(() => {
+    const classStudentIds = classMembers.map((member) => member.users.id);
+    return allStudents.filter(
+        (student) => !classStudentIds.includes(student.id)
+    );
+  }, [allStudents, classMembers]);
 
   const fetchClassMembers = useCallback(async () => {
     try {
@@ -152,21 +154,9 @@ export default function ManageUsersInClassScreen({ navigation }) {
     } catch (error) {
       console.error("Failed to fetch class subject:", error);
     }
-  }, [classId, showToast]);
+  }, [classId]);
 
-  useEffect(() => {
-    setLoading(true);
-    if (schoolId && classId) {
-      Promise.all([
-        fetchClassMembers(),
-        fetchAllStudents(),
-        fetchClassSchedules(),
-        fetchClassDetails(),
-      ]).finally(() => setLoading(false));
-    }
-  }, [schoolId, classId, fetchClassMembers, fetchClassSchedules, fetchClassDetails]);
-
-  const fetchAllStudents = async () => {
+  const fetchAllStudents = useCallback(async () => {
     setFetchingStudents(true);
     try {
       let query = supabase
@@ -185,9 +175,21 @@ export default function ManageUsersInClassScreen({ navigation }) {
     } finally {
       setFetchingStudents(false);
     }
-  };
+  }, [schoolId, searchQuery]);
 
-  const fetchStudentMarks = async (studentId, classId) => {
+  useEffect(() => {
+    setLoading(true);
+    if (schoolId && classId) {
+      Promise.all([
+        fetchClassMembers(),
+        fetchAllStudents(),
+        fetchClassSchedules(),
+        fetchClassDetails(),
+      ]).finally(() => setLoading(false));
+    }
+  }, [schoolId, classId, fetchClassMembers, fetchClassSchedules, fetchClassDetails, fetchAllStudents]);
+
+  const fetchStudentMarks = useCallback(async (studentId, classId) => {
     try {
       const { data, error } = await supabase
         .from('student_marks')
@@ -204,9 +206,9 @@ export default function ManageUsersInClassScreen({ navigation }) {
     } catch (error) {
       console.error("Error fetching student marks:", error);
     }
-  };
+  }, []);
 
-  const addStudentToClass = async (studentId) => {
+  const addStudentToClass = useCallback(async (studentId) => {
     setSaving(true);
     try {
       const { error } = await supabase.from("class_members").insert([
@@ -226,9 +228,9 @@ export default function ManageUsersInClassScreen({ navigation }) {
     } finally {
       setSaving(false);
     }
-  };
+  }, [classId, schoolId, fetchClassMembers, showToast]);
 
-  const removeStudentFromClass = async (studentId) => {
+  const removeStudentFromClass = useCallback(async (studentId) => {
     setSaving(true);
     try {
       const { error } = await supabase
@@ -244,9 +246,9 @@ export default function ManageUsersInClassScreen({ navigation }) {
     } finally {
       setSaving(false);
     }
-  };
+  }, [classId, fetchClassMembers, showToast]);
 
-  const handleAttendanceChange = async (member, status) => {
+  const handleAttendanceChange = useCallback(async (member, status) => {
     if (!selectedScheduleDate) return;
     const { id: memberId, attendance, users: student } = member;
 
@@ -315,9 +317,9 @@ export default function ManageUsersInClassScreen({ navigation }) {
     } catch (error) {
       console.error("Error updating attendance:", error);
     }
-  };
+  }, [selectedScheduleDate, classMembers, classId, className, user, showToast]);
 
-  const handleEditTimeChange = (text, isStart) => {
+  const handleEditTimeChange = useCallback((text, isStart) => {
     const cleaned = text.replace(/[^0-9]/g, '');
     let newText = cleaned;
     if (cleaned.length > 2) {
@@ -325,9 +327,9 @@ export default function ManageUsersInClassScreen({ navigation }) {
     }
     if (isStart) setTempStartTime(newText);
     else setTempEndTime(newText);
-  };
+  }, []);
 
-  const handleNewTimeChange = (text, isStart) => {
+  const handleNewTimeChange = useCallback((text, isStart) => {
     const cleaned = text.replace(/[^0-9]/g, '');
     let newText = cleaned;
     if (cleaned.length > 2) {
@@ -335,24 +337,24 @@ export default function ManageUsersInClassScreen({ navigation }) {
     }
     if (isStart) setNewStartTime(newText);
     else setNewEndTime(newText);
-  };
+  }, []);
 
-  const formatTime = (date) => {
+  const formatTime = useCallback((date) => {
     const d = new Date(date);
     const hours = String(d.getHours()).padStart(2, '0');
     const minutes = String(d.getMinutes()).padStart(2, '0');
     return `${hours}:${minutes}`;
-  };
+  }, []);
 
-  const handleEditSchedule = (schedule) => {
+  const handleEditSchedule = useCallback((schedule) => {
     setSelectedSchedule(schedule);
     setTempStartTime(formatTime(schedule.start_time));
     setTempEndTime(formatTime(schedule.end_time));
     setTempClassInfo(schedule.class_info || "");
     setEditModalVisible(true);
-  };
+  }, [formatTime]);
 
-  const handleUpdateSchedule = async () => {
+  const handleUpdateSchedule = useCallback(async () => {
     if (!selectedSchedule) return;
 
     const [startHours, startMinutes] = tempStartTime.split(":").map(Number);
@@ -385,21 +387,21 @@ export default function ManageUsersInClassScreen({ navigation }) {
     } finally {
       setSaving(false);
     }
-  };
+  }, [selectedSchedule, tempStartTime, tempEndTime, tempClassInfo, fetchClassSchedules, showToast]);
 
-  const openAddScheduleModal = () => {
+  const openAddScheduleModal = useCallback(() => {
     setNewScheduleDate(null);
     setNewStartTime('');
     setNewEndTime('');
     setNewClassInfo('');
     setAddModalVisible(true);
-  }
+  }, []);
 
-  const handleDayPress = (day) => {
+  const handleDayPress = useCallback((day) => {
     setNewScheduleDate(day.dateString);
-  };
+  }, []);
 
-  const handleAddSchedule = async () => {
+  const handleAddSchedule = useCallback(async () => {
     if (!newScheduleDate || !newStartTime || !newEndTime) {
       return showToast("Please select a date and enter start/end times.", 'error');
     }
@@ -447,9 +449,9 @@ export default function ManageUsersInClassScreen({ navigation }) {
     } finally {
       setSaving(false);
     }
-  };
+  }, [newScheduleDate, newStartTime, newEndTime, classId, className, classSubject, newClassInfo, schoolId, fetchClassSchedules, showToast]);
 
-  const markAllPresent = async () => {
+  const markAllPresent = useCallback(async () => {
     if (!selectedScheduleDate) return;
     setSaving(true);
     try {
@@ -483,24 +485,24 @@ export default function ManageUsersInClassScreen({ navigation }) {
     } finally {
       setSaving(false);
     }
-  };
+  }, [selectedScheduleDate, classMembers, fetchClassMembers, awardXP, showToast]);
 
-  const handleCloseMarksModal = () => {
+  const handleCloseMarksModal = useCallback(() => {
     setMarksModalVisible(false);
-  };
+  }, []);
 
-  const handleOpenManageMarksModal = (member) => {
+  const handleOpenManageMarksModal = useCallback((member) => {
     setSelectedStudent(member.users);
     setManageMarksModalVisible(true);
     fetchStudentMarks(member.users.id, classId);
-  };
+  }, [classId, fetchStudentMarks]);
 
-  const handleCloseManageMarksModal = () => {
+  const handleCloseManageMarksModal = useCallback(() => {
     setManageMarksModalVisible(false);
     setSelectedStudent(null);
-  };
+  }, []);
 
-  const renderSchedule = ({ item }) => (
+  const renderSchedule = useCallback(({ item }) => (
     <TouchableOpacity
       style={[styles.sessionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
       activeOpacity={0.7}
@@ -521,9 +523,9 @@ export default function ManageUsersInClassScreen({ navigation }) {
         <FontAwesomeIcon icon={faEdit} size={16} color={theme.colors.placeholder} />
       </TouchableOpacity>
     </TouchableOpacity>
-  );
+  ), [theme, formatTime, handleEditSchedule]);
 
-  const renderStudent = ({ item }) => {
+  const renderStudent = useCallback(({ item }) => {
     const student = item.users;
     const attendanceStatus = item.attendance?.[selectedScheduleDate] ?? null;
     const isExpanded = expandedStudents[student.id];
@@ -591,9 +593,9 @@ export default function ManageUsersInClassScreen({ navigation }) {
         )}
       </View>
     );
-  };
+  }, [selectedScheduleDate, expandedStudents, studentMarks, theme, handleAttendanceChange, handleOpenManageMarksModal]);
 
-  const renderHeader = () => {
+  const renderHeader = useCallback(() => {
     if (loading && !selectedScheduleDate) {
       return (
         <View style={{ padding: 20 }}>
@@ -725,7 +727,7 @@ export default function ManageUsersInClassScreen({ navigation }) {
         </View>
       </View>
     );
-  };
+  }, [loading, selectedScheduleDate, className, navigation, openAddScheduleModal, classSchedules, renderSchedule, theme, markAllPresent, classMembers, renderStudent, searchQuery, fetchAllStudents, availableStudents, addStudentToClass]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -816,6 +818,8 @@ export default function ManageUsersInClassScreen({ navigation }) {
     </View>
   );
 }
+
+export default React.memo(ManageUsersInClassScreen);
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

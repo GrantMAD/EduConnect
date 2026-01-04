@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
 import { SkeletonPiece } from './skeletons/DashboardScreenSkeleton';
 
-export default function RecentActivity() {
+const RecentActivity = React.memo(() => {
     const { theme } = useTheme();
     const [activities, setActivities] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -97,16 +97,16 @@ export default function RecentActivity() {
     if (loading) {
         return (
             <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
-                 <Text style={[styles.title, { color: theme.colors.text, marginBottom: 16 }]}>Recent Activity</Text>
-                 {[1, 2, 3, 4].map(i => (
-                     <View key={i} style={{marginBottom: 20, flexDirection: 'row'}}>
+                <Text style={[styles.title, { color: theme.colors.text, marginBottom: 16 }]}>Recent Activity</Text>
+                {[1, 2, 3, 4].map(i => (
+                    <View key={i} style={{ marginBottom: 20, flexDirection: 'row' }}>
                         <SkeletonPiece style={{ width: 32, height: 32, borderRadius: 16, marginRight: 12 }} />
-                        <View style={{flex: 1}}>
+                        <View style={{ flex: 1 }}>
                             <SkeletonPiece style={{ width: '80%', height: 14, borderRadius: 4, marginBottom: 6 }} />
                             <SkeletonPiece style={{ width: 60, height: 10, borderRadius: 4 }} />
                         </View>
-                     </View>
-                 ))}
+                    </View>
+                ))}
             </View>
         );
     }
@@ -142,7 +142,7 @@ export default function RecentActivity() {
             )}
         </View>
     );
-}
+});
 
 const styles = StyleSheet.create({
     container: {
@@ -210,3 +210,5 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     }
 });
+
+export default RecentActivity;

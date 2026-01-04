@@ -4,23 +4,23 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
-export default function EventCard({ event }) {
+const EventCard = React.memo(({ event }) => {
   const { theme } = useTheme();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
       <View style={styles.row}>
         <View style={[styles.iconBox, { backgroundColor: '#10b981' + '15' }]}>
-            <FontAwesomeIcon icon={faCalendarAlt} size={14} color="#10b981" />
+          <FontAwesomeIcon icon={faCalendarAlt} size={14} color="#10b981" />
         </View>
         <View style={styles.content}>
-            <Text style={[styles.title, { color: theme.colors.text }]}>{event.title}</Text>
-            <Text style={[styles.date, { color: theme.colors.placeholder }]}>{event.date}</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>{event.title}</Text>
+          <Text style={[styles.date, { color: theme.colors.placeholder }]}>{event.date}</Text>
         </View>
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -41,15 +41,17 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   content: {
-      flex: 1,
+    flex: 1,
   },
   title: {
     fontWeight: '800',
     fontSize: 15,
   },
   date: {
-      fontSize: 13,
-      fontWeight: '600',
-      marginTop: 2,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 2,
   }
 });
+
+export default EventCard;

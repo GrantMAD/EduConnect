@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useSchool } from '../../context/SchoolContext';
@@ -11,7 +11,7 @@ import { useToast } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
 
-export default function ManageClassesScreen({ navigation }) {
+const ManageClassesScreen = ({ navigation }) => {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
@@ -19,7 +19,7 @@ export default function ManageClassesScreen({ navigation }) {
   const { showToast } = useToast();
   const { theme } = useTheme();
 
-  const fetchTeachersClasses = async () => {
+  const fetchTeachersClasses = useCallback(async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -62,15 +62,15 @@ export default function ManageClassesScreen({ navigation }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [schoolId, showToast]);
 
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       fetchTeachersClasses();
-    }, [schoolId])
+    }, [fetchTeachersClasses])
   );
 
-  const renderClassItem = ({ item }) => {
+  const renderClassItem = useCallback(({ item }) => {
     if (loading) return <CardSkeleton />;
 
     return (
@@ -109,7 +109,7 @@ export default function ManageClassesScreen({ navigation }) {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [loading, theme, navigation]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -152,6 +152,8 @@ export default function ManageClassesScreen({ navigation }) {
     </View>
   );
 }
+
+export default React.memo(ManageClassesScreen);
 
 const styles = StyleSheet.create({
   container: {
