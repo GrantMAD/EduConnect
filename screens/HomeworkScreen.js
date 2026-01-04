@@ -21,6 +21,7 @@ import {
   faBook,
   faPen,
   faTrash,
+  faUser,
 } from '@fortawesome/free-solid-svg-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
@@ -202,24 +203,41 @@ const HomeworkList = React.memo(() => {
       <Modal
         isVisible={modalVisible}
         onBackdropPress={() => setModalVisible(false)}
+        onSwipeComplete={() => setModalVisible(false)}
+        swipeDirection={['down']}
+        propagateSwipe={true}
+        animationIn="slideInUp"
+        animationOut="slideOutDown"
+        backdropOpacity={0.4}
         style={{ justifyContent: 'flex-end', margin: 0 }}
       >
-        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 30) }]}>
+        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+          <View style={styles.swipeIndicator} />
           {selectedHomework && (
             <>
               <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
-                <FontAwesomeIcon icon={faClipboardList} size={26} color={theme.colors.primary} />
+                <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                  <FontAwesomeIcon icon={faClipboardList} size={20} color={theme.colors.primary} />
+                </View>
                 <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Homework Details</Text>
-                <TouchableOpacity onPress={() => setModalVisible(false)}>
-                  <FontAwesomeIcon icon={faTimes} size={22} color={theme.colors.placeholder} />
-                </TouchableOpacity>
+                <View style={styles.headerActions}>
+                  <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
+                    <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
+                  </TouchableOpacity>
+                </View>
               </View>
 
-              <ScrollView>
-                <View style={styles.descriptionContainer}>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{
+                  paddingTop: 24,
+                  paddingBottom: Math.max(insets.bottom, 24)
+                }}
+              >
+                <View style={styles.messageWrapper}>
                   {isEditing ? (
                     <TextInput
-                      style={[styles.modalTextInput, { color: theme.colors.text }]}
+                      style={[styles.modalTextInput, { color: theme.colors.text, borderColor: theme.colors.cardBorder }]}
                       value={selectedHomework.description}
                       multiline
                       onChangeText={(t) => setSelectedHomework({ ...selectedHomework, description: t })}
@@ -231,29 +249,67 @@ const HomeworkList = React.memo(() => {
                   )}
                 </View>
 
-                <View style={[styles.detailsCard, { backgroundColor: theme.colors.cardBackground }]}>
-                  <Text style={{ color: theme.colors.text }}>
-                    Subject: {selectedHomework.subject}
-                  </Text>
-                  <Text style={{ color: theme.colors.text }}>
-                    Due: {formatDate(selectedHomework.due_date)}
-                  </Text>
+                <View style={[styles.metaCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                  <View style={styles.metaRow}>
+                    <View style={[styles.metaIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                      <FontAwesomeIcon icon={faBook} size={12} color={theme.colors.primary} />
+                    </View>
+                    <View>
+                      <Text style={[styles.metaLabel, { color: theme.colors.placeholder }]}>SUBJECT</Text>
+                      {isEditing ? (
+                        <TextInput
+                          style={{ color: theme.colors.text, fontWeight: '800', fontSize: 14, padding: 0 }}
+                          value={selectedHomework.subject}
+                          onChangeText={(t) => setSelectedHomework({ ...selectedHomework, subject: t })}
+                        />
+                      ) : (
+                        <Text style={[styles.metaValue, { color: theme.colors.text }]}>{selectedHomework.subject}</Text>
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={[styles.metaDivider, { backgroundColor: theme.colors.cardBorder }]} />
+
+                  <View style={styles.metaRow}>
+                    <View style={[styles.metaIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                      <FontAwesomeIcon icon={faCalendarAlt} size={12} color={theme.colors.primary} />
+                    </View>
+                    <View>
+                      <Text style={[styles.metaLabel, { color: theme.colors.placeholder }]}>DUE DATE</Text>
+                      <Text style={[styles.metaValue, { color: theme.colors.text }]}>{formatDate(selectedHomework.due_date)}</Text>
+                    </View>
+                  </View>
+
+                  {selectedHomework.created_by_user && (
+                    <>
+                      <View style={[styles.metaDivider, { backgroundColor: theme.colors.cardBorder }]} />
+                      <View style={styles.metaRow}>
+                        <View style={[styles.metaIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                          <FontAwesomeIcon icon={faUser} size={12} color={theme.colors.primary} />
+                        </View>
+                        <View>
+                          <Text style={[styles.metaLabel, { color: theme.colors.placeholder }]}>ASSIGNED BY</Text>
+                          <Text style={[styles.metaValue, { color: theme.colors.text }]}>{selectedHomework.created_by_user.full_name}</Text>
+                        </View>
+                      </View>
+                    </>
+                  )}
                 </View>
 
                 {currentUserId === selectedHomework.created_by && (
-                  <View style={styles.modalButtonContainer}>
+                  <View style={[styles.modalButtonContainer, { marginTop: 24 }]}>
                     <TouchableOpacity
                       style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}
                       onPress={() => (isEditing ? handleUpdate() : setIsEditing(true))}
                     >
                       <FontAwesomeIcon icon={faPen} size={16} color="#fff" />
                       <Text style={styles.modalButtonText}>
-                        {isEditing ? 'Save' : 'Edit'}
+                        {isEditing ? 'Save Changes' : 'Edit Homework'}
                       </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.modalButton, { backgroundColor: theme.colors.error }]}
+                      style={[styles.modalButton, { backgroundColor: theme.colors.error, marginLeft: 12 }]}
                       onPress={handleDelete}
                       disabled={isEditing}
                     >
@@ -303,12 +359,17 @@ const AssignmentsList = React.memo(() => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [manageModalVisible, setManageModalVisible] = useState(false);
   const [currentTrackItem, setCurrentTrackItem] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
 
   const isFocused = useIsFocused();
+  const { showToast } = useToast();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const fetchUser = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -396,11 +457,56 @@ const AssignmentsList = React.memo(() => {
     fetchAssignments();
   }, [fetchAssignments]);
 
+  const formatDate = useCallback((date) =>
+    new Date(date).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }), []);
+
+  const handleUpdate = useCallback(async () => {
+    const { error } = await supabase
+      .from('assignments')
+      .update({
+        title: selectedAssignment.title,
+        description: selectedAssignment.description,
+        due_date: selectedAssignment.due_date,
+      })
+      .eq('id', selectedAssignment.id);
+
+    if (!error) {
+      showToast('Assignment updated successfully', 'success');
+      setIsEditing(false);
+      fetchAssignments();
+    }
+  }, [selectedAssignment, fetchAssignments, showToast]);
+
+  const handleDelete = useCallback(async () => {
+    Alert.alert('Delete Assignment', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await supabase.from('assignments').delete().eq('id', selectedAssignment.id);
+          showToast('Assignment deleted', 'success');
+          setModalVisible(false);
+          fetchAssignments();
+        },
+      },
+    ]);
+  }, [selectedAssignment, fetchAssignments, showToast]);
+
   const renderItem = useCallback(({ item }) =>
     loading ? <CardSkeleton /> : (
       <AssignmentCard
         assignment={item}
         userId={currentUserId}
+        onPress={() => {
+          setSelectedAssignment(item);
+          setModalVisible(true);
+          setIsEditing(false);
+        }}
         onTrackPress={() => {
           setCurrentTrackItem(item);
           setManageModalVisible(true);
@@ -410,6 +516,130 @@ const AssignmentsList = React.memo(() => {
 
   return (
     <View style={[styles.listContainer, { backgroundColor: theme.colors.background }]}>
+      <Modal
+        isVisible={modalVisible}
+        onBackdropPress={() => setModalVisible(false)}
+        onSwipeComplete={() => setModalVisible(false)}
+        swipeDirection={['down']}
+        propagateSwipe={true}
+        animationIn="slideInUp"
+        animationOut="slideOutDown"
+        backdropOpacity={0.4}
+        style={{ justifyContent: 'flex-end', margin: 0 }}
+      >
+        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+          <View style={styles.swipeIndicator} />
+          {selectedAssignment && (
+            <>
+              <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
+                <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                  <FontAwesomeIcon icon={faClipboardList} size={20} color={theme.colors.primary} />
+                </View>
+                <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Assignment Details</Text>
+                <View style={styles.headerActions}>
+                  <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
+                    <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{
+                  paddingTop: 24,
+                  paddingBottom: Math.max(insets.bottom, 24)
+                }}
+              >
+                <View style={styles.messageWrapper}>
+                  {isEditing ? (
+                    <TextInput
+                      style={[styles.modalTextInput, { color: theme.colors.text, borderColor: theme.colors.cardBorder }]}
+                      value={selectedAssignment.description}
+                      multiline
+                      onChangeText={(t) => setSelectedAssignment({ ...selectedAssignment, description: t })}
+                    />
+                  ) : (
+                    <Text style={[styles.descriptionText, { color: theme.colors.text }]}>
+                      {selectedAssignment.description}
+                    </Text>
+                  )}
+                </View>
+
+                <View style={[styles.metaCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                  <View style={styles.metaRow}>
+                    <View style={[styles.metaIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                      <FontAwesomeIcon icon={faBook} size={12} color={theme.colors.primary} />
+                    </View>
+                    <View>
+                      <Text style={[styles.metaLabel, { color: theme.colors.placeholder }]}>TITLE</Text>
+                      {isEditing ? (
+                        <TextInput
+                          style={{ color: theme.colors.text, fontWeight: '800', fontSize: 14, padding: 0 }}
+                          value={selectedAssignment.title}
+                          onChangeText={(t) => setSelectedAssignment({ ...selectedAssignment, title: t })}
+                        />
+                      ) : (
+                        <Text style={[styles.metaValue, { color: theme.colors.text }]}>{selectedAssignment.title}</Text>
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={[styles.metaDivider, { backgroundColor: theme.colors.cardBorder }]} />
+
+                  <View style={styles.metaRow}>
+                    <View style={[styles.metaIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                      <FontAwesomeIcon icon={faCalendarAlt} size={12} color={theme.colors.primary} />
+                    </View>
+                    <View>
+                      <Text style={[styles.metaLabel, { color: theme.colors.placeholder }]}>DUE DATE</Text>
+                      <Text style={[styles.metaValue, { color: theme.colors.text }]}>{formatDate(selectedAssignment.due_date)}</Text>
+                    </View>
+                  </View>
+
+                  {selectedAssignment.assigned_by_user && (
+                    <>
+                      <View style={[styles.metaDivider, { backgroundColor: theme.colors.cardBorder }]} />
+                      <View style={styles.metaRow}>
+                        <View style={[styles.metaIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                          <FontAwesomeIcon icon={faUser} size={12} color={theme.colors.primary} />
+                        </View>
+                        <View>
+                          <Text style={[styles.metaLabel, { color: theme.colors.placeholder }]}>ASSIGNED BY</Text>
+                          <Text style={[styles.metaValue, { color: theme.colors.text }]}>{selectedAssignment.assigned_by_user.full_name}</Text>
+                        </View>
+                      </View>
+                    </>
+                  )}
+                </View>
+
+                {currentUserId === selectedAssignment.assigned_by && (
+                  <View style={[styles.modalButtonContainer, { marginTop: 24 }]}>
+                    <TouchableOpacity
+                      style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}
+                      onPress={() => (isEditing ? handleUpdate() : setIsEditing(true))}
+                    >
+                      <FontAwesomeIcon icon={faPen} size={16} color="#fff" />
+                      <Text style={styles.modalButtonText}>
+                        {isEditing ? 'Save Changes' : 'Edit Assignment'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.modalButton, { backgroundColor: theme.colors.error, marginLeft: 12 }]}
+                      onPress={handleDelete}
+                      disabled={isEditing}
+                    >
+                      <FontAwesomeIcon icon={faTrash} size={16} color="#fff" />
+                      <Text style={styles.modalButtonText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </ScrollView>
+            </>
+          )}
+        </View>
+      </Modal>
+
       <FlatList
         data={loading ? [1, 2, 3] : assignments}
         keyExtractor={(item, index) => loading ? index.toString() : item.id}
@@ -554,17 +784,90 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingBottom: 15,
+    paddingBottom: 20,
     borderBottomWidth: 1,
   },
   modalTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginLeft: 15,
+    fontSize: 20,
+    fontWeight: '900',
     flex: 1,
+    letterSpacing: -0.5,
   },
+  modalContent: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    maxHeight: '85%',
+  },
+  swipeIndicator: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  iconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  messageWrapper: {
+    marginBottom: 32,
+  },
+  descriptionText: {
+    fontSize: 16,
+    lineHeight: 26,
+    fontWeight: '600',
+  },
+  metaCard: {
+    borderRadius: 24,
+    padding: 20,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  metaIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  metaLabel: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  metaValue: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  metaDivider: {
+    height: 1,
+    marginVertical: 16,
+    marginLeft: 48,
+  },
+  
   descriptionContainer: { paddingVertical: 20 },
-  descriptionText: { fontSize: 16, lineHeight: 24 },
 
   detailsCard: {
     padding: 15,
@@ -590,7 +893,11 @@ const styles = StyleSheet.create({
   },
   modalTextInput: {
     borderWidth: 1,
-    borderRadius: 6,
-    padding: 10,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    lineHeight: 24,
+    minHeight: 100,
+    textAlignVertical: 'top',
   },
 });
