@@ -18,8 +18,15 @@ import {
     faCircle
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
-import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
+
+// Import services
+import { 
+  fetchClassMembers, 
+  fetchStudentCompletions, 
+  deleteStudentCompletion, 
+  addStudentCompletion 
+} from '../services/classService';
 
 const defaultUserImage = require('../assets/user.png');
 
@@ -46,24 +53,14 @@ const ManageCompletionsModal = React.memo(({
         setLoading(true);
         try {
             // 1. Fetch Students in Class
-            const { data: members, error: memError } = await supabase
-                .from('class_members')
-                .select('*, users(id, full_name, email, avatar_url)')
-                .eq('class_id', item.class_id)
-                .eq('role', 'student');
-
-            if (memError) throw memError;
-            setStudents(members || []);
+            const data = await fetchClassMembers(item.class_id);
+            const studentMembers = data.filter(m => m.role === 'student');
+            setStudents(studentMembers || []);
 
             // 2. Fetch Existing Completions for this item
             const idField = type === 'homework' ? 'homework_id' : 'assignment_id';
-            const { data: comp, error: compError } = await supabase
-                .from('student_completions')
-                .select('student_id')
-                .eq(idField, item.id);
-
-            if (compError) throw compError;
-            setCompletions(comp?.map(c => c.student_id) || []);
+            const completionsData = await fetchStudentCompletions(idField, item.id);
+            setCompletions(completionsData || []);
 
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -83,24 +80,11 @@ const ManageCompletionsModal = React.memo(({
         try {
             if (isDone) {
                 // Remove completion
-                const { error } = await supabase
-                    .from('student_completions')
-                    .delete()
-                    .eq('student_id', studentId)
-                    .eq(idField, item.id);
-
-                if (error) throw error;
+                await deleteStudentCompletion(studentId, idField, item.id);
                 setCompletions(prev => prev.filter(id => id !== studentId));
             } else {
                 // Add completion
-                const { error } = await supabase
-                    .from('student_completions')
-                    .insert({
-                        student_id: studentId,
-                        [idField]: item.id
-                    });
-
-                if (error) throw error;
+                await addStudentCompletion(studentId, idField, item.id);
                 setCompletions(prev => [...prev, studentId]);
             }
         } catch (error) {

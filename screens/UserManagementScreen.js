@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TextInput, FlatList, TouchableOpacity, Modal, Image, Dimensions } from 'react-native';
-import { supabase } from '../lib/supabase';
 import { Picker } from '@react-native-picker/picker';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import UserManagementScreenSkeleton, { UserItemSkeleton } from '../components/skeletons/UserManagementScreenSkeleton';
@@ -11,6 +10,9 @@ import { useTheme } from '../context/ThemeContext';
 import { useSupabaseInfiniteQuery } from '../hooks/useSupabaseInfiniteQuery';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// Import services
+import { updateUserRole, getUsersBySchoolQuery } from '../services/userService';
 
 const defaultUserImage = require('../assets/user.png');
 
@@ -27,21 +29,12 @@ const UserManagementScreen = ({ navigation, route }) => {
   const fetchUsersQuery = useCallback(({ from, to }) => {
     if (!schoolId) return Promise.resolve({ data: [], error: null });
 
-    let query = supabase
-      .from('users')
-      .select('*')
-      .eq('school_id', schoolId);
-
-    if (searchQuery) {
-      query = query.ilike('full_name', `%${searchQuery}%`);
-    }
-
-    query = query
-      .order('role', { ascending: true })
-      .order('full_name', { ascending: true })
-      .range(from, to);
-
-    return query;
+    return getUsersBySchoolQuery({
+      schoolId,
+      searchQuery,
+      from,
+      to
+    });
   }, [schoolId, searchQuery]);
 
   const {
@@ -81,15 +74,9 @@ const UserManagementScreen = ({ navigation, route }) => {
     if (selectedUser.role === newRole) return;
 
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .update({ role: newRole })
-        .eq('id', selectedUser.id)
-        .select();
+      const data = await updateUserRole(selectedUser.id, newRole);
 
-      if (error) {
-        showToast('Failed to update user role.', 'error');
-      } else if (!data || data.length === 0) {
+      if (!data) {
         showToast('Update failed: No permissions.', 'error');
       } else {
         showToast('User role updated successfully.', 'success');
@@ -100,6 +87,7 @@ const UserManagementScreen = ({ navigation, route }) => {
         setSelectedUser({ ...selectedUser, role: newRole });
       }
     } catch (err) {
+      console.error('Error updating role:', err);
       showToast('An unexpected error occurred.', 'error');
     }
   }, [selectedUser, setUsers, showToast]);

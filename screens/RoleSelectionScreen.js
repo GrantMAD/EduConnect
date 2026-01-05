@@ -1,11 +1,14 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, ScrollView, Dimensions } from 'react-native';
-import { supabase } from '../lib/supabase';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faSignOutAlt, faUserGraduate, faChalkboardTeacher, faChild, faUserShield } from '@fortawesome/free-solid-svg-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
+
+// Import services
+import { getCurrentUser, signOut as signOutService } from '../services/authService';
+import { updateUserRole as updateUserRoleService } from '../services/userService';
 
 const { width } = Dimensions.get('window');
 
@@ -35,26 +38,24 @@ const RoleSelectionScreen = ({ navigation }) => {
 
   const updateUserRole = useCallback(async (role) => {
     setLoadingRole(role);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { error } = await supabase
-        .from('users')
-        .update({ role: role })
-        .eq('id', user.id);
-
-      if (error) {
-        Alert.alert('Error', error.message);
-      } else {
+    try {
+      const authUser = await getCurrentUser();
+      if (authUser) {
+        await updateUserRoleService(authUser.id, role);
         navigation.navigate('SchoolSetup');
       }
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoadingRole(null);
     }
-    setLoadingRole(null);
   }, [navigation]);
 
   const handleSignOut = useCallback(async () => {
     setSigningOut(true);
-    const { error } = await supabase.auth.signOut();
-    if (error) {
+    try {
+      await signOutService();
+    } catch (error) {
       Alert.alert('Error', error.message);
       setSigningOut(false);
     }

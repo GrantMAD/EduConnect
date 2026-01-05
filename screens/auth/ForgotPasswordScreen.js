@@ -1,11 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Dimensions } from 'react-native';
-import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faEnvelope, faGraduationCap, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { resetPassword } from '../../services/authService';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -21,11 +23,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
         setMessage(null);
 
         try {
-            const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: 'classconnect://update-password',
-            });
-
-            if (error) throw error;
+            await resetPassword(email, 'classconnect://update-password');
 
             setMessage('Check your email for the password reset link.');
             showToast('Reset link sent!', 'success');

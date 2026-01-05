@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Animated } from 'react-native';
-import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
@@ -26,20 +25,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import { useApi } from '../hooks/useApi';
 
+// Import services
+import { fetchPolls as fetchPollsService, fetchPollVotes, castVote } from '../services/pollService';
+import { getUserProfile } from '../services/userService';
+import { getCurrentUser } from '../services/authService';
+
 const PollCard = React.memo(({ item, userId, theme, onVotePress, isExpired }) => {
   const [votes, setVotes] = useState([]);
   const [loadingVotes, setLoadingVotes] = useState(true);
 
   const fetchVotes = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('poll_votes')
-      .select('user_id, selected_option')
-      .eq('poll_id', item.id);
-
-    if (!error && data) {
+    try {
+      const data = await fetchPollVotes(item.id);
       setVotes(data);
+    } catch (error) {
+      console.error('Error fetching votes:', error);
+    } finally {
+      setLoadingVotes(false);
     }
-    setLoadingVotes(false);
   }, [item.id]);
 
   useEffect(() => {
@@ -184,28 +187,7 @@ const PollsScreen = ({ navigation, route }) => {
 
   const fetchPolls = useCallback(async () => {
     try {
-      const [pollsResult, userVotesResult] = await Promise.all([
-        supabase
-          .from('polls')
-          .select('id, question, options, end_date, created_at, users:created_by(full_name)')
-          .eq('school_id', schoolId)
-          .order('created_at', { ascending: false })
-          .limit(50),
-
-        userId ? supabase
-          .from('poll_votes')
-          .select('poll_id, selected_option')
-          .eq('user_id', userId)
-          : Promise.resolve({ data: [], error: null })
-      ]);
-
-      if (pollsResult.error) throw pollsResult.error;
-
-      const pollsWithUserVotes = (pollsResult.data || []).map(poll => ({
-        ...poll,
-        poll_votes: userVotesResult.data?.filter(v => v.poll_id === poll.id) || []
-      }));
-
+      const pollsWithUserVotes = await fetchPollsService(schoolId, userId);
       setPolls(pollsWithUserVotes);
     } catch (error) {
       console.error('Error fetching polls:', error);
@@ -215,14 +197,10 @@ const PollsScreen = ({ navigation, route }) => {
   const initializeScreen = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-        const { data: userData } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', user.id)
-          .single();
+      const authUser = await getCurrentUser();
+      if (authUser) {
+        setUserId(authUser.id);
+        const userData = await getUserProfile(authUser.id);
         setUserRole(userData?.role);
       }
 
@@ -248,14 +226,10 @@ const PollsScreen = ({ navigation, route }) => {
 
   const handleVote = useCallback(async (pollId, option) => {
     await executeVote(async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      const authUser = await getCurrentUser();
+      if (!authUser) throw new Error('User not authenticated');
 
-      const { error } = await supabase.from('poll_votes').insert([
-        { poll_id: pollId, user_id: user.id, selected_option: option },
-      ]);
-
-      if (error) throw error;
+      await castVote(pollId, authUser.id, option);
 
       awardXP('poll_vote', 5);
       setIsVoteModalVisible(false);

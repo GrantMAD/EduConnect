@@ -20,7 +20,6 @@ import {
     faFootballBall,
     faSearch
 } from '@fortawesome/free-solid-svg-icons';
-import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useGamification } from '../../context/GamificationContext';
@@ -28,6 +27,9 @@ import { usePushNotification } from '../../context/PushNotificationContext';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
 import AnimatedAvatarBorder from '../AnimatedAvatarBorder';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// Import services
+import { signOut as signOutService } from '../../services/authService';
 
 const defaultUserImage = require('../../assets/user.png');
 
@@ -359,7 +361,7 @@ const CustomDrawerContent = React.memo((props) => {
                     onPress={async () => {
                         setSigningOut(true);
                         await clearPushToken();
-                        await supabase.auth.signOut();
+                        await signOutService();
                     }}
                     style={{
                         flexDirection: 'row',

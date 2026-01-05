@@ -11,11 +11,11 @@ import { WalkthroughProvider } from '../context/WalkthroughContext';
 export default function AppProviders({ children, session }) {
     return (
         <ThemeProvider session={session}>
-            <PushNotificationProvider>
+            <PushNotificationProvider session={session}>
                 <ToastProvider>
-                    <NotificationPreferencesProvider>
+                    <NotificationPreferencesProvider session={session}>
                         <WalkthroughProvider>
-                            <SchoolProvider>
+                            <SchoolProvider session={session}>
                                 <GamificationProvider session={session}>
                                     <ChatProvider session={session}>
                                         {children}

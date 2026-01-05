@@ -4,7 +4,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import ProfileScreenSkeleton, { SkeletonPiece } from '../components/skeletons/ProfileScreenSkeleton';
 import { faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone, faTrophy, faMedal, faFire, faStore, faChartBar, faCoins, faInfoCircle, faArrowRight, faGlobe, faUserFriends, faPencilAlt, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
-import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -15,6 +14,10 @@ import { BORDER_STYLES, BANNER_STYLES, NAME_COLOR_STYLES, TITLE_STYLES } from '.
 import AnimatedAvatarBorder from '../components/AnimatedAvatarBorder';
 import { BADGES } from '../constants/Badges';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { getUserProfile } from '../services/userService';
 
 const { width } = Dimensions.get('window');
 
@@ -72,14 +75,10 @@ const ProfileScreen = ({ navigation }) => {
   const fetchUserData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (!user) throw new Error("No user logged in");
 
-      const { data } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      const data = await getUserProfile(user.id);
 
       if (data) {
         setUserData(data);

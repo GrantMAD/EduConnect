@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Image, Dimensions } from 'react-native';
-import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { 
     faChartLine, faBullhorn, faBook, faChalkboardTeacher, 
@@ -12,6 +11,9 @@ import { useSchool } from '../context/SchoolContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import StandardBottomModal from '../components/StandardBottomModal';
+
+// Import services
+import { getTeachersEngagementAudit } from '../services/dashboardService';
 
 const defaultUserImage = require('../assets/user.png');
 
@@ -47,42 +49,8 @@ const EngagementInsightsScreen = ({ navigation }) => {
     const fetchEngagementData = useCallback(async () => {
         setLoading(true);
         try {
-            const { data: teacherList, error: teacherError } = await supabase
-                .from('users')
-                .select('id, full_name, email, avatar_url')
-                .eq('school_id', schoolId)
-                .eq('role', 'teacher');
-
-            if (teacherError) throw teacherError;
-
-            if (!teacherList || teacherList.length === 0) {
-                setTeachers([]);
-                return;
-            }
-
-            const teacherIds = teacherList.map(t => t.id);
-
-            const [announcements, resources, classes] = await Promise.all([
-                supabase.from('announcements').select('posted_by').in('posted_by', teacherIds),
-                supabase.from('resources').select('uploaded_by').in('uploaded_by', teacherIds),
-                supabase.from('classes').select('teacher_id').in('teacher_id', teacherIds)
-            ]);
-
-            const auditData = teacherList.map(teacher => {
-                const announcementCount = announcements.data?.filter(a => a.posted_by === teacher.id).length || 0;
-                const resourceCount = resources.data?.filter(r => r.uploaded_by === teacher.id).length || 0;
-                const classCount = classes.data?.filter(c => c.teacher_id === teacher.id).length || 0;
-                
-                return {
-                    ...teacher,
-                    announcements: announcementCount,
-                    resources: resourceCount,
-                    classes: classCount,
-                    total: announcementCount + resourceCount + classCount
-                };
-            });
-
-            setTeachers(auditData);
+            const auditData = await getTeachersEngagementAudit(schoolId);
+            setTeachers(auditData || []);
         } catch (error) {
             console.error('Error fetching engagement audit:', error);
         } finally {

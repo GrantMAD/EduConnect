@@ -6,11 +6,13 @@ import { faTimes, faUser, faCamera, faGlobe } from '@fortawesome/free-solid-svg-
 import { Picker } from '@react-native-picker/picker';
 import { COUNTRIES } from '../constants/Countries';
 import { useTheme } from '../context/ThemeContext';
-import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Buffer } from 'buffer';
 import { useToast } from '../context/ToastContext';
+
+// Import services
+import { uploadAvatar as uploadAvatarService, getAvatarUrl, updateUserProfile } from '../services/userService';
 
 const EditProfileModal = React.memo(({ visible, onClose, currentUser }) => {
     const { theme } = useTheme();
@@ -65,14 +67,9 @@ const EditProfileModal = React.memo(({ visible, onClose, currentUser }) => {
             const filePath = `${currentUser.id}/${fileName}`;
             const contentType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
 
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, buffer, { cacheControl: '3600', upsert: true, contentType });
+            await uploadAvatarService(filePath, buffer);
 
-            if (uploadError) throw uploadError;
-
-            const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(filePath);
-            return publicData?.publicUrl || null;
+            return getAvatarUrl(filePath);
         } catch (error) {
             console.error('Upload error:', error);
             showToast('Failed to upload avatar.', 'error');
@@ -98,17 +95,12 @@ const EditProfileModal = React.memo(({ visible, onClose, currentUser }) => {
                 if (uploadedUrl) avatarUrl = uploadedUrl;
             }
 
-            const { error } = await supabase
-                .from('users')
-                .update({
-                    full_name: fullName.trim(),
-                    number: number.trim(),
-                    country: country.trim(),
-                    avatar_url: avatarUrl,
-                })
-                .eq('id', currentUser.id);
-
-            if (error) throw error;
+            await updateUserProfile(currentUser.id, {
+                full_name: fullName.trim(),
+                number: number.trim(),
+                country: country.trim(),
+                avatar_url: avatarUrl,
+            });
 
             showToast('Profile updated successfully!', 'success');
             onClose(true); // Pass true to indicate successful update

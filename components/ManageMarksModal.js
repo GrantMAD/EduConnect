@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Alert, ActivityIndicator } from 'react-native';
-import { supabase } from '../lib/supabase';
 import { useToast, useToastState } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -8,6 +7,14 @@ import { faTrash, faSave, faTimes, faPlus, faPencilAlt } from '@fortawesome/free
 import { useTheme } from '../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from './Toast';
+
+// Import services
+import { 
+  fetchStudentMarks as fetchStudentMarksService,
+  saveStudentMarks,
+  updateStudentMark,
+  deleteStudentMark
+} from '../services/userService';
 
 const MarkItem = React.memo(({ item, onUpdate, onDelete }) => {
   const { theme } = useTheme();
@@ -135,13 +142,7 @@ const ManageMarksModal = React.memo(({ visible, onClose, student, classId }) => 
     if (!student) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('student_marks')
-        .select('*')
-        .eq('student_id', student.users.id)
-        .eq('class_id', classId)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
+      const data = await fetchStudentMarksService(student.users.id, [classId]);
       setMarks(data);
     } catch (error) {
       showToast('Error loading marks.', 'error');
@@ -162,20 +163,16 @@ const ManageMarksModal = React.memo(({ visible, onClose, student, classId }) => 
     const formattedMark = `${score}/${total} (${percentage}%)`;
 
     try {
-      const { error } = await supabase
-        .from('student_marks')
-        .insert({
-          student_id: student.users.id,
-          teacher_id: user.id,
-          class_id: classId,
-          assessment_name: `${assessmentType}: ${newMarkName}`,
-          mark: formattedMark,
-          score: score,
-          total_possible: total,
-          teacher_feedback: newFeedback
-        });
-
-      if (error) throw error;
+      await saveStudentMarks([{
+        student_id: student.users.id,
+        teacher_id: user.id,
+        class_id: classId,
+        assessment_name: `${assessmentType}: ${newMarkName}`,
+        mark: formattedMark,
+        score: score,
+        total_possible: total,
+        teacher_feedback: newFeedback
+      }]);
 
       showToast('Entry added.', 'success');
       setMarksChanged(true);
@@ -194,18 +191,15 @@ const ManageMarksModal = React.memo(({ visible, onClose, student, classId }) => 
     const formattedMark = `${score}/${total} (${percentage}%)`;
 
     try {
-      const { error } = await supabase
-        .from('student_marks')
-        .update({
-          mark: formattedMark,
-          score: score,
-          total_possible: total,
-          teacher_id: user.id,
-          assessment_name: newAssessmentName,
-          teacher_feedback: newFeedback
-        })
-        .eq('id', markId);
-      if (error) throw error;
+      await updateStudentMark(markId, {
+        mark: formattedMark,
+        score: score,
+        total_possible: total,
+        teacher_id: user.id,
+        assessment_name: newAssessmentName,
+        teacher_feedback: newFeedback
+      });
+
       showToast('Mark updated successfully.', 'success');
       setMarksChanged(true);
       fetchMarks();
@@ -225,8 +219,7 @@ const ManageMarksModal = React.memo(({ visible, onClose, student, classId }) => 
           style: 'destructive',
           onPress: async () => {
             try {
-              const { error } = await supabase.from('student_marks').delete().eq('id', markId);
-              if (error) throw error;
+              await deleteStudentMark(markId);
               showToast('Mark deleted successfully.', 'success');
               setMarksChanged(true);
               fetchMarks();

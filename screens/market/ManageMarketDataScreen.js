@@ -14,13 +14,16 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import ManagementListSkeleton, { SkeletonPiece } from '../../components/skeletons/ManagementListSkeleton';
 import CardSkeleton from '../../components/skeletons/CardSkeleton';
 import { faPlus, faStore, faArrowLeft, faChevronLeft } from '@fortawesome/free-solid-svg-icons';
-import { supabase } from '../../lib/supabase';
 import ManageMarketItemListItem from '../../components/ManageMarketItemListItem';
 import MarketplaceItemDetailModal from '../../components/MarketplaceItemDetailModal';
 import { useToast } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../../services/authService';
+import { fetchSellerItems, deleteMarketplaceItem } from '../../services/marketplaceService';
 
 const { width } = Dimensions.get('window');
 
@@ -36,19 +39,17 @@ const ManageMarketDataScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
 
   const fetchUserItems = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const authUser = await getCurrentUser();
+      if (!authUser) return;
 
-    let query = supabase
-      .from('marketplace_items')
-      .select('id, created_at, title, description, price, image_url, category')
-      .eq('seller_id', user.id)
-      .order('created_at', { ascending: false });
-
-    const { data, error } = await query;
-    if (error) console.error(error);
-    else setItems(data || []);
-    setLoading(false);
+      const data = await fetchSellerItems(authUser.id);
+      setItems(data || []);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -73,13 +74,13 @@ const ManageMarketDataScreen = ({ navigation }) => {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            const { error } = await supabase.from('marketplace_items').delete().eq('id', itemId);
-            if (error) {
-              showToast('Failed to delete item.', 'error');
-            } else {
+            try {
+              await deleteMarketplaceItem(itemId);
               fetchUserItems();
               setModalVisible(false); 
               showToast('Item deleted successfully!', 'success');
+            } catch (error) {
+              showToast('Failed to delete item.', 'error');
             }
           },
         },

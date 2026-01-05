@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, RefreshControl, Dimensions } from 'react-native';
-import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { 
   faBook, faPlus, faFileAlt, faThumbsUp, faThumbsDown, faBookmark, 
@@ -20,8 +19,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ResourcesScreenSkeleton, { SkeletonPiece, ResourceCardSkeleton } from '../components/skeletons/ResourcesScreenSkeleton';
 import LinearGradient from 'react-native-linear-gradient';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { getUserProfile } from '../services/userService';
+import {
+  fetchResourceBookmarks,
+  addBookmark,
+  removeBookmark,
+  fetchResourcesWithVotes
+} from '../services/resourceService';
 
+const SCREEN_WIDTH = Dimensions.get('window').width;
 const ResourcesScreen = () => {
   const { schoolId } = useSchool();
   const { theme } = useTheme();
@@ -49,15 +57,10 @@ const ResourcesScreen = () => {
 
   const fetchBookmarks = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('resource_bookmarks')
-        .select('resource_id')
-        .eq('user_id', user.id);
-
-      if (error) throw error;
+      const data = await fetchResourceBookmarks(user.id);
       const ids = new Set(data.map(item => item.resource_id));
       setBookmarkedIds(ids);
     } catch (error) {
@@ -67,16 +70,11 @@ const ResourcesScreen = () => {
 
   const toggleBookmark = useCallback(async (resourceId) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (!user) return;
 
       if (bookmarkedIds.has(resourceId)) {
-        const { error } = await supabase
-          .from('resource_bookmarks')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('resource_id', resourceId);
-        if (error) throw error;
+        await removeBookmark(user.id, resourceId);
 
         setBookmarkedIds(prev => {
           const next = new Set(prev);
@@ -85,10 +83,7 @@ const ResourcesScreen = () => {
         });
         showToast('Bookmark removed', 'info');
       } else {
-        const { error } = await supabase
-          .from('resource_bookmarks')
-          .insert({ user_id: user.id, resource_id: resourceId });
-        if (error) throw error;
+        await addBookmark(user.id, resourceId);
 
         setBookmarkedIds(prev => {
           const next = new Set(prev);
@@ -111,16 +106,10 @@ const ResourcesScreen = () => {
 
   const fetchUserRole = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-      if (error) throw error;
+      const data = await getUserProfile(user.id);
       setUserRole(data.role);
     } catch (error) {
       console.error('Error fetching user role:', error);
@@ -132,39 +121,14 @@ const ResourcesScreen = () => {
 
     if (!silent) setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (!user) return;
 
-      let query = supabase
-        .from('resources')
-        .select(`
-          *,
-          users (full_name, email)
-        `);
-
-      if (activeTab === 'personal') {
-        query = query.eq('is_personal', true).eq('uploaded_by', user.id);
-      } else {
-        query = query.eq('school_id', schoolId).eq('is_personal', false);
-      }
-
-      const { data, error } = await query.order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const resourcesWithVotes = await Promise.all(
-        data.map(async (resource) => {
-          const { data: votes } = await supabase
-            .from('resource_votes')
-            .select('vote')
-            .eq('resource_id', resource.id);
-
-          const upvotes = votes?.filter(v => v.vote === 1).length || 0;
-          const downvotes = votes?.filter(v => v.vote === -1).length || 0;
-
-          return { ...resource, upvotes, downvotes };
-        })
-      );
+      const resourcesWithVotes = await fetchResourcesWithVotes({
+        schoolId,
+        activeTab,
+        userId: user.id
+      });
 
       setResources(resourcesWithVotes);
     } catch (error) {

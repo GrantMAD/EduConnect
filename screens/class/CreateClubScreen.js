@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Image, FlatList, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { supabase } from '../../lib/supabase';
 import { useSchool } from '../../context/SchoolContext';
 import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -11,6 +10,25 @@ import { useToast } from '../../context/ToastContext';
 const defaultUserImage = require('../../assets/user.png');
 import ClassScheduleModal from '../../components/ClassScheduleModal';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../../services/authService';
+import { 
+  fetchUsersBySchool, 
+  fetchClassMembersUserIds 
+} from '../../services/userService';
+import { 
+  fetchClassSchedules, 
+  updateClass, 
+  createClass as createClassService, 
+  fetchClassMembersIdsService,
+  createClassMembers,
+  removeClassMembers,
+  updateClassMemberIds,
+  deleteClassSchedules,
+  createClassSchedules
+} from '../../services/classService';
+import { sendBatchNotifications } from '../../services/notificationService';
 
 const { width } = Dimensions.get('window');
 
@@ -36,17 +54,12 @@ const CreateClubScreen = ({ navigation, route }) => {
   const fetchUsers = useCallback(async () => {
     setFetchingUsers(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const authUser = await getCurrentUser();
+      if (!authUser) return;
 
-      let { data, error } = await supabase
-        .from('users')
-        .select('id, full_name, email, avatar_url, role')
-        .eq('school_id', schoolId)
-        .in('role', ['student', 'teacher']);
-
-      if (error) throw error;
-      setAllUsers(data || []);
+      const data = await fetchUsersBySchool(schoolId);
+      const filtered = data.filter(u => ['student', 'teacher'].includes(u.role));
+      setAllUsers(filtered || []);
     } catch (error) {
       console.error('Error fetching users:', error.message);
       showToast('Failed to fetch users.', 'error');
@@ -57,10 +70,7 @@ const CreateClubScreen = ({ navigation, route }) => {
 
   const fetchExistingMembers = useCallback(async (clubId) => {
       try {
-          const { data } = await supabase
-              .from('class_members')
-              .select('user_id')
-              .eq('class_id', clubId);
+          const data = await fetchClassMembersUserIds(clubId);
           if (data) {
               setSelectedUserIds(data.map(m => m.user_id));
           }
@@ -69,10 +79,7 @@ const CreateClubScreen = ({ navigation, route }) => {
 
   const fetchExistingSchedules = useCallback(async (clubId) => {
       try {
-          const { data } = await supabase
-              .from('class_schedules')
-              .select('*')
-              .eq('class_id', clubId);
+          const data = await fetchClassSchedules([clubId]);
           if (data) {
               setSchedules(data.map(s => ({
                   id: s.id,
@@ -134,74 +141,69 @@ const CreateClubScreen = ({ navigation, route }) => {
 
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !schoolId) throw new Error('Auth session invalid');
+      const authUser = await getCurrentUser();
+      if (!authUser || !schoolId) throw new Error('Auth session invalid');
 
       let clubId = clubToEdit?.id;
       const subject = 'Extracurricular';
 
       if (clubToEdit) {
-          const { error } = await supabase
-              .from('classes')
-              .update({ name, subject })
-              .eq('id', clubToEdit.id);
-          if (error) throw error;
+          await updateClass(clubToEdit.id, { name, subject });
       } else {
-          const { data, error } = await supabase
-              .from('classes')
-              .insert({ name, subject, school_id: schoolId, teacher_id: user.id })
-              .select().single();
-          if (error) throw error;
+          const data = await createClassService({ name, subject, school_id: schoolId, teacher_id: authUser.id });
           clubId = data.id;
       }
 
-      const { data: currentMembers } = await supabase.from('class_members').select('user_id').eq('class_id', clubId);
-      const currentIds = currentMembers?.map(m => m.user_id) || [];
+      // Sync members logic
+      const currentIds = await fetchClassMembersIdsService(clubId);
       
       const toAdd = selectedUserIds.filter(id => !currentIds.includes(id));
       if (toAdd.length > 0) {
-          await supabase.from('class_members').insert(toAdd.map(id => ({
+          await createClassMembers(toAdd.map(id => ({
               class_id: clubId,
               user_id: id,
               school_id: schoolId,
-              role: allUsers.find(u => u.id === id)?.role || 'student'
+              role: 'student' // Hardcoded to student role for club members as per web app
           })));
           
-          await supabase.from('notifications').insert(toAdd.map(id => ({
+          await sendBatchNotifications(toAdd.map(id => ({
               user_id: id,
               type: 'added_to_club',
               title: 'New Club Membership',
               message: `You have been added to the club: ${name}`,
-              related_user_id: user.id
+              related_user_id: authUser.id,
+              is_read: false
           })));
       }
 
       const toRemove = currentIds.filter(id => !selectedUserIds.includes(id));
       if (toRemove.length > 0) {
-          await supabase.from('class_members').delete().eq('class_id', clubId).in('user_id', toRemove);
+          await removeClassMembers(clubId, toRemove);
       }
 
-      await supabase.from('classes').update({ users: selectedUserIds }).eq('id', clubId);
+      // Update RLS parity array
+      await updateClassMemberIds(clubId, selectedUserIds);
 
-      await supabase.from('class_schedules').delete().eq('class_id', clubId);
+      // Sync schedules
+      await deleteClassSchedules(clubId);
       if (schedules.length > 0) {
-          await supabase.from('class_schedules').insert(schedules.map(s => ({
+          await createClassSchedules(schedules.map(s => ({
               class_id: clubId,
               start_time: s.startTime.toISOString(),
               end_time: s.endTime.toISOString(),
               title: name,
-              description: 'Extracurricular Session',
+              description: subject,
               class_info: s.info,
               school_id: schoolId,
-              created_by: user.id
+              created_by: authUser.id
           })));
       }
 
       showToast(`Club '${name}' saved successfully!`, 'success');
       navigation.goBack();
     } catch (error) {
-      console.error('Error saving club:', error.message);
-      showToast('Failed to save club.', 'error');
+      console.error('Error saving club:', error);
+      showToast(`Error saving club: ${error.message || error}`, 'error');
     } finally {
       setLoading(false);
     }

@@ -27,7 +27,6 @@ import {
   faPlusCircle,
   faPlus
 } from '@fortawesome/free-solid-svg-icons';
-import { supabase } from '../../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer';
@@ -35,6 +34,16 @@ import { useToast } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../../services/authService';
+import { getUserProfile } from '../../services/userService';
+import { 
+  uploadMarketplaceImage, 
+  getMarketplaceImageUrl, 
+  updateMarketplaceItem, 
+  createMarketplaceItem 
+} from '../../services/marketplaceService';
 
 const { width } = Dimensions.get('window');
 
@@ -66,24 +75,19 @@ const CreateMarketplaceItemScreen = ({ route, navigation }) => {
 
   const uploadImage = useCallback(async (asset) => {
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) throw userError || new Error("No user logged in");
+      const authUser = await getCurrentUser();
+      if (!authUser) throw new Error("No user logged in");
 
       const buffer = Buffer.from(asset.base64, 'base64');
 
       const fileExt = asset.uri.split('.').pop()?.toLowerCase() || 'jpg';
-      const fileName = `${user.id}_${Date.now()}.${fileExt}`;
-      const filePath = `${user.id}/${fileName}`;
+      const fileName = `${authUser.id}_${Date.now()}.${fileExt}`;
+      const filePath = `${authUser.id}/${fileName}`;
       const contentType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('marketplace')
-        .upload(filePath, buffer, { cacheControl: '3600', upsert: true, contentType });
+      await uploadMarketplaceImage(filePath, buffer);
 
-      if (uploadError) throw uploadError;
-
-      const { data: publicData } = supabase.storage.from('marketplace').getPublicUrl(filePath);
-      return publicData?.publicUrl || null;
+      return getMarketplaceImageUrl(filePath);
     } catch (error) {
       console.error("Upload error:", error);
       showToast('Failed to upload image.');
@@ -100,8 +104,8 @@ const CreateMarketplaceItemScreen = ({ route, navigation }) => {
     setUploading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not found');
+      const authUser = await getCurrentUser();
+      if (!authUser) throw new Error('User not found');
 
       let imageUrl = existingItem?.image_url;
       if (image && image.uri !== existingItem?.image_url) {
@@ -115,26 +119,17 @@ const CreateMarketplaceItemScreen = ({ route, navigation }) => {
         price: parseFloat(price),
         category,
         image_url: imageUrl,
-        seller_id: user.id,
+        seller_id: authUser.id,
       };
 
       if (existingItem) {
-        const { error } = await supabase
-          .from('marketplace_items')
-          .update(itemData)
-          .eq('id', existingItem.id);
-        if (error) throw error;
+        await updateMarketplaceItem(existingItem.id, itemData);
         showToast('Item updated successfully!', 'success');
       } else {
-        const { data: userProfile } = await supabase
-          .from('users')
-          .select('school_id')
-          .eq('id', user.id)
-          .single();
+        const userProfile = await getUserProfile(authUser.id);
         if (!userProfile?.school_id) throw new Error('User is not associated with a school.');
 
-        const { error } = await supabase.from('marketplace_items').insert([{ ...itemData, school_id: userProfile.school_id }]);
-        if (error) throw error;
+        await createMarketplaceItem({ ...itemData, school_id: userProfile.school_id });
         showToast('Item created successfully!', 'success');
       }
 

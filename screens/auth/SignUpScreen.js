@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, Text, Image, ActivityIndicator, ScrollView, Dimensions } from 'react-native';
-import { supabase } from '../../lib/supabase';
+import { signUp } from '../../services/authService';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faEye, faEyeSlash, faUser, faEnvelope, faLock, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../context/ToastContext';
@@ -20,21 +20,20 @@ const SignUpScreen = ({ navigation }) => {
 
   const handleSignUp = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
+    try {
+      const data = await signUp(email.trim(), password, {
         data: {
           full_name: fullName.trim(),
         }
+      });
+      
+      if (data && data.user) {
+        showToast('Successfully signed up', 'success');
       }
-    });
-    setLoading(false);
-
-    if (error) {
+    } catch (error) {
       showToast(error.message, 'error');
-    } else if (data && data.user) {
-      showToast('Successfully signed up', 'success');
+    } finally {
+      setLoading(false);
     }
   }, [email, password, fullName, showToast]);
 

@@ -12,12 +12,20 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import { Picker } from '@react-native-picker/picker';
 import { useSchool } from '../context/SchoolContext';
-import { supabase } from '../lib/supabase';
 import { useGamification } from '../context/GamificationContext';
 import StandardBottomModal from './StandardBottomModal';
 import { faCloudUploadAlt } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
+
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { 
+  uploadResourceFile, 
+  getResourceUrl, 
+  updateResource, 
+  createResource 
+} from '../services/resourceService';
 
 const CreateResourceModal = React.memo(({ visible, onClose, initialData }) => {
   const { showToast } = useToast();
@@ -62,7 +70,7 @@ const CreateResourceModal = React.memo(({ visible, onClose, initialData }) => {
     setIsUploading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (!user) throw new Error('User not authenticated');
 
       let file_url = initialData?.file_url || null;
@@ -89,20 +97,10 @@ const CreateResourceModal = React.memo(({ visible, onClose, initialData }) => {
         const arrayBuffer = await response.arrayBuffer();
 
         // STEP 4: Upload to Supabase Storage
-        const { error: uploadError } = await supabase.storage
-          .from('resources')
-          .upload(filePath, arrayBuffer, {
-            contentType: file.mimeType,
-          });
-
-        if (uploadError) throw uploadError;
+        await uploadResourceFile(filePath, arrayBuffer);
 
         // STEP 5: Get public URL for viewing later
-        const { data: urlData } = supabase.storage
-          .from('resources')
-          .getPublicUrl(filePath);
-
-        file_url = urlData.publicUrl;
+        file_url = getResourceUrl(filePath);
       }
 
       const finalCategory = category === 'custom' ? customCategory : category;
@@ -119,15 +117,11 @@ const CreateResourceModal = React.memo(({ visible, onClose, initialData }) => {
 
       if (initialData) {
         // Update existing
-        const { error } = await supabase
-          .from('resources')
-          .update(resourcePayload)
-          .eq('id', initialData.id);
-        if (error) throw error;
+        await updateResource(initialData.id, resourcePayload);
         showToast('Resource updated successfully', 'success');
       } else {
         // Save new to table
-        await supabase.from('resources').insert([resourcePayload]);
+        await createResource(resourcePayload);
         awardXP('resource_creation', 20);
         showToast('Resource added successfully', 'success');
       }

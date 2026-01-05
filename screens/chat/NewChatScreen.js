@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, Image, ActivityIndicator, Dimensions } from 'react-native';
 import { useChat } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
-import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faSearch, faUserPlus, faUsers, faCheck, faChevronRight, faChevronLeft, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../context/ToastContext';
@@ -10,6 +9,11 @@ import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../../services/authService';
+import { getUserProfile, fetchUsersBySchool } from '../../services/userService';
+import { fetchUsersEquippedItems } from '../../services/gamificationService';
 
 const { width } = Dimensions.get('window');
 const defaultUserImage = require('../../assets/user.png');
@@ -31,39 +35,20 @@ const NewChatScreen = ({ navigation }) => {
     const fetchUsers = useCallback(async () => {
         setLoading(true);
         try {
-            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            const authUser = await getCurrentUser();
+            if (!authUser) return;
 
-            const { data: userData, error: userError } = await supabase
-                .from('users')
-                .select('school_id')
-                .eq('id', currentUser.id)
-                .single();
-            
-            if (userError) throw userError;
-            const schoolId = userData.school_id;
+            const userProfile = await getUserProfile(authUser.id);
+            if (!userProfile) throw new Error('User profile not found');
+            const schoolId = userProfile.school_id;
 
-            let query = supabase
-                .from('users')
-                .select('id, full_name, email, avatar_url, role')
-                .eq('school_id', schoolId) 
-                .neq('id', currentUser.id) 
-                .limit(50);
+            const data = await fetchUsersBySchool(schoolId, { searchQuery });
+            const filteredData = data.filter(u => u.id !== authUser.id).slice(0, 50);
 
-            if (searchQuery) {
-                query = query.ilike('full_name', `%${searchQuery}%`);
-            }
-
-            const { data, error } = await query;
-            if (error) throw error;
-
-            const userIds = (data || []).map(user => user.id);
+            const userIds = filteredData.map(user => user.id);
 
             if (userIds.length > 0) {
-                const { data: inventoryData } = await supabase
-                    .from('user_inventory')
-                    .select('user_id, shop_items(id, name, image_url)')
-                    .in('user_id', userIds)
-                    .eq('is_equipped', true);
+                const inventoryData = await fetchUsersEquippedItems(userIds);
 
                 if (inventoryData) {
                     const inventoryMap = {};
@@ -72,17 +57,17 @@ const NewChatScreen = ({ navigation }) => {
                         inventoryMap[item.user_id] = shopItem;
                     });
 
-                    const processedUsers = (data || []).map(user => ({
+                    const processedUsers = filteredData.map(user => ({
                         ...user,
                         equipped_item: inventoryMap[user.id] || null
                     }));
 
                     setUsers(processedUsers);
                 } else {
-                    setUsers(data || []);
+                    setUsers(filteredData || []);
                 }
             } else {
-                setUsers(data || []);
+                setUsers(filteredData || []);
             }
         } catch (error) {
             console.error(error);

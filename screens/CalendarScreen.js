@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
 import { Calendar } from 'react-native-calendars';
-import { supabase } from '../lib/supabase';
 import { useFocusEffect } from '@react-navigation/native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -11,6 +10,12 @@ import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
 import StandardBottomModal from '../components/StandardBottomModal';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { getUserProfile } from '../services/userService';
+import { fetchClassIds, fetchClassSchedules } from '../services/classService';
+import { fetchPTMBookings } from '../services/ptmService';
 
 const EventCard = React.memo(({ item, theme, onPress }) => {
     const isMeeting = item.eventType === 'meeting';
@@ -83,88 +88,28 @@ const CalendarScreen = ({ navigation, route }) => {
   const fetchSchedules = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (!user) return;
 
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('role, school_id')
-        .eq('id', user.id)
-        .single();
-      if (userError) throw userError;
+      const userData = await getUserProfile(user.id);
+      if (!userData) return;
 
       const userRole = userData.role;
       const userSchoolId = userData.school_id;
-      let classIds = [];
-
-      if (userRole === 'teacher' || userRole === 'admin') {
-        const { data: allClasses, error: allClassesError } = await supabase
-          .from('classes')
-          .select('id')
-          .eq('school_id', userSchoolId);
-        if (allClassesError) throw allClassesError;
-        classIds = allClasses.map(c => c.id);
-      } else {
-        const { data: directClasses, error: directClassesError } = await supabase
-          .from('class_members')
-          .select('class_id')
-          .eq('user_id', user.id);
-        if (directClassesError) throw directClassesError;
-        classIds = directClasses.map(c => c.class_id);
-
-        if (userRole === 'parent') {
-          const { data: relationships, error: relError } = await supabase
-            .from('parent_child_relationships')
-            .select('child_id')
-            .eq('parent_id', user.id);
-          if (relError) throw relError;
-
-          const childIds = relationships.map(rel => rel.child_id);
-
-          if (childIds.length > 0) {
-            const { data: childrenClasses, error: childrenClassesError } = await supabase
-              .from('class_members')
-              .select('class_id')
-              .in('user_id', childIds);
-            if (childrenClassesError) throw childrenClassesError;
-
-            const childrenClassIds = childrenClasses.map(c => c.class_id);
-            classIds = [...new Set([...classIds, ...childrenClassIds])];
-          }
-        }
-      }
+      
+      const classIds = await fetchClassIds(user.id, userRole, userSchoolId);
 
       const allEvents = [];
 
       if (classIds.length > 0) {
-        const { data: classSchedules, error: schedulesError } = await supabase
-          .from('class_schedules')
-          .select('*, class:classes(id, name, subject)')
-          .in('class_id', classIds)
-          .order('start_time', { ascending: true });
-        if (schedulesError) throw schedulesError;
+        const classSchedules = await fetchClassSchedules(classIds);
         allEvents.push(...classSchedules.map(s => ({ ...s, eventType: 'class' })));
       }
 
       const isParent = userRole === 'parent';
-      let ptmQuery = supabase
-        .from('ptm_bookings')
-        .select(`
-            *,
-            slot:ptm_slots!inner(*, teacher:users!teacher_id(full_name)),
-            parent:users!parent_id(full_name),
-            student:users!student_id(full_name)
-        `);
+      const ptmData = await fetchPTMBookings(user.id, userRole);
 
-      if (isParent) {
-        ptmQuery = ptmQuery.eq('parent_id', user.id);
-      } else {
-        ptmQuery = ptmQuery.eq('ptm_slots.teacher_id', user.id);
-      }
-
-      const { data: ptmData, error: ptmError } = await ptmQuery;
-
-      if (!ptmError && ptmData) {
+      if (ptmData) {
         allEvents.push(...ptmData.map(b => ({
           id: b.id,
           start_time: b.slot.start_time,

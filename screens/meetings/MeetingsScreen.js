@@ -11,7 +11,6 @@ import {
   RefreshControl,
   ActivityIndicator
 } from 'react-native';
-import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -35,6 +34,20 @@ import CreatePTMSlotsModal from '../../components/PTM/CreatePTMSlotsModal';
 import BookPTMModal from '../../components/PTM/BookPTMModal';
 import MeetingDetailModal from '../../components/PTM/MeetingDetailModal';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../../services/authService';
+import { getUserProfile, fetchParentChildren } from '../../services/userService';
+import { 
+  fetchTeacherSlots, 
+  fetchTeacherPTMBookings, 
+  fetchParentPTMBookings,
+  fetchPTMBookingBySlotId,
+  deletePTMSlot,
+  cancelPTMBooking
+} from '../../services/ptmService';
+import { fetchTeachersOfStudents } from '../../services/classService';
+import { sendNotification } from '../../services/notificationService';
 
 const defaultUserImage = require('../../assets/user.png');
 
@@ -191,15 +204,15 @@ const MeetingsScreen = ({ navigation }) => {
 
   useEffect(() => {
     const getAuthData = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (authUser) {
-        setUser(authUser);
-        const { data: profileData } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', authUser.id)
-          .single();
-        setProfile(profileData);
+      try {
+        const authUser = await getCurrentUser();
+        if (authUser) {
+          setUser(authUser);
+          const profileData = await getUserProfile(authUser.id);
+          setProfile(profileData);
+        }
+      } catch (error) {
+        console.error('Error fetching auth data:', error);
       }
     };
     getAuthData();
@@ -233,67 +246,31 @@ const MeetingsScreen = ({ navigation }) => {
 
   const fetchTeacherData = useCallback(async () => {
     if (!user) return;
-    const { data: slotsData } = await supabase
-      .from('ptm_slots')
-      .select('*')
-      .eq('teacher_id', user.id)
-      .order('start_time', { ascending: true });
-    setSlots(slotsData || []);
+    try {
+      const slotsData = await fetchTeacherSlots(user.id);
+      setSlots(slotsData || []);
 
-    const { data: bookingsData } = await supabase
-      .from('ptm_bookings')
-      .select(`
-                *,
-                slot:ptm_slots(*),
-                parent:users!parent_id(full_name, email, avatar_url),
-                student:users!student_id(full_name, avatar_url)
-            `)
-      .eq('ptm_slots.teacher_id', user.id)
-      .order('created_at', { ascending: false });
-    setBookings(bookingsData || []);
+      const bookingsData = await fetchTeacherPTMBookings(user.id);
+      setBookings(bookingsData || []);
+    } catch (error) {
+      console.error('Error fetching teacher PTM data:', error);
+    }
   }, [user]);
 
   const fetchParentData = useCallback(async () => {
     if (!user) return;
-    const { data: bookingsData } = await supabase
-      .from('ptm_bookings')
-      .select(`
-                *,
-                slot:ptm_slots(*, teacher:users!teacher_id(full_name, email, avatar_url)),
-                student:users!student_id(full_name, avatar_url)
-            `)
-      .eq('parent_id', user.id)
-      .order('created_at', { ascending: false });
-    setBookings(bookingsData || []);
+    try {
+      const bookingsData = await fetchParentPTMBookings(user.id);
+      setBookings(bookingsData || []);
 
-    const { data: relationships } = await supabase
-      .from('parent_child_relationships')
-      .select('child_id')
-      .eq('parent_id', user.id);
+      const childIds = await fetchParentChildren(user.id);
 
-    if (relationships && relationships.length > 0) {
-      const childIds = relationships.map(r => r.child_id);
-      const { data: teachersData } = await supabase
-        .from('class_members')
-        .select(`
-                    class_id,
-                    classes!inner(
-                        id, name,
-                        teacher:users!teacher_id(id, full_name, email, avatar_url)
-                    )
-                `)
-        .in('user_id', childIds);
-
-      const uniqueTeachers = [];
-      const teacherIds = new Set();
-      teachersData?.forEach(item => {
-        const teacher = item.classes?.teacher;
-        if (teacher && !teacherIds.has(teacher.id)) {
-          teacherIds.add(teacher.id);
-          uniqueTeachers.push(teacher);
-        }
-      });
-      setChildrenTeachers(uniqueTeachers);
+      if (childIds && childIds.length > 0) {
+        const uniqueTeachers = await fetchTeachersOfStudents(childIds);
+        setChildrenTeachers(uniqueTeachers);
+      }
+    } catch (error) {
+      console.error('Error fetching parent PTM data:', error);
     }
   }, [user]);
 
@@ -335,28 +312,24 @@ const MeetingsScreen = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { data: existingBooking } = await supabase
-                .from('ptm_bookings')
-                .select('parent_id, student:users!student_id(full_name)')
-                .eq('slot_id', slotId)
-                .maybeSingle();
+              const existingBooking = await fetchPTMBookingBySlotId(slotId);
 
-              const { error } = await supabase.from('ptm_slots').delete().eq('id', slotId);
-              if (error) throw error;
+              await deletePTMSlot(slotId);
 
               if (existingBooking) {
-                await supabase.from('notifications').insert([{
+                await sendNotification({
                   user_id: existingBooking.parent_id,
                   type: 'ptm_cancellation',
                   title: 'Meeting Cancelled',
                   message: `The teacher has cancelled the meeting session regarding ${existingBooking.student.full_name}.`,
                   related_user_id: user.id,
                   is_read: false
-                }]);
+                });
               }
               setSlots(prev => prev.filter(s => s.id !== slotId));
               showToast('Slot removed', 'success');
             } catch (e) {
+              console.error(e);
               showToast('Failed to delete slot', 'error');
             }
           }
@@ -376,23 +349,23 @@ const MeetingsScreen = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { error } = await supabase.from('ptm_bookings').delete().eq('id', booking.id);
-              if (error) throw error;
+              await cancelPTMBooking(booking.id);
 
               const notifyUserId = isTeacher ? booking.parent_id : booking.slot.teacher_id;
-              await supabase.from('notifications').insert([{
+              await sendNotification({
                 user_id: notifyUserId,
                 type: 'ptm_cancellation',
                 title: 'Meeting Cancelled',
                 message: `${profile.full_name} has cancelled the scheduled meeting regarding ${booking.student.full_name}.`,
                 related_user_id: user.id,
                 is_read: false
-              }]);
+              });
 
               setBookings(prev => prev.filter(b => b.id !== booking.id));
               showToast('Meeting cancelled', 'success');
               onRefresh(); 
             } catch (e) {
+              console.error(e);
               showToast('Failed to cancel meeting', 'error');
             }
           }

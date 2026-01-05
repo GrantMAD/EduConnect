@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
-import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
@@ -10,6 +9,12 @@ import { Calendar } from 'react-native-calendars';
 import { useGamification } from '../context/GamificationContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { createPoll as createPollService } from '../services/pollService';
+import { fetchUsersBySchoolWithPreferences } from '../services/userService';
+import { sendBatchNotifications } from '../services/notificationService';
 
 const { width } = Dimensions.get('window');
 
@@ -59,34 +64,25 @@ const CreatePollScreen = ({ navigation, route }) => {
 
     setIsSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      const authUser = await getCurrentUser();
+      if (!authUser) throw new Error('User not authenticated');
 
       const pollData = {
         question,
         options,
         end_date: endDate,
         school_id: schoolId,
-        created_by: user.id,
+        created_by: authUser.id,
         is_active: true,
       };
 
-      const { data: newPoll, error } = await supabase
-        .from('polls')
-        .insert([pollData])
-        .select()
-        .single();
+      const newPoll = await createPollService(pollData);
 
-      if (error) throw error;
+      const users = await fetchUsersBySchoolWithPreferences(schoolId);
 
-      const { data: users, error: usersError } = await supabase
-        .from('users')
-        .select('id, notification_preferences')
-        .eq('school_id', schoolId);
-
-      if (!usersError) {
+      if (users) {
         const recipients = users.filter(u => {
-          if (u.id === user.id) return false;
+          if (u.id === authUser.id) return false;
           const prefs = u.notification_preferences;
           return !prefs || prefs.polls !== false;
         });
@@ -100,7 +96,7 @@ const CreatePollScreen = ({ navigation, route }) => {
         }));
 
         if (notifications.length > 0) {
-          await supabase.from('notifications').insert(notifications);
+          await sendBatchNotifications(notifications);
         }
       }
 

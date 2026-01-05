@@ -31,7 +31,6 @@ import {
   faSortAmountUp
 } from '@fortawesome/free-solid-svg-icons';
 
-import { supabase } from '../../lib/supabase';
 import MarketplaceItemCard from '../../components/MarketplaceItemCard';
 import SellerProfileModal from '../../components/SellerProfileModal';
 import MarketplaceItemDetailModal from '../../components/MarketplaceItemDetailModal';
@@ -39,7 +38,13 @@ import MarketplaceAnalytics from '../../components/market/MarketplaceAnalytics';
 import { useTheme } from '../../context/ThemeContext';
 import { useChat } from '../../context/ChatContext';
 import { useToast } from '../../context/ToastContext';
+import { useSchool } from '../../context/SchoolContext';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { fetchMarketplaceItems } from '../../services/marketplaceService';
+import { getCurrentUser } from '../../services/authService';
+import { getUserProfile } from '../../services/userService';
 
 const CategoryChip = React.memo(({ item, selected, onPress, theme }) => (
     <TouchableOpacity
@@ -82,25 +87,29 @@ const MarketScreen = ({ navigation }) => {
   const { theme } = useTheme();
   const { createChannel, channels, user } = useChat();
   const { showToast } = useToast();
+  const { schoolId } = useSchool();
 
   const fetchItems = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('marketplace_items')
-      .select('id, created_at, title, description, price, image_url, category, seller_id, seller:users!seller_id(id, full_name, email, avatar_url, role)')
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    if (!error) setAllItems(data || []);
-    setLoading(false);
-  }, []);
+    try {
+      if (!schoolId) return;
+      const data = await fetchMarketplaceItems(schoolId);
+      setAllItems(data || []);
+    } catch (error) {
+      console.error('Error fetching marketplace items:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [schoolId]);
 
   const fetchUserRole = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase.from('users').select('role').eq('id', user.id).single();
+      const authUser = await getCurrentUser();
+      if (!authUser) return;
+      const data = await getUserProfile(authUser.id);
       setUserRole(data?.role || '');
-    } catch (e) {}
+    } catch (e) {
+      console.error('Error fetching user role:', e);
+    }
   }, []);
 
   useEffect(() => {
@@ -408,13 +417,6 @@ const MarketScreen = ({ navigation }) => {
         />
       )}
 
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-        onPress={() => navigation.navigate('CreateMarketplaceItem', { fromMarketScreen: true })}
-      >
-        <FontAwesomeIcon icon={faPlus} size={22} color={theme.colors.buttonPrimaryText} />
-      </TouchableOpacity>
-
       <MarketplaceItemDetailModal
         visible={itemDetailModalVisible}
         item={selectedItem}
@@ -546,15 +548,4 @@ const styles = StyleSheet.create({
   sectionHeaderIcon: { marginRight: 10 },
   sectionHeader: { fontSize: 20, fontWeight: 'bold' },
   sectionDescription: { fontSize: 12 },
-
-  fab: {
-    position: 'absolute',
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    justifyContent: 'center',
-    alignItems: 'center',
-    right: 20,
-    bottom: 20,
-  },
 });

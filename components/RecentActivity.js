@@ -2,33 +2,33 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faBullhorn, faPoll, faBookOpen, faClipboardList } from '@fortawesome/free-solid-svg-icons';
-import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
 import { SkeletonPiece } from './skeletons/DashboardScreenSkeleton';
+import { useSchool } from '../context/SchoolContext';
+
+// Import services
+import { getRecentActivities } from '../services/dashboardService';
 
 const RecentActivity = React.memo(() => {
     const { theme } = useTheme();
+    const { schoolId } = useSchool();
     const [activities, setActivities] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchActivity();
-    }, []);
+        if (schoolId) {
+            fetchActivity();
+        }
+    }, [schoolId]);
 
     const fetchActivity = async () => {
         try {
-            // Fetch everything in parallel
-            const [announcements, polls, homework, assignments] = await Promise.all([
-                supabase.from('announcements').select('id, title, created_at').order('created_at', { ascending: false }).limit(4),
-                supabase.from('polls').select('id, question, created_at').order('created_at', { ascending: false }).limit(4),
-                supabase.from('homework').select('id, subject, description, created_at').order('created_at', { ascending: false }).limit(4),
-                supabase.from('assignments').select('id, title, description, created_at').order('created_at', { ascending: false }).limit(4)
-            ]);
+            const data = await getRecentActivities(schoolId);
 
             const allActivities = [];
 
-            if (announcements.data) {
-                announcements.data.forEach(item => {
+            if (data.announcements) {
+                data.announcements.forEach(item => {
                     allActivities.push({
                         id: item.id,
                         type: 'announcement',
@@ -41,8 +41,8 @@ const RecentActivity = React.memo(() => {
                 });
             }
 
-            if (polls.data) {
-                polls.data.forEach(item => {
+            if (data.polls) {
+                data.polls.forEach(item => {
                     allActivities.push({
                         id: item.id,
                         type: 'poll',
@@ -55,8 +55,8 @@ const RecentActivity = React.memo(() => {
                 });
             }
 
-            if (homework.data) {
-                homework.data.forEach(item => {
+            if (data.homework) {
+                data.homework.forEach(item => {
                     allActivities.push({
                         id: item.id,
                         type: 'homework',
@@ -69,8 +69,8 @@ const RecentActivity = React.memo(() => {
                 });
             }
 
-            if (assignments.data) {
-                assignments.data.forEach(item => {
+            if (data.assignments) {
+                data.assignments.forEach(item => {
                     allActivities.push({
                         id: item.id,
                         type: 'assignment',

@@ -5,7 +5,6 @@ import SchoolDataScreenSkeleton from '../components/skeletons/SchoolDataScreenSk
 import { SkeletonPiece } from '../components/skeletons/SettingsScreenSkeleton';
 import { faImage, faArrowLeft, faBuilding, faMapMarkerAlt, faEnvelope, faPhone, faGraduationCap, faChevronDown, faSchool, faTimes, faCopy, faCamera } from '@fortawesome/free-solid-svg-icons';
 import Modal from 'react-native-modal';
-import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from "expo-file-system/legacy";
 import { Buffer } from 'buffer';
@@ -14,6 +13,9 @@ import { useSchool } from '../context/SchoolContext';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { fetchSchoolById, updateSchool, uploadSchoolLogo, getSchoolLogoUrl } from '../services/schoolService';
 
 const SchoolDataScreen = ({ navigation, route }) => {
   const { fromDashboard } = route?.params || {};
@@ -38,19 +40,16 @@ const SchoolDataScreen = ({ navigation, route }) => {
   const fetchSchoolData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('schools')
-        .select('*')
-        .eq('id', schoolId)
-        .single();
+      const data = await fetchSchoolById(schoolId);
 
-      if (error) throw error;
-      setSchoolData(data);
-      setName(data.name || '');
-      setAddress(data.address || '');
-      setContactEmail(data.contact_email || '');
-      setContactPhone(data.contact_phone || '');
-      setSchoolType(data.school_type || 'Primary School');
+      if (data) {
+        setSchoolData(data);
+        setName(data.name || '');
+        setAddress(data.address || '');
+        setContactEmail(data.contact_email || '');
+        setContactPhone(data.contact_phone || '');
+        setSchoolType(data.school_type || 'Primary School');
+      }
     } catch (error) {
       console.error(error.message);
       showToast('Failed to fetch school data.', 'error');
@@ -109,14 +108,9 @@ const SchoolDataScreen = ({ navigation, route }) => {
       const filePath = `${schoolId}/${fileName}`;
       const contentType = `image/${fileExt === "jpg" ? "jpeg" : fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('school_logos')
-        .upload(filePath, buffer, { cacheControl: "3600", upsert: true, contentType });
+      await uploadSchoolLogo(filePath, buffer);
 
-      if (uploadError) throw uploadError;
-
-      const { data: publicData } = supabase.storage.from('school_logos').getPublicUrl(filePath);
-      return publicData?.publicUrl || null;
+      return getSchoolLogoUrl(filePath);
     } catch (error) {
       console.error("Upload error:", error);
       showToast('Failed to upload logo.', 'error');
@@ -135,16 +129,14 @@ const SchoolDataScreen = ({ navigation, route }) => {
         if (uploadedUrl) logoUrl = uploadedUrl;
       }
 
-      const { error } = await supabase.from('schools').update({
+      await updateSchool(schoolId, {
         logo_url: logoUrl,
         name,
         address,
         contact_email: contactEmail,
         contact_phone: contactPhone,
         school_type: schoolType,
-      }).eq('id', schoolId);
-
-      if (error) throw error;
+      });
 
       setSchoolData(prev => ({ ...prev, logo_url: logoUrl }));
       setLogoLocalUri(null);

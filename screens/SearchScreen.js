@@ -36,10 +36,12 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useSchool } from '../context/SchoolContext';
-import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { searchEverything } from '../services/searchService';
 
 const RECENT_SEARCHES_KEY = 'recent_searches';
 
@@ -121,93 +123,31 @@ const SearchScreen = ({ navigation }) => {
     setIsSearching(true);
 
     try {
-      const searchTasks = [];
-      const term = `%${trimmedQuery}%`;
-
+      let staticResults = [];
       if (activeFilter === 'all' || activeFilter === 'pages') {
-        const filteredPages = STATIC_PAGES.filter(p =>
+        staticResults = STATIC_PAGES.filter(p =>
           p.title.toLowerCase().includes(trimmedQuery.toLowerCase()) ||
           p.description.toLowerCase().includes(trimmedQuery.toLowerCase())
         ).map(p => ({ ...p, type: 'page' }));
-        searchTasks.push(Promise.resolve(filteredPages));
       }
 
-      if (schoolId) {
-          if (activeFilter === 'all' || activeFilter === 'announcements') {
-            searchTasks.push(
-              supabase
-                .from('announcements')
-                .select('id, title, message, created_at')
-                .eq('school_id', schoolId)
-                .ilike('title', term)
-                .limit(10)
-                .then(res => (res.data || []).map(item => ({ ...item, type: 'announcement' })))
-            );
-          }
+      const serviceResults = await searchEverything({
+        schoolId,
+        query: trimmedQuery,
+        filters: {
+          all: activeFilter === 'all',
+          announcements: activeFilter === 'announcements',
+          homework: activeFilter === 'homework',
+          assignments: activeFilter === 'assignments',
+          resources: activeFilter === 'resources',
+          users: activeFilter === 'users',
+          classes: activeFilter === 'classes'
+        }
+      });
 
-          if (activeFilter === 'all' || activeFilter === 'homework') {
-            searchTasks.push(
-              supabase
-                .from('homework')
-                .select('id, subject, description, due_date')
-                .eq('school_id', schoolId)
-                .ilike('subject', term)
-                .limit(10)
-                .then(res => (res.data || []).map(item => ({ ...item, type: 'homework', title: item.subject })))
-            );
-          }
-
-          if (activeFilter === 'all' || activeFilter === 'assignments') {
-            searchTasks.push(
-              supabase
-                .from('assignments')
-                .select('id, title, description, due_date')
-                .eq('school_id', schoolId)
-                .ilike('title', term)
-                .limit(10)
-                .then(res => (res.data || []).map(item => ({ ...item, type: 'assignment' })))
-            );
-          }
-
-          if (activeFilter === 'all' || activeFilter === 'resources') {
-            searchTasks.push(
-              supabase
-                .from('resources')
-                .select('id, title, description, category')
-                .eq('school_id', schoolId)
-                .ilike('title', term)
-                .limit(10)
-                .then(res => (res.data || []).map(item => ({ ...item, type: 'resource' })))
-            );
-          }
-
-          if (activeFilter === 'all' || activeFilter === 'users') {
-            searchTasks.push(
-              supabase
-                .from('users')
-                .select('id, full_name, email, role, avatar_url')
-                .eq('school_id', schoolId)
-                .ilike('full_name', term)
-                .limit(10)
-                .then(res => (res.data || []).map(item => ({ ...item, type: 'user', title: item.full_name })))
-            );
-          }
-
-          if (activeFilter === 'all' || activeFilter === 'classes') {
-            searchTasks.push(
-              supabase
-                .from('classes')
-                .select('id, name')
-                .eq('school_id', schoolId)
-                .ilike('name', term)
-                .limit(10)
-                .then(res => (res.data || []).map(item => ({ ...item, type: 'class', title: item.name, icon: faChalkboardTeacher })))
-            );
-          }
-      }
-
-      const allResults = await Promise.all(searchTasks);
-      const merged = allResults.flat().sort((a, b) => {
+      const allResults = [...staticResults, ...serviceResults];
+      
+      const sortedResults = allResults.sort((a, b) => {
         const aTitle = (a.title || '').toLowerCase();
         const bTitle = (b.title || '').toLowerCase();
         const q = trimmedQuery.toLowerCase();
@@ -219,7 +159,7 @@ const SearchScreen = ({ navigation }) => {
         return 0;
       });
 
-      setResults(merged);
+      setResults(sortedResults);
     } catch (error) {
       console.error('Search error:', error);
     } finally {

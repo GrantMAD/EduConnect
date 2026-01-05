@@ -1,7 +1,24 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase'; // keeping for real-time subscription
 import { useToast } from './ToastContext';
 import { BADGES } from '../constants/Badges';
+
+// Import services
+import { 
+  fetchUserGamification, 
+  createUserGamification, 
+  fetchStreaks, 
+  createStreak, 
+  fetchEquippedItems, 
+  fetchUserInventoryWithItems,
+  updateStreak,
+  updateUserGamification,
+  awardXpLedger,
+  addToInventory,
+  unequipItemsByCategory,
+  updateEquipStatus
+} from '../services/gamificationService';
+import { getUserProfile } from '../services/userService';
 
 const GamificationContext = createContext();
 
@@ -33,53 +50,24 @@ export const GamificationProvider = ({ children, session }) => {
 
         try {
             // Fetch basic gamification data
-            let { data: userData, error: userError } = await supabase
-                .from('user_gamification')
-                .select('*')
-                .eq('user_id', session.user.id)
-                .maybeSingle();
-
-            if (userError) throw userError;
+            let userData = await fetchUserGamification(session.user.id);
 
             if (!userData) {
-                const { data: newData, error: insertError } = await supabase
-                    .from('user_gamification')
-                    .insert({ user_id: session.user.id })
-                    .select()
-                    .single();
-
-                if (insertError) throw insertError;
-                userData = newData;
+                userData = await createUserGamification(session.user.id);
             }
 
             // Fetch streak data
-            let { data: streakData, error: streakError } = await supabase
-                .from('streaks')
-                .select('*')
-                .eq('user_id', session.user.id)
-                .maybeSingle();
-
-            if (streakError && streakError.code !== 'PGRST116') throw streakError;
+            let streakData = await fetchStreaks(session.user.id);
 
             // If no streak record exists, create one
             if (!streakData) {
-                const { data: newStreak, error: newStreakError } = await supabase
-                    .from('streaks')
-                    .insert({ user_id: session.user.id })
-                    .select()
-                    .single();
-
-                if (!newStreakError) streakData = newStreak;
+                try {
+                    streakData = await createStreak(session.user.id);
+                } catch (e) { console.warn(e); }
             }
 
             // Fetch equipped items (multiple slots)
-            const { data: equippedData, error: equippedError } = await supabase
-                .from('user_inventory')
-                .select('*, shop_items(*)')
-                .eq('user_id', session.user.id)
-                .eq('is_equipped', true);
-
-            if (equippedError) throw equippedError;
+            const equippedData = await fetchEquippedItems(session.user.id);
 
             // Helper to resolve shop_items which might be an object or array
             const resolveItem = (invItem) => {
@@ -115,10 +103,7 @@ export const GamificationProvider = ({ children, session }) => {
             });
 
             // Fetch all owned items to identify sticker packs
-            const { data: inventoryData } = await supabase
-                .from('user_inventory')
-                .select('*, shop_items(*)')
-                .eq('user_id', session.user.id);
+            const inventoryData = await fetchUserInventoryWithItems(session.user.id);
 
             const ownedStickerPacks = inventoryData
                 ?.map(i => resolveItem(i))
@@ -131,13 +116,8 @@ export const GamificationProvider = ({ children, session }) => {
             const equippedBubbleStyle = resolveItem(equippedBubbleItem);
 
             // Fetch user role
-            const { data: userRoleData } = await supabase
-                .from('users')
-                .select('role')
-                .eq('id', session.user.id)
-                .single();
-
-            const userRole = userRoleData?.role || 'student';
+            const userProfile = await getUserProfile(session.user.id);
+            const userRole = userProfile?.role || 'student';
 
             // Calculate Badges
             const roleBadges = BADGES[userRole] || BADGES['student'];
@@ -184,40 +164,37 @@ export const GamificationProvider = ({ children, session }) => {
         yesterday.setDate(yesterday.getDate() - 1);
         const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-        let newStreak = streakData.current_streak;
+        let newStreakValue = streakData.current_streak;
 
         if (lastActivity === yesterdayStr) {
             // Continued streak
-            newStreak += 1;
+            newStreakValue += 1;
         } else {
             // Broken streak (unless it's the first time)
-            newStreak = 1;
+            newStreakValue = 1;
         }
 
         // Update DB
-        const { error } = await supabase
-            .from('streaks')
-            .update({
-                current_streak: newStreak,
-                longest_streak: Math.max(newStreak, streakData.longest_streak),
+        try {
+            await updateStreak(session.user.id, {
+                current_streak: newStreakValue,
+                longest_streak: Math.max(newStreakValue, streakData.longest_streak),
                 last_activity_date: today
-            })
-            .eq('user_id', session.user.id);
+            });
 
-        if (!error) {
             setGamificationState(prev => ({
                 ...prev,
                 streak: {
                     ...prev.streak,
-                    current_streak: newStreak,
+                    current_streak: newStreakValue,
                     last_activity_date: today
                 }
             }));
 
-            if (newStreak > streakData.current_streak) {
-                showToast(`🔥 Streak updated! ${newStreak} day(s)!`, 'success');
+            if (newStreakValue > streakData.current_streak) {
+                showToast(`🔥 Streak updated! ${newStreakValue} day(s)!`, 'success');
             }
-        }
+        } catch (e) { console.error(e); }
     };
 
     useEffect(() => {
@@ -257,31 +234,20 @@ export const GamificationProvider = ({ children, session }) => {
             // Calculate coins (e.g., 1 Coin per 10 XP)
             const coinsEarned = Math.floor(xpAmount / 10);
 
-            const { error } = await supabase
-                .from('xp_ledger')
-                .insert({
-                    user_id: session.user.id,
-                    action_type: actionType,
-                    xp_amount: xpAmount,
-                    metadata: metadata,
-                });
-
-            if (error) throw error;
+            await awardXpLedger({
+                user_id: session.user.id,
+                action_type: actionType,
+                xp_amount: xpAmount,
+                metadata: metadata,
+            });
 
             if (coinsEarned > 0) {
                 // Fetch latest coins to avoid stale state issues
-                const { data: currentStats } = await supabase
-                    .from('user_gamification')
-                    .select('coins')
-                    .eq('user_id', session.user.id)
-                    .single();
+                const currentStats = await fetchUserGamification(session.user.id);
 
-                const { error: coinError } = await supabase
-                    .from('user_gamification')
-                    .update({ coins: (currentStats?.coins || 0) + coinsEarned })
-                    .eq('user_id', session.user.id);
-
-                if (coinError) console.warn('Error updating coins:', coinError);
+                await updateUserGamification(session.user.id, { 
+                    coins: (currentStats?.coins || 0) + coinsEarned 
+                });
             }
 
             showToast(`+${xpAmount} XP${coinsEarned > 0 ? ` & +${coinsEarned} Coins` : ''}!`, 'success');
@@ -300,23 +266,12 @@ export const GamificationProvider = ({ children, session }) => {
 
         try {
             // 1. Deduct coins
-            const { error: deductError } = await supabase
-                .from('user_gamification')
-                .update({ coins: (gamificationState.coins || 0) - item.cost })
-                .eq('user_id', session.user.id);
-
-            if (deductError) throw deductError;
+            await updateUserGamification(session.user.id, { 
+                coins: (gamificationState.coins || 0) - item.cost 
+            });
 
             // 2. Add to inventory
-            const { error: inventoryError } = await supabase
-                .from('user_inventory')
-                .insert({
-                    user_id: session.user.id,
-                    item_id: item.id,
-                    is_equipped: false
-                });
-
-            if (inventoryError) throw inventoryError;
+            await addToInventory(session.user.id, item.id);
 
             // Update local state immediately for UI responsiveness
             setGamificationState(prev => ({
@@ -341,11 +296,7 @@ export const GamificationProvider = ({ children, session }) => {
 
         try {
             // 1. Unequip items of the same category
-            const { data: equippedInv } = await supabase
-                .from('user_inventory')
-                .select('id, shop_items!inner(category)')
-                .eq('user_id', session.user.id)
-                .eq('is_equipped', true);
+            const equippedInv = await fetchEquippedItems(session.user.id);
 
             const itemsToUnequip = equippedInv?.filter(inv => {
                 const invCat = inv.shop_items?.category || 'border';
@@ -355,20 +306,11 @@ export const GamificationProvider = ({ children, session }) => {
             }).map(i => i.id) || [];
 
             if (itemsToUnequip.length > 0) {
-                await supabase
-                    .from('user_inventory')
-                    .update({ is_equipped: false })
-                    .in('id', itemsToUnequip);
+                await unequipItemsByCategory(session.user.id, itemsToUnequip);
             }
 
             // 2. Equip the new item
-            const { error } = await supabase
-                .from('user_inventory')
-                .update({ is_equipped: true })
-                .eq('user_id', session.user.id)
-                .eq('item_id', itemId);
-
-            if (error) throw error;
+            await updateEquipStatus(session.user.id, itemId, true);
 
             showToast('Item equipped!', 'success');
             fetchGamificationState(); // Refresh state to update UI

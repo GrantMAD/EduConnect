@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking, Alert } from 'react-native';
-import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
   faCog, faMoon, faSun, faBell, faInfoCircle, faFileContract,
@@ -23,33 +22,43 @@ import ChangePasswordModal from '../components/ChangePasswordModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import LinearGradient from 'react-native-linear-gradient';
 
-const SettingRow = React.memo(({ icon, label, value, onValueChange, color, theme }) => (
-    <View style={[styles.settingRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-      <View style={styles.settingLeft}>
-        <View style={[styles.iconBox, { backgroundColor: (color || theme.colors.primary) + '15' }]}>
-            <FontAwesomeIcon icon={icon} size={16} color={color || theme.colors.primary} />
-        </View>
-        <Text style={[styles.settingLabel, { color: theme.colors.text }]}>{label}</Text>
-      </View>
-      <Switch value={value} onValueChange={onValueChange} color={theme.colors.primary} />
-    </View>
-));
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { getUserProfile, leaveSchool as leaveSchoolService, disassociateClassMembers } from '../services/userService';
+import { fetchSchoolById, removeUserFromSchool } from '../services/schoolService';
+import { disassociateTeacherFromClasses } from '../services/classService';
+import { deleteMarketplaceItemsByUser } from '../services/marketplaceService';
+import { deletePollsByUser } from '../services/pollService';
+import { deleteAnnouncementsByUser } from '../services/announcementService';
+import { sendNotification } from '../services/notificationService';
 
-const LinkButton = React.memo(({ icon, title, onPress, color, description, theme }) => (
-    <TouchableOpacity
-      style={[styles.linkButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
+const SettingRow = React.memo(({ icon, label, value, onValueChange, color, theme }) => (
+  <View style={[styles.settingRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+    <View style={styles.settingLeft}>
       <View style={[styles.iconBox, { backgroundColor: (color || theme.colors.primary) + '15' }]}>
         <FontAwesomeIcon icon={icon} size={16} color={color || theme.colors.primary} />
       </View>
-      <View style={{ flex: 1, marginLeft: 12 }}>
-        <Text style={[styles.linkButtonTitle, { color: theme.colors.text }]}>{title}</Text>
-        {description && <Text style={[styles.linkButtonDesc, { color: theme.colors.placeholder }]}>{description}</Text>}
-      </View>
-      <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
-    </TouchableOpacity>
+      <Text style={[styles.settingLabel, { color: theme.colors.text }]}>{label}</Text>
+    </View>
+    <Switch value={value} onValueChange={onValueChange} color={theme.colors.primary} />
+  </View>
+));
+
+const LinkButton = React.memo(({ icon, title, onPress, color, description, theme }) => (
+  <TouchableOpacity
+    style={[styles.linkButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+    onPress={onPress}
+    activeOpacity={0.7}
+  >
+    <View style={[styles.iconBox, { backgroundColor: (color || theme.colors.primary) + '15' }]}>
+      <FontAwesomeIcon icon={icon} size={16} color={color || theme.colors.primary} />
+    </View>
+    <View style={{ flex: 1, marginLeft: 12 }}>
+      <Text style={[styles.linkButtonTitle, { color: theme.colors.text }]}>{title}</Text>
+      {description && <Text style={[styles.linkButtonDesc, { color: theme.colors.placeholder }]}>{description}</Text>}
+    </View>
+    <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
+  </TouchableOpacity>
 ));
 
 const SettingsScreen = ({ navigation }) => {
@@ -73,24 +82,20 @@ const SettingsScreen = ({ navigation }) => {
 
   useEffect(() => {
     const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: userData, error } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-        if (!error) {
-          setUser(userData);
-          const { data: fullUserData } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', user.id)
-            .single();
-          setFullUser(fullUserData);
+      try {
+        const authUser = await getCurrentUser();
+        if (authUser) {
+          const userData = await getUserProfile(authUser.id);
+          if (userData) {
+            setUser(userData);
+            setFullUser(userData);
+          }
         }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchUser();
@@ -111,63 +116,32 @@ const SettingsScreen = ({ navigation }) => {
       const schoolId = fullUser.school_id;
       const userId = fullUser.id;
 
-      const { data: schoolData, error: schoolFetchError } = await supabase
-        .from('schools')
-        .select('users, created_by, name')
-        .eq('id', schoolId)
-        .single();
+      const schoolData = await fetchSchoolById(schoolId);
 
-      if (schoolFetchError) throw schoolFetchError;
-
-      if (schoolData?.users) {
-        const updatedUsers = schoolData.users.filter(id => id !== userId);
-        const { error: updateSchoolError } = await supabase
-          .from('schools')
-          .update({ users: updatedUsers })
-          .eq('id', schoolId);
-
-        if (updateSchoolError) throw updateSchoolError;
-      }
-
-      const { error: deleteMembersError } = await supabase
-        .from('class_members')
-        .delete()
-        .eq('user_id', userId);
-
-      if (deleteMembersError) throw deleteMembersError;
+      await removeUserFromSchool(schoolId, userId);
+      await disassociateClassMembers(userId);
 
       if (fullUser.role === 'teacher' || fullUser.role === 'admin') {
-        const { error: updateClassesError } = await supabase
-          .from('classes')
-          .update({ teacher_id: null })
-          .eq('teacher_id', userId)
-          .eq('school_id', schoolId);
-
-        if (updateClassesError) throw updateClassesError;
+        await disassociateTeacherFromClasses(userId, schoolId);
       }
 
-      await supabase.from('marketplace_items').delete().eq('seller_id', userId);
-      await supabase.from('polls').delete().eq('created_by', userId);
-      await supabase.from('announcements').delete().eq('posted_by', userId);
+      await deleteMarketplaceItemsByUser(userId);
+      await deletePollsByUser(userId);
+      await deleteAnnouncementsByUser(userId);
 
       if (schoolData?.created_by && schoolData.created_by !== userId) {
-          try {
-              await supabase.from('notifications').insert({
-                  user_id: schoolData.created_by,
-                  type: 'school_leave',
-                  title: 'User Left School',
-                  message: `${fullUser.full_name || 'A user'} has left ${schoolData.name || 'your school'}.`,
-                  is_read: false
-              });
-          } catch (e) {}
+        try {
+          await sendNotification({
+            user_id: schoolData.created_by,
+            type: 'school_leave',
+            title: 'User Left School',
+            message: `${fullUser.full_name || 'A user'} has left ${schoolData.name || 'your school'}.`,
+            is_read: false
+          });
+        } catch (e) { }
       }
 
-      const { error: updateUserError } = await supabase
-        .from('users')
-        .update({ school_id: null })
-        .eq('id', userId);
-
-      if (updateUserError) throw updateUserError;
+      await leaveSchoolService(userId);
 
       showToast('You have successfully left the school.', 'success');
       setFullUser(prev => ({ ...prev, school_id: null }));
@@ -186,14 +160,14 @@ const SettingsScreen = ({ navigation }) => {
     setShowEditProfile(false);
     if (updated) {
       const refreshUser = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: fullUserData } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', user.id)
-            .single();
-          setFullUser(fullUserData);
+        try {
+          const authUser = await getCurrentUser();
+          if (authUser) {
+            const userData = await getUserProfile(authUser.id);
+            setFullUser(userData);
+          }
+        } catch (error) {
+          console.error('Error refreshing user:', error);
         }
       };
       refreshUser();
@@ -220,16 +194,16 @@ const SettingsScreen = ({ navigation }) => {
       contentContainerStyle={[styles.scrollContent, { paddingBottom: 40 + insets.bottom }]}
     >
       <LinearGradient
-        colors={['#4f46e5', '#4338ca']} 
+        colors={['#4f46e5', '#4338ca']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.heroContainer}
       >
         <View style={styles.heroContent}>
-            <Text style={styles.heroTitle}>Settings</Text>
-            <Text style={styles.heroDescription}>
-                Manage your account preferences and application settings.
-            </Text>
+          <Text style={styles.heroTitle}>Settings</Text>
+          <Text style={styles.heroDescription}>
+            Manage your account preferences and application settings.
+          </Text>
         </View>
       </LinearGradient>
 
@@ -275,16 +249,16 @@ const SettingsScreen = ({ navigation }) => {
           color={isDarkTheme ? '#fbbf24' : '#f59e0b'}
           theme={theme}
         />
-        
+
         <View style={{ marginTop: 8 }}>
-            <SettingRow
-                icon={faBell}
-                label="Push Notifications"
-                value={preferences.pushNotificationsEnabled}
-                onValueChange={(value) => updatePreference('pushNotificationsEnabled', value)}
-                color="#4f46e5"
-                theme={theme}
-            />
+          <SettingRow
+            icon={faBell}
+            label="Push Notifications"
+            value={preferences.pushNotificationsEnabled}
+            onValueChange={(value) => updatePreference('pushNotificationsEnabled', value)}
+            color="#4f46e5"
+            theme={theme}
+          />
         </View>
 
         {preferences.pushNotificationsEnabled && (
@@ -366,24 +340,24 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 32,
   },
   heroContent: {
-      marginBottom: 10,
+    marginBottom: 10,
   },
   heroTitle: {
-      color: '#fff',
-      fontSize: 32,
-      fontWeight: '900',
-      marginBottom: 8,
-      letterSpacing: -1,
+    color: '#fff',
+    fontSize: 32,
+    fontWeight: '900',
+    marginBottom: 8,
+    letterSpacing: -1,
   },
   heroDescription: {
-      color: '#e0e7ff',
-      fontSize: 15,
-      fontWeight: '500',
-      lineHeight: 22,
+    color: '#e0e7ff',
+    fontSize: 15,
+    fontWeight: '500',
+    lineHeight: 22,
   },
   section: { paddingHorizontal: 20, marginBottom: 24 },
   sectionTitle: { fontSize: 11, fontWeight: '900', color: '#94a3b8', letterSpacing: 1.5, marginBottom: 12, marginLeft: 4 },
-  
+
   settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -398,11 +372,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconBox: {
-      width: 36,
-      height: 36,
-      borderRadius: 10,
-      justifyContent: 'center',
-      alignItems: 'center',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   settingLabel: {
     fontSize: 15,
@@ -425,8 +399,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   linkButtonDesc: {
-      fontSize: 12,
-      marginTop: 1,
+    fontSize: 12,
+    marginTop: 1,
   },
   versionText: {
     fontSize: 11,

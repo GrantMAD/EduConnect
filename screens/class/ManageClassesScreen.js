@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { supabase } from '../../lib/supabase';
 import { useSchool } from '../../context/SchoolContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -10,6 +9,11 @@ import { faBook, faChalkboardTeacher, faPlus, faChevronRight, faBookOpen, faUser
 import { useToast } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../../services/authService';
+import { getUserProfile } from '../../services/userService';
+import { getClassesBySchoolQuery } from '../../services/classService';
 
 const ManageClassesScreen = ({ navigation }) => {
   const [classes, setClasses] = useState([]);
@@ -22,20 +26,16 @@ const ManageClassesScreen = ({ navigation }) => {
   const fetchTeachersClasses = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const authUser = await getCurrentUser();
+      if (!authUser) {
         showToast('User not authenticated.', 'error');
         setLoading(false);
         return;
       }
 
-      const { data: userData, error: userRoleError } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single();
+      const userData = await getUserProfile(authUser.id);
+      if (!userData) throw new Error('User data not found');
 
-      if (userRoleError) throw userRoleError;
       setUserRole(userData.role);
 
       if (!schoolId) {
@@ -43,14 +43,10 @@ const ManageClassesScreen = ({ navigation }) => {
         return;
       }
 
-      let query = supabase
-        .from('classes')
-        .select('id, name, subject, teacher_id, teacher:users!teacher_id(full_name)') 
-        .eq('school_id', schoolId);
-
-      if (userData.role === 'teacher') {
-        query = query.eq('teacher_id', user.id);
-      }
+      const query = getClassesBySchoolQuery({
+        schoolId,
+        teacherId: userData.role === 'teacher' ? authUser.id : null
+      });
 
       const { data, error } = await query;
 

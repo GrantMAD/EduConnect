@@ -13,7 +13,6 @@ import {
   RefreshControl,
   Modal
 } from 'react-native';
-import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
@@ -48,6 +47,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MyChildrenScreenSkeleton, { ChildCardSkeleton } from '../components/skeletons/MyChildrenScreenSkeleton';
 import { useGamification } from '../context/GamificationContext';
 
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { 
+  getUserProfile, 
+  fetchParentChildren, 
+  fetchAllParentsWithChildren, 
+  fetchStudentMarks,
+  fetchUsersByIdsWithPreferences
+} from '../services/userService';
+import { 
+  fetchClassMemberships, 
+  fetchClassSchedulesForAttendance 
+} from '../services/classService';
+
 const { width } = Dimensions.get('window');
 const defaultUserImage = require('../assets/user.png');
 
@@ -70,8 +83,8 @@ const GradeDetailModal = React.memo(({ visible, onClose, mark, theme }) => {
     }
   }
 
-  const assessmentName = mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[1].trim() : mark.assessment_name;
-  const assessmentType = mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[0] : 'Assessment';
+  const assessmentName = mark.assessment_name?.includes(':') ? mark.assessment_name.split(':')[1].trim() : (mark.assessment_name || 'Assessment');
+  const assessmentType = mark.assessment_name?.includes(':') ? mark.assessment_name.split(':')[0] : 'Assessment';
 
   return (
     <Modal
@@ -189,8 +202,8 @@ const MarkRow = React.memo(({ mark, theme }) => {
     if (!isNaN(parsed)) displayValue = Math.round(parsed) + '%';
   }
 
-  const assessmentName = mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[1].trim() : mark.assessment_name;
-  const assessmentType = mark.assessment_name.includes(':') ? mark.assessment_name.split(':')[0] : 'Assessment';
+  const assessmentName = mark.assessment_name?.includes(':') ? mark.assessment_name.split(':')[1].trim() : (mark.assessment_name || 'Assessment');
+  const assessmentType = mark.assessment_name?.includes(':') ? mark.assessment_name.split(':')[0] : 'Assessment';
 
   return (
     <>
@@ -334,12 +347,8 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger }) => {
     const fetchClassData = async () => {
       setLoading(true);
       try {
-        const { data: memberships, error: memError } = await supabase
-          .from('class_members')
-          .select('id, attendance, class_id, classes (id, name, teacher:users(full_name))')
-          .eq('user_id', student.id);
+        const memberships = await fetchClassMemberships(student.id);
 
-        if (memError) throw memError;
         if (!memberships || memberships.length === 0) {
           setClasses([]);
           return;
@@ -347,26 +356,15 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger }) => {
 
         const classIds = memberships.map(m => m.class_id);
 
-        const { data: allSchedules } = await supabase
-          .from('class_schedules')
-          .select('class_id, start_time')
-          .in('class_id', classIds)
-          .lte('start_time', new Date().toISOString())
-          .order('start_time', { ascending: true });
-
-        const { data: allMarks } = await supabase
-          .from('student_marks')
-          .select('class_id, assessment_name, mark, teacher_feedback, score, total_possible, created_at')
-          .eq('student_id', student.id)
-          .in('class_id', classIds)
-          .order('created_at', { ascending: false });
+        const allSchedules = await fetchClassSchedulesForAttendance(classIds);
+        const allMarks = await fetchStudentMarks(student.id, classIds);
 
         const processed = memberships.map(member => {
           const classSchedules = (allSchedules || []).filter(s => s.class_id === member.class_id);
           const classMarks = (allMarks || []).filter(m => m.class_id === member.class_id);
 
           const fullAttendance = classSchedules.map(sch => {
-            const date = sch.start_time.split('T')[0];
+            const date = sch.start_time?.split('T')[0] || '';
             const status = member.attendance?.[date];
             return {
               date,
@@ -477,7 +475,7 @@ const AdminFamilyCard = React.memo(({ parentData, onClick, theme }) => (
         {parentData.children.map(child => (
           <View key={child.id} style={[styles.childPill, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
             <Image source={child.avatar_url ? { uri: child.avatar_url } : defaultUserImage} style={styles.tinyAvatar} />
-            <Text style={[styles.childPillText, { color: theme.colors.text }]}>{child.full_name.split(' ')[0]}</Text>
+            <Text style={[styles.childPillText, { color: theme.colors.text }]}>{child.full_name?.split(' ')[0] || 'Student'}</Text>
           </View>
         ))}
       </View>
@@ -544,39 +542,20 @@ const MyChildrenScreen = ({ navigation }) => {
   const fetchInitialData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const authUser = await getCurrentUser();
+      if (!authUser) return;
 
-      const { data: profile } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
+      const profile = await getUserProfile(authUser.id);
       setUserRole(profile?.role);
 
       if (profile?.role === 'admin') {
-        const { data: relationships } = await supabase
-          .from('parent_child_relationships')
-          .select('parent:users!parent_id(id, full_name, email, avatar_url), child:users!child_id(id, full_name, email, avatar_url)');
-
-        const parentMap = {};
-        relationships?.forEach(rel => {
-          if (!parentMap[rel.parent.id]) parentMap[rel.parent.id] = { parent: rel.parent, children: [] };
-          parentMap[rel.parent.id].children.push(rel.child);
-        });
-        setParents(Object.values(parentMap));
+        const parentsData = await fetchAllParentsWithChildren();
+        setParents(parentsData);
       } else {
-        const { data: rels } = await supabase
-          .from('parent_child_relationships')
-          .select('child_id')
-          .eq('parent_id', user.id);
+        const childIds = await fetchParentChildren(authUser.id);
 
-        if (rels?.length > 0) {
-          const { data: students } = await supabase
-            .from('users')
-            .select('id, full_name, email, avatar_url')
-            .in('id', rels.map(r => r.child_id));
+        if (childIds?.length > 0) {
+          const students = await fetchUsersByIdsWithPreferences(childIds);
           setChildren(students || []);
           if (students?.length > 0 && !selectedChildId) setSelectedChildId(students[0].id);
         }
@@ -748,7 +727,7 @@ const MyChildrenScreen = ({ navigation }) => {
                   }]}
                 >
                   <Image source={child.avatar_url ? { uri: child.avatar_url } : defaultUserImage} style={[styles.selectorAvatar, { borderColor: selectedChildId === child.id ? '#ffffff50' : theme.colors.cardBorder }]} />
-                  <Text style={[styles.childBtnText, { color: selectedChildId === child.id ? '#FFFFFF' : theme.colors.text }]}>{child.full_name.split(' ')[0]}</Text>
+                  <Text style={[styles.childBtnText, { color: selectedChildId === child.id ? '#FFFFFF' : theme.colors.text }]}>{child.full_name?.split(' ')[0] || 'Student'}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -756,10 +735,13 @@ const MyChildrenScreen = ({ navigation }) => {
             {selectedChild && (
               <View style={{ padding: 20 }}>
                 <LinearGradient colors={['#4F46E5', '#7C3AED']} style={styles.childHero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-                  <Image source={selectedChild.avatar_url ? { uri: selectedChild.avatar_url } : defaultUserImage} style={styles.heroAvatar} />
+                  <Image 
+                    source={selectedChild.avatar_url ? { uri: selectedChild.avatar_url } : defaultUserImage} 
+                    style={styles.heroAvatar} 
+                  />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.heroName}>{selectedChild.full_name}</Text>
-                    <Text style={styles.heroEmail}>{selectedChild.email}</Text>
+                    <Text style={styles.heroName}>{selectedChild.full_name || 'Unknown Student'}</Text>
+                    <Text style={styles.heroEmail}>{selectedChild.email || 'No email provided'}</Text>
                     <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>Student</Text></View>
                   </View>
                 </LinearGradient>

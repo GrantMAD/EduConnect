@@ -1,16 +1,22 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { useSchool } from '../../context/SchoolContext';
-import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTrophy, faMedal, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
-import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
-import { BORDER_STYLES, NAME_COLOR_STYLES, TITLE_STYLES } from '../../constants/GamificationStyles';
-import LeaderboardSkeleton from '../../components/skeletons/LeaderboardSkeleton';
-import LinearGradient from 'react-native-linear-gradient';
-import UserProfileModal from '../../components/UserProfileModal';
+import { faTrophy, faMedal, faCrown, faArrowUp, faArrowDown, faMinus, faArrowLeft, faInfoCircle, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { useSchool } from '../../context/SchoolContext';
 import { useChat } from '../../context/ChatContext';
+import { BORDER_STYLES, NAME_COLOR_STYLES, TITLE_STYLES } from '../../constants/GamificationStyles';
+import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
+import UserProfileModal from '../../components/UserProfileModal';
+import LeaderboardSkeleton from '../../components/skeletons/LeaderboardSkeleton';
+import { SkeletonPiece } from '../../components/skeletons/DashboardScreenSkeleton';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { fetchSchoolGamification, fetchUsersEquippedItems } from '../../services/gamificationService';
+import { getCurrentUser } from '../../services/authService';
+import { getUserProfile, fetchUsersBySchool } from '../../services/userService';
 
 const defaultUserImage = require('../../assets/user.png');
 
@@ -29,12 +35,7 @@ const LeaderboardScreen = ({ navigation }) => {
         if (!schoolId) return;
         setLoading(true);
         try {
-            const { data: schoolUsers, error: schoolError } = await supabase
-                .from('users')
-                .select('id, full_name, avatar_url, email, role, number')
-                .eq('school_id', schoolId);
-
-            if (schoolError) throw schoolError;
+            const schoolUsers = await fetchUsersBySchool(schoolId);
 
             if (!schoolUsers || schoolUsers.length === 0) {
                 setUsers([]);
@@ -44,23 +45,12 @@ const LeaderboardScreen = ({ navigation }) => {
 
             const schoolUserIds = schoolUsers.map(u => u.id);
 
-            const { data: scores, error: scoresError } = await supabase
-                .from('user_gamification')
-                .select('user_id, current_xp, current_level')
-                .in('user_id', schoolUserIds)
-                .order('current_xp', { ascending: false })
-                .limit(50);
-
-            if (scoresError) throw scoresError;
+            const scores = await fetchSchoolGamification(schoolUserIds);
 
             if (scores && scores.length > 0) {
                 const topScorerIds = scores.map(s => s.user_id);
 
-                const { data: inventoryData } = await supabase
-                    .from('user_inventory')
-                    .select('user_id, shop_items(*)')
-                    .in('user_id', topScorerIds)
-                    .eq('is_equipped', true);
+                const inventoryData = await fetchUsersEquippedItems(topScorerIds);
 
                 const resolveItem = (item) => Array.isArray(item) ? item[0] : item;
 

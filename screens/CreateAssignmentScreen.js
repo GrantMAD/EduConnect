@@ -12,7 +12,6 @@ import {
   Dimensions
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { supabase } from '../lib/supabase';
 import * as DocumentPicker from 'expo-document-picker';
 import { Calendar } from 'react-native-calendars';
 import ReactNativeBlobUtil from 'react-native-blob-util';
@@ -25,6 +24,24 @@ import CreateAssignmentScreenSkeleton from '../components/skeletons/CreateAssign
 import { useTheme } from '../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { 
+  fetchTemplates as fetchTemplatesService, 
+  createTemplate as createTemplateService, 
+  deleteTemplate as deleteTemplateService,
+  fetchClassMembersIds,
+  fetchParentsOfStudentsRpc,
+  fetchUsersByIdsWithPreferences
+} from '../services/userService';
+import { fetchClassesByTeacher, fetchClassInfo } from '../services/classService';
+import { 
+  createAssignment as createAssignmentService, 
+  uploadAssignmentFile, 
+  getAssignmentFileUrl 
+} from '../services/assignmentService';
+import { sendBatchNotifications } from '../services/notificationService';
 
 const { width } = Dimensions.get('window');
 
@@ -51,17 +68,10 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
 
   const fetchTemplates = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const authUser = await getCurrentUser();
+      if (!authUser) return;
 
-      const { data, error } = await supabase
-        .from('templates')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('type', 'assignment')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await fetchTemplatesService(authUser.id, 'assignment');
       setTemplates(data || []);
     } catch (error) {
       console.error('Error fetching templates:', error);
@@ -71,22 +81,20 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+      try {
+        const authUser = await getCurrentUser();
+        setUser(authUser);
 
-      if (user) {
-        const { data, error } = await supabase
-          .from('classes')
-          .select('id, name')
-          .eq('teacher_id', user.id);
-
-        if (error) {
-          showToast('Error fetching classes');
-        } else {
+        if (authUser) {
+          const data = await fetchClassesByTeacher(authUser.id);
           setClasses(data || []);
         }
+      } catch (error) {
+        showToast('Error fetching data');
+        console.error(error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchData();
@@ -101,20 +109,17 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
 
     setIsSavingTemplate(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user logged in');
+      const authUser = await getCurrentUser();
+      if (!authUser) throw new Error('No user logged in');
 
-      const { error } = await supabase.from('templates').insert([
-        {
-          user_id: user.id,
-          school_id: schoolId,
-          type: 'assignment',
-          title: title,
-          description: description
-        }
-      ]);
+      await createTemplateService({
+        user_id: authUser.id,
+        school_id: schoolId,
+        type: 'assignment',
+        title: title,
+        description: description
+      });
 
-      if (error) throw error;
       showToast('Template saved!', 'success');
       fetchTemplates();
     } catch (error) {
@@ -134,12 +139,7 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
 
   const deleteTemplate = useCallback(async (templateId) => {
     try {
-      const { error } = await supabase
-        .from('templates')
-        .delete()
-        .eq('id', templateId);
-
-      if (error) throw error;
+      await deleteTemplateService(templateId);
       setTemplates(prev => prev.filter(t => t.id !== templateId));
       showToast('Template deleted.', 'success');
     } catch (error) {
@@ -157,76 +157,41 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
     setIsCreating(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const authUser = await getCurrentUser();
 
       let file_url = null;
       if (file) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `${user.id}/${fileName}`;
+        const filePath = `${authUser.id}/${fileName}`;
 
         const blob = ReactNativeBlobUtil.wrap(file.uri);
 
-        const { error: uploadError } = await supabase.storage
-          .from('assignments')
-          .upload(filePath, blob, {
-            contentType: file.mimeType,
-            upsert: false,
-          });
-
-        if (uploadError) throw uploadError;
-
-        const { data: publicUrlData } = supabase.storage
-          .from('assignments')
-          .getPublicUrl(filePath);
-
-        if (!publicUrlData) throw new Error('Error getting public URL');
-
-        file_url = publicUrlData.publicUrl;
+        await uploadAssignmentFile(filePath, blob, file.mimeType);
+        file_url = getAssignmentFileUrl(filePath);
       }
 
-      const { data: newAssignment, error } = await supabase.from('assignments').insert([
-        {
-          title,
-          description,
-          due_date: dueDate,
-          class_id: selectedClass,
-          assigned_by: user.id,
-          file_url,
-        },
-      ]).select().single();
-
-      if (error) throw error;
+      const newAssignment = await createAssignmentService({
+        title,
+        description,
+        due_date: dueDate,
+        class_id: selectedClass,
+        assigned_by: authUser.id,
+        file_url,
+      });
 
       try {
-        const { data: classInfo, error: classInfoError } = await supabase
-          .from('classes')
-          .select('name')
-          .eq('id', selectedClass)
-          .single();
-        if (classInfoError) throw classInfoError;
+        const classInfo = await fetchClassInfo(selectedClass);
+        const studentIds = await fetchClassMembersIds(selectedClass, 'student');
 
-        const { data: members, error: membersError } = await supabase
-          .from('class_members')
-          .select('user_id')
-          .eq('class_id', selectedClass)
-          .eq('role', 'student');
-        if (membersError) throw membersError;
-
-        if (members && members.length > 0) {
-          const studentIds = members.map(m => m.user_id);
-
-          const { data: parents } = await supabase
-            .rpc('get_parents_of_students', { p_student_ids: studentIds });
+        if (studentIds && studentIds.length > 0) {
+          const parents = await fetchParentsOfStudentsRpc(studentIds);
 
           const parentIds = parents ? parents.map(p => p.parent_id) : [];
           const recipientIds = [...new Set([...studentIds, ...parentIds])];
 
           if (recipientIds.length > 0) {
-            const { data: recipientsData } = await supabase
-              .from('users')
-              .select('id, notification_preferences')
-              .in('id', recipientIds);
+            const recipientsData = await fetchUsersByIdsWithPreferences(recipientIds);
 
             if (recipientsData) {
               const finalRecipients = recipientsData.filter(u => {
@@ -239,11 +204,11 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
                 type: 'new_assignment',
                 title: `New Assignment for ${classInfo.name}`,
                 message: `A new assignment has been posted: "${newAssignment.title}"`,
-                data: { assignment_id: newAssignment.id }
+                is_read: false,
               }));
 
               if (notifications.length > 0) {
-                await supabase.from('notifications').insert(notifications);
+                await sendBatchNotifications(notifications);
               }
             }
           }

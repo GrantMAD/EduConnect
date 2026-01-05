@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
     faLightbulb, faThumbsUp, faChevronRight, faFileAlt,
@@ -10,6 +9,11 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import WalkthroughTarget from '../WalkthroughTarget';
+
+// Import services
+import { fetchParentChildren } from '../../services/userService';
+import { fetchStudentSubjects, fetchChildrenSubjects } from '../../services/classService';
+import { fetchResourcesWithVotes } from '../../services/resourceService';
 
 const RecommendedResources = React.memo(({ id, schoolId, userId, role }) => {
     const navigation = useNavigation();
@@ -29,66 +33,40 @@ const RecommendedResources = React.memo(({ id, schoolId, userId, role }) => {
             // 1. Determine target subjects based on role
             let subjects = [];
             if (role === 'student') {
-                const { data: classMembers } = await supabase
-                    .from('class_members')
-                    .select('classes(subject)')
-                    .eq('user_id', userId);
-                subjects = classMembers?.map(m => m.classes?.subject).filter(Boolean) || [];
+                subjects = await fetchStudentSubjects(userId);
             } else if (role === 'parent') {
-                const { data: relationships } = await supabase
-                    .from('parent_child_relationships')
-                    .select('child_id')
-                    .eq('parent_id', userId);
-
-                const childIds = relationships?.map(r => r.child_id) || [];
+                const childIds = await fetchParentChildren(userId);
                 if (childIds.length > 0) {
-                    const { data: classMembers } = await supabase
-                        .from('class_members')
-                        .select('classes(subject)')
-                        .in('user_id', childIds);
-                    subjects = classMembers?.map(m => m.classes?.subject).filter(Boolean) || [];
+                    subjects = await fetchChildrenSubjects(childIds);
                 }
             }
 
             const uniqueSubjects = [...new Set(subjects)];
 
             // 2. Fetch resources in those subjects
-            let query = supabase
-                .from('resources')
-                .select('*, users(full_name)')
-                .eq('school_id', schoolId)
-                .eq('is_personal', false);
+            const resourcesWithVotes = await fetchResourcesWithVotes({
+                schoolId,
+                activeTab: 'public', // Recommended are usually public
+                userId
+            });
 
+            let filteredResources = resourcesWithVotes;
             if (uniqueSubjects.length > 0) {
-                query = query.in('category', uniqueSubjects);
+                filteredResources = resourcesWithVotes.filter(r => uniqueSubjects.includes(r.category));
             }
 
-            const { data: resources, error } = await query.limit(20);
-            if (error) throw error;
+            // Sort by score and take top 3
+            // In fetchResourcesWithVotes, we calculate upvotes/downvotes
+            const scoredResources = filteredResources.map(res => ({
+                ...res,
+                score: (res.upvotes || 0) - (res.downvotes || 0)
+            }));
 
-            if (resources && resources.length > 0) {
-                const resourceIds = resources.map(r => r.id);
-                const { data: votes } = await supabase
-                    .from('resource_votes')
-                    .select('resource_id, vote')
-                    .in('resource_id', resourceIds);
+            const topResources = scoredResources
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 3);
 
-                // Calculate scores
-                const scoredResources = resources.map(res => {
-                    const resVotes = votes?.filter(v => v.resource_id === res.id) || [];
-                    const netVotes = resVotes.reduce((acc, v) => acc + v.vote, 0);
-                    return { ...res, score: netVotes };
-                });
-
-                // Sort by score and take top 3
-                const topResources = scoredResources
-                    .sort((a, b) => b.score - a.score)
-                    .slice(0, 3);
-
-                setRecommendations(topResources);
-            } else {
-                setRecommendations([]); // Ensure it's empty array
-            }
+            setRecommendations(topResources);
         } catch (err) {
             console.error('Error fetching recommendations:', err);
         } finally {

@@ -3,12 +3,15 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Image, S
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faPlusCircle, faMinusCircle, faTag, faGraduationCap, faPencilAlt } from '@fortawesome/free-solid-svg-icons';
-import { supabase } from '../lib/supabase';
 import { useToast, useToastState } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import { useGamification } from '../context/GamificationContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from './Toast';
+
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { saveStudentMarks } from '../services/userService';
 
 const defaultUserImage = require("../assets/user.png");
 
@@ -52,8 +55,8 @@ const MarksModal = React.memo(({ visible, onClose, classId, classMembers }) => {
   const saveMarks = async () => {
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const authUser = await getCurrentUser();
+      if (!authUser) {
         showToast('You must be logged in to save marks.', 'error');
         setSaving(false);
         return;
@@ -71,7 +74,7 @@ const MarksModal = React.memo(({ visible, onClose, classId, classMembers }) => {
             marksToSave.push({
               student_id: studentId,
               class_id: classId,
-              teacher_id: user.id,
+              teacher_id: authUser.id,
               mark: formattedMark,
               score: score,
               total_possible: total,
@@ -88,9 +91,7 @@ const MarksModal = React.memo(({ visible, onClose, classId, classMembers }) => {
         return;
       }
 
-      const { error } = await supabase.from('student_marks').insert(marksToSave);
-
-      if (error) throw error;
+      await saveStudentMarks(marksToSave);
 
       // Award XP: 5 XP per student mark entered
       const xpEarned = marksToSave.length * 5;

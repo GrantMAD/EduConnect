@@ -1,11 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Dimensions } from 'react-native';
-import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faLock, faEye, faEyeSlash, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { updatePassword } from '../../services/authService';
 
 const UpdatePasswordScreen = ({ navigation }) => {
     const [password, setPassword] = useState('');
@@ -24,11 +26,7 @@ const UpdatePasswordScreen = ({ navigation }) => {
         setLoading(true);
 
         try {
-            const { error } = await supabase.auth.updateUser({
-                password: password
-            });
-
-            if (error) throw error;
+            await updatePassword(password);
 
             showToast('Password updated! Please sign in.', 'success');
             navigation.reset({

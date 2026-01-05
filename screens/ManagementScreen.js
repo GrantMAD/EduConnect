@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
-import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faUsers, faSchool, faBullhorn, faStore, faCog, faArrowLeft, faHandshake, faChartLine, faUserShield, faChevronRight, faUserFriends } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import SettingsScreenSkeleton, { SkeletonPiece } from '../components/skeletons/SettingsScreenSkeleton';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { getUserProfile } from '../services/userService';
 
 const ManagementButton = React.memo(({ icon, title, description, onPress, color, theme }) => (
     <TouchableOpacity
@@ -31,18 +34,19 @@ const ManagementScreen = ({ navigation }) => {
 
     useEffect(() => {
         const fetchUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: userData, error } = await supabase
-                    .from('users')
-                    .select('role')
-                    .eq('id', user.id)
-                    .single();
-                if (!error) {
-                    setUser(userData);
+            try {
+                const authUser = await getCurrentUser();
+                if (authUser) {
+                    const userData = await getUserProfile(authUser.id);
+                    if (userData) {
+                        setUser(userData);
+                    }
                 }
+            } catch (error) {
+                console.error('Error fetching user:', error);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
 
         fetchUser();
@@ -64,7 +68,7 @@ const ManagementScreen = ({ navigation }) => {
             contentContainerStyle={styles.scrollContent}
         >
             <LinearGradient
-                colors={['#4f46e5', '#7c3aed']} 
+                colors={['#4f46e5', '#7c3aed']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.heroContainer}

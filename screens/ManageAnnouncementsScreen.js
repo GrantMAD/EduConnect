@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert, TouchableOpacity, Dimensions } from 'react-native';
-import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -10,6 +9,16 @@ import EditAnnouncementModal from '../components/EditAnnouncementModal';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { getUserProfile } from '../services/userService';
+import { 
+  getAnnouncementsByPostedBy, 
+  deleteAnnouncement as deleteAnnouncementService, 
+  updateAnnouncement as updateAnnouncementService,
+  getAnnouncementsQuery
+} from '../services/announcementService';
 
 const ManageAnnouncementsScreen = ({ navigation }) => {
   const [announcements, setAnnouncements] = useState([]);
@@ -25,13 +34,17 @@ const ManageAnnouncementsScreen = ({ navigation }) => {
 
   useEffect(() => {
     const getUserData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setCurrentUserId(user.id);
-        const { data: userData, error } = await supabase.from('users').select('role').eq('id', user.id).single();
-        if (userData) {
-          setUserRole(userData.role);
+      try {
+        const user = await getCurrentUser();
+        if (user) {
+          setCurrentUserId(user.id);
+          const userData = await getUserProfile(user.id);
+          if (userData) {
+            setUserRole(userData.role);
+          }
         }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
       }
     };
     getUserData();
@@ -44,19 +57,25 @@ const ManageAnnouncementsScreen = ({ navigation }) => {
       return;
     }
     try {
-      let query = supabase
-        .from('announcements')
-        .select('*, author:users(full_name)')
-        .eq('school_id', schoolId)
-        .order('created_at', { ascending: false });
-
+      let query;
       if (userRole === 'teacher') {
-        query = query.eq('posted_by', currentUserId);
+        // Teachers only manage their own posts
+        const data = await getAnnouncementsByPostedBy(currentUserId);
+        setAnnouncements(data);
+      } else {
+        // Admins can manage all posts in the school
+        query = getAnnouncementsQuery({
+          schoolId,
+          userRole: 'admin', // Force admin behavior to see all
+          from: 0,
+          to: 100
+        });
+        const { data, error } = await query;
+        if (error) throw error;
+        setAnnouncements(data);
       }
-
-      const { data, error } = await query;
-      setAnnouncements(data);
     } catch (error) {
+      console.error('Error fetching announcements:', error);
       showToast('Failed to fetch announcements.', 'error');
     } finally {
       setLoading(false);
@@ -88,11 +107,11 @@ const ManageAnnouncementsScreen = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { error } = await supabase.from('announcements').delete().eq('id', id);
-              if (error) throw error;
+              await deleteAnnouncementService(id);
               showToast('Announcement deleted successfully!', 'success');
               fetchAnnouncements(); 
             } catch (error) {
+              console.error('Error deleting announcement:', error);
               showToast('Failed to delete announcement.', 'error');
             }
           },
@@ -113,17 +132,14 @@ const ManageAnnouncementsScreen = ({ navigation }) => {
       return;
     }
     try {
-      const { error } = await supabase
-        .from('announcements')
-        .update({ title, message })
-        .eq('id', id);
+      await updateAnnouncementService(id, { title, message });
 
-      if (error) throw error;
       showToast('Announcement updated successfully!', 'success');
       setShowEditModal(false);
       setEditingAnnouncement(null);
       fetchAnnouncements(); 
     } catch (error) {
+      console.error('Error updating announcement:', error);
       showToast('Failed to update announcement.', 'error');
     }
   }, [fetchAnnouncements, showToast]);

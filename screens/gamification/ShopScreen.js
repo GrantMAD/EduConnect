@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, Alert, Modal, ScrollView, Dimensions } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useGamification } from '../../context/GamificationContext';
-import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faCoins, faLock, faCheck, faTimes, faArrowLeft, faStore, faIdCard, faUserCircle, faPalette, faAward, faComments, faChevronRight, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import { BORDER_STYLES, BANNER_STYLES, NAME_COLOR_STYLES, TITLE_STYLES, BUBBLE_STYLES, STICKER_PACKS } from '../../constants/GamificationStyles';
@@ -10,6 +9,11 @@ import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { SkeletonPiece } from '../../components/skeletons/DashboardScreenSkeleton';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// Import services
+import { fetchShopItems, fetchUserInventory } from '../../services/gamificationService';
+import { getCurrentUser } from '../../services/authService';
+import { getUserProfile } from '../../services/userService';
 
 const { width } = Dimensions.get('window');
 
@@ -46,47 +50,32 @@ const ShopScreen = ({ navigation }) => {
     const [activeTab, setActiveTab] = useState('all');
     const [fullName, setFullName] = useState('Student');
 
-    const fetchShopData = useCallback(async () => {
+      const fetchShopData = useCallback(async () => {
         setLoading(true);
         try {
-            const { data: itemsData, error: itemsError } = await supabase
-                .from('shop_items')
-                .select('*')
-                .eq('is_active', true)
-                .order('cost', { ascending: true });
-
-            if (itemsError) throw itemsError;
-
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: invData } = await supabase
-                    .from('user_inventory')
-                    .select('item_id')
-                    .eq('user_id', user.id);
-
-                if (invData) setInventory(invData.map(i => i.item_id));
-
-                const { data: userData } = await supabase
-                    .from('users')
-                    .select('avatar_url, full_name')
-                    .eq('id', user.id)
-                    .single();
-
-                if (userData) {
-                    setAvatarUrl(userData.avatar_url);
-                    setFullName(userData.full_name || 'Student');
-                }
+          const itemsData = await fetchShopItems();
+    
+          const authUser = await getCurrentUser();
+          if (authUser) {
+            const invData = await fetchUserInventory(authUser.id);
+            if (invData) setInventory(invData.map(i => i.item_id));
+    
+            const userData = await getUserProfile(authUser.id);
+    
+            if (userData) {
+              setAvatarUrl(userData.avatar_url);
+              setFullName(userData.full_name || 'Student');
             }
-
-            setItems(itemsData || []);
+          }
+    
+          setItems(itemsData || []);
         } catch (error) {
-            console.error('Error fetching shop data:', error);
+          console.error('Error fetching shop data:', error);
         } finally {
-            setLoading(false);
+          setLoading(false);
         }
-    }, []);
-
-    useEffect(() => {
+      }, []);
+        useEffect(() => {
         fetchShopData();
     }, [fetchShopData]);
 

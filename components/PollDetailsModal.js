@@ -4,7 +4,9 @@ import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faChartBar, faUsers, faClock, faUser } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
-import { supabase } from '../lib/supabase';
+
+// Import services
+import { fetchPollVotes } from '../services/pollService';
 
 const PollDetailsModal = React.memo(({ visible, poll, onClose }) => {
     const { theme } = useTheme();
@@ -15,20 +17,14 @@ const PollDetailsModal = React.memo(({ visible, poll, onClose }) => {
 
     useEffect(() => {
         if (visible && poll) {
-            fetchPollVotes();
+            fetchPollVotesData();
         }
     }, [visible, poll]);
 
-    const fetchPollVotes = async () => {
+    const fetchPollVotesData = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('poll_votes')
-                .select('*, users(id, full_name, avatar_url, role, email)')
-                .eq('poll_id', poll.id)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
+            const data = await fetchPollVotes(poll.id);
 
             const stats = {};
             // Initialize stats with 0 for all options

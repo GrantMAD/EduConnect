@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Modal, FlatList, Pressable, Switch, Dimensions } from 'react-native';
-import { supabase } from '../lib/supabase';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faSave, faCalendarAlt, faBook, faClipboardList, faChevronLeft, faFolderOpen, faTrash } from '@fortawesome/free-solid-svg-icons';
@@ -13,6 +12,23 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import { useGamification } from '../context/GamificationContext';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { 
+  fetchTemplates as fetchTemplatesService, 
+  createTemplate as createTemplateService, 
+  deleteTemplate as deleteTemplateService,
+  fetchClassMembersIds,
+  fetchParentsOfStudentsRpc,
+  fetchUsersByIdsWithPreferences
+} from '../services/userService';
+import { fetchClassesByTeacher, fetchClassInfo } from '../services/classService';
+import { 
+  createHomework as createHomeworkService, 
+  fetchHomeworkSchedules 
+} from '../services/homeworkService';
+import { sendBatchNotifications } from '../services/notificationService';
 
 const { width } = Dimensions.get('window');
 
@@ -41,17 +57,10 @@ const CreateHomeworkScreen = ({ route }) => {
 
   const fetchTemplates = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const authUser = await getCurrentUser();
+      if (!authUser) return;
 
-      const { data, error } = await supabase
-        .from('templates')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('type', 'homework')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await fetchTemplatesService(authUser.id, 'homework');
       setTemplates(data || []);
     } catch (error) {
       console.error('Error fetching templates:', error);
@@ -61,21 +70,19 @@ const CreateHomeworkScreen = ({ route }) => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      try {
+        const authUser = await getCurrentUser();
 
-      if (user) {
-        const { data, error } = await supabase
-          .from('classes')
-          .select('id, name')
-          .eq('teacher_id', user.id);
-
-        if (error) {
-          showToast('Error fetching classes', 'error');
-        } else {
+        if (authUser) {
+          const data = await fetchClassesByTeacher(authUser.id);
           setClasses(data || []);
         }
+      } catch (error) {
+        showToast('Error fetching classes', 'error');
+        console.error(error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchData();
@@ -90,21 +97,18 @@ const CreateHomeworkScreen = ({ route }) => {
 
     setIsSavingTemplate(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user logged in');
+      const authUser = await getCurrentUser();
+      if (!authUser) throw new Error('No user logged in');
 
-      const { error } = await supabase.from('templates').insert([
-        {
-          user_id: user.id,
-          school_id: schoolId,
-          type: 'homework',
-          title: subject,
-          subject: subject,
-          description: description
-        }
-      ]);
+      await createTemplateService({
+        user_id: authUser.id,
+        school_id: schoolId,
+        type: 'homework',
+        title: subject,
+        subject: subject,
+        description: description
+      });
 
-      if (error) throw error;
       showToast('Template saved!', 'success');
       fetchTemplates();
     } catch (error) {
@@ -124,12 +128,7 @@ const CreateHomeworkScreen = ({ route }) => {
 
   const deleteTemplate = useCallback(async (templateId) => {
     try {
-      const { error } = await supabase
-        .from('templates')
-        .delete()
-        .eq('id', templateId);
-
-      if (error) throw error;
+      await deleteTemplateService(templateId);
       setTemplates(prev => prev.filter(t => t.id !== templateId));
       showToast('Template deleted.', 'success');
     } catch (error) {
@@ -140,19 +139,16 @@ const CreateHomeworkScreen = ({ route }) => {
 
   useEffect(() => {
     if (selectedClass) {
-      const fetchClassSchedules = async () => {
-        const { data, error } = await supabase
-          .from('class_schedules')
-          .select('id, start_time, title')
-          .eq('class_id', selectedClass);
-
-        if (error) {
-          showToast('Could not fetch class schedules.', 'error');
-        } else {
+      const fetchSchedulesData = async () => {
+        try {
+          const data = await fetchHomeworkSchedules(selectedClass);
           setSchedules(data || []);
+        } catch (error) {
+          showToast('Could not fetch class schedules.', 'error');
+          console.error(error);
         }
       };
-      fetchClassSchedules();
+      fetchSchedulesData();
     }
   }, [selectedClass, showToast]);
 
@@ -164,65 +160,51 @@ const CreateHomeworkScreen = ({ route }) => {
 
     setIsCreating(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user logged in');
+      const authUser = await getCurrentUser();
+      if (!authUser) throw new Error('No user logged in');
 
-      const { data: newHomework, error } = await supabase.from('homework').insert([
-        {
-          school_id: schoolId,
-          class_id: selectedClass,
-          subject,
-          description,
-          due_date: dueDate,
-          created_by: user.id,
-        },
-      ]).select().single();
+      const newHomework = await createHomeworkService({
+        school_id: schoolId,
+        class_id: selectedClass,
+        subject,
+        description,
+        due_date: dueDate,
+        created_by: authUser.id,
+      });
 
-      if (error) throw error;
+      try {
+        const classInfo = await fetchClassInfo(selectedClass);
+        const studentIds = await fetchClassMembersIds(selectedClass, 'student');
 
-      const { data: classInfo } = await supabase
-        .from('classes')
-        .select('name')
-        .eq('id', selectedClass)
-        .single();
+        if (studentIds && studentIds.length > 0) {
+          const parents = await fetchParentsOfStudentsRpc(studentIds);
 
-      const { data: members } = await supabase
-        .from('class_members')
-        .select('user_id')
-        .eq('class_id', selectedClass)
-        .eq('role', 'student');
+          const parentIds = parents ? parents.map(p => p.parent_id) : [];
+          const recipientIds = [...new Set([...studentIds, ...parentIds])];
 
-      if (members && members.length > 0) {
-        const studentIds = members.map(m => m.user_id);
-        const { data: parents } = await supabase
-          .rpc('get_parents_of_students', { p_student_ids: studentIds });
+          const recipientsData = await fetchUsersByIdsWithPreferences(recipientIds);
 
-        const parentIds = parents ? parents.map(p => p.parent_id) : [];
-        const recipientIds = [...new Set([...studentIds, ...parentIds])];
+          if (recipientsData) {
+            const finalRecipients = recipientsData.filter(u => {
+              const prefs = u.notification_preferences;
+              return !prefs || prefs.homework !== false;
+            });
 
-        const { data: recipientsData } = await supabase
-          .from('users')
-          .select('id, notification_preferences')
-          .in('id', recipientIds);
+            const notifications = finalRecipients.map(u => ({
+              user_id: u.id,
+              type: 'new_homework',
+              title: `New Homework for ${classInfo?.name || 'Class'}`,
+              message: `A new piece of homework has been set: "${newHomework.subject}"`,
+              is_read: false,
+            }));
 
-        if (recipientsData) {
-          const finalRecipients = recipientsData.filter(u => {
-            const prefs = u.notification_preferences;
-            return !prefs || prefs.homework !== false;
-          });
-
-          const notifications = finalRecipients.map(u => ({
-            user_id: u.id,
-            type: 'new_homework',
-            title: `New Homework for ${classInfo?.name || 'Class'}`,
-            message: `A new piece of homework has been set: "${newHomework.subject}"`,
-            data: { homework_id: newHomework.id }
-          }));
-
-          if (notifications.length > 0) {
-            await supabase.from('notifications').insert(notifications);
+            if (notifications.length > 0) {
+              await sendBatchNotifications(notifications);
+            }
           }
         }
+      } catch (e) {
+        console.error(e);
       }
 
       awardXP('content_creation', 20);

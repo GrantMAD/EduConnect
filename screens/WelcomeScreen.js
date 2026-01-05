@@ -23,10 +23,6 @@ const WelcomeScreen = ({ navigation }) => {
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                 {/* Top Section */}
                 <View style={styles.topSection}>
-                    <View style={styles.badge}>
-                        <View style={styles.pingDot} />
-                        <Text style={styles.badgeText}>NEXT GENERATION EDUCATION</Text>
-                    </View>
 
                     <View style={styles.logoContainer}>
                         <Image
@@ -34,6 +30,11 @@ const WelcomeScreen = ({ navigation }) => {
                             style={styles.logo}
                             resizeMode="contain"
                         />
+                    </View>
+
+                    <View style={styles.badge}>
+                        <View style={styles.pingDot} />
+                        <Text style={styles.badgeText}>NEXT GENERATION EDUCATION</Text>
                     </View>
 
                     <Text style={styles.title}>Education is better, connected.</Text>

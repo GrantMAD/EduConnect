@@ -14,7 +14,6 @@ import {
   Switch,
   Dimensions
 } from "react-native";
-import { supabase } from '../../lib/supabase';
 import { useSchool } from '../../context/SchoolContext';
 import { useRoute } from "@react-navigation/native";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
@@ -50,6 +49,25 @@ import MarksModal from '../../components/MarksModal';
 import ManageMarksModal from '../../components/ManageMarksModal';
 import { useGamification } from '../../context/GamificationContext';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../../services/authService';
+import { 
+  fetchUsersBySchool, 
+  fetchStudentMarks as fetchStudentMarksService,
+  fetchParentsOfStudentsRpc
+} from '../../services/userService';
+import { 
+  fetchClassMembers as fetchClassMembersService, 
+  fetchClassSchedules as fetchClassSchedulesService,
+  fetchClassInfo,
+  addMemberToClass,
+  removeMemberFromClass,
+  updateAttendance,
+  updateClassSchedule,
+  createClassSchedules
+} from '../../services/classService';
+import { sendBatchNotifications } from '../../services/notificationService';
 
 const { width } = Dimensions.get('window');
 const defaultUserImage = require("../../assets/user.png");
@@ -110,14 +128,10 @@ const ManageUsersInClassScreen = ({ navigation }) => {
 
   const fetchClassMembers = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from("class_members")
-        .select("id, role, attendance, users (id, full_name, email, avatar_url)")
-        .eq("class_id", classId)
-        .eq("role", "student");
-
-      if (error) throw error;
-      setClassMembers(data || []);
+      const data = await fetchClassMembersService(classId);
+      // Filter for students as in original
+      const studentMembers = data.filter(m => m.role === 'student');
+      setClassMembers(studentMembers || []);
     } catch (error) {
       console.error(error);
       showToast("Failed to fetch class details.", 'error');
@@ -126,12 +140,7 @@ const ManageUsersInClassScreen = ({ navigation }) => {
 
   const fetchClassSchedules = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from("class_schedules")
-        .select("id, start_time, end_time, class_info")
-        .eq("class_id", classId)
-        .order("start_time", { ascending: true });
-      if (error) throw error;
+      const data = await fetchClassSchedulesService([classId]);
       setClassSchedules(data || []);
     } catch (error) {
       console.error(error);
@@ -141,13 +150,7 @@ const ManageUsersInClassScreen = ({ navigation }) => {
 
   const fetchClassDetails = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('classes')
-        .select('subject')
-        .eq('id', classId)
-        .single();
-
-      if (error) throw error;
+      const data = await fetchClassInfo(classId);
       if (data) {
         setClassSubject(data.subject);
       }
@@ -159,17 +162,12 @@ const ManageUsersInClassScreen = ({ navigation }) => {
   const fetchAllStudents = useCallback(async () => {
     setFetchingStudents(true);
     try {
-      let query = supabase
-        .from("users")
-        .select("id, full_name, email, avatar_url")
-        .eq("school_id", schoolId)
-        .eq("role", "student");
-      if (searchQuery) query = query.ilike("full_name", `%${searchQuery}%`);
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      setAllStudents(data || []);
+      const data = await fetchUsersBySchool(schoolId, { role: 'student' });
+      let filtered = data || [];
+      if (searchQuery) {
+        filtered = filtered.filter(s => s.full_name.toLowerCase().includes(searchQuery.toLowerCase()));
+      }
+      setAllStudents(filtered);
     } catch (error) {
       console.error(error);
     } finally {
@@ -191,13 +189,7 @@ const ManageUsersInClassScreen = ({ navigation }) => {
 
   const fetchStudentMarks = useCallback(async (studentId, classId) => {
     try {
-      const { data, error } = await supabase
-        .from('student_marks')
-        .select('*')
-        .eq('student_id', studentId)
-        .eq('class_id', classId);
-
-      if (error) throw error;
+      const data = await fetchStudentMarksService(studentId, [classId]);
 
       setStudentMarks(prevMarks => ({
         ...prevMarks,
@@ -211,15 +203,12 @@ const ManageUsersInClassScreen = ({ navigation }) => {
   const addStudentToClass = useCallback(async (studentId) => {
     setSaving(true);
     try {
-      const { error } = await supabase.from("class_members").insert([
-        {
-          class_id: classId,
-          user_id: studentId,
-          school_id: schoolId,
-          role: "student",
-        },
-      ]);
-      if (error) throw error;
+      await addMemberToClass({
+        class_id: classId,
+        user_id: studentId,
+        school_id: schoolId,
+        role: "student",
+      });
       fetchClassMembers();
       showToast("Student added to class.", 'success');
     } catch (error) {
@@ -233,12 +222,7 @@ const ManageUsersInClassScreen = ({ navigation }) => {
   const removeStudentFromClass = useCallback(async (studentId) => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("class_members")
-        .delete()
-        .eq("class_id", classId)
-        .eq("user_id", studentId);
-      if (error) throw error;
+      await removeMemberFromClass(classId, studentId);
       fetchClassMembers();
       showToast("Student removed from class.", 'success');
     } catch (error) {
@@ -267,16 +251,7 @@ const ManageUsersInClassScreen = ({ navigation }) => {
 
     const newAttendance = { ...attendance, [selectedScheduleDate]: status };
     try {
-      const { error } = await supabase
-        .from("class_members")
-        .update({ attendance: newAttendance })
-        .eq("id", memberId);
-
-      if (error) {
-        showToast("Failed to save attendance.", 'error');
-        setClassMembers(classMembers);
-        throw error;
-      }
+      await updateAttendance(memberId, newAttendance);
 
       if (status === false) {
         try {
@@ -284,19 +259,8 @@ const ManageUsersInClassScreen = ({ navigation }) => {
           const studentId = student?.id;
           const sessionDate = selectedScheduleDate;
 
-          let parentIds = [];
-          const { data: rpcParents, error: rpcError } = await supabase
-            .rpc('get_parents_of_students', { p_student_ids: [studentId] });
-
-          if (!rpcError && rpcParents) {
-            parentIds = rpcParents.map(rp => rp.parent_id);
-          } else {
-            const { data: relationships } = await supabase
-              .from('parent_child_relationships')
-              .select('parent_id')
-              .eq('child_id', studentId);
-            if (relationships) parentIds = relationships.map(r => r.parent_id);
-          }
+          const parents = await fetchParentsOfStudentsRpc([studentId]);
+          const parentIds = parents ? parents.map(rp => rp.parent_id) : [];
 
           if (parentIds.length > 0) {
             const notifications = parentIds.map(pid => ({
@@ -310,12 +274,14 @@ const ManageUsersInClassScreen = ({ navigation }) => {
               is_read: false
             }));
 
-            await supabase.from('notifications').insert(notifications);
+            await sendBatchNotifications(notifications);
           }
         } catch (e) { }
       }
     } catch (error) {
       console.error("Error updating attendance:", error);
+      showToast("Failed to save attendance.", 'error');
+      setClassMembers(classMembers);
     }
   }, [selectedScheduleDate, classMembers, classId, className, user, showToast]);
 
@@ -372,11 +338,11 @@ const ManageUsersInClassScreen = ({ navigation }) => {
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("class_schedules")
-        .update({ start_time: startTime.toISOString(), end_time: endTime.toISOString(), class_info: tempClassInfo })
-        .eq("id", selectedSchedule.id);
-      if (error) throw error;
+      await updateClassSchedule(selectedSchedule.id, { 
+        start_time: startTime.toISOString(), 
+        end_time: endTime.toISOString(), 
+        class_info: tempClassInfo 
+      });
 
       fetchClassSchedules();
       setEditModalVisible(false);
@@ -424,10 +390,10 @@ const ManageUsersInClassScreen = ({ navigation }) => {
 
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !schoolId) throw new Error('Session invalid');
+      const authUser = await getCurrentUser();
+      if (!authUser || !schoolId) throw new Error('Session invalid');
 
-      const { error } = await supabase.from("class_schedules").insert({
+      await createClassSchedules([{
         class_id: classId,
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString(),
@@ -435,10 +401,8 @@ const ManageUsersInClassScreen = ({ navigation }) => {
         description: classSubject,
         class_info: newClassInfo,
         school_id: schoolId,
-        created_by: user.id,
-      });
-
-      if (error) throw error;
+        created_by: authUser.id,
+      }]);
 
       fetchClassSchedules();
       setAddModalVisible(false);
@@ -469,10 +433,7 @@ const ManageUsersInClassScreen = ({ navigation }) => {
       setClassMembers(updates);
 
       const promises = updates.map(member =>
-        supabase
-          .from('class_members')
-          .update({ attendance: member.attendance })
-          .eq('id', member.id)
+        updateAttendance(member.id, member.attendance)
       );
 
       await Promise.all(promises);

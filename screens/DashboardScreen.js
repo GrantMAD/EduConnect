@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, Dimensions } from 'react-native';
-import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
     faUsers, faUserTie, faChalkboardTeacher, faUserGraduate, faChild,
@@ -24,6 +23,15 @@ import ChildProgressSnapshot from '../components/ChildProgressSnapshot';
 import { useGamification } from '../context/GamificationContext';
 import LinearGradient from 'react-native-linear-gradient';
 import WalkthroughTarget from '../components/WalkthroughTarget';
+
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { getUserProfile, fetchParentChildren, fetchUsersBySchool } from '../services/userService';
+import { fetchHomework as fetchHomeworkService } from '../services/homeworkService';
+import { fetchAssignments as fetchAssignmentsService } from '../services/assignmentService';
+import { fetchTodaySchedules } from '../services/classService';
+import { fetchTodayPTMBookings } from '../services/ptmService';
+import { getDashboardStats, dailyCheckIn, fetchParentChildLinkCount, fetchClubsCount, fetchTotalClassesCount } from '../services/dashboardService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -61,21 +69,12 @@ const DashboardScreen = ({ navigation }) => {
 
     const handleDailyCheckIn = useCallback(async () => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const user = await getCurrentUser();
             if (!user) return;
 
-            const today = new Date().toISOString().split('T')[0];
+            const data = await dailyCheckIn(user.id);
 
-            const { data, error } = await supabase
-                .from('daily_check_ins')
-                .upsert({
-                    user_id: user.id,
-                    check_in_date: today,
-                    xp_awarded: true
-                }, { onConflict: 'user_id, check_in_date', ignoreDuplicates: true })
-                .select();
-
-            if (!error && data && data.length > 0) {
+            if (data && data.length > 0) {
                 awardXP('daily_check_in', 5);
             }
         } catch (e) { }
@@ -83,117 +82,51 @@ const DashboardScreen = ({ navigation }) => {
 
     const fetchUpcomingTasks = useCallback(async (userId, role) => {
         try {
-            let homeworkQuery = supabase.from('homework').select('*');
-            let assignmentQuery = supabase.from('assignments').select('*');
-
-            if (role === 'student' || role === 'parent') {
-                let targetIds = [userId];
-                if (role === 'parent') {
-                    const { data: rels } = await supabase.from('parent_child_relationships').select('child_id').eq('parent_id', userId);
-                    targetIds = rels?.map(r => r.child_id) || [];
-                }
-
-                if (targetIds.length > 0) {
-                    const { data: members } = await supabase.from('class_members').select('class_id').in('user_id', targetIds);
-                    const classIds = members?.map(m => m.class_id) || [];
-                    if (classIds.length > 0) {
-                        homeworkQuery = homeworkQuery.in('class_id', classIds);
-                        assignmentQuery = assignmentQuery.in('class_id', classIds);
-                    } else {
-                        setUpcomingTasks([]);
-                        return;
-                    }
-                } else {
-                    setUpcomingTasks([]);
-                    return;
-                }
-            } else {
-                homeworkQuery = homeworkQuery.eq('school_id', schoolId);
-                if (role === 'teacher') {
-                    assignmentQuery = assignmentQuery.eq('assigned_by', userId);
-                }
+            let childIds = [];
+            if (role === 'parent') {
+                childIds = await fetchParentChildren(userId);
             }
 
-            const [hw, assign] = await Promise.all([
-                homeworkQuery.order('due_date', { ascending: true }).limit(5),
-                assignmentQuery.order('due_date', { ascending: true }).limit(5)
+            const [hwData, assignData] = await Promise.all([
+                fetchHomeworkService({ userId, userRole: role, schoolId, childIds }),
+                fetchAssignmentsService({ userId, userRole: role, schoolId, childIds })
             ]);
 
             const combined = [
-                ...(hw.data || []).map(i => ({ ...i, type: 'homework' })),
-                ...(assign.data || []).map(i => ({ ...i, type: 'assignment' }))
+                ...(hwData || []).map(i => ({ ...i, type: 'homework' })),
+                ...(assignData || []).map(i => ({ ...i, type: 'assignment' }))
             ].sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).slice(0, 5);
 
             setUpcomingTasks(combined);
-        } catch (e) { }
+        } catch (e) { 
+            console.error('Error fetching upcoming tasks:', e);
+        }
     }, [schoolId]);
 
     const fetchTodaySessions = useCallback(async (userId, role) => {
         try {
-            const today = new Date();
-            const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-            const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
-
-            // 1. Fetch Class Schedules
-            let scheduleQuery = supabase
-                .from('class_schedules')
-                .select('*, class:classes(*)')
-                .gte('start_time', startOfDay)
-                .lte('start_time', endOfDay);
-
-            if (role === 'student' || role === 'parent') {
-                let targetIds = [userId];
-                if (role === 'parent') {
-                    const { data: rels } = await supabase.from('parent_child_relationships').select('child_id').eq('parent_id', userId);
-                    targetIds = rels?.map(r => r.child_id) || [];
-                }
-                const { data: members } = await supabase.from('class_members').select('class_id').in('user_id', targetIds);
-                const classIds = members?.map(m => m.class_id) || [];
-                if (classIds.length > 0) {
-                    scheduleQuery = scheduleQuery.in('class_id', classIds);
-                } else {
-                    scheduleQuery = null;
-                }
-            } else if (role === 'teacher') {
-                scheduleQuery = scheduleQuery.eq('class.teacher_id', userId);
-            }
-
-            // 2. Fetch PTM Bookings
-            let ptmQuery = supabase
-                .from('ptm_bookings')
-                .select('*, slot:ptm_slots(*)')
-                .gte('slot.start_time', startOfDay)
-                .lte('slot.start_time', endOfDay);
-
-            if (role === 'parent') {
-                ptmQuery = ptmQuery.eq('parent_id', userId);
-            } else if (role === 'teacher') {
-                ptmQuery = ptmQuery.eq('slot.teacher_id', userId);
-            } else {
-                ptmQuery = null;
-            }
-
-            const results = await Promise.all([
-                scheduleQuery ? scheduleQuery : Promise.resolve({ data: [] }),
-                ptmQuery ? ptmQuery : Promise.resolve({ data: [] })
+            const [schedules, ptms] = await Promise.all([
+                fetchTodaySchedules(schoolId, userId, role),
+                fetchTodayPTMBookings(userId, role)
             ]);
 
-            const schedules = results[0].data || [];
-            const ptms = results[1].data || [];
-
             const combined = [
-                ...schedules.map(s => ({ ...s, eventType: 'class' })),
-                ...ptms.map(p => ({
-                    id: p.id,
-                    start_time: p.slot.start_time,
-                    end_time: p.slot.end_time,
-                    title: `Meeting: ${p.notes || 'PTM'}`, 
-                    eventType: 'meeting'
-                }))
+                ...(schedules || []).map(s => ({ ...s, eventType: 'class' })),
+                ...(ptms || [])
+                    .filter(p => p.slot) // Safety check
+                    .map(p => ({
+                        id: p.id,
+                        start_time: p.slot.start_time,
+                        end_time: p.slot.end_time,
+                        title: `Meeting: ${p.notes || 'PTM'}`, 
+                        eventType: 'meeting'
+                    }))
             ].sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 
             setTodaySessions(combined);
-        } catch (e) { }
+        } catch (e) { 
+            console.error('Error fetching today sessions:', e);
+        }
     }, [schoolId]);
 
     const fetchDashboardData = useCallback(async () => {
@@ -202,26 +135,18 @@ const DashboardScreen = ({ navigation }) => {
         setLoading(true);
         try {
             // 1. Fetch Stats
-            const { data: statsData, error: statsError } = await supabase.rpc('get_dashboard_stats', { target_school_id: schoolId });
-            if (statsError) throw statsError;
+            const statsData = await getDashboardStats(schoolId);
 
-            const { data: { user } } = await supabase.auth.getUser();
-            const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
+            const user = await getCurrentUser();
+            const profile = await getUserProfile(user.id);
 
             let linkCount = 0;
             if (profile?.role === 'admin') {
-                const { count } = await supabase
-                    .from('parent_child_relationships')
-                    .select('*, parent:users!parent_id!inner(school_id)', { count: 'exact', head: true })
-                    .eq('parent.school_id', schoolId);
-                linkCount = count || 0;
+                linkCount = await fetchParentChildLinkCount(schoolId);
             }
 
-            const { count: clubs } = await supabase
-                .from('classes')
-                .select('*', { count: 'exact', head: true })
-                .eq('school_id', schoolId)
-                .eq('subject', 'Extracurricular');
+            const clubsCount = await fetchClubsCount(schoolId);
+            const totalClassesCount = await fetchTotalClassesCount(schoolId);
 
             if (statsData) {
                 setStats({
@@ -230,8 +155,8 @@ const DashboardScreen = ({ navigation }) => {
                     teacherCount: statsData.teacherCount || 0,
                     studentCount: statsData.studentCount || 0,
                     parentCount: statsData.parentCount || 0,
-                    classCount: (statsData.classCount || 0) - (clubs || 0),
-                    clubCount: clubs || 0,
+                    classCount: Math.max(0, (totalClassesCount || 0) - (clubsCount || 0)),
+                    clubCount: clubsCount || 0,
                     assignmentCount: statsData.assignmentCount || 0,
                     pollCount: statsData.pollCount || 0,
                     parentChildLinkCount: linkCount
@@ -253,16 +178,10 @@ const DashboardScreen = ({ navigation }) => {
 
     const checkUserAccessAndWalkthrough = useCallback(async () => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const user = await getCurrentUser();
             if (!user) return;
 
-            const { data: userData, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', user.id)
-                .single();
-
-            if (error) throw error;
+            const userData = await getUserProfile(user.id);
 
             setUserRole(userData.role);
             setUserProfile(userData);
@@ -325,18 +244,12 @@ const DashboardScreen = ({ navigation }) => {
 
     const fetchUsersByCategory = useCallback(async (category) => {
         try {
-            let query = supabase
-                .from('users')
-                .select('id, full_name, email, number, avatar_url, role')
-                .eq('school_id', schoolId);
-
+            const filters = {};
             if (category !== 'total') {
-                query = query.eq('role', category);
+                filters.role = category;
             }
 
-            const { data, error } = await query.order('full_name', { ascending: true });
-
-            if (error) throw error;
+            const data = await fetchUsersBySchool(schoolId, filters);
 
             setUserListData(data || []);
             setSelectedUserCategory(category);

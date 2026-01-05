@@ -16,11 +16,20 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import RNFetchBlob from 'rn-fetch-blob';
 import FileViewer from 'react-native-file-viewer';
-import { supabase } from '../lib/supabase';
 import { useGamification } from '../context/GamificationContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
+
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { 
+  fetchResourceVotes, 
+  fetchResourceView, 
+  trackResourceView, 
+  deleteResource, 
+  voteResource 
+} from '../services/resourceService';
 
 const timeSince = (date) => {
   if (!date) return '';
@@ -58,50 +67,35 @@ const ResourceDetailModal = React.memo(
       let isMounted = true;
 
       const fetchData = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!isMounted || !user) return;
-        setUserId(user.id);
+        try {
+          const user = await getCurrentUser();
+          if (!isMounted || !user) return;
+          setUserId(user.id);
 
-        const { data: votesData } = await supabase
-          .from('resource_votes')
-          .select('vote,user_id')
-          .eq('resource_id', resource.id);
+          const votesData = await fetchResourceVotes(resource.id);
 
-        if (!isMounted || !votesData) return;
+          if (!isMounted || !votesData) return;
 
-        setUpvotes(votesData.filter(v => v.vote === 1).length);
-        setDownvotes(votesData.filter(v => v.vote === -1).length);
+          setUpvotes(votesData.filter(v => v.vote === 1).length);
+          setDownvotes(votesData.filter(v => v.vote === -1).length);
 
-        const userVoteData = votesData.find(v => v.user_id === user.id);
-        setUserVote(userVoteData?.vote || null);
+          const userVoteData = votesData.find(v => v.user_id === user.id);
+          setUserVote(userVoteData?.vote || null);
+        } catch (e) { console.error(e); }
       };
 
-      const handleResourceView = async () => {
+      const handleResourceViewData = async () => {
         if (!visible || !resource || !awardXP) return;
 
         try {
-          const { data: { user } } = await supabase.auth.getUser();
+          const user = await getCurrentUser();
           if (!user) return;
 
-          const { data: existingView } = await supabase
-            .from('resource_views')
-            .select('xp_awarded')
-            .eq('user_id', user.id)
-            .eq('resource_id', resource.id)
-            .maybeSingle();
+          const existingView = await fetchResourceView(user.id, resource.id);
 
           if (!existingView) {
-            const { error } = await supabase
-              .from('resource_views')
-              .insert({
-                user_id: user.id,
-                resource_id: resource.id,
-                xp_awarded: true
-              });
-
-            if (!error) {
-              awardXP('resource_view', 5);
-            }
+            await trackResourceView(user.id, resource.id);
+            awardXP('resource_view', 5);
           }
         } catch (error) {
           console.error('Error tracking resource view:', error);
@@ -110,7 +104,7 @@ const ResourceDetailModal = React.memo(
 
       if (visible) {
         fetchData();
-        handleResourceView();
+        handleResourceViewData();
       }
 
       return () => {
@@ -141,12 +135,7 @@ const ResourceDetailModal = React.memo(
             onPress: async () => {
               setIsDeleting(true);
               try {
-                const { error } = await supabase
-                  .from('resources')
-                  .delete()
-                  .eq('id', resource.id);
-
-                if (error) throw error;
+                await deleteResource(resource.id);
 
                 showToast('Resource deleted successfully', 'success');
                 onResourceDeleted?.(resource.id);
@@ -168,20 +157,9 @@ const ResourceDetailModal = React.memo(
 
       setIsVoting(true);
       try {
-        const { error } = await supabase
-          .from('resource_votes')
-          .upsert(
-            { resource_id: resource.id, user_id: userId, vote: voteValue },
-            { onConflict: 'resource_id,user_id' }
-          );
+        await voteResource(resource.id, userId, voteValue);
 
-        if (error) throw error;
-
-        const { data: votesData } = await supabase
-          .react.memo(() => { }) // no-op to preserve formatting
-          .from('resource_votes')
-          .select('vote')
-          .eq('resource_id', resource.id);
+        const votesData = await fetchResourceVotes(resource.id);
 
         setUpvotes(votesData.filter(v => v.vote === 1).length);
         setDownvotes(votesData.filter(v => v.vote === -1).length);

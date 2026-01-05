@@ -3,9 +3,16 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView } from 'rea
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faStar, faBookOpen, faTrophy, faChevronRight, faExclamationCircle } from '@fortawesome/free-solid-svg-icons';
 import { useNavigation } from '@react-navigation/native';
-import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
 import { SkeletonPiece } from './skeletons/DashboardScreenSkeleton';
+
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { getUserProfile, fetchParentChildren } from '../services/userService';
+import { fetchUserGamification } from '../services/gamificationService';
+import { fetchUserMemberships } from '../services/classService';
+import { fetchUpcomingHomework } from '../services/homeworkService';
+import { fetchUpcomingAssignments } from '../services/assignmentService';
 
 const ChildProgressSnapshot = React.memo(() => {
     const { theme } = useTheme();
@@ -20,29 +27,11 @@ const ChildProgressSnapshot = React.memo(() => {
     const fetchChildrenData = async () => {
         setLoading(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const user = await getCurrentUser();
             if (!user) return;
 
             // 1. Get linked children
-            let childIds = [];
-
-            const { data: relData } = await supabase
-                .from('parent_child_relationships')
-                .select('child_id')
-                .eq('parent_id', user.id);
-
-            if (relData && relData.length > 0) {
-                childIds = relData.map(r => r.child_id);
-            } else {
-                const { data: linkData } = await supabase
-                    .from('parent_student_links')
-                    .select('student_id')
-                    .eq('parent_id', user.id);
-
-                if (linkData) {
-                    childIds = linkData.map(l => l.student_id);
-                }
-            }
+            const childIds = await fetchParentChildren(user.id);
 
             if (childIds.length === 0) {
                 setChildrenData([]);
@@ -52,72 +41,51 @@ const ChildProgressSnapshot = React.memo(() => {
 
             // 2. Fetch data for each child
             const promises = childIds.map(async (childId) => {
-                // Profile
-                const { data: profile } = await supabase
-                    .from('users')
-                    .select('id, full_name, avatar_url')
-                    .eq('id', childId)
-                    .single();
+                try {
+                    // Profile
+                    const profile = await getUserProfile(childId);
+                    if (!profile) return null;
 
-                if (!profile) return null;
+                    // Gamification Stats
+                    const gamification = await fetchUserGamification(childId);
 
-                // Gamification Stats
-                const { data: gamification } = await supabase
-                    .from('user_gamification')
-                    .select('current_level, current_xp')
-                    .eq('user_id', childId)
-                    .maybeSingle();
+                    // Upcoming Assignments
+                    const members = await fetchUserMemberships(childId);
 
-                // Upcoming Assignments
-                const { data: members } = await supabase
-                    .from('class_members')
-                    .select('class_id')
-                    .eq('user_id', childId);
+                    let upcomingCount = 0;
+                    let nextDue = null;
 
-                let upcomingCount = 0;
-                let nextDue = null;
+                    if (members && members.length > 0) {
+                        const classIds = members.map(m => m.class_id);
+                        
+                        const hwResult = await fetchUpcomingHomework(classIds);
+                        const asgResult = await fetchUpcomingAssignments(classIds);
 
-                if (members && members.length > 0) {
-                    const classIds = members.map(m => m.class_id);
-                    const now = new Date().toISOString();
+                        upcomingCount = (hwResult.count || 0) + (asgResult.count || 0);
 
-                    const { count: hwCount, data: hwData } = await supabase
-                        .from('homework')
-                        .select('due_date', { count: 'exact' })
-                        .in('class_id', classIds)
-                        .gt('due_date', now)
-                        .order('due_date', { ascending: true })
-                        .limit(1);
+                        const dates = [
+                            hwResult.data?.[0]?.due_date ? new Date(hwResult.data[0].due_date) : null,
+                            asgResult.data?.[0]?.due_date ? new Date(asgResult.data[0].due_date) : null
+                        ].filter(Boolean);
 
-                    const { count: asgCount, data: asgData } = await supabase
-                        .from('assignments')
-                        .select('due_date', { count: 'exact' })
-                        .in('class_id', classIds)
-                        .gt('due_date', now)
-                        .order('due_date', { ascending: true })
-                        .limit(1);
-
-                    upcomingCount = (hwCount || 0) + (asgCount || 0);
-
-                    const dates = [
-                        hwData?.[0]?.due_date ? new Date(hwData[0].due_date) : null,
-                        asgData?.[0]?.due_date ? new Date(asgData[0].due_date) : null
-                    ].filter(Boolean);
-
-                    if (dates.length > 0) {
-                        nextDue = new Date(Math.min(...dates));
+                        if (dates.length > 0) {
+                            nextDue = new Date(Math.min(...dates));
+                        }
                     }
-                }
 
-                return {
-                    id: childId,
-                    name: profile.full_name,
-                    avatar: profile.avatar_url,
-                    level: gamification?.current_level || 1,
-                    xp: gamification?.current_xp || 0,
-                    upcomingCount,
-                    nextDue
-                };
+                    return {
+                        id: childId,
+                        name: profile.full_name,
+                        avatar: profile.avatar_url,
+                        level: gamification?.current_level || 1,
+                        xp: gamification?.current_xp || 0,
+                        upcomingCount,
+                        nextDue
+                    };
+                } catch (e) {
+                    console.error(`Error fetching data for child ${childId}:`, e);
+                    return null;
+                }
             });
 
             const results = await Promise.all(promises);

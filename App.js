@@ -7,7 +7,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AppWalkthrough from './components/AppWalkthrough';
-import { supabase } from './lib/supabase';
 import ErrorBoundary from './components/ErrorBoundary';
 
 import AuthNavigation from './navigation/AuthNavigation';

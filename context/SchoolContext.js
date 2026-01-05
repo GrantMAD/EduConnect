@@ -1,78 +1,44 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import { supabase } from '../lib/supabase'; // Assuming supabase client is available
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import { getCurrentUser, onAuthStateChange } from '../services/authService';
+import { getUserProfile } from '../services/userService';
+import { fetchSchoolById } from '../services/schoolService';
 
-const SchoolContext = createContext(null);
+const SchoolContext = createContext();
 
-export const SchoolProvider = ({ children }) => {
+export const SchoolProvider = ({ children, session }) => {
   const [schoolId, setSchoolId] = useState(null);
   const [schoolData, setSchoolData] = useState(null);
   const [loadingSchool, setLoadingSchool] = useState(true);
 
-  useEffect(() => {
-    const fetchSchoolData = async () => {
-      setLoadingSchool(true);
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (user) {
-        // Fetch school_id from the custom 'users' table
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('school_id')
-          .eq('id', user.id)
-          .single();
-
-        if (userError) {
-          console.error('Error fetching user school_id:', userError.message);
-          setSchoolId(null);
-          setSchoolData(null);
-          setLoadingSchool(false);
-          return;
-        }
-
-        if (userData && userData.school_id) {
-          const id = userData.school_id;
-          setSchoolId(id);
-
-          // Fetch school details from your 'schools' table
-          const { data, error } = await supabase
-            .from('schools') // Assuming you have a 'schools' table
-            .select('*')
-            .eq('id', id)
-            .single();
-
-          if (error) {
-            console.error('Error fetching school data:', error.message);
-            setSchoolData(null);
-          } else if (data) {
-            setSchoolData(data);
-          }
-        } else {
-          setSchoolId(null);
-          setSchoolData(null);
-        }
-      } else {
-        setSchoolId(null);
-        setSchoolData(null);
-      }
+  const fetchSchoolData = useCallback(async () => {
+    if (!session?.user?.id) {
+      setSchoolId(null);
+      setSchoolData(null);
       setLoadingSchool(false);
-    };
+      return;
+    }
 
-    fetchSchoolData();
-
-    // Listen for auth state changes to re-fetch school data if user changes
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        fetchSchoolData();
+    try {
+      const userData = await getUserProfile(session.user.id);
+      
+      if (userData?.school_id) {
+        setSchoolId(userData.school_id);
+        const data = await fetchSchoolById(userData.school_id);
+        setSchoolData(data);
       } else {
         setSchoolId(null);
         setSchoolData(null);
       }
-    });
+    } catch (err) {
+      console.error('Error in SchoolContext:', err);
+    } finally {
+      setLoadingSchool(false);
+    }
+  }, [session?.user?.id]);
 
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
+  useEffect(() => {
+    fetchSchoolData();
+  }, [fetchSchoolData]);
 
   const value = React.useMemo(() => ({ 
     schoolId, 

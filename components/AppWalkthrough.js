@@ -4,7 +4,10 @@ import Modal from 'react-native-modal';
 import { useWalkthrough } from '../context/WalkthroughContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faChevronRight, faChevronLeft, faCheck } from '@fortawesome/free-solid-svg-icons';
-import { supabase } from '../lib/supabase';
+
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { markWalkthroughAsSeen } from '../services/userService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -57,14 +60,9 @@ const AppWalkthrough = React.memo(() => {
         finishWalkthrough();
         if (dontShowAgain) {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
+                const user = await getCurrentUser();
                 if (user) {
-                    const { error } = await supabase
-                        .from('users')
-                        .update({ has_seen_walkthrough: true })
-                        .eq('id', user.id);
-
-                    if (error) console.log('Error updating preference:', error);
+                    await markWalkthroughAsSeen(user.id);
                 }
             } catch (error) {
                 console.log('Error updating walkthrough status:', error);

@@ -2,7 +2,10 @@ import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { supabase } from '../lib/supabase';
+
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { updatePushToken } from '../services/userService';
 
 const PushNotificationContext = createContext();
 
@@ -23,7 +26,7 @@ Notifications.setNotificationHandler({
     }),
 });
 
-export const PushNotificationProvider = ({ children }) => {
+export const PushNotificationProvider = ({ children, session }) => {
     const notificationListener = useRef();
     const responseListener = useRef();
 
@@ -122,48 +125,28 @@ export const PushNotificationProvider = ({ children }) => {
         }
 
         // Save push token to database
-        if (token) {
+        if (token && session?.user?.id) {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    const { error } = await supabase
-                        .from('users')
-                        .update({ push_token: token })
-                        .eq('id', user.id);
-
-                    if (error) {
-                        console.error('❌ Error saving push token to database:', error);
-                    } else {
-                        console.log('✅ Push token saved to database successfully');
-                    }
-                }
+                await updatePushToken(session.user.id, token);
+                console.log('✅ Push token saved to database successfully');
             } catch (error) {
                 console.error('❌ Error in token save process:', error);
             }
         }
 
         return token;
-    }, []);
+    }, [session?.user?.id]);
 
     const clearPushToken = React.useCallback(async () => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { error } = await supabase
-                    .from('users')
-                    .update({ push_token: null })
-                    .eq('id', user.id);
-
-                if (error) {
-                    console.error('❌ Error clearing push token:', error);
-                } else {
-                    console.log('✅ Push token cleared successfully');
-                }
+        if (session?.user?.id) {
+            try {
+                await updatePushToken(session.user.id, null);
+                console.log('✅ Push token cleared successfully');
+            } catch (error) {
+                console.error('❌ Error in clearPushToken:', error);
             }
-        } catch (error) {
-            console.error('❌ Error in clearPushToken:', error);
         }
-    }, []);
+    }, [session?.user?.id]);
 
     const value = React.useMemo(() => ({
         registerForPushNotificationsAsync,

@@ -5,9 +5,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faEnvelope, faPhone, faUserCircle, faIdBadge, faComment, faStar, faCoins } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
-import { supabase } from '../lib/supabase';
 import AnimatedAvatarBorder from './AnimatedAvatarBorder';
 import { BORDER_STYLES } from '../constants/GamificationStyles';
+
+// Import services
+import { fetchUserGamification, fetchEquippedItems } from '../services/gamificationService';
 
 const UserProfileModal = React.memo(({ visible, user, onClose, onMessageUser, equippedItem: propEquippedItem }) => {
     const { theme } = useTheme();
@@ -34,13 +36,7 @@ const UserProfileModal = React.memo(({ visible, user, onClose, onMessageUser, eq
         if (!user?.id) return;
         setStatsLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('user_gamification')
-                .select('current_xp, coins')
-                .eq('user_id', user.id)
-                .maybeSingle();
-
-            if (error) throw error;
+            const data = await fetchUserGamification(user.id);
 
             if (data) {
                 setGamificationStats({
@@ -60,13 +56,7 @@ const UserProfileModal = React.memo(({ visible, user, onClose, onMessageUser, eq
     const fetchEquippedItem = async () => {
         if (!user?.id) return;
         try {
-            const { data, error } = await supabase
-                .from('user_inventory')
-                .select('shop_items(*)')
-                .eq('user_id', user.id)
-                .eq('is_equipped', true);
-
-            if (error) throw error;
+            const data = await fetchEquippedItems(user.id);
 
             if (data && data.length > 0) {
                 // Find the border item or default to the first equipped item

@@ -1,8 +1,10 @@
 import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
 import { DefaultTheme, DarkTheme, Provider as PaperProvider } from 'react-native-paper';
 import { useColorScheme } from 'react-native';
-import { supabase } from '../lib/supabase'; // Import supabase
 import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
+
+// Import services
+import { fetchThemePreference, updateThemePreference } from '../services/userService';
 
 const THEME_STORAGE_KEY = 'theme_preference';
 
@@ -112,15 +114,11 @@ export const ThemeProvider = ({ children, session }) => { // Accept session prop
       // 2. If user is logged in, try to load from Supabase (cloud preference)
       if (session?.user) {
         try {
-          const { data, error } = await supabase
-            .from('users')
-            .select('theme_preference')
-            .eq('id', session.user.id)
-            .single();
+          const themePref = await fetchThemePreference(session.user.id);
 
-          if (data && data.theme_preference !== null) {
+          if (themePref !== undefined && themePref !== null) {
             // Supabase preference overrides local preference for logged-in users
-            preferredTheme = data.theme_preference;
+            preferredTheme = themePref;
             // Also update AsyncStorage to match Supabase for consistency
             await AsyncStorage.setItem(THEME_STORAGE_KEY, preferredTheme);
           }
@@ -153,12 +151,9 @@ export const ThemeProvider = ({ children, session }) => { // Accept session prop
 
       // Save preference to Supabase if user is logged in
       if (session?.user) {
-        supabase
-          .from('users')
-          .update({ theme_preference: themeString })
-          .eq('id', session.user.id)
-          .then(({ error }) => {
-            if (error) console.error('Error saving theme preference to Supabase:', error);
+        updateThemePreference(session.user.id, themeString)
+          .catch(error => {
+            console.error('Error saving theme preference to Supabase:', error);
           });
       }
       return newTheme;

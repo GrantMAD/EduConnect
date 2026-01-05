@@ -1,8 +1,11 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, ActivityIndicator, StyleSheet, Alert, Animated, Easing, Image, Dimensions } from 'react-native';
-import { supabase } from '../../lib/supabase';
 import { useNavigation } from '@react-navigation/native';
 import { usePushNotification } from '../../context/PushNotificationContext';
+
+// Import services
+import { getCurrentUser, signOut as signOutService } from '../../services/authService';
+import { getUserProfile } from '../../services/userService';
 
 const { width } = Dimensions.get('window');
 const logo = require('../../assets/Logo.png');
@@ -14,57 +17,47 @@ const AuthGate = () => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const checkSchoolId = useCallback(async () => {
-    const { data: { user }, error } = await supabase.auth.getUser();
+    try {
+      const user = await getCurrentUser();
 
-    if (error) {
-      console.error('Error fetching user in AuthGate:', error.message);
-      await supabase.auth.signOut();
-      return;
-    }
+      if (user) {
+        const userProfile = await getUserProfile(user.id);
 
-    if (user) {
-      const { data: userProfile, error: profileError } = await supabase
-        .from('users')
-        .select('school_id, role')
-        .eq('id', user.id)
-        .single();
+        if (userProfile) {
+          if (userProfile.role === 'server_admin') {
+            Alert.alert(
+              "Access Restricted",
+              "Server Administrator access is only available on the Web Application. Please log in there to manage the system.",
+              [
+                { 
+                  text: "OK", 
+                  onPress: async () => await signOutService() 
+                }
+              ]
+            );
+            return;
+          }
 
-      if (profileError) {
-        console.error('Error fetching user profile in AuthGate:', profileError.message);
-        await supabase.auth.signOut();
-        return;
-      }
-
-      if (userProfile) {
-        if (userProfile.role === 'server_admin') {
-          Alert.alert(
-            "Access Restricted",
-            "Server Administrator access is only available on the Web Application. Please log in there to manage the system.",
-            [
-              { 
-                text: "OK", 
-                onPress: async () => await supabase.auth.signOut() 
-              }
-            ]
-          );
-          return;
-        }
-
-        if (userProfile.school_id) {
-          await registerForPushNotificationsAsync();
-          navigation.replace('MainNavigation');
-        } else if (userProfile.role !== 'user') {
-          navigation.replace('SchoolSetup');
+          if (userProfile.school_id) {
+            await registerForPushNotificationsAsync();
+            navigation.replace('MainNavigation');
+          } else if (userProfile.role !== 'user') {
+            navigation.replace('SchoolSetup');
+          } else {
+            navigation.replace('RoleSelection');
+          }
         } else {
           navigation.replace('RoleSelection');
         }
       } else {
-        navigation.replace('RoleSelection');
+        await signOutService();
       }
-    } else {
-      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Error in AuthGate:', error.message);
+      await signOutService();
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [navigation, registerForPushNotificationsAsync]);
 
   useEffect(() => {

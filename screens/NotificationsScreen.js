@@ -1,11 +1,26 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, SectionList, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, ScrollView, Linking, RefreshControl } from 'react-native';
-import { supabase } from '../lib/supabase';
 import NotificationCardSkeleton, { SkeletonPiece } from '../components/skeletons/NotificationCardSkeleton';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useToast } from '../context/ToastContext';
-import { useTheme } from '../context/ThemeContext'; 
+import { useTheme } from '../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../services/authService';
+import {
+  fetchNotifications as fetchNotificationsService,
+  markAsRead,
+  markAllAsRead as markAllAsReadService,
+  deleteNotification as deleteNotificationService,
+  clearAllNotifications,
+  sendNotification
+} from '../services/notificationService';
+import { handleJoinRequest } from '../services/requestService';
+import { createParentChildRelationship, updateParentChildRequest } from '../services/userService';
+import { fetchAnnouncementById } from '../services/announcementService';
+import { fetchHomeworkById } from '../services/homeworkService';
+import { fetchAssignmentById } from '../services/assignmentService';
 
 const NotificationsScreen = ({ route, navigation }) => {
   const [notifications, setNotifications] = useState([]);
@@ -20,17 +35,10 @@ const NotificationsScreen = ({ route, navigation }) => {
   const fetchNotifications = useCallback(async () => {
     if (!refreshing) setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(100); 
-
-      if (error) throw error;
+      const data = await fetchNotificationsService(user.id);
       setNotifications(data || []);
     } catch (err) {
       console.error('Error fetching notifications:', err);
@@ -52,30 +60,21 @@ const NotificationsScreen = ({ route, navigation }) => {
 
   const handleNotificationPress = useCallback(async (notification) => {
     const { data, type } = notification;
-    let itemId, tableName, selectFields = '*';
+    let itemId;
 
     switch (type) {
       case 'new_general_announcement':
       case 'new_class_announcement':
         itemId = data?.announcement_id;
-        tableName = 'announcements';
-        selectFields = 'title, message, created_at';
         break;
       case 'new_homework':
         itemId = data?.homework_id;
-        tableName = 'homework';
-        selectFields = 'subject, description, due_date';
         break;
       case 'new_assignment':
         itemId = data?.assignment_id;
-        tableName = 'assignments';
-        selectFields = 'title, description, due_date, file_url';
         break;
       case 'new_poll':
-        await supabase
-          .from('notifications')
-          .update({ is_read: true })
-          .eq('id', notification.id);
+        await markAsRead(notification.id);
 
         setNotifications(prev =>
           prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
@@ -85,10 +84,7 @@ const NotificationsScreen = ({ route, navigation }) => {
         return;
       case 'new_ptm_booking':
       case 'ptm_cancellation':
-        await supabase
-          .from('notifications')
-          .update({ is_read: true })
-          .eq('id', notification.id);
+        await markAsRead(notification.id);
 
         setNotifications(prev =>
           prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
@@ -99,10 +95,7 @@ const NotificationsScreen = ({ route, navigation }) => {
       case 'added_to_club':
       case 'club_join_accepted':
       case 'club_join_request':
-        await supabase
-          .from('notifications')
-          .update({ is_read: true })
-          .eq('id', notification.id);
+        await markAsRead(notification.id);
 
         setNotifications(prev =>
           prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
@@ -111,15 +104,12 @@ const NotificationsScreen = ({ route, navigation }) => {
         navigation.navigate('ClubList');
         return;
       default:
-        return; 
+        return;
     }
 
     if (!itemId) return;
 
-    await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('id', notification.id);
+    await markAsRead(notification.id);
 
     setNotifications(prev =>
       prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
@@ -130,13 +120,16 @@ const NotificationsScreen = ({ route, navigation }) => {
     setSelectedItemDetail(null);
 
     try {
-      const { data: itemData, error } = await supabase
-        .from(tableName)
-        .select(selectFields)
-        .eq('id', itemId)
-        .single();
+      let itemData;
+      if (type.includes('announcement')) {
+        itemData = await fetchAnnouncementById(itemId);
+      } else if (type === 'new_homework') {
+        itemData = await fetchHomeworkById(itemId);
+      } else if (type === 'new_assignment') {
+        itemData = await fetchAssignmentById(itemId);
+      }
 
-      if (error) throw error;
+      if (!itemData) throw new Error('Item not found');
 
       setSelectedItemDetail({ ...itemData, type });
     } catch (err) {
@@ -160,15 +153,10 @@ const NotificationsScreen = ({ route, navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { data: { user } } = await supabase.auth.getUser();
+              const user = await getCurrentUser();
               if (!user) throw new Error("User not found");
 
-              const { error } = await supabase
-                .from('notifications')
-                .delete()
-                .eq('user_id', user.id);
-
-              if (error) throw error;
+              await clearAllNotifications(user.id);
 
               setNotifications([]);
               showToast('All notifications have been cleared.', 'success');
@@ -185,12 +173,7 @@ const NotificationsScreen = ({ route, navigation }) => {
 
   const handleJoinResponse = useCallback(async (notification, accept) => {
     try {
-      const { error } = await supabase.rpc('handle_join_request', {
-        p_notification_id: notification.id,
-        p_accept: accept
-      });
-
-      if (error) throw error;
+      await handleJoinRequest(notification.id, accept);
 
       setNotifications(prev =>
         prev.map(n =>
@@ -209,12 +192,7 @@ const NotificationsScreen = ({ route, navigation }) => {
 
   const handleDelete = useCallback(async (notificationId) => {
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notificationId);
-
-      if (error) throw error;
+      await deleteNotificationService(notificationId);
 
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
       showToast('Notification deleted.', 'success');
@@ -227,25 +205,10 @@ const NotificationsScreen = ({ route, navigation }) => {
   const handleParentChildResponse = useCallback(async (notification, accept) => {
     try {
       if (accept) {
-        const { error: insertError } = await supabase
-          .from('parent_child_relationships')
-          .insert({
-            parent_id: notification.related_user_id,
-            child_id: notification.user_id,
-          });
+        await createParentChildRelationship(notification.related_user_id, notification.user_id);
+        await updateParentChildRequest(notification.related_user_id, notification.user_id, 'accepted');
 
-        if (insertError) throw insertError;
-
-        const { error: updateRequestError } = await supabase
-          .from('parent_child_requests')
-          .update({ status: 'accepted' })
-          .eq('child_id', notification.user_id)
-          .eq('parent_id', notification.related_user_id)
-          .eq('status', 'pending');
-
-        if (updateRequestError) throw updateRequestError;
-
-        await supabase.from('notifications').insert({
+        await sendNotification({
           user_id: notification.related_user_id,
           type: 'parent_child_accepted',
           title: 'Association Request Accepted',
@@ -254,16 +217,9 @@ const NotificationsScreen = ({ route, navigation }) => {
         });
         showToast('Association request accepted.', 'success');
       } else {
-        const { error: updateRequestError } = await supabase
-          .from('parent_child_requests')
-          .update({ status: 'rejected' })
-          .eq('child_id', notification.user_id)
-          .eq('parent_id', notification.related_user_id)
-          .eq('status', 'pending');
+        await updateParentChildRequest(notification.related_user_id, notification.user_id, 'rejected');
 
-        if (updateRequestError) throw updateRequestError;
-
-        await supabase.from('notifications').insert({
+        await sendNotification({
           user_id: notification.related_user_id,
           type: 'parent_child_rejected',
           title: 'Association Request Rejected',
@@ -273,7 +229,7 @@ const NotificationsScreen = ({ route, navigation }) => {
         showToast('Association request rejected.', 'success');
       }
 
-      await supabase.from('notifications').update({ is_read: true }).eq('id', notification.id);
+      await markAsRead(notification.id);
       setNotifications(prev => prev.filter(n => n.id !== notification.id));
 
     } catch (err) {
@@ -284,12 +240,7 @@ const NotificationsScreen = ({ route, navigation }) => {
 
   const handleMarkAsRead = useCallback(async (notificationId) => {
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notificationId);
-
-      if (error) throw error;
+      await markAsRead(notificationId);
 
       setNotifications(prev =>
         prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
@@ -303,16 +254,10 @@ const NotificationsScreen = ({ route, navigation }) => {
 
   const handleMarkAllAsRead = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (!user) return;
 
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('user_id', user.id)
-        .eq('is_read', false);
-
-      if (error) throw error;
+      await markAllAsReadService(user.id);
 
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
       showToast('All notifications marked as read.', 'success');
@@ -383,12 +328,12 @@ const NotificationsScreen = ({ route, navigation }) => {
     ].includes(item.type);
 
     return (
-      <View 
+      <View
         key={item.id}
         style={[
-          styles.card, 
-          { 
-            backgroundColor: theme.colors.cardBackground, 
+          styles.card,
+          {
+            backgroundColor: theme.colors.cardBackground,
             borderColor: theme.colors.cardBorder,
             borderWidth: 1,
             borderLeftColor: isUnread ? info.color : theme.colors.cardBorder,
@@ -449,28 +394,28 @@ const NotificationsScreen = ({ route, navigation }) => {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <LinearGradient
-        colors={['#4f46e5', '#4338ca']} 
+        colors={['#4f46e5', '#4338ca']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.heroContainer}
       >
         <View style={styles.heroContent}>
-            <View style={styles.heroTextContainer}>
-                <Text style={styles.heroTitle}>Notifications</Text>
-                <Text style={styles.heroDescription}>
-                    {notifications.filter(n => !n.is_read).length} unread updates
-                </Text>
+          <View style={styles.heroTextContainer}>
+            <Text style={styles.heroTitle}>Notifications</Text>
+            <Text style={styles.heroDescription}>
+              {notifications.filter(n => !n.is_read).length} unread updates
+            </Text>
+          </View>
+          {!loading && notifications.length > 0 && (
+            <View style={styles.heroActions}>
+              <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.heroActionBtn}>
+                <FontAwesome5 name="check-double" size={14} color="#4f46e5" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleClearAll} style={styles.heroActionBtn}>
+                <FontAwesome5 name="broom" size={14} color="#e11d48" />
+              </TouchableOpacity>
             </View>
-            {!loading && notifications.length > 0 && (
-                <View style={styles.heroActions}>
-                    <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.heroActionBtn}>
-                        <FontAwesome5 name="check-double" size={14} color="#4f46e5" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={handleClearAll} style={styles.heroActionBtn}>
-                        <FontAwesome5 name="broom" size={14} color="#e11d48" />
-                    </TouchableOpacity>
-                </View>
-            )}
+          )}
         </View>
       </LinearGradient>
 
@@ -580,39 +525,39 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 16,
   },
   heroContent: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   heroTextContainer: {
-      flex: 1,
-      paddingRight: 10,
+    flex: 1,
+    paddingRight: 10,
   },
   heroTitle: {
-      color: '#fff',
-      fontSize: 24,
-      fontWeight: '800',
-      marginBottom: 6,
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '800',
+    marginBottom: 6,
   },
   heroDescription: {
-      color: '#e0e7ff',
-      fontSize: 14,
+    color: '#e0e7ff',
+    fontSize: 14,
   },
   heroActions: {
-      flexDirection: 'row',
-      gap: 8,
+    flexDirection: 'row',
+    gap: 8,
   },
   heroActionBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 10,
-      backgroundColor: '#fff',
-      justifyContent: 'center',
-      alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 2,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -675,21 +620,21 @@ const styles = StyleSheet.create({
   message: { fontSize: 13, lineHeight: 18, marginBottom: 6 },
   date: { fontSize: 11, fontWeight: '600' },
   buttonsRow: { flexDirection: 'row', marginTop: 12 },
-  button: { 
-    paddingVertical: 8, 
-    paddingHorizontal: 16, 
-    borderRadius: 10, 
-    marginRight: 10 
+  button: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    marginRight: 10
   },
   buttonText: { fontWeight: '700', fontSize: 12 },
-  actionsContainer: { 
-    width: 44, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
+  actionsContainer: {
+    width: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderLeftWidth: 1,
     borderLeftColor: 'rgba(0,0,0,0.05)',
   },
-  actionButton: { 
+  actionButton: {
     padding: 8,
   },
   emptyContainer: {

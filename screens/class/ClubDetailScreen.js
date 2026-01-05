@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, FlatList, RefreshControl, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -13,103 +12,91 @@ import {
 import CardSkeleton from '../../components/skeletons/CardSkeleton';
 import LinearGradient from 'react-native-linear-gradient';
 
+// Import services
+import { getCurrentUser } from '../../services/authService';
+import { getUserProfile, fetchUsersByIdsWithPreferences } from '../../services/userService';
+import { 
+  fetchClassInfo, 
+  fetchClassMembers, 
+  fetchClassSchedules,
+  removeMemberFromClass,
+  updateClassMemberIds,
+  addMemberToClass,
+  fetchClassMembersIdsService
+} from '../../services/classService';
+import { fetchAnnouncements } from '../../services/announcementService';
+import { 
+  fetchClubJoinRequests, 
+  sendNotification, 
+  markAsRead 
+} from '../../services/notificationService';
+
 const { width } = Dimensions.get('window');
 const defaultUserImage = require('../../assets/user.png');
 
 const ClubDetailScreen = ({ route, navigation }) => {
-    const { clubId } = route.params;
-    const { theme } = useTheme();
-    const { showToast } = useToast();
-    const insets = useSafeAreaInsets();
+  const { clubId } = route.params;
+  const { theme } = useTheme();
+  const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
 
-    const [clubData, setClubData] = useState(null);
-    const [currentUserProfile, setCurrentUserProfile] = useState(null);
-    const [announcements, setAnnouncements] = useState([]);
-    const [members, setMembers] = useState([]);
-    const [schedules, setSchedules] = useState([]);
-    const [requests, setRequests] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [activeTab, setActiveTab] = useState('news');
-    const [processingId, setProcessingId] = useState(null);
-    const [isLeaving, setIsLeaving] = useState(false);
+  const [clubData, setClubData] = useState(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [schedules, setSchedules] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState('news');
+  const [processingId, setProcessingId] = useState(null);
+  const [isLeaving, setIsLeaving] = useState(false);
 
-    const fetchClubDetails = useCallback(async () => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+  const fetchClubDetails = useCallback(async () => {
+    try {
+      const authUser = await getCurrentUser();
+      if (!authUser) return;
 
-            const { data: profile } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', user.id)
-                .single();
-            
-            setCurrentUserProfile(profile);
+      const profile = await getUserProfile(authUser.id);
+      setCurrentUserProfile(profile);
 
-            const { data: club, error: clubError } = await supabase
-                .from('classes')
-                .select('*, teacher:users(id, full_name, email, avatar_url, role)')
-                .eq('id', clubId)
-                .single();
+      const clubDetail = await fetchClassInfo(clubId);
+      
+      setClubData(clubDetail);
 
-            if (clubError) throw clubError;
-            setClubData(club);
+      const ann = await fetchAnnouncements(clubId);
+      setAnnouncements(ann || []);
 
-            const { data: ann } = await supabase
-                .from('announcements')
-                .select('*, author:users(full_name, email)')
-                .eq('class_id', clubId)
-                .order('created_at', { ascending: false });
-            setAnnouncements(ann || []);
-
-            const { data: mem } = await supabase
-                .from('class_members')
-                .select('*, users(id, full_name, email, avatar_url, role)')
-                .eq('class_id', clubId);
-            
-            if (profile?.role === 'student' && club.users?.length > (mem?.length || 0)) {
-                const { data: usersData } = await supabase
-                    .from('users')
-                    .select('id, full_name, email, avatar_url, role')
-                    .in('id', club.users);
-                
-                if (usersData) {
-                    setMembers(usersData.map(u => ({ user_id: u.id, users: u })));
-                } else {
-                    setMembers(mem || []);
-                }
-            } else {
-                setMembers(mem || []);
-            }
-
-            const { data: sch } = await supabase
-                .from('class_schedules')
-                .select('*')
-                .eq('class_id', clubId)
-                .order('start_time', { ascending: true });
-            setSchedules(sch || []);
-
-            const isCoord = profile?.role === 'admin' || club.teacher_id === user.id;
-            if (isCoord) {
-                const { data: allReqs } = await supabase
-                    .from('notifications')
-                    .select('*, sender:users!related_user_id(id, full_name, email, avatar_url)')
-                    .eq('type', 'club_join_request')
-                    .eq('user_id', user.id)
-                    .is('is_read', false);
-                
-                setRequests(allReqs?.filter(r => r.message.includes(club.name)) || []);
-            }
-
-        } catch (error) {
-            console.error('Error fetching club details:', error);
-            showToast('Failed to load club details.', 'error');
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
+      const mem = await fetchClassMembers(clubId);
+      
+      if (profile?.role === 'student' && clubDetail.users?.length > (mem?.length || 0)) {
+        const usersData = await fetchUsersByIdsWithPreferences(clubDetail.users);
+        if (usersData) {
+          setMembers(usersData.map(u => ({ user_id: u.id, users: u })));
+        } else {
+          setMembers(mem || []);
         }
-    }, [clubId, showToast]);
+      } else {
+        setMembers(mem || []);
+      }
+
+      const sch = await fetchClassSchedules([clubId]);
+      setSchedules(sch || []);
+
+      const isCoord = profile?.role === 'admin' || clubDetail.teacher_id === authUser.id;
+      if (isCoord) {
+        const allReqs = await fetchClubJoinRequests(authUser.id);
+        setRequests(allReqs?.filter(r => r.message.includes(clubDetail.name)) || []);
+      }
+
+    } catch (error) {
+      console.error('Error fetching club details:', error);
+      showToast('Failed to load club details.', 'error');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [clubId, showToast]);
 
     useEffect(() => {
         fetchClubDetails();
@@ -132,18 +119,13 @@ const ClubDetailScreen = ({ route, navigation }) => {
                     onPress: async () => {
                         setIsLeaving(true);
                         try {
-                            const { data: { user } } = await supabase.auth.getUser();
-                            const { error } = await supabase
-                                .from('class_members')
-                                .delete()
-                                .eq('class_id', clubId)
-                                .eq('user_id', user.id);
+                            const authUser = await getCurrentUser();
+                            if (!authUser) return;
 
-                            if (error) throw error;
+                            await removeMemberFromClass(clubId, authUser.id);
 
-                            const { data: currentMembers } = await supabase.from('class_members').select('user_id').eq('class_id', clubId);
-                            const currentIds = currentMembers?.map(m => m.user_id) || [];
-                            await supabase.from('classes').update({ users: currentIds }).eq('id', clubId);
+                            const currentIds = await fetchClassMembersIdsService(clubId);
+                            await updateClassMemberIds(clubId, currentIds);
 
                             showToast(`You have left ${clubData.name}`, 'success');
                             navigation.navigate('ClubList');
@@ -163,21 +145,17 @@ const ClubDetailScreen = ({ route, navigation }) => {
         setProcessingId(request.id);
         try {
             if (accept) {
-                const { error: joinError } = await supabase
-                    .from('class_members')
-                    .insert({
-                        class_id: clubId,
-                        user_id: request.related_user_id,
-                        school_id: currentUserProfile.school_id,
-                        role: 'student'
-                    });
-                if (joinError) throw joinError;
+                await addMemberToClass({
+                    class_id: clubId,
+                    user_id: request.related_user_id,
+                    school_id: currentUserProfile.school_id,
+                    role: 'student'
+                });
 
-                const { data: currentMembers } = await supabase.from('class_members').select('user_id').eq('class_id', clubId);
-                const currentIds = currentMembers?.map(m => m.user_id) || [];
-                await supabase.from('classes').update({ users: currentIds }).eq('id', clubId);
+                const currentIds = await fetchClassMembersIdsService(clubId);
+                await updateClassMemberIds(clubId, currentIds);
 
-                await supabase.from('notifications').insert({
+                await sendNotification({
                     user_id: request.related_user_id,
                     type: 'club_join_accepted',
                     title: 'Club Join Approved',
@@ -186,7 +164,7 @@ const ClubDetailScreen = ({ route, navigation }) => {
                 });
             }
 
-            await supabase.from('notifications').update({ is_read: true }).eq('id', request.id);
+            await markAsRead(request.id);
             showToast(accept ? 'Member added!' : 'Request declined.', 'success');
             fetchClubDetails();
         } catch (e) {

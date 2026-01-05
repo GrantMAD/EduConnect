@@ -8,7 +8,6 @@ import {
   faUsers
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
-import { supabase } from '../lib/supabase';
 
 const AssignmentCard = React.memo(({ assignment, onPress, onTrackPress, userId }) => {
   const { theme } = useTheme();

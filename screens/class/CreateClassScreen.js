@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Button, Platform, ScrollView, Image, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { supabase } from '../../lib/supabase';
 import { useSchool } from '../../context/SchoolContext';
 import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -11,6 +10,16 @@ import { useToast } from '../../context/ToastContext';
 const defaultUserImage = require('../../assets/user.png');
 import ClassScheduleModal from '../../components/ClassScheduleModal';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../../services/authService';
+import { fetchUsersBySchool, fetchUsersByIdsWithPreferences } from '../../services/userService';
+import { 
+  createClass as createClassService, 
+  createClassMembers, 
+  createClassSchedules 
+} from '../../services/classService';
+import { sendBatchNotifications } from '../../services/notificationService';
 
 const { width } = Dimensions.get('window');
 
@@ -35,23 +44,20 @@ const CreateClassScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
 
   const fetchStudents = useCallback(async () => {
-    setFetchingStudents(false); 
+    setFetchingStudents(true); 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const authUser = await getCurrentUser();
+      if (!authUser) return;
 
-      let { data, error } = await supabase
-        .from('users')
-        .select('id, full_name, email, avatar_url')
-        .eq('school_id', schoolId)
-        .eq('role', 'student');
+      const data = await fetchUsersBySchool(schoolId, { role: 'student' });
 
-      if (error) throw error;
       setAllStudents(data || []);
       setStudents(data || []);
     } catch (error) {
       console.error('Error fetching students:', error.message);
       showToast('Failed to fetch students.', 'error');
+    } finally {
+      setFetchingStudents(false);
     }
   }, [schoolId, showToast]);
 
@@ -120,16 +126,15 @@ const CreateClassScreen = ({ navigation, route }) => {
 
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !schoolId) throw new Error('Auth session invalid');
+      const authUser = await getCurrentUser();
+      if (!authUser || !schoolId) throw new Error('Auth session invalid');
 
-      const { data: newClass, error: classError } = await supabase
-        .from('classes')
-        .insert({ name: className, subject: subject, school_id: schoolId, teacher_id: user.id })
-        .select()
-        .single();
-
-      if (classError) throw classError;
+      const newClass = await createClassService({ 
+        name: className, 
+        subject: subject, 
+        school_id: schoolId, 
+        teacher_id: authUser.id 
+      });
 
       if (selectedStudents.length > 0) {
         const classMembersToInsert = selectedStudents.map(studentId => ({
@@ -139,12 +144,9 @@ const CreateClassScreen = ({ navigation, route }) => {
           role: 'student',
         }));
 
-        await supabase.from('class_members').insert(classMembersToInsert);
+        await createClassMembers(classMembersToInsert);
 
-        const { data: recipientsData } = await supabase
-          .from('users')
-          .select('id, notification_preferences')
-          .in('id', selectedStudents);
+        const recipientsData = await fetchUsersByIdsWithPreferences(selectedStudents);
 
         if (recipientsData) {
           const finalRecipients = recipientsData.filter(u => {
@@ -157,10 +159,11 @@ const CreateClassScreen = ({ navigation, route }) => {
             type: 'added_to_class',
             title: 'Added to New Class',
             message: `You have been added to the class: ${newClass.name}`,
+            is_read: false,
           }));
 
           if (notifications.length > 0) {
-            await supabase.from('notifications').insert(notifications);
+            await sendBatchNotifications(notifications);
           }
         }
       }
@@ -174,10 +177,10 @@ const CreateClassScreen = ({ navigation, route }) => {
           description: subject,
           class_info: schedule.info,
           school_id: schoolId,
-          created_by: user.id,
+          created_by: authUser.id,
         }));
 
-        await supabase.from('class_schedules').insert(scheduleToInsert);
+        await createClassSchedules(scheduleToInsert);
       }
 
       showToast(`Class '${className}' created successfully!`, 'success');

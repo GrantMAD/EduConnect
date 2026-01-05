@@ -26,13 +26,18 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 
-import { supabase } from '../lib/supabase';
 import HomeworkCard from '../components/HomeworkCard';
 import AssignmentCard from '../components/AssignmentCard';
 import ManageCompletionsModal from '../components/ManageCompletionsModal';
 import CardSkeleton from '../components/skeletons/CardSkeleton';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
+
+// Import services
+import { fetchHomework as fetchHomeworkService, updateHomework as updateHomeworkService, deleteHomework as deleteHomeworkService } from '../services/homeworkService';
+import { fetchAssignments as fetchAssignmentsService, updateAssignment as updateAssignmentService, deleteAssignment as deleteAssignmentService } from '../services/assignmentService';
+import { getCurrentUser } from '../services/authService';
+import { getUserProfile, fetchParentChildren } from '../services/userService';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -56,72 +61,35 @@ const HomeworkList = React.memo(() => {
   const insets = useSafeAreaInsets();
 
   const fetchUser = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) setCurrentUserId(user.id);
+    try {
+      const user = await getCurrentUser();
+      if (user) setCurrentUserId(user.id);
+    } catch (error) {
+      console.error('Error fetching user:', error);
+    }
   }, []);
 
   const fetchHomework = useCallback(async () => {
     if (!refreshing) setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (!user) return;
 
-      const { data: profile } = await supabase
-        .from('users')
-        .select('role, school_id')
-        .eq('id', user.id)
-        .single();
-
+      const profile = await getUserProfile(user.id);
       const userRole = profile?.role;
+      
       let childIds = [];
       if (userRole === 'parent') {
-        const { data: relationships } = await supabase
-          .from('parent_child_relationships')
-          .select('child_id')
-          .eq('parent_id', user.id);
-        childIds = relationships?.map(r => r.child_id) || [];
+        childIds = await fetchParentChildren(user.id);
       }
 
-      let selectStr = '*, created_by_user:users!created_by(full_name, email)';
-      if (userRole === 'student' || userRole === 'parent') {
-        selectStr += ', student_completions(id, student_id)';
-      }
+      const data = await fetchHomeworkService({
+        userId: user.id,
+        userRole,
+        schoolId: profile?.school_id,
+        childIds
+      });
 
-      let query = supabase.from('homework').select(selectStr);
-
-      if (userRole === 'student') {
-        query = query.filter('student_completions.student_id', 'eq', user.id);
-      } else if (userRole === 'parent' && childIds.length > 0) {
-        query = query.filter('student_completions.student_id', 'in', `(${childIds.join(',')})`);
-      }
-
-      if (userRole === 'student' || userRole === 'parent') {
-        const targetUsers = userRole === 'student' ? [user.id] : childIds;
-        if (targetUsers.length > 0) {
-          const { data: members } = await supabase
-            .from('class_members')
-            .select('class_id')
-            .in('user_id', targetUsers);
-          const classIds = [...new Set(members?.map(m => m.class_id) || [])];
-          if (classIds.length > 0) {
-            query = query.in('class_id', classIds);
-          } else {
-            setHomework([]);
-            setLoading(false);
-            setRefreshing(false);
-            return;
-          }
-        } else {
-          setHomework([]);
-          setLoading(false);
-          setRefreshing(false);
-          return;
-        }
-      } else if (profile?.school_id) {
-        query = query.eq('school_id', profile.school_id);
-      }
-
-      const { data } = await query.order('due_date', { ascending: true }).limit(50);
       setHomework(data || []);
     } catch (error) {
       console.error('Error fetching homework:', error);
@@ -149,19 +117,19 @@ const HomeworkList = React.memo(() => {
     }), []);
 
   const handleUpdate = useCallback(async () => {
-    const { error } = await supabase
-      .from('homework')
-      .update({
+    try {
+      await updateHomeworkService(selectedHomework.id, {
         subject: selectedHomework.subject,
         description: selectedHomework.description,
         due_date: selectedHomework.due_date,
-      })
-      .eq('id', selectedHomework.id);
+      });
 
-    if (!error) {
       showToast('Homework updated successfully', 'success');
       setIsEditing(false);
       fetchHomework();
+    } catch (error) {
+      console.error('Error updating homework:', error);
+      showToast('Failed to update homework', 'error');
     }
   }, [selectedHomework, fetchHomework, showToast]);
 
@@ -172,10 +140,15 @@ const HomeworkList = React.memo(() => {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await supabase.from('homework').delete().eq('id', selectedHomework.id);
-          showToast('Homework deleted', 'success');
-          setModalVisible(false);
-          fetchHomework();
+          try {
+            await deleteHomeworkService(selectedHomework.id);
+            showToast('Homework deleted', 'success');
+            setModalVisible(false);
+            fetchHomework();
+          } catch (error) {
+            console.error('Error deleting homework:', error);
+            showToast('Failed to delete homework', 'error');
+          }
         },
       },
     ]);
@@ -372,70 +345,35 @@ const AssignmentsList = React.memo(() => {
   const insets = useSafeAreaInsets();
 
   const fetchUser = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) setCurrentUserId(user.id);
+    try {
+      const user = await getCurrentUser();
+      if (user) setCurrentUserId(user.id);
+    } catch (error) {
+      console.error('Error fetching user:', error);
+    }
   }, []);
 
   const fetchAssignments = useCallback(async () => {
     if (!refreshing) setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (!user) return;
 
-      const { data: profile } = await supabase
-        .from('users')
-        .select('role, school_id')
-        .eq('id', user.id)
-        .single();
-
+      const profile = await getUserProfile(user.id);
       const userRole = profile?.role;
+      
       let childIds = [];
       if (userRole === 'parent') {
-        const { data: relationships } = await supabase
-          .from('parent_child_relationships')
-          .select('child_id')
-          .eq('parent_id', user.id);
-        childIds = relationships?.map(r => r.child_id) || [];
+        childIds = await fetchParentChildren(user.id);
       }
 
-      let selectStr = '*, assigned_by_user:users!assigned_by(full_name, email)';
-      if (userRole === 'student' || userRole === 'parent') {
-        selectStr += ', student_completions(id, student_id)';
-      }
-
-      let query = supabase.from('assignments').select(selectStr);
-
-      if (userRole === 'student') {
-        query = query.filter('student_completions.student_id', 'eq', user.id);
-      } else if (userRole === 'parent' && childIds.length > 0) {
-        query = query.filter('student_completions.student_id', 'in', `(${childIds.join(',')})`);
-      }
-
-      if (userRole === 'student' || userRole === 'parent') {
-        const targetUsers = userRole === 'student' ? [user.id] : childIds;
-        if (targetUsers.length > 0) {
-          const { data: members } = await supabase
-            .from('class_members')
-            .select('class_id')
-            .in('user_id', targetUsers);
-          const classIds = [...new Set(members?.map(m => m.class_id) || [])];
-          if (classIds.length > 0) {
-            query = query.in('class_id', classIds);
-          } else {
-            setAssignments([]);
-            setLoading(false);
-            setRefreshing(false);
-            return;
-          }
-        } else {
-          setAssignments([]);
-          setLoading(false);
-          setRefreshing(false);
-          return;
-        }
-      }
-
-      const { data } = await query.order('due_date', { ascending: true });
+      const data = await fetchAssignmentsService({
+        userId: user.id,
+        userRole,
+        schoolId: profile?.school_id,
+        childIds
+      });
+      
       setAssignments(data || []);
     } catch (error) {
       console.error('Error fetching assignments:', error);
@@ -465,19 +403,19 @@ const AssignmentsList = React.memo(() => {
     }), []);
 
   const handleUpdate = useCallback(async () => {
-    const { error } = await supabase
-      .from('assignments')
-      .update({
+    try {
+      await updateAssignmentService(selectedAssignment.id, {
         title: selectedAssignment.title,
         description: selectedAssignment.description,
         due_date: selectedAssignment.due_date,
-      })
-      .eq('id', selectedAssignment.id);
+      });
 
-    if (!error) {
       showToast('Assignment updated successfully', 'success');
       setIsEditing(false);
       fetchAssignments();
+    } catch (error) {
+      console.error('Error updating assignment:', error);
+      showToast('Failed to update assignment', 'error');
     }
   }, [selectedAssignment, fetchAssignments, showToast]);
 
@@ -488,10 +426,15 @@ const AssignmentsList = React.memo(() => {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await supabase.from('assignments').delete().eq('id', selectedAssignment.id);
-          showToast('Assignment deleted', 'success');
-          setModalVisible(false);
-          fetchAssignments();
+          try {
+            await deleteAssignmentService(selectedAssignment.id);
+            showToast('Assignment deleted', 'success');
+            setModalVisible(false);
+            fetchAssignments();
+          } catch (error) {
+            console.error('Error deleting assignment:', error);
+            showToast('Failed to delete assignment', 'error');
+          }
         },
       },
     ]);
@@ -679,16 +622,15 @@ const HomeworkScreen = () => {
 
   useEffect(() => {
     const loadRole = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const user = await getCurrentUser();
+        if (!user) return;
 
-      const { data } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-      setUserRole(data?.role);
+        const profile = await getUserProfile(user.id);
+        setUserRole(profile?.role);
+      } catch (error) {
+        console.error('Error loading role:', error);
+      }
     };
     loadRole();
   }, []);

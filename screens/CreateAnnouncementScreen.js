@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch, ActivityIndicator, Dimensions } from 'react-native';
-import { supabase } from '../lib/supabase';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faBullhorn, faArrowLeft, faPaperPlane, faUsers, faChevronLeft } from '@fortawesome/free-solid-svg-icons';
@@ -10,6 +9,23 @@ import { useTheme } from '../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { 
+  fetchAllClasses, 
+  fetchClassInfo 
+} from '../services/classService';
+import { 
+  createAnnouncement as createAnnouncementService 
+} from '../services/announcementService';
+import { 
+  fetchUsersBySchoolWithPreferences, 
+  fetchClassMembersIds, 
+  fetchParentsOfStudents, 
+  fetchUsersByIdsWithPreferences 
+} from '../services/userService';
+import { sendBatchNotifications } from '../services/notificationService';
 
 const { width } = Dimensions.get('window');
 
@@ -34,19 +50,19 @@ const CreateAnnouncementScreen = ({ route }) => {
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
-    const fetchClasses = async () => {
+    const fetchClassesData = async () => {
       if (!schoolId) return;
-      const { data, error } = await supabase.from('classes').select('id, name').eq('school_id', schoolId);
-      if (error) {
-        console.error('Error fetching classes:', error);
-      } else {
+      try {
+        const data = await fetchAllClasses(schoolId);
         setClasses(data || []);
         if (data.length > 0 && !selectedClass) {
           setSelectedClass(data[0].id);
         }
+      } catch (error) {
+        console.error('Error fetching classes:', error);
       }
     };
-    fetchClasses();
+    fetchClassesData();
   }, [schoolId, selectedClass]);
 
   const handleCreate = useCallback(async () => {
@@ -62,33 +78,24 @@ const CreateAnnouncementScreen = ({ route }) => {
 
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (!user) throw new Error('No user logged in');
 
       const announcementType = isClassSpecific ? 'class' : 'general';
 
-      const { data: newAnnouncements, error } = await supabase.from('announcements').insert([
-        {
-          school_id: schoolId,
-          title,
-          message,
-          type: announcementType,
-          class_id: isClassSpecific ? selectedClass : null,
-          posted_by: user.id,
-        },
-      ]).select();
-
-      if (error) throw error;
+      const newAnnouncement = await createAnnouncementService({
+        school_id: schoolId,
+        title,
+        message,
+        type: announcementType,
+        class_id: isClassSpecific ? selectedClass : null,
+        posted_by: user.id,
+      });
 
       if (!isClassSpecific) {
-        const { data: users, error: usersError } = await supabase
-          .from('users')
-          .select('id, notification_preferences, role')
-          .eq('school_id', schoolId);
+        const users = await fetchUsersBySchoolWithPreferences(schoolId);
 
-        if (!usersError) {
-          const newAnnouncementData = newAnnouncements[0];
-
+        if (users) {
           const rolesToInclude = [];
           if (targetRoles.teacher) rolesToInclude.push('teacher', 'admin');
           if (targetRoles.student) rolesToInclude.push('student');
@@ -105,43 +112,26 @@ const CreateAnnouncementScreen = ({ route }) => {
             user_id: recipient.id,
             type: 'new_general_announcement',
             title: 'New School Announcement',
-            message: `A new announcement has been posted: "${newAnnouncementData.title}"`,
-            data: { announcement_id: newAnnouncementData.id },
+            message: `A new announcement has been posted: "${newAnnouncement.title}"`,
+            data: { announcement_id: newAnnouncement.id },
             created_by: user.id,
+            related_user_id: user.id,
             is_read: false
           }));
 
           if (notifications.length > 0) {
-            await supabase.from('notifications').insert(notifications);
+            await sendBatchNotifications(notifications);
           }
         }
       } else {
-        const { data: classInfo } = await supabase
-          .from('classes')
-          .select('name')
-          .eq('id', selectedClass)
-          .single();
+        const classInfo = await fetchClassInfo(selectedClass);
+        const studentIds = await fetchClassMembersIds(selectedClass, 'student');
 
-        const { data: members } = await supabase
-          .from('class_members')
-          .select('user_id')
-          .eq('class_id', selectedClass)
-          .eq('role', 'student');
-
-        if (members && members.length > 0) {
-          const studentIds = members.map(m => m.user_id);
-          const { data: relationships } = await supabase
-            .from('parent_child_relationships')
-            .select('parent_id')
-            .in('child_id', studentIds);
-
-          const parentIds = relationships ? relationships.map(p => p.parent_id) : [];
+        if (studentIds && studentIds.length > 0) {
+          const parentIds = await fetchParentsOfStudents(studentIds);
           const recipientIds = [...new Set([...studentIds, ...parentIds])];
 
-          const { data: recipientsData } = await supabase
-            .from('users')
-            .select('id, notification_preferences')
-            .in('id', recipientIds);
+          const recipientsData = await fetchUsersByIdsWithPreferences(recipientIds);
 
           if (recipientsData) {
             const finalRecipients = recipientsData.filter(u => {
@@ -150,19 +140,18 @@ const CreateAnnouncementScreen = ({ route }) => {
               return !prefs || prefs.announcements !== false;
             });
 
-            const newAnnouncementData = newAnnouncements[0];
             const notifications = finalRecipients.map(recipient => ({
               user_id: recipient.id,
               type: 'new_class_announcement',
               title: `New Announcement in ${classInfo?.name || 'Class'}`,
-              message: `A new announcement has been posted: "${newAnnouncementData.title}"`,
-              data: { announcement_id: newAnnouncementData.id },
+              message: `A new announcement has been posted: "${newAnnouncement.title}"`,
+              data: { announcement_id: newAnnouncement.id },
               created_by: user.id,
               is_read: false
             }));
 
             if (notifications.length > 0) {
-              await supabase.from('notifications').insert(notifications);
+              await sendBatchNotifications(notifications);
             }
           }
         }

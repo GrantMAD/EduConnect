@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, Image, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import AnnouncementCardSkeleton from '../components/skeletons/AnnouncementCardSkeleton';
-import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -10,6 +9,12 @@ import AnnouncementDetailModal from '../components/AnnouncementDetailModal';
 import { useTheme } from '../context/ThemeContext';
 import { useSupabaseInfiniteQuery } from '../hooks/useSupabaseInfiniteQuery';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getAnnouncementsQuery } from '../services/announcementService';
+import { fetchUserClasses, getUserProfile } from '../services/userService';
+import { fetchAllClasses } from '../services/classService';
+import { getCurrentUser } from '../services/authService';
 
 const timeSince = (date) => {
   const seconds = Math.floor((new Date() - new Date(date)) / 1000);
@@ -111,25 +116,13 @@ const AnnouncementsScreen = ({ navigation }) => {
   const fetchAnnouncementsQuery = useCallback(({ from, to }) => {
     if (!schoolId) return Promise.resolve({ data: [], error: null });
 
-    let query = supabase.from('announcements')
-      .select('*, author:users(full_name), class:classes(name)')
-      .eq('school_id', schoolId)
-      .order('created_at', { ascending: false })
-      .range(from, to);
-
-    if (userRole === 'admin') {
-      // Admin sees all
-    } else if (['teacher', 'student', 'parent'].includes(userRole)) {
-      if (userClasses.length > 0) {
-        query = query.or(`class_id.is.null,class_id.in.(${userClasses.join(',')})`);
-      } else {
-        query = query.is('class_id', null);
-      }
-    } else {
-      query = query.is('class_id', null);
-    }
-    
-    return query;
+    return getAnnouncementsQuery({
+      schoolId,
+      userRole,
+      userClasses,
+      from,
+      to
+    });
   }, [schoolId, userRole, userClasses]);
 
   const { 
@@ -153,67 +146,28 @@ const AnnouncementsScreen = ({ navigation }) => {
   const announcements = announcementsData || [];
   const isLoading = loading || loadingSchool || announcementsLoading;
 
-  const fetchUserClasses = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !schoolId) {
-      setUserClasses([]);
-      return;
-    }
-
+  const fetchUserClassesData = useCallback(async () => {
     try {
-      const { data: userData, error: userError } = await supabase.from('users').select('role').eq('id', user.id).single();
-      if (userError) throw userError;
-      const role = userData?.role;
-
-      let associatedClassIds = [];
-
-      const { data: memberClasses, error: memberError } = await supabase
-        .from('class_members')
-        .select('class_id')
-        .eq('user_id', user.id);
-      if (memberError) throw memberError;
-      if (memberClasses) {
-        associatedClassIds.push(...memberClasses.map(m => m.class_id));
+      const user = await getCurrentUser();
+      if (!user || !schoolId) {
+        setUserClasses([]);
+        return;
       }
 
-      if (role === 'parent') {
-        const { data: children, error: childrenError } = await supabase
-          .from('parent_child_relationships')
-          .select('child_id')
-          .eq('parent_id', user.id);
-        if (childrenError) throw childrenError;
-
-        if (children && children.length > 0) {
-          const childIds = children.map(c => c.child_id);
-          const { data: childClasses, error: childClassesError } = await supabase
-            .from('class_members')
-            .select('class_id')
-            .in('user_id', childIds);
-          if (childClassesError) throw childClassesError;
-          if (childClasses) {
-            associatedClassIds.push(...childClasses.map(m => m.class_id));
-          }
-        }
-      }
-
-      const uniqueClassIds = [...new Set(associatedClassIds)];
-      setUserClasses(uniqueClassIds);
-
+      const userData = await getUserProfile(user.id);
+      const classes = await fetchUserClasses(user.id, userData?.role);
+      setUserClasses(classes);
     } catch (error) {
       console.error('Error fetching user classes:', error.message);
       setUserClasses([]);
     }
   }, [schoolId]);
 
-  const fetchAllClasses = useCallback(async () => {
+  const fetchAllClassesData = useCallback(async () => {
     if (!schoolId) return;
     try {
-      const { data, error } = await supabase
-        .from('classes')
-        .select('id, name')
-        .eq('school_id', schoolId);
-      if (error) throw error;
-      setAllClasses(data);
+      const classes = await fetchAllClasses(schoolId);
+      setAllClasses(classes);
     } catch (error) {
       console.error('Error fetching all classes:', error.message);
     }
@@ -224,25 +178,29 @@ const AnnouncementsScreen = ({ navigation }) => {
       if (loadingSchool) return; 
 
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: userData, error: userError } = await supabase.from('users').select('role').eq('id', user.id).single();
-        if (userData) {
-          setUserRole(userData.role);
+      try {
+        const user = await getCurrentUser();
+        if (user) {
+          const userData = await getUserProfile(user.id);
+          if (userData) {
+            setUserRole(userData.role);
+          }
         }
-      }
-      await fetchUserClasses();
-      await fetchAllClasses();
+        await fetchUserClassesData();
+        await fetchAllClassesData();
 
-      if (schoolData?.logo_url) {
-        await Image.prefetch(schoolData.logo_url);
+        if (schoolData?.logo_url) {
+          await Image.prefetch(schoolData.logo_url);
+        }
+      } catch (error) {
+        console.error('Error during initialization:', error);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     };
 
     initializeUserAndClasses();
-  }, [schoolId, loadingSchool, schoolData, fetchUserClasses, fetchAllClasses]);
+  }, [schoolId, loadingSchool, schoolData, fetchUserClassesData, fetchAllClassesData]);
 
   useFocusEffect(
     useCallback(() => {

@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
-import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -25,6 +24,11 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import StandardBottomModal from '../StandardBottomModal';
 
+// Import services
+import { getCurrentUser } from '../../services/authService';
+import { getUserProfile } from '../../services/userService';
+import { createPTMSlots } from '../../services/ptmService';
+
 const CreatePTMSlotsModal = React.memo(({ isOpen, onClose, onRefresh }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -35,16 +39,14 @@ const CreatePTMSlotsModal = React.memo(({ isOpen, onClose, onRefresh }) => {
   useEffect(() => {
     if (isOpen) {
       const getAuthData = async () => {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        if (authUser) {
-          setUser(authUser);
-          const { data: profileData } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', authUser.id)
-            .single();
-          setProfile(profileData);
-        }
+        try {
+          const authUser = await getCurrentUser();
+          if (authUser) {
+            setUser(authUser);
+            const profileData = await getUserProfile(authUser.id);
+            setProfile(profileData);
+          }
+        } catch (e) { console.error(e); }
       };
       getAuthData();
     }
@@ -100,8 +102,9 @@ const CreatePTMSlotsModal = React.memo(({ isOpen, onClose, onRefresh }) => {
         throw new Error('No slots could be generated with current settings.');
       }
 
-      const { error } = await supabase.from('ptm_slots').insert(generatedSlots);
-      if (error) {
+      try {
+        await createPTMSlots(generatedSlots);
+      } catch (error) {
         if (error.code === '23P01') {
           throw new Error('One or more slots overlap with your existing schedule.');
         }

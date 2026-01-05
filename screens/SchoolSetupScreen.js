@@ -11,7 +11,6 @@ import {
   Image,
   Dimensions
 } from 'react-native';
-import { supabase } from '../lib/supabase';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -23,6 +22,12 @@ import { SkeletonPiece } from '../components/skeletons/SettingsScreenSkeleton';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser, signOut as signOutService } from '../services/authService';
+import { getUserProfile, updateSchoolRequestStatus } from '../services/userService';
+import { searchSchools, fetchSchoolNameById, createSchool } from '../services/schoolService';
+import { sendNotification } from '../services/notificationService';
 
 const { width } = Dimensions.get('window');
 
@@ -55,16 +60,11 @@ const SchoolSetupScreen = ({ navigation }) => {
   const fetchUserData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
+      const authUser = await getCurrentUser();
       if (!authUser) return;
 
-      const { data: userData, error: userDataError } = await supabase
-        .from('users')
-        .select('school_request_status, requested_school_id, role, full_name')
-        .eq('id', authUser.id)
-        .single();
-      if (userDataError) throw userDataError;
+      const userData = await getUserProfile(authUser.id);
+      if (!userData) throw new Error('User data not found');
 
       setUser({ ...authUser, ...userData });
       setRequestStatus(userData?.school_request_status || null);
@@ -72,12 +72,8 @@ const SchoolSetupScreen = ({ navigation }) => {
 
       if (userData?.school_request_status === 'declined') {
         if (userData.requested_school_id) {
-          const { data: school, error: schoolError } = await supabase
-            .from('schools')
-            .select('name')
-            .eq('id', userData.requested_school_id)
-            .single();
-          if (!schoolError && school) {
+          const school = await fetchSchoolNameById(userData.requested_school_id);
+          if (school) {
             setDeclinedMessage(`Your previous request to join "${school.name}" was declined.`);
           } else {
             setDeclinedMessage('Your previous request to join a school was declined.');
@@ -108,19 +104,15 @@ const SchoolSetupScreen = ({ navigation }) => {
       return;
     }
     setSearching(true);
-    const { data, error } = await supabase
-      .from('schools')
-      .select('id, name, created_by, logo_url, address')
-      .ilike('name', `%${searchTerm}%`)
-      .limit(10);
-
-    if (error) {
+    try {
+      const data = await searchSchools(searchTerm);
+      setSchools(data || []);
+    } catch (error) {
       console.error(error);
       showToast('Unable to search for schools.', 'error');
-    } else {
-      setSchools(data || []);
+    } finally {
+      setSearching(false);
     }
-    setSearching(false);
   }, [showToast]);
 
   useEffect(() => {
@@ -133,29 +125,19 @@ const SchoolSetupScreen = ({ navigation }) => {
     setJoiningSchool(schoolId);
 
     try {
-      const { error: updateUserError } = await supabase
-        .from('users')
-        .update({
-          school_request_status: 'pending',
-          requested_school_id: schoolId,
-        })
-        .eq('id', user.id);
-      if (updateUserError) throw updateUserError;
+      await updateSchoolRequestStatus(user.id, 'pending', schoolId);
 
       setRequestStatus('pending');
       setDeclinedMessage(null);
 
-      const { error: notifError } = await supabase
-        .from('notifications')
-        .insert([{
-          user_id: createdBy,
-          type: 'school_join_request',
-          title: 'New School Join Request',
-          message: `${user.full_name || user.email} has requested to join your school "${schoolName}"`,
-          is_read: false,
-          created_by: user.id,
-        }]);
-      if (notifError) throw notifError;
+      await sendNotification({
+        user_id: createdBy,
+        type: 'school_join_request',
+        title: 'New School Join Request',
+        message: `${user.full_name || user.email} has requested to join your school "${schoolName}"`,
+        is_read: false,
+        created_by: user.id,
+      });
 
       setUser(prev => ({ ...prev, school_request_status: 'pending', requested_school_id: schoolId }));
       showToast('Your request is pending approval.', 'success');
@@ -175,14 +157,7 @@ const SchoolSetupScreen = ({ navigation }) => {
       const requestedSchoolId = user.requested_school_id;
 
       if (!requestedSchoolId || requestedSchoolId === 'null') {
-        const { error: updateUserError } = await supabase
-          .from('users')
-          .update({
-            school_request_status: null,
-            requested_school_id: null,
-          })
-          .eq('id', user.id);
-        if (updateUserError) throw updateUserError;
+        await updateSchoolRequestStatus(user.id, null, null);
 
         setRequestStatus(null);
         setUser(prev => ({ ...prev, school_request_status: null, requested_school_id: null }));
@@ -191,34 +166,18 @@ const SchoolSetupScreen = ({ navigation }) => {
         return;
       }
       
-      const { data: schoolData, error: schoolError } = await supabase
-        .from('schools')
-        .select('created_by, name')
-        .eq('id', requestedSchoolId)
-        .single();
+      const schoolData = await fetchSchoolNameById(requestedSchoolId);
 
-      if (schoolError) throw schoolError;
+      await updateSchoolRequestStatus(user.id, null, null);
 
-      const { error: updateUserError } = await supabase
-        .from('users')
-        .update({
-          school_request_status: null,
-          requested_school_id: null,
-        })
-        .eq('id', user.id);
-      if (updateUserError) throw updateUserError;
-
-      await supabase
-        .from('notifications')
-        .update({
-          type: 'school_join_request_cancelled',
-          title: 'Join Request Cancelled',
-          message: `${user.full_name || user.email} has cancelled their request to join "${schoolData.name}"`,
-          is_read: false,
-        })
-        .eq('created_by', user.id)
-        .eq('user_id', schoolData.created_by)
-        .eq('type', 'school_join_request');
+      await sendNotification({
+        user_id: schoolData.created_by,
+        type: 'school_join_request_cancelled',
+        title: 'Join Request Cancelled',
+        message: `${user.full_name || user.email} has cancelled their request to join "${schoolData.name}"`,
+        is_read: false,
+        created_by: user.id,
+      });
 
       setRequestStatus(null);
       setUser(prev => ({ ...prev, school_request_status: null, requested_school_id: null }));
@@ -239,26 +198,18 @@ const SchoolSetupScreen = ({ navigation }) => {
     setCreating(true);
 
     try {
-      const { data: newSchool, error: insertError } = await supabase
-        .from('schools')
-        .insert([{
-          name: newSchoolName,
-          address: newSchoolAddress,
-          contact_email: newSchoolContactEmail,
-          contact_phone: newSchoolContactPhone,
-          created_by: user.id,
-          users: [user.id],
-          school_type: schoolType,
-        }])
-        .select()
-        .single();
-      if (insertError) throw insertError;
+      const newSchool = await createSchool({
+        name: newSchoolName,
+        address: newSchoolAddress,
+        contact_email: newSchoolContactEmail,
+        contact_phone: newSchoolContactPhone,
+        created_by: user.id,
+        users: [user.id],
+        school_type: schoolType,
+      });
 
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ school_id: newSchool.id })
-        .eq('id', user.id);
-      if (updateError) throw updateError;
+      await updateUserRole(user.id, 'admin'); 
+      await updateSchoolId(user.id, newSchool.id);
 
       showToast(`School "${newSchoolName}" created and linked!`, 'success');
       navigation.replace('MainNavigation');
@@ -271,7 +222,7 @@ const SchoolSetupScreen = ({ navigation }) => {
   }, [newSchoolName, newSchoolAddress, newSchoolContactEmail, newSchoolContactPhone, schoolType, user, showToast, navigation]);
 
   const handleSignOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    await signOutService();
   }, []);
 
   const openTypePicker = useCallback(() => setShowTypePicker(true), []);

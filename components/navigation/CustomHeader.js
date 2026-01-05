@@ -1,12 +1,19 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, TouchableOpacity, Text, Animated, Alert, ScrollView, Image, AppState } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faBars, faBell, faComments, faSearch } from '@fortawesome/free-solid-svg-icons';
 import Modal from 'react-native-modal';
 import { supabase } from '../../lib/supabase';
 import { useChat } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
+
+// Import services
+import { getCurrentUser } from '../../services/authService';
+import { fetchNotifications as fetchNotificationsService, markAsRead, sendNotification } from '../../services/notificationService';
+import { updateSchoolId } from '../../services/userService';
+import { fetchSchoolById, updateSchool } from '../../services/schoolService';
 
 const CustomHeader = React.memo(({ navigation, showActions = false }) => {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -18,6 +25,27 @@ const CustomHeader = React.memo(({ navigation, showActions = false }) => {
   const { unreadCount } = useChat();
 
   const toggleDropdown = useCallback(() => setShowDropdown(prev => !prev), []);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const user = await getCurrentUser();
+      if (!user) return;
+
+      const data = await fetchNotificationsService(user.id);
+      if (data) {
+        setNotifications(data);
+        setHasUnread(data.some(n => !n.is_read));
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchNotifications();
+    }, [fetchNotifications])
+  );
 
   // Pulsing animation for unread notifications AND messages
   useEffect(() => {
@@ -32,33 +60,15 @@ const CustomHeader = React.memo(({ navigation, showActions = false }) => {
       pulseAnim.setValue(1);
     }
   }, [hasUnread, unreadCount]);
+
   useEffect(() => {
     let isMounted = true;
     let subscription = null;
-
-    const fetchNotifications = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user || !isMounted) return;
-
-        const { data } = await supabase
-          .from('notifications')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-
-        if (isMounted && data) {
-          setNotifications(data);
-          setHasUnread(data.some(n => !n.is_read));
-        }
-      } catch (error) {
-        console.error('Error fetching notifications:', error);
-      }
-    };
+    let debounceTimer = null;
 
     const setupSubscription = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const user = await getCurrentUser();
         if (!user || !isMounted) return;
 
         const uniqueChannelId = `notifications-header-${user.id}-${Math.random().toString(36).substr(2, 9)}`;
@@ -68,8 +78,11 @@ const CustomHeader = React.memo(({ navigation, showActions = false }) => {
             'postgres_changes',
             { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
             () => {
-              // Re-fetch when ANY notification change happens
-              fetchNotifications();
+              // Debounce re-fetch to handle bulk updates (like Clear All)
+              if (debounceTimer) clearTimeout(debounceTimer);
+              debounceTimer = setTimeout(() => {
+                fetchNotifications();
+              }, 500); 
             }
           )
           .subscribe();
@@ -85,8 +98,6 @@ const CustomHeader = React.memo(({ navigation, showActions = false }) => {
     // Listen for app state changes (when app comes to foreground)
     const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
-        // Refresh notifications when app becomes active (e.g., from push notification tap)
-        // ONLY fetch data, do NOT re-subscribe
         fetchNotifications();
       }
     });
@@ -94,9 +105,10 @@ const CustomHeader = React.memo(({ navigation, showActions = false }) => {
     return () => {
       isMounted = false;
       if (subscription) supabase.removeChannel(subscription);
+      if (debounceTimer) clearTimeout(debounceTimer);
       appStateSubscription.remove();
     };
-  }, []);
+  }, [fetchNotifications]);
 
   // Handle Accept/Decline for school join requests (only used if showActions=true)
   const handleJoinResponse = async (notification, accept) => {
@@ -107,32 +119,29 @@ const CustomHeader = React.memo(({ navigation, showActions = false }) => {
       const requesterId = match[1];
 
       if (accept) {
-        await supabase.from('users').update({ school_id: notification.related_school_id }).eq('id', requesterId);
-        const { data: school } = await supabase
-          .from('schools')
-          .select('users')
-          .eq('id', notification.related_school_id)
-          .single();
+        await updateSchoolId(requesterId, notification.related_school_id);
+        const school = await fetchSchoolById(notification.related_school_id);
         const newUsers = [...(school.users || []), requesterId];
-        await supabase.from('schools').update({ users: newUsers }).eq('id', notification.related_school_id);
-        await supabase.from('notifications').insert([{
+        await updateSchool(notification.related_school_id, { users: newUsers });
+        
+        await sendNotification({
           user_id: requesterId,
           type: 'school_join_accepted',
           title: 'Join Request Accepted',
           message: 'Your request to join the school has been accepted!',
           is_read: false,
-        }]);
+        });
       } else {
-        await supabase.from('notifications').insert([{
+        await sendNotification({
           user_id: requesterId,
           type: 'school_join_declined',
           title: 'Join Request Declined',
           message: 'Your request to join the school has been declined.',
           is_read: false,
-        }]);
+        });
       }
 
-      await supabase.from('notifications').update({ is_read: true }).eq('id', notification.id);
+      await markAsRead(notification.id);
       setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n));
     } catch (error) {
       console.error('Error handling join response:', error);

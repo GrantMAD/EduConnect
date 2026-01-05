@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity, Text, Image, ActivityIndicator, ScrollView, Dimensions } from 'react-native';
-import { supabase } from '../../lib/supabase';
+import { signIn } from '../../services/authService';
+import { getUserProfile } from '../../services/userService';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faEye, faEyeSlash, faEnvelope, faLock, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../../context/ToastContext';
@@ -19,24 +20,20 @@ const SignInScreen = ({ navigation }) => {
 
   const handleSignIn = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-    setLoading(false);
-
-    if (error) {
-      showToast(error.message, 'error');
-    } else if (data.session) {
-      const { data: profile } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', data.session.user.id)
-        .single();
+    try {
+      const data = await signIn(email.trim(), password);
       
-      if (profile?.role !== 'server_admin') {
-        showToast('Signed in successfully!', 'success');
+      if (data.session) {
+        const profile = await getUserProfile(data.session.user.id);
+        
+        if (profile?.role !== 'server_admin') {
+          showToast('Signed in successfully!', 'success');
+        }
       }
+    } catch (error) {
+      showToast(error.message, 'error');
+    } finally {
+      setLoading(false);
     }
   }, [email, password, showToast]);
 

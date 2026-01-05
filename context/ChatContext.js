@@ -1,7 +1,26 @@
-import React, { createContext, useState, useContext, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef, useCallback, useMemo } from 'react';
+import { supabase } from '../lib/supabase'; // keeping for real-time subscription
 import { AppState } from 'react-native';
-import { supabase } from '../lib/supabase';
 import { useToast } from './ToastContext';
+
+// Import services
+import { getUserProfile } from '../services/userService';
+import { 
+  fetchChannels as fetchChannelsService, 
+  fetchMessages as fetchMessagesService,
+  updateMessage,
+  markChannelAsRead,
+  addMessageReaction,
+  removeMessageReaction,
+  removeAllUserReactionsFromMessage,
+  createChannel as createChannelService,
+  addChannelMembers,
+  sendMessage as sendMessageService,
+  uploadChatAttachment,
+  getChatAttachmentUrl,
+  searchChannelMessages
+} from '../services/chatService';
+import { fetchUsersEquippedItems } from '../services/gamificationService';
 
 const ChatContext = createContext();
 
@@ -30,12 +49,7 @@ export const ChatProvider = ({ children, session }) => {
     const fetchUserProfile = async () => {
       if (user) {
         try {
-          const { data, error } = await supabase
-            .from('users')
-            .select('full_name')
-            .eq('id', user.id)
-            .single();
-
+          const data = await getUserProfile(user.id);
           if (data) {
             setUserProfile(data);
           }
@@ -99,13 +113,7 @@ export const ChatProvider = ({ children, session }) => {
     if (validUserIds.length === 0) return {}
 
     try {
-      const { data, error } = await supabase
-        .from('user_inventory')
-        .select('user_id, item_id, shop_items(*)')
-        .in('user_id', validUserIds)
-        .eq('is_equipped', true)
-
-      if (error) return {}
+      const data = await fetchUsersEquippedItems(validUserIds);
 
       const resultMap = data.reduce((acc, curr) => {
         if (!acc[curr.user_id]) acc[curr.user_id] = {}
@@ -128,37 +136,20 @@ export const ChatProvider = ({ children, session }) => {
 
       return resultMap
     } catch (error) {
+      console.error('Error fetching equipped items map:', error);
       return {}
     }
   }, []);
 
   const fetchChannels = useCallback(async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('channels')
-        .select(`
-          *,
-          channel_members!inner (
-            user_id,
-            last_read_at,
-            users (
-              id,
-              full_name,
-              avatar_url
-            )
-          ),
-          last_message: messages (
-            content,
-            created_at,
-            sender_id,
-            attachments
-          )
-        `)
-        .order('created_at', { ascending: false, foreignTable: 'messages' })
-        .limit(1, { foreignTable: 'messages' });
-
-      if (error) throw error;
+      const data = await fetchChannelsService(user.id);
 
       // Manually fetch equipped items for all users in these channels
       const userIds = new Set();
@@ -238,26 +229,7 @@ export const ChatProvider = ({ children, session }) => {
         setLoadingMessages(prev => ({ ...prev, [channelId]: true }));
       }
 
-      const { data, error } = await supabase
-        .from('messages')
-        .select(`
-          *,
-          sender: users!sender_id (
-            id,
-            full_name,
-            avatar_url
-          ),
-          message_reactions (
-            id,
-            emoji,
-            user_id
-          )
-        `)
-        .eq('channel_id', channelId)
-        .order('created_at', { ascending: false }) // Newest first
-        .range(start, start + limit - 1);
-
-      if (error) throw error;
+      const data = await fetchMessagesService(channelId, start, start + limit - 1);
 
       // Fetch equipped items for all senders
       const senderIds = [...new Set(data.map(msg => msg.sender_id))];
@@ -318,13 +290,7 @@ export const ChatProvider = ({ children, session }) => {
         return updatedMessages;
       });
 
-      const { error } = await supabase
-        .from('messages')
-        .update({ content: newContent, edited_at: new Date().toISOString() })
-        .eq('id', messageId)
-        .eq('sender_id', user.id);
-
-      if (error) throw error;
+      await updateMessage(messageId, { content: newContent, edited_at: new Date().toISOString() });
     } catch (error) {
       console.error('Error editing message:', error);
       showToast('Failed to edit message', 'error');
@@ -347,13 +313,7 @@ export const ChatProvider = ({ children, session }) => {
         return updatedMessages;
       });
 
-      const { error } = await supabase
-        .from('messages')
-        .update({ is_deleted: true, content: '🗑️ This message was deleted' })
-        .eq('id', messageId)
-        .eq('sender_id', user.id);
-
-      if (error) throw error;
+      await updateMessage(messageId, { is_deleted: true, content: '🗑️ This message was deleted' });
     } catch (error) {
       console.error('Error deleting message:', error);
       showToast('Failed to delete message', 'error');
@@ -376,12 +336,7 @@ export const ChatProvider = ({ children, session }) => {
         return updatedMessages;
       });
 
-      const { error } = await supabase
-        .from('messages')
-        .update({ is_pinned: isPinned })
-        .eq('id', messageId);
-
-      if (error) throw error;
+      await updateMessage(messageId, { is_pinned: isPinned });
     } catch (error) {
       console.error('Error pinning message:', error);
       showToast('Failed to pin message', 'error');
@@ -391,21 +346,7 @@ export const ChatProvider = ({ children, session }) => {
 
   const searchMessages = useCallback(async (channelId, query) => {
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select(`
-          *,
-          sender: users!sender_id (
-            id,
-            full_name,
-            avatar_url
-          )
-        `)
-        .eq('channel_id', channelId)
-        .ilike('content', `%${query}%`)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await searchChannelMessages(channelId, query);
       return data;
     } catch (error) {
       console.error('Error searching messages:', error);
@@ -416,7 +357,6 @@ export const ChatProvider = ({ children, session }) => {
   const markAsRead = useCallback(async (channelId) => {
     try {
       if (!user) return;
-      const now = new Date().toISOString();
 
       setChannels(prev => prev.map(c => {
         if (c.id === channelId) return { ...c, hasUnread: false };
@@ -429,13 +369,7 @@ export const ChatProvider = ({ children, session }) => {
         return prev;
       });
 
-      const { error } = await supabase
-        .from('channel_members')
-        .update({ last_read_at: now })
-        .eq('channel_id', channelId)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
+      await markChannelAsRead(channelId, user.id);
     } catch (error) {
       console.error('Error marking as read:', error);
     }
@@ -461,17 +395,8 @@ export const ChatProvider = ({ children, session }) => {
         return updatedMessages;
       });
 
-      await supabase
-        .from('message_reactions')
-        .delete()
-        .eq('message_id', messageId)
-        .eq('user_id', user.id);
-
-      const { error } = await supabase
-        .from('message_reactions')
-        .insert({ message_id: messageId, user_id: user.id, emoji });
-
-      if (error) throw error;
+      await removeAllUserReactionsFromMessage(messageId, user.id);
+      await addMessageReaction({ message_id: messageId, user_id: user.id, emoji });
     } catch (error) {
       console.error('Error adding reaction:', error);
       showToast('Failed to add reaction', 'error');
@@ -497,14 +422,7 @@ export const ChatProvider = ({ children, session }) => {
         return updatedMessages;
       });
 
-      const { error } = await supabase
-        .from('message_reactions')
-        .delete()
-        .eq('message_id', messageId)
-        .eq('user_id', user.id)
-        .eq('emoji', emoji);
-
-      if (error) throw error;
+      await removeMessageReaction(messageId, user.id, emoji);
     } catch (error) {
       console.error('Error removing reaction:', error);
       showToast('Failed to remove reaction', 'error');
@@ -544,11 +462,7 @@ export const ChatProvider = ({ children, session }) => {
         async (payload) => {
           const newMsg = payload.new;
 
-          const { data: senderData } = await supabase
-            .from('users')
-            .select('id, full_name, avatar_url')
-            .eq('id', newMsg.sender_id)
-            .single();
+          const senderData = await getUserProfile(newMsg.sender_id);
 
           const equippedItemsMap = await fetchEquippedItemsMap([newMsg.sender_id]);
 
@@ -656,19 +570,13 @@ export const ChatProvider = ({ children, session }) => {
         return newChannels;
       });
 
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({
-          channel_id: channelId,
-          sender_id: user.id,
-          content,
-          attachments,
-          reply_to_message_id: replyToMessageId
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await sendMessageService({
+        channel_id: channelId,
+        sender_id: user.id,
+        content,
+        attachments,
+        reply_to_message_id: replyToMessageId
+      });
 
       setMessages(prev => {
         const current = prev[channelId] || [];
@@ -699,19 +607,13 @@ export const ChatProvider = ({ children, session }) => {
     try {
       if (!user) throw new Error('Not authenticated');
 
-      const { data: channel, error: channelError } = await supabase
-        .from('channels')
-        .insert({
-          name,
-          type,
-          class_id: classId,
-          school_id: user.user_metadata?.school_id,
-          created_by: user.id
-        })
-        .select()
-        .single();
-
-      if (channelError) throw channelError;
+      const channel = await createChannelService({
+        name,
+        type,
+        class_id: classId,
+        school_id: user.user_metadata?.school_id,
+        created_by: user.id
+      });
 
       const members = [user.id, ...memberIds].map(uid => ({
         channel_id: channel.id,
@@ -719,11 +621,7 @@ export const ChatProvider = ({ children, session }) => {
         role: uid === user.id ? 'admin' : 'member'
       }));
 
-      const { error: membersError } = await supabase
-        .from('channel_members')
-        .insert(members);
-
-      if (membersError) throw membersError;
+      await addChannelMembers(members);
 
       fetchChannels();
       return channel;
@@ -742,15 +640,9 @@ export const ChatProvider = ({ children, session }) => {
       const fileExt = fileName.split('.').pop();
       const filePath = `${user.id}/${Date.now()}.${fileExt}`;
 
-      const { data, error } = await supabase.storage
-        .from('chat-attachments')
-        .upload(filePath, formData);
+      await uploadChatAttachment(filePath, formData);
 
-      if (error) throw error;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('chat-attachments')
-        .getPublicUrl(filePath);
+      const publicUrl = getChatAttachmentUrl(filePath);
 
       return {
         url: publicUrl,

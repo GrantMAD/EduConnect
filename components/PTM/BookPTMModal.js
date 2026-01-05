@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Image
 } from 'react-native';
-import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -24,6 +23,12 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import StandardBottomModal from '../StandardBottomModal';
 
+// Import services
+import { getCurrentUser } from '../../services/authService';
+import { fetchParentChildren } from '../../services/userService';
+import { fetchAvailableTeacherSlots, bookPTMSlot } from '../../services/ptmService';
+import { sendNotification } from '../../services/notificationService';
+
 const defaultUserImage = require('../../assets/user.png');
 
 const BookPTMModal = React.memo(({ isOpen, onClose, teacher, onRefresh }) => {
@@ -36,8 +41,10 @@ const BookPTMModal = React.memo(({ isOpen, onClose, teacher, onRefresh }) => {
   useEffect(() => {
     if (isOpen) {
       const getUser = async () => {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        setUser(authUser);
+        try {
+          const authUser = await getCurrentUser();
+          setUser(authUser);
+        } catch (e) { console.error(e); }
       };
       getUser();
     }
@@ -62,23 +69,12 @@ const BookPTMModal = React.memo(({ isOpen, onClose, teacher, onRefresh }) => {
     setFetchingSlots(true);
     try {
       // 1. Fetch children
-      const { data: relData } = await supabase
-        .from('parent_child_relationships')
-        .select('child:users!child_id(id, full_name, email, avatar_url)')
-        .eq('parent_id', user.id);
-
-      const childrenList = relData?.map(r => r.child) || [];
-      setChildren(childrenList);
-      if (childrenList.length > 0) setSelectedChildId(childrenList[0].id);
+      const childrenList = await fetchParentChildrenDetails(user.id);
+      setChildren(childrenList || []);
+      if (childrenList?.length > 0) setSelectedChildId(childrenList[0].id);
 
       // 2. Fetch available slots for this teacher
-      const { data: slotsData } = await supabase
-        .from('ptm_slots')
-        .select('*')
-        .eq('teacher_id', teacher.id)
-        .eq('is_booked', false)
-        .gt('start_time', new Date().toISOString())
-        .order('start_time', { ascending: true });
+      const slotsData = await fetchAvailableTeacherSlots(teacher.id);
 
       setSlots(slotsData || []);
     } catch (error) {
@@ -93,29 +89,25 @@ const BookPTMModal = React.memo(({ isOpen, onClose, teacher, onRefresh }) => {
     setLoading(true);
 
     try {
-      const { error } = await supabase
-        .from('ptm_bookings')
-        .insert([{
-          slot_id: selectedSlotId,
-          parent_id: user.id,
-          student_id: selectedChildId,
-          notes: notes,
-          status: 'scheduled'
-        }]);
-
-      if (error) throw error;
+      await bookPTMSlot({
+        slot_id: selectedSlotId,
+        parent_id: user.id,
+        student_id: selectedChildId,
+        notes: notes,
+        status: 'scheduled'
+      });
 
       showToast('Meeting booked successfully!', 'success');
 
       // Notify teacher
-      await supabase.from('notifications').insert([{
+      await sendNotification({
         user_id: teacher.id,
         type: 'new_ptm_booking',
         title: 'New Meeting Booked',
         message: `A parent has booked a meeting with you for their child.`,
         related_user_id: user.id,
         is_read: false
-      }]);
+      });
 
       onRefresh();
       onClose();

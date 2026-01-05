@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { supabase } from '../../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
     faChartLine,
@@ -10,6 +9,10 @@ import {
     faClipboardCheck
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../../context/ThemeContext';
+
+// Import services
+import { fetchUserGamification } from '../../services/gamificationService';
+import { fetchStudentCompletionCount, fetchStudentMarks } from '../../services/userService';
 
 const MeetingAgendaBrief = React.memo(({ studentId, isTeacher }) => {
     const { theme } = useTheme();
@@ -30,25 +33,13 @@ const MeetingAgendaBrief = React.memo(({ studentId, isTeacher }) => {
         setLoading(true);
         try {
             // 1. Fetch Gamification Stats
-            const { data: gamification } = await supabase
-                .from('user_gamification')
-                .select('current_xp, current_level')
-                .eq('user_id', studentId)
-                .maybeSingle();
+            const gamification = await fetchUserGamification(studentId);
 
             // 2. Fetch Completion Rate
-            const { count: completedCount } = await supabase
-                .from('student_completions')
-                .select('*', { count: 'exact', head: true })
-                .eq('student_id', studentId);
+            const completedCount = await fetchStudentCompletionCount(studentId);
 
             // 3. Fetch Recent Marks
-            const { data: marks } = await supabase
-                .from('student_marks')
-                .select('*')
-                .eq('student_id', studentId)
-                .order('created_at', { ascending: false })
-                .limit(3);
+            const marks = await fetchStudentMarksSimple(studentId, 3);
 
             setData({
                 gamification,

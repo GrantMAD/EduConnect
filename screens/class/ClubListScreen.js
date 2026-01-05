@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator, Dimensions } from 'react-native';
-import { supabase } from '../../lib/supabase';
 import { useSchool } from '../../context/SchoolContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useFocusEffect } from '@react-navigation/native';
@@ -10,6 +9,12 @@ import { useToast } from '../../context/ToastContext';
 import CardSkeleton from '../../components/skeletons/CardSkeleton';
 import { SkeletonPiece } from '../../components/skeletons/DashboardScreenSkeleton';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { getCurrentUser } from '../../services/authService';
+import { getUserProfile } from '../../services/userService';
+import { fetchUserMemberships, fetchClubsBySchool } from '../../services/classService';
+import { sendNotification } from '../../services/notificationService';
 
 const { width } = Dimensions.get('window');
 
@@ -28,32 +33,17 @@ const ClubListScreen = ({ navigation }) => {
 
   const fetchData = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const authUser = await getCurrentUser();
+      if (!authUser) return;
 
-      const { data: profile } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-      
+      const profile = await getUserProfile(authUser.id);
       setUserProfile(profile);
 
-      const { data: memberships } = await supabase
-        .from('class_members')
-        .select('class_id')
-        .eq('user_id', user.id);
-      
+      const memberships = await fetchUserMemberships(authUser.id);
       const myIds = new Set(memberships?.map(m => m.class_id) || []);
       setUserClubIds(myIds);
 
-      const { data, error } = await supabase
-        .from('classes')
-        .select('*, teacher:users(email, full_name)')
-        .eq('subject', 'Extracurricular')
-        .eq('school_id', schoolId);
-
-      if (error) throw error;
+      const data = await fetchClubsBySchool(schoolId);
       setClubs(data || []);
     } catch (error) {
       console.error('Error fetching clubs:', error);
@@ -82,7 +72,7 @@ const ClubListScreen = ({ navigation }) => {
     try {
       if (userClubIds.has(club.id)) return;
 
-      const { error } = await supabase.from('notifications').insert({
+      await sendNotification({
         user_id: club.teacher_id,
         type: 'club_join_request',
         title: 'Club Join Request',
@@ -91,7 +81,6 @@ const ClubListScreen = ({ navigation }) => {
         is_read: false
       });
 
-      if (error) throw error;
       showToast('Join request sent to club coordinator!', 'success');
     } catch (error) {
       console.error(error);

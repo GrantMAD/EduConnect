@@ -4,8 +4,10 @@ import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faLock, faEye, faEyeSlash, faCheckCircle, faTimesCircle } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
-import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
+
+// Import services
+import { updatePassword } from '../services/authService';
 
 const ChangePasswordModal = React.memo(({ visible, onClose }) => {
     const { theme } = useTheme();
@@ -57,11 +59,7 @@ const ChangePasswordModal = React.memo(({ visible, onClose }) => {
         try {
             // Supabase doesn't have a direct way to verify current password
             // We'll attempt to update and let Supabase handle the auth
-            const { error } = await supabase.auth.updateUser({
-                password: newPassword
-            });
-
-            if (error) throw error;
+            await updatePassword(newPassword);
 
             showToast('Password changed successfully!', 'success');
             setCurrentPassword('');

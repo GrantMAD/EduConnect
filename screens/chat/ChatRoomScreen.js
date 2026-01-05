@@ -10,7 +10,6 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { BORDER_STYLES, BUBBLE_STYLES, STICKER_PACKS, NAME_COLOR_STYLES, TITLE_STYLES } from '../../constants/GamificationStyles';
-import { supabase } from '../../lib/supabase';
 import ParticipantsModal from '../../components/ParticipantsModal';
 import LinkPreview from '../../components/LinkPreview';
 import MessageActionModal from '../../components/MessageActionModal';
@@ -18,6 +17,9 @@ import DateHeader from '../../components/DateHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ChatMessagesSkeleton from '../../components/skeletons/ChatMessagesSkeleton';
 import LinearGradient from 'react-native-linear-gradient';
+
+// Import services
+import { fetchRecipientReadStatus, fetchChannelById, subscribeToMemberStatus, unsubscribeFromMemberStatus } from '../../services/chatService';
 
 const { width } = Dimensions.get('window');
 const defaultUserImage = require('../../assets/user.png');
@@ -237,13 +239,17 @@ const ChatRoomScreen = ({ route, navigation }) => {
     const pinnedMessages = useMemo(() => uniqueMessages.filter(m => m.is_pinned), [uniqueMessages]);
 
     const fetchRecipientLastReadAt = useCallback(async () => {
-        const { data } = await supabase.from('channel_members').select('last_read_at').eq('channel_id', channelId).neq('user_id', user.id);
-        if (data && data.length === 1) setRecipientLastReadAt(data[0].last_read_at);
+        try {
+            const data = await fetchRecipientReadStatus(channelId, user.id);
+            if (data && data.length === 1) setRecipientLastReadAt(data[0].last_read_at);
+        } catch (e) { console.error(e); }
     }, [channelId, user.id]);
 
-    const fetchChannelType = useCallback(async () => {
-        const { data } = await supabase.from('channels').select('type').eq('id', channelId).maybeSingle();
-        setChannelType(data?.type ?? null);
+    const fetchChannelTypeData = useCallback(async () => {
+        try {
+            const data = await fetchChannelById(channelId);
+            setChannelType(data?.type ?? null);
+        } catch (e) { console.error(e); }
     }, [channelId]);
 
     useEffect(() => {
@@ -268,31 +274,17 @@ const ChatRoomScreen = ({ route, navigation }) => {
         });
 
         fetchRecipientLastReadAt();
-        fetchChannelType();
+        fetchChannelTypeData();
 
-        const memberSub = supabase
-            .channel(`member-status:${channelId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'channel_members',
-                    filter: `channel_id=eq.${channelId}`,
-                },
-                (payload) => {
-                    if (payload.new.user_id !== user.id) {
-                        setRecipientLastReadAt(payload.new.last_read_at);
-                    }
-                }
-            )
-            .subscribe();
+        const memberSub = subscribeToMemberStatus(channelId, user.id, (lastReadAt) => {
+            setRecipientLastReadAt(lastReadAt);
+        });
 
         return () => {
             unsubscribeFromChannel(channelId);
-            supabase.removeChannel(memberSub);
+            unsubscribeFromMemberStatus(memberSub);
         };
-    }, [channelId, fetchChannelType, fetchRecipientLastReadAt, fetchMessages, markAsRead, name, navigation, subscribeToChannel, unsubscribeFromChannel, user.id]);
+    }, [channelId, fetchChannelTypeData, fetchRecipientLastReadAt, fetchMessages, markAsRead, name, navigation, subscribeToChannel, unsubscribeFromChannel, user.id]);
 
     const handlePickImage = useCallback(async () => {
         try {

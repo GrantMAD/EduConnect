@@ -4,8 +4,10 @@ import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faUserFriends, faChild, faUser } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
-import { supabase } from '../lib/supabase';
 import { useSchool } from '../context/SchoolContext';
+
+// Import services
+import { fetchAllParentsWithChildren } from '../services/userService';
 
 const FamilyLinksModal = React.memo(({ visible, onClose }) => {
     const { theme } = useTheme();
@@ -22,37 +24,7 @@ const FamilyLinksModal = React.memo(({ visible, onClose }) => {
     const fetchFamilyLinks = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('parent_child_relationships')
-                .select(`
-                    id,
-                    parent:users!parent_id(id, full_name, email, avatar_url),
-                    child:users!child_id(id, full_name, email, avatar_url)
-                `)
-                .eq('parent.school_id', schoolId)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-
-            // Group children by parent
-            const grouped = {};
-            (data || []).forEach(link => {
-                const parentId = link.parent?.id;
-                if (!parentId) return;
-
-                if (!grouped[parentId]) {
-                    grouped[parentId] = {
-                        parent: link.parent,
-                        children: []
-                    };
-                }
-                if (link.child) {
-                    grouped[parentId].children.push(link.child);
-                }
-            });
-
-            // Convert to array
-            const familiesArray = Object.values(grouped);
+            const familiesArray = await fetchAllParentsWithChildren();
             setGroupedFamilies(familiesArray);
         } catch (error) {
             console.error('Error fetching family links:', error);

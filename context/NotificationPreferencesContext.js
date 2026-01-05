@@ -1,5 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+
+// Import services
+import { getCurrentUser } from '../services/authService';
+import { fetchNotificationPreferences, updateNotificationPreferences } from '../services/userService';
 
 const NotificationPreferencesContext = createContext();
 
@@ -16,75 +19,62 @@ const DEFAULT_PREFERENCES = {
     quietHoursEnd: '07:00',
 };
 
-export const NotificationPreferencesProvider = ({ children }) => {
+export const NotificationPreferencesProvider = ({ children, session }) => {
     const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
     const [loading, setLoading] = useState(true);
 
-    // Load preferences from Supabase on mount
-    useEffect(() => {
-        loadPreferences();
-    }, []);
+    const loadPreferences = useCallback(async () => {
+        if (!session?.user?.id) {
+            setLoading(false);
+            return;
+        }
 
-    const loadPreferences = async () => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data, error } = await supabase
-                    .from('users')
-                    .select('notification_preferences')
-                    .eq('id', user.id)
-                    .single();
+            const data = await fetchNotificationPreferences(session.user.id);
 
-                if (error) {
-                    console.error('Error fetching notification preferences:', error);
-                } else if (data && data.notification_preferences) {
-                    // Merge with defaults to ensure all keys exist
-                    setPreferences({ ...DEFAULT_PREFERENCES, ...data.notification_preferences });
-                }
+            if (data) {
+                // Merge with defaults to ensure all keys exist
+                setPreferences({ ...DEFAULT_PREFERENCES, ...data });
             }
         } catch (error) {
             console.error('Error loading notification preferences:', error);
         } finally {
             setLoading(false);
         }
-    };
+    }, [session?.user?.id]);
+
+    // Load preferences when session changes
+    useEffect(() => {
+        loadPreferences();
+    }, [loadPreferences]);
 
     const updatePreference = React.useCallback(async (key, value) => {
         try {
             setPreferences(prev => {
                 const newPrefs = { ...prev, [key]: value };
                 
-                supabase.auth.getUser().then(({ data: { user } }) => {
-                    if (user) {
-                        supabase
-                            .from('users')
-                            .update({ notification_preferences: newPrefs })
-                            .eq('id', user.id)
-                            .catch(err => console.error('Error saving notification preferences:', err));
-                    }
-                });
+                if (session?.user?.id) {
+                    updateNotificationPreferences(session.user.id, newPrefs)
+                        .catch(err => console.error('Error saving notification preferences:', err));
+                }
 
                 return newPrefs;
             });
         } catch (error) {
             console.error('Error in updatePreference:', error);
         }
-    }, []);
+    }, [session?.user?.id]);
 
     const resetPreferences = React.useCallback(async () => {
         try {
             setPreferences(DEFAULT_PREFERENCES);
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                await supabase
-                    .from('users')
-                    .update({ notification_preferences: DEFAULT_PREFERENCES })
-                    .eq('id', user.id);
+            if (session?.user?.id) {
+                await updateNotificationPreferences(session.user.id, DEFAULT_PREFERENCES);
             }
         } catch (error) {
             console.error('Error resetting preferences:', error);
         }
-    }, []);
+    }, [session?.user?.id]);
 
     // Check if notifications should be sent based on quiet hours
     const shouldSendNotification = React.useCallback(() => {
