@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, ScrollView, Modal } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTrophy, faMedal, faCrown, faArrowUp, faArrowDown, faMinus, faArrowLeft, faInfoCircle, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { faTrophy, faMedal, faCrown, faArrowUp, faArrowDown, faMinus, faArrowLeft, faInfoCircle, faChevronRight, faStar, faFire, faPoll, faClipboardCheck, faShareAlt, faFilter, faCalendarAlt, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { useSchool } from '../../context/SchoolContext';
 import { useChat } from '../../context/ChatContext';
 import { BORDER_STYLES, NAME_COLOR_STYLES, TITLE_STYLES } from '../../constants/GamificationStyles';
@@ -14,7 +14,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 
 // Import services
-import { fetchSchoolGamification, fetchUsersEquippedItems } from '../../services/gamificationService';
+import { fetchEnhancedLeaderboard, fetchUsersEquippedItems } from '../../services/gamificationService';
+import { fetchAllClasses } from '../../services/classService';
 import { getCurrentUser } from '../../services/authService';
 import { getUserProfile, fetchUsersBySchool } from '../../services/userService';
 
@@ -24,63 +25,49 @@ const LeaderboardScreen = ({ navigation }) => {
     const { theme } = useTheme();
     const { schoolId } = useSchool();
     const { createChannel } = useChat();
+    const insets = useSafeAreaInsets();
+    
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    // Enhanced Controls State
+    const [metric, setMetric] = useState('xp'); // 'xp', 'streak', 'polls', 'tasks', 'resources'
+    const [timeRange, setTimeRange] = useState('all'); // 'all', 'weekly', 'monthly'
+    const [filterType, setFilterType] = useState('school'); // 'school' or 'class'
+    const [filterValue, setFilterValue] = useState(null);
+    const [classes, setClasses] = useState([]);
+    
     // Modal state
     const [selectedUser, setSelectedUser] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
+    const [isClassModalVisible, setIsClassModalVisible] = useState(false);
+
+    // Fetch Classes for Filter
+    useEffect(() => {
+        if (schoolId) {
+            fetchAllClasses(schoolId).then(setClasses).catch(console.error);
+        }
+    }, [schoolId]);
 
     const fetchLeaderboard = useCallback(async () => {
         if (!schoolId) return;
         setLoading(true);
         try {
-            const schoolUsers = await fetchUsersBySchool(schoolId);
-
-            if (!schoolUsers || schoolUsers.length === 0) {
-                setUsers([]);
-                setLoading(false);
-                return;
-            }
-
-            const schoolUserIds = schoolUsers.map(u => u.id);
-
-            const scores = await fetchSchoolGamification(schoolUserIds);
-
-            if (scores && scores.length > 0) {
-                const topScorerIds = scores.map(s => s.user_id);
-
-                const inventoryData = await fetchUsersEquippedItems(topScorerIds);
-
-                const resolveItem = (item) => Array.isArray(item) ? item[0] : item;
-
-                const leaderboardData = scores.map(score => {
-                    const user = schoolUsers.find(u => u.id === score.user_id);
-                    const userEquipped = inventoryData?.filter(i => i.user_id === score.user_id).map(i => resolveItem(i.shop_items)) || [];
-
-                    const equippedBorder = userEquipped.find(i => i?.category === 'avatar_border' || i?.category === 'border' || !i?.category);
-                    const equippedNameColor = userEquipped.find(i => i?.category === 'name_color');
-                    const equippedTitle = userEquipped.find(i => i?.category === 'title');
-
-                    return {
-                        ...score,
-                        user: user || { full_name: 'Unknown User' },
-                        equippedBorder,
-                        equippedNameColor,
-                        equippedTitle
-                    };
-                });
-
-                setUsers(leaderboardData);
-            } else {
-                setUsers([]);
-            }
+            const leaderboardData = await fetchEnhancedLeaderboard({
+                schoolId,
+                timeRange,
+                metric,
+                filterType,
+                filterValue
+            });
+            setUsers(leaderboardData);
         } catch (error) {
             console.error('Error fetching leaderboard:', error);
+            setUsers([]);
         } finally {
             setLoading(false);
         }
-    }, [schoolId]);
+    }, [schoolId, metric, timeRange, filterType, filterValue]);
 
     useEffect(() => {
         if (schoolId) {
@@ -101,6 +88,104 @@ const LeaderboardScreen = ({ navigation }) => {
             console.error('Error creating chat channel:', error);
         }
     }, [createChannel, navigation]);
+
+    const getMetricLabel = (m) => {
+        switch(m) {
+            case 'streak': return 'Days';
+            case 'polls': return 'Votes';
+            case 'tasks': return 'Tasks';
+            case 'resources': return 'Shared';
+            default: return 'XP';
+        }
+    }
+
+    const getMetricUnit = (m) => {
+        switch(m) {
+            case 'streak': return 'Day Streak';
+            case 'polls': return 'Votes';
+            case 'tasks': return 'Tasks';
+            case 'resources': return 'Resources';
+            default: return 'XP';
+        }
+    }
+
+    const renderMetricSelector = () => (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.metricsScroll} contentContainerStyle={styles.metricsContent}>
+            {[
+                { id: 'xp', icon: faStar, label: 'XP', color: '#6366f1' },
+                { id: 'streak', icon: faFire, label: 'Streak', color: '#f97316' },
+                { id: 'polls', icon: faPoll, label: 'Polls', color: '#3b82f6' },
+                { id: 'tasks', icon: faClipboardCheck, label: 'Tasks', color: '#10b981' },
+                { id: 'resources', icon: faShareAlt, label: 'Resources', color: '#8b5cf6' },
+            ].map((item) => (
+                <TouchableOpacity
+                    key={item.id}
+                    onPress={() => {
+                        setMetric(item.id);
+                        if (item.id === 'streak') setTimeRange('all');
+                    }}
+                    style={[
+                        styles.metricChip,
+                        { borderColor: theme.colors.border },
+                        metric === item.id && { backgroundColor: item.color + '20', borderColor: item.color }
+                    ]}
+                >
+                    <FontAwesomeIcon 
+                        icon={item.icon} 
+                        size={12} 
+                        color={metric === item.id ? item.color : theme.colors.placeholder} 
+                    />
+                    <Text style={[
+                        styles.metricChipText, 
+                        { color: theme.colors.text },
+                        metric === item.id && { color: item.color, fontWeight: 'bold' }
+                    ]}>
+                        {item.label}
+                    </Text>
+                </TouchableOpacity>
+            ))}
+        </ScrollView>
+    );
+
+    const renderFilters = () => (
+        <View style={styles.filterContainer}>
+            {metric !== 'streak' ? (
+                <View style={[styles.timeRangeContainer, { backgroundColor: theme.colors.card }]}>
+                    {['all', 'weekly', 'monthly'].map((range) => (
+                        <TouchableOpacity
+                            key={range}
+                            onPress={() => setTimeRange(range)}
+                            style={[
+                                styles.timeRangeButton,
+                                timeRange === range && { backgroundColor: theme.colors.background, shadowOpacity: 0.1 }
+                            ]}
+                        >
+                            <Text style={[
+                                styles.timeRangeText,
+                                { color: theme.colors.placeholder },
+                                timeRange === range && { color: theme.colors.text, fontWeight: 'bold' }
+                            ]}>
+                                {range === 'all' ? 'All Time' : range === 'weekly' ? 'Week' : 'Month'}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            ) : (
+                <View style={{ flex: 1 }} />
+            )}
+
+            <TouchableOpacity
+                onPress={() => setIsClassModalVisible(true)}
+                style={[styles.filterButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
+            >
+                <FontAwesomeIcon icon={faFilter} size={12} color={theme.colors.text} />
+                <Text style={[styles.filterButtonText, { color: theme.colors.text }]}>
+                    {filterType === 'school' ? 'School' : classes.find(c => c.id === filterValue)?.name || 'Class'}
+                </Text>
+                <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.placeholder} />
+            </TouchableOpacity>
+        </View>
+    );
 
     const renderUser = useCallback(({ item, index }) => {
         const nameColorStyle = item.equippedNameColor ? NAME_COLOR_STYLES[item.equippedNameColor.image_url] : null;
@@ -154,14 +239,14 @@ const LeaderboardScreen = ({ navigation }) => {
                 </View>
 
                 <View style={styles.pointsContainer}>
-                    <Text style={[styles.pointsText, { color: theme.colors.primary }]}>{item.current_xp.toLocaleString()}</Text>
-                    <Text style={styles.pointsLabel}>XP</Text>
+                    <Text style={[styles.pointsText, { color: theme.colors.primary }]}>{item.display_score.toLocaleString()}</Text>
+                    <Text style={styles.pointsLabel}>{getMetricLabel(metric)}</Text>
                 </View>
             </TouchableOpacity>
         );
-    }, [theme, handleUserPress]);
+    }, [theme, handleUserPress, metric]);
 
-    const topScore = useMemo(() => users[0]?.current_xp.toLocaleString() || '0', [users]);
+    const topScore = useMemo(() => users[0]?.display_score.toLocaleString() || '0', [users]);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -181,9 +266,11 @@ const LeaderboardScreen = ({ navigation }) => {
 
                 <View style={styles.heroContent}>
                     <View style={styles.heroTextContainer}>
-                        <Text style={styles.heroTitle}>School Leaderboard</Text>
+                        <Text style={styles.heroTitle}>
+                            {filterType === 'class' ? 'Class Leaderboard' : 'School Leaderboard'}
+                        </Text>
                         <Text style={styles.heroDescription}>
-                            Celebrate the top performers in your school community.
+                            {timeRange === 'all' ? 'All Time' : timeRange === 'weekly' ? 'This Week' : 'This Month'} • {getMetricUnit(metric)}
                         </Text>
                     </View>
                     <View style={styles.topScoreBadge}>
@@ -195,6 +282,11 @@ const LeaderboardScreen = ({ navigation }) => {
                     </View>
                 </View>
             </LinearGradient>
+
+            <View style={styles.controlsSection}>
+                {renderMetricSelector()}
+                {renderFilters()}
+            </View>
 
             {loading ? (
                 <LeaderboardSkeleton />
@@ -208,6 +300,13 @@ const LeaderboardScreen = ({ navigation }) => {
                     initialNumToRender={10}
                     maxToRenderPerBatch={10}
                     windowSize={5}
+                    ListEmptyComponent={
+                        <View style={styles.emptyContainer}>
+                            <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>
+                                No rankings available for this category yet.
+                            </Text>
+                        </View>
+                    }
                 />
             )}
 
@@ -217,6 +316,60 @@ const LeaderboardScreen = ({ navigation }) => {
                 onClose={() => setIsModalVisible(false)}
                 onMessageUser={handleMessageUser}
             />
+
+            {/* Class Filter Modal */}
+            <Modal
+                visible={isClassModalVisible}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setIsClassModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, { backgroundColor: theme.colors.card, paddingBottom: insets.bottom + 20 }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Filter by Class</Text>
+                            <TouchableOpacity onPress={() => setIsClassModalVisible(false)} style={styles.closeButton}>
+                                <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
+                            </TouchableOpacity>
+                        </View>
+                        
+                        <ScrollView style={styles.classScroll}>
+                            <TouchableOpacity
+                                style={[styles.classItem, filterType === 'school' && { backgroundColor: theme.colors.primary + '10' }]}
+                                onPress={() => {
+                                    setFilterType('school');
+                                    setFilterValue(null);
+                                    setIsClassModalVisible(false);
+                                }}
+                            >
+                                <Text style={[styles.classItemText, { color: theme.colors.text }, filterType === 'school' && { color: theme.colors.primary, fontWeight: 'bold' }]}>
+                                    School
+                                </Text>
+                                {filterType === 'school' && <FontAwesomeIcon icon={faClipboardCheck} color={theme.colors.primary} size={16} />}
+                            </TouchableOpacity>
+
+                            <Text style={[styles.sectionHeader, { color: theme.colors.placeholder }]}>Classes</Text>
+                            
+                            {classes.map(cls => (
+                                <TouchableOpacity
+                                    key={cls.id}
+                                    style={[styles.classItem, filterType === 'class' && filterValue === cls.id && { backgroundColor: theme.colors.primary + '10' }]}
+                                    onPress={() => {
+                                        setFilterType('class');
+                                        setFilterValue(cls.id);
+                                        setIsClassModalVisible(false);
+                                    }}
+                                >
+                                    <Text style={[styles.classItemText, { color: theme.colors.text }, filterType === 'class' && filterValue === cls.id && { color: theme.colors.primary, fontWeight: 'bold' }]}>
+                                        {cls.name}
+                                    </Text>
+                                    {filterType === 'class' && filterValue === cls.id && <FontAwesomeIcon icon={faClipboardCheck} color={theme.colors.primary} size={16} />}
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -227,10 +380,11 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
     heroContainer: {
         padding: 20,
-        marginBottom: 16,
+        paddingTop: 40,
+        marginBottom: 8,
         elevation: 0,
-        borderBottomLeftRadius: 16,
-        borderBottomRightRadius: 16,
+        borderBottomLeftRadius: 24,
+        borderBottomRightRadius: 24,
     },
     backButton: {
         width: 40,
@@ -245,6 +399,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        marginBottom: 8
     },
     heroTextContainer: {
         flex: 1,
@@ -254,11 +409,12 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 24,
         fontWeight: '800',
-        marginBottom: 6,
+        marginBottom: 4,
     },
     heroDescription: {
         color: '#fef3c7',
         fontSize: 14,
+        fontWeight: '600',
     },
     topScoreBadge: {
         backgroundColor: 'rgba(255,255,255,0.15)',
@@ -279,6 +435,69 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 14,
         fontWeight: '900',
+    },
+    controlsSection: {
+        paddingHorizontal: 16,
+        marginBottom: 10,
+    },
+    metricsScroll: {
+        marginBottom: 12,
+    },
+    metricsContent: {
+        paddingRight: 16,
+        gap: 8,
+    },
+    metricChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        backgroundColor: 'transparent',
+        gap: 6,
+    },
+    metricChipText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    filterContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: 10,
+    },
+    timeRangeContainer: {
+        flexDirection: 'row',
+        padding: 4,
+        borderRadius: 12,
+        flex: 1,
+    },
+    timeRangeButton: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 6,
+        borderRadius: 8,
+    },
+    timeRangeText: {
+        fontSize: 11,
+        fontWeight: '600',
+    },
+    filterButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        borderWidth: 1,
+        gap: 8,
+        minWidth: 120,
+        justifyContent: 'space-between'
+    },
+    filterButtonText: {
+        fontSize: 12,
+        fontWeight: '600',
+        flex: 1,
     },
     listContent: { paddingHorizontal: 16, paddingBottom: 30 },
     userCard: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, marginBottom: 10 },
@@ -307,5 +526,61 @@ const styles = StyleSheet.create({
         minWidth: 70
     },
     pointsText: { fontSize: 13, fontWeight: '900' },
-    pointsLabel: { fontSize: 8, fontWeight: 'bold', color: 'rgba(99, 102, 241, 0.6)', marginTop: -2 }
+    pointsLabel: { fontSize: 8, fontWeight: 'bold', color: 'rgba(99, 102, 241, 0.6)', marginTop: -2 },
+    emptyContainer: {
+        padding: 40,
+        alignItems: 'center',
+    },
+    emptyText: {
+        fontSize: 14,
+        fontStyle: 'italic',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: 20,
+        maxHeight: '80%',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    closeButton: {
+        padding: 4,
+    },
+    classScroll: {
+        marginBottom: 10,
+    },
+    classItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 14,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+        marginBottom: 4,
+    },
+    classItemText: {
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    sectionHeader: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+        marginTop: 16,
+        marginBottom: 8,
+        paddingLeft: 12,
+    }
 });
