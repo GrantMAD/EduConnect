@@ -20,6 +20,8 @@ import ManageUsersInClassScreen from '../screens/class/ManageUsersInClassScreen'
 import ClubListScreen from '../screens/class/ClubListScreen';
 import CreateClubScreen from '../screens/class/CreateClubScreen';
 import ClubDetailScreen from '../screens/class/ClubDetailScreen';
+import GradebookScreen from '../screens/class/GradebookScreen';
+import LessonPlansScreen from '../screens/class/LessonPlansScreen';
 import SchoolDataScreen from '../screens/SchoolDataScreen';
 import EngagementInsightsScreen from '../screens/EngagementInsightsScreen';
 import ManageAnnouncementsScreen from '../screens/ManageAnnouncementsScreen';
@@ -76,6 +78,8 @@ const MainStackNavigator = () => (
     <Stack.Screen name="ClubList" component={ClubListScreen} options={{ title: 'Clubs & Teams' }} />
     <Stack.Screen name="CreateClub" component={CreateClubScreen} options={{ title: 'Manage Club' }} />
     <Stack.Screen name="ClubDetail" component={ClubDetailScreen} options={{ headerShown: false }} />
+    <Stack.Screen name="Gradebook" component={GradebookScreen} options={{ headerShown: false }} />
+    <Stack.Screen name="LessonPlans" component={LessonPlansScreen} options={{ headerShown: false }} />
     <Stack.Screen name="SchoolData" component={SchoolDataScreen} />
     <Stack.Screen name="EngagementInsights" component={EngagementInsightsScreen} />
     <Stack.Screen name="ManageAnnouncements" component={ManageAnnouncementsScreen} />

@@ -10,6 +10,7 @@ import StatCard from '../components/dashboard/StatCard';
 import UpcomingTasks from '../components/dashboard/UpcomingTasks';
 import DailyOverview from '../components/dashboard/DailyOverview';
 import QuickActions from '../components/dashboard/QuickActions';
+import UpcomingLessons from '../components/dashboard/UpcomingLessons';
 import GamificationHub from '../components/dashboard/GamificationHub';
 import RecommendedResources from '../components/dashboard/RecommendedResources';
 import { useTheme } from '../context/ThemeContext';
@@ -29,8 +30,9 @@ import { getCurrentUser } from '../services/authService';
 import { getUserProfile, fetchParentChildren, fetchUsersBySchool } from '../services/userService';
 import { fetchHomework as fetchHomeworkService } from '../services/homeworkService';
 import { fetchAssignments as fetchAssignmentsService } from '../services/assignmentService';
-import { fetchTodaySchedules } from '../services/classService';
+import { fetchTodaySchedules, fetchClassIds } from '../services/classService';
 import { fetchTodayPTMBookings } from '../services/ptmService';
+import { fetchUpcomingLessons } from '../services/lessonService';
 import { getDashboardStats, dailyCheckIn, fetchParentChildLinkCount, fetchClubsCount, fetchTotalClassesCount } from '../services/dashboardService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -47,6 +49,7 @@ const DashboardScreen = ({ navigation }) => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [upcomingTasks, setUpcomingTasks] = useState([]);
+    const [upcomingLessons, setUpcomingLessons] = useState([]);
     const [todaySessions, setTodaySessions] = useState([]);
     const [stats, setStats] = useState({
         totalUsers: 0,
@@ -129,6 +132,19 @@ const DashboardScreen = ({ navigation }) => {
         }
     }, [schoolId]);
 
+    const fetchDashboardLessons = useCallback(async (userId, role) => {
+        try {
+            if (!userId) return;
+            const classIds = await fetchClassIds(userId, role, schoolId);
+            if (classIds && classIds.length > 0) {
+                const lessons = await fetchUpcomingLessons(classIds);
+                setUpcomingLessons(lessons);
+            }
+        } catch (e) {
+            console.error('Error fetching dashboard lessons:', e);
+        }
+    }, [schoolId]);
+
     const fetchDashboardData = useCallback(async () => {
         if (!schoolId) return;
 
@@ -166,7 +182,8 @@ const DashboardScreen = ({ navigation }) => {
             // 2. Fetch Data
             await Promise.all([
                 fetchUpcomingTasks(user.id, profile?.role),
-                fetchTodaySessions(user.id, profile?.role)
+                fetchTodaySessions(user.id, profile?.role),
+                fetchDashboardLessons(user.id, profile?.role)
             ]);
 
         } catch (error) {
@@ -381,6 +398,12 @@ const DashboardScreen = ({ navigation }) => {
                         style={styles.fullWidth}
                     />
                 </View>
+
+                <UpcomingLessons
+                    lessons={upcomingLessons}
+                    navigation={navigation}
+                    role={userRole}
+                />
 
                 <DailyOverview
                     id="dashboard-recent"

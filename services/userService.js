@@ -6,7 +6,7 @@ export const getUserProfile = async (userId) => {
         .select('*')
         .eq('id', userId)
         .single();
-    
+
     if (error) throw error;
     return data;
 };
@@ -16,7 +16,7 @@ export const fetchUsersBySchoolWithPreferences = async (schoolId) => {
         .from('users')
         .select('id, notification_preferences, role')
         .eq('school_id', schoolId);
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -27,31 +27,31 @@ export const fetchClassMembersIds = async (classId, role = 'student') => {
         .select('user_id')
         .eq('class_id', classId)
         .eq('role', role);
-    
+
     if (error) throw error;
     return data?.map(m => m.user_id) || [];
 };
 
 export const fetchParentsOfStudents = async (studentIds) => {
     if (!studentIds || studentIds.length === 0) return [];
-    
+
     const { data, error } = await supabase
         .from('parent_child_relationships')
         .select('parent_id')
         .in('child_id', studentIds);
-    
+
     if (error) throw error;
     return data?.map(p => p.parent_id) || [];
 };
 
 export const fetchUsersByIdsWithPreferences = async (userIds) => {
     if (!userIds || userIds.length === 0) return [];
-    
+
     const { data, error } = await supabase
         .from('users')
         .select('id, full_name, email, avatar_url, notification_preferences, role')
         .in('id', userIds);
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -66,7 +66,7 @@ export const fetchUserClasses = async (userId, role) => {
             .from('class_members')
             .select('class_id')
             .eq('user_id', userId);
-        
+
         if (memberError) throw memberError;
         if (memberClasses) {
             associatedClassIds.push(...memberClasses.map(m => m.class_id));
@@ -77,7 +77,7 @@ export const fetchUserClasses = async (userId, role) => {
                 .from('parent_child_relationships')
                 .select('child_id')
                 .eq('parent_id', userId);
-            
+
             if (childrenError) throw childrenError;
 
             if (children && children.length > 0) {
@@ -86,7 +86,7 @@ export const fetchUserClasses = async (userId, role) => {
                     .from('class_members')
                     .select('class_id')
                     .in('user_id', childIds);
-                
+
                 if (childClassesError) throw childClassesError;
                 if (childClasses) {
                     associatedClassIds.push(...childClasses.map(m => m.class_id));
@@ -106,7 +106,7 @@ export const fetchParentChildren = async (parentId) => {
         .from('parent_child_relationships')
         .select('child_id')
         .eq('parent_id', parentId);
-    
+
     if (error) throw error;
     return data?.map(r => r.child_id) || [];
 };
@@ -116,7 +116,7 @@ export const fetchParentChildrenDetails = async (parentId) => {
         .from('parent_child_relationships')
         .select('child:users!child_id(id, full_name, email, avatar_url)')
         .eq('parent_id', parentId);
-    
+
     if (error) throw error;
     return data?.map(r => r.child) || [];
 };
@@ -126,13 +126,13 @@ export const fetchUsersBySchool = async (schoolId, filters = {}) => {
         .from('users')
         .select('*')
         .eq('school_id', schoolId);
-    
+
     if (filters.role) {
         query = query.eq('role', filters.role);
     }
 
     const { data, error } = await query.order('full_name', { ascending: true });
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -143,7 +143,7 @@ export const updateUserRole = async (userId, role) => {
         .update({ role })
         .eq('id', userId)
         .select();
-    
+
     if (error) throw error;
     return data[0];
 };
@@ -154,7 +154,7 @@ export const leaveSchool = async (userId) => {
         .update({ school_id: null })
         .eq('id', userId)
         .select();
-    
+
     if (error) throw error;
     return data[0];
 };
@@ -164,7 +164,7 @@ export const disassociateClassMembers = async (userId) => {
         .from('class_members')
         .delete()
         .eq('user_id', userId);
-    
+
     if (error) throw error;
     return true;
 };
@@ -179,7 +179,7 @@ export const createParentChildRelationship = async (parentId, childId) => {
 
         .select();
 
-    
+
 
     if (error) throw error;
 
@@ -205,7 +205,7 @@ export const updateParentChildRequest = async (parentId, childId, status) => {
 
         .select();
 
-    
+
 
     if (error) throw error;
 
@@ -220,7 +220,7 @@ export const fetchTemplates = async (userId, type) => {
         .eq('user_id', userId)
         .eq('type', type)
         .order('created_at', { ascending: false });
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -230,7 +230,7 @@ export const createTemplate = async (templateData) => {
         .from('templates')
         .insert([templateData])
         .select();
-    
+
     if (error) throw error;
     return data[0];
 };
@@ -240,7 +240,7 @@ export const deleteTemplate = async (templateId) => {
         .from('templates')
         .delete()
         .eq('id', templateId);
-    
+
     if (error) throw error;
     return true;
 };
@@ -248,7 +248,7 @@ export const deleteTemplate = async (templateId) => {
 export const fetchParentsOfStudentsRpc = async (studentIds) => {
     const { data, error } = await supabase
         .rpc('get_parents_of_students', { p_student_ids: studentIds });
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -257,7 +257,7 @@ export const fetchAllParentsWithChildren = async () => {
     const { data: relationships, error } = await supabase
         .from('parent_child_relationships')
         .select('parent:users!parent_id(id, full_name, email, avatar_url), child:users!child_id(id, full_name, email, avatar_url)');
-    
+
     if (error) throw error;
 
     const parentMap = {};
@@ -271,11 +271,11 @@ export const fetchAllParentsWithChildren = async () => {
 export const fetchStudentMarks = async (studentId, classIds) => {
     const { data, error } = await supabase
         .from('student_marks')
-        .select('class_id, assessment_name, mark, teacher_feedback, score, total_possible, created_at')
+        .select('*, category:grading_categories(id, name, weight)')
         .eq('student_id', studentId)
         .in('class_id', classIds)
-        .order('created_at', { ascending: false });
-    
+        .order('assessment_date', { ascending: false });
+
     if (error) throw error;
     return data || [];
 };
@@ -286,7 +286,7 @@ export const updateSchoolId = async (userId, schoolId) => {
         .update({ school_id: schoolId })
         .eq('id', userId)
         .select();
-    
+
     if (error) throw error;
     return data[0];
 };
@@ -297,7 +297,7 @@ export const fetchThemePreference = async (userId) => {
         .select('theme_preference')
         .eq('id', userId)
         .single();
-    
+
     if (error) throw error;
     return data?.theme_preference;
 };
@@ -307,7 +307,7 @@ export const updateThemePreference = async (userId, theme) => {
         .from('users')
         .update({ theme_preference: theme })
         .eq('id', userId);
-    
+
     if (error) throw error;
     return true;
 };
@@ -317,7 +317,7 @@ export const updatePushToken = async (userId, token) => {
         .from('users')
         .update({ push_token: token })
         .eq('id', userId);
-    
+
     if (error) throw error;
     return true;
 };
@@ -328,7 +328,7 @@ export const fetchNotificationPreferences = async (userId) => {
         .select('notification_preferences')
         .eq('id', userId)
         .single();
-    
+
     if (error) throw error;
     return data?.notification_preferences;
 };
@@ -338,7 +338,7 @@ export const fetchClassMembersUserIds = async (classId) => {
         .from('class_members')
         .select('user_id')
         .eq('class_id', classId);
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -348,7 +348,7 @@ export const updateNotificationPreferences = async (userId, preferences) => {
         .from('users')
         .update({ notification_preferences: preferences })
         .eq('id', userId);
-    
+
     if (error) throw error;
     return true;
 };
@@ -358,7 +358,7 @@ export const markWalkthroughAsSeen = async (userId) => {
         .from('users')
         .update({ has_seen_walkthrough: true })
         .eq('id', userId);
-    
+
     if (error) throw error;
     return true;
 };
@@ -368,7 +368,7 @@ export const saveStudentMarks = async (marks) => {
         .from('student_marks')
         .insert(marks)
         .select();
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -379,7 +379,7 @@ export const updateStudentMark = async (markId, markData) => {
         .update(markData)
         .eq('id', markId)
         .select();
-    
+
     if (error) throw error;
     return data[0];
 };
@@ -389,7 +389,7 @@ export const deleteStudentMark = async (markId) => {
         .from('student_marks')
         .delete()
         .eq('id', markId);
-    
+
     if (error) throw error;
     return true;
 };
@@ -399,7 +399,7 @@ export const fetchStudentCompletionCount = async (studentId) => {
         .from('student_completions')
         .select('*', { count: 'exact', head: true })
         .eq('student_id', studentId);
-    
+
     if (error) throw error;
     return count || 0;
 };
@@ -411,7 +411,7 @@ export const fetchStudentMarksSimple = async (studentId, limit = 10) => {
         .eq('student_id', studentId)
         .order('created_at', { ascending: false })
         .limit(limit);
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -443,7 +443,7 @@ export const updateSchoolRequestStatus = async (userId, status, schoolId = null)
         })
         .eq('id', userId)
         .select();
-    
+
     if (error) throw error;
     return data[0];
 };
@@ -452,7 +452,7 @@ export const uploadAvatar = async (filePath, fileBody) => {
     const { data, error } = await supabase.storage
         .from('avatars')
         .upload(filePath, fileBody, { cacheControl: '3600', upsert: true });
-    
+
     if (error) throw error;
     return data;
 };
@@ -468,7 +468,7 @@ export const updateUserProfile = async (userId, updateData) => {
         .update(updateData)
         .eq('id', userId)
         .select();
-    
+
     if (error) throw error;
     return data[0];
 };

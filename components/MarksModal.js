@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Image, ScrollView, ActivityIndicator } from 'react-native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -12,6 +12,7 @@ import Toast from './Toast';
 // Import services
 import { getCurrentUser } from '../services/authService';
 import { saveStudentMarks } from '../services/userService';
+import { fetchGradingCategories } from '../services/gradebookService';
 
 const defaultUserImage = require("../assets/user.png");
 
@@ -24,14 +25,42 @@ const MarksModal = React.memo(({ visible, onClose, classId, classMembers }) => {
   const insets = useSafeAreaInsets();
 
   const [marks, setMarks] = useState({});
+  const [categories, setCategories] = useState([]);
+  const [loadingCats, setLoadingCats] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (visible && classId) {
+      const loadCats = async () => {
+        try {
+          const data = await fetchGradingCategories(classId);
+          setCategories(data);
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setLoadingCats(false);
+        }
+      };
+      loadCats();
+    }
+  }, [visible, classId]);
 
   const handleAddMark = (studentId) => {
     setMarks((prevMarks) => {
       const studentMarks = prevMarks[studentId] || [];
       return {
         ...prevMarks,
-        [studentId]: [...studentMarks, { assessmentType: 'test', assessmentName: '', score: '', total: '100', feedback: '' }],
+        [studentId]: [
+          ...studentMarks,
+          {
+            categoryId: categories[0]?.id || null,
+            assessmentName: '',
+            score: '',
+            total: '100',
+            feedback: '',
+            assessmentDate: new Date().toISOString().split('T')[0]
+          }
+        ],
       };
     });
   };
@@ -78,7 +107,9 @@ const MarksModal = React.memo(({ visible, onClose, classId, classMembers }) => {
               mark: formattedMark,
               score: score,
               total_possible: total,
-              assessment_name: `${markData.assessmentType}: ${markData.assessmentName}`,
+              assessment_name: markData.assessmentName,
+              category_id: markData.categoryId,
+              assessment_date: markData.assessmentDate,
               teacher_feedback: markData.feedback || null,
             });
           }
@@ -123,75 +154,82 @@ const MarksModal = React.memo(({ visible, onClose, classId, classMembers }) => {
         </TouchableOpacity>
       </View>
       {marks[student.users.id] && marks[student.users.id].map((mark, index) => {
-        const percentage = (mark.score && mark.total) 
-            ? ((parseFloat(mark.score) / parseFloat(mark.total)) * 100).toFixed(1) 
-            : null;
+        const percentage = (mark.score && mark.total)
+          ? ((parseFloat(mark.score) / parseFloat(mark.total)) * 100).toFixed(1)
+          : null;
         const isOverLimit = parseFloat(mark.score) > parseFloat(mark.total);
 
         return (
           <View key={index} style={[styles.markEntryContainer, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-            <View style={[styles.assessmentTypeContainer, { justifyContent: 'space-between', marginBottom: 12, paddingHorizontal: 12 }]}>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={[styles.typeBtn, { borderColor: theme.colors.cardBorder }, mark.assessmentType === 'test' && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
-                  onPress={() => handleMarkChange(student.users.id, index, 'assessmentType', 'test')}
-                >
-                  <Text style={[styles.typeBtnText, mark.assessmentType === 'test' ? { color: '#fff' } : { color: theme.colors.placeholder }]}>TEST</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={[styles.typeBtn, { borderColor: theme.colors.cardBorder }, mark.assessmentType === 'assignment' && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
-                  onPress={() => handleMarkChange(student.users.id, index, 'assessmentType', 'assignment')}
-                >
-                  <Text style={[styles.typeBtnText, mark.assessmentType === 'assignment' ? { color: '#fff' } : { color: theme.colors.placeholder }]}>ASSIGNMENT</Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity onPress={() => handleRemoveMark(student.users.id, index)} style={{ alignSelf: 'center' }}>
+            <View style={[styles.assessmentTypeContainer, { marginBottom: 12, paddingHorizontal: 12 }]}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {categories.map(cat => (
+                    <TouchableOpacity
+                      key={cat.id}
+                      activeOpacity={0.8}
+                      style={[
+                        styles.typeBtn,
+                        { borderColor: theme.colors.cardBorder },
+                        mark.categoryId === cat.id && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }
+                      ]}
+                      onPress={() => handleMarkChange(student.users.id, index, 'categoryId', cat.id)}
+                    >
+                      <Text style={[styles.typeBtnText, mark.categoryId === cat.id ? { color: '#fff' } : { color: theme.colors.placeholder }]}>
+                        {cat.name.toUpperCase()}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                  {categories.length === 0 && (
+                    <Text style={{ fontSize: 10, color: theme.colors.placeholder }}>No categories defined</Text>
+                  )}
+                </View>
+              </ScrollView>
+              <TouchableOpacity onPress={() => handleRemoveMark(student.users.id, index)} style={{ marginLeft: 12 }}>
                 <FontAwesomeIcon icon={faMinusCircle} size={18} color="#ef4444" />
               </TouchableOpacity>
             </View>
-            
+
             <View style={{ paddingHorizontal: 12, marginBottom: 12 }}>
-                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                    <FontAwesomeIcon icon={faTag} size={12} color={theme.colors.placeholder} style={{ marginRight: 10 }} />
-                    <TextInput
-                        style={[styles.markInput, { flex: 1, color: theme.colors.text }]}
-                        placeholder="Assessment Name"
-                        placeholderTextColor={theme.colors.placeholder}
-                        value={mark.assessmentName}
-                        onChangeText={(text) => handleMarkChange(student.users.id, index, 'assessmentName', text)}
-                    />
-                </View>
+              <View style={[styles.inputWrapper, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                <FontAwesomeIcon icon={faTag} size={12} color={theme.colors.placeholder} style={{ marginRight: 10 }} />
+                <TextInput
+                  style={[styles.markInput, { flex: 1, color: theme.colors.text }]}
+                  placeholder="Assessment Name"
+                  placeholderTextColor={theme.colors.placeholder}
+                  value={mark.assessmentName}
+                  onChangeText={(text) => handleMarkChange(student.users.id, index, 'assessmentName', text)}
+                />
+              </View>
             </View>
 
             <View style={[styles.markInputRow, { paddingHorizontal: 12, gap: 12 }]}>
-                <View style={[styles.inputWrapper, { flex: 1, backgroundColor: theme.colors.surface, borderColor: isOverLimit ? '#ef4444' : theme.colors.cardBorder, borderWidth: 1 }]}>
-                    <TextInput
-                        style={[styles.markInput, { flex: 1, color: theme.colors.text, textAlign: 'center' }]}
-                        placeholder="Score"
-                        placeholderTextColor={theme.colors.placeholder}
-                        value={mark.score}
-                        keyboardType="numeric"
-                        onChangeText={(text) => handleMarkChange(student.users.id, index, 'score', text)}
-                    />
+              <View style={[styles.inputWrapper, { flex: 1, backgroundColor: theme.colors.surface, borderColor: isOverLimit ? '#ef4444' : theme.colors.cardBorder, borderWidth: 1 }]}>
+                <TextInput
+                  style={[styles.markInput, { flex: 1, color: theme.colors.text, textAlign: 'center' }]}
+                  placeholder="Score"
+                  placeholderTextColor={theme.colors.placeholder}
+                  value={mark.score}
+                  keyboardType="numeric"
+                  onChangeText={(text) => handleMarkChange(student.users.id, index, 'score', text)}
+                />
+              </View>
+              <Text style={{ color: theme.colors.placeholder, fontWeight: '900' }}>/</Text>
+              <View style={[styles.inputWrapper, { flex: 1, backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                <TextInput
+                  style={[styles.markInput, { flex: 1, color: theme.colors.text, textAlign: 'center' }]}
+                  placeholder="Total"
+                  placeholderTextColor={theme.colors.placeholder}
+                  value={mark.total}
+                  keyboardType="numeric"
+                  onChangeText={(text) => handleMarkChange(student.users.id, index, 'total', text)}
+                />
+              </View>
+              {percentage !== null && !isNaN(percentage) && (
+                <View style={[styles.percentageLabel, { backgroundColor: theme.colors.primary + '10' }]}>
+                  <Text style={{ color: theme.colors.primary, fontSize: 11, fontWeight: '900' }}>{percentage}%</Text>
                 </View>
-                <Text style={{ color: theme.colors.placeholder, fontWeight: '900' }}>/</Text>
-                <View style={[styles.inputWrapper, { flex: 1, backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                    <TextInput
-                        style={[styles.markInput, { flex: 1, color: theme.colors.text, textAlign: 'center' }]}
-                        placeholder="Total"
-                        placeholderTextColor={theme.colors.placeholder}
-                        value={mark.total}
-                        keyboardType="numeric"
-                        onChangeText={(text) => handleMarkChange(student.users.id, index, 'total', text)}
-                    />
-                </View>
-                {percentage !== null && !isNaN(percentage) && (
-                    <View style={[styles.percentageLabel, { backgroundColor: theme.colors.primary + '10' }]}>
-                        <Text style={{ color: theme.colors.primary, fontSize: 11, fontWeight: '900' }}>{percentage}%</Text>
-                    </View>
-                )}
+              )}
             </View>
 
             <View style={{ paddingHorizontal: 12, paddingBottom: 12, marginTop: 12 }}>
@@ -226,7 +264,7 @@ const MarksModal = React.memo(({ visible, onClose, classId, classMembers }) => {
         <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={[styles.iconBoxHeader, { backgroundColor: theme.colors.primary + '15' }]}>
-                <FontAwesomeIcon icon={faPencilAlt} size={18} color={theme.colors.primary} />
+              <FontAwesomeIcon icon={faPencilAlt} size={18} color={theme.colors.primary} />
             </View>
             <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Submit Marks</Text>
           </View>
@@ -337,23 +375,23 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   inputWrapper: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      height: 48,
-      borderRadius: 12,
-      paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 48,
+    borderRadius: 12,
+    paddingHorizontal: 12,
   },
   markInput: {
     fontSize: 14,
     fontWeight: '700',
   },
   textArea: {
-      borderRadius: 12,
-      height: 60,
-      padding: 12,
-      fontSize: 13,
-      fontWeight: '600',
-      textAlignVertical: 'top',
+    borderRadius: 12,
+    height: 60,
+    padding: 12,
+    fontSize: 13,
+    fontWeight: '600',
+    textAlignVertical: 'top',
   },
   addMarkBtn: {
     height: 36,

@@ -52,13 +52,13 @@ import LinearGradient from 'react-native-linear-gradient';
 
 // Import services
 import { getCurrentUser } from '../../services/authService';
-import { 
-  fetchUsersBySchool, 
+import {
+  fetchUsersBySchool,
   fetchStudentMarks as fetchStudentMarksService,
   fetchParentsOfStudentsRpc
 } from '../../services/userService';
-import { 
-  fetchClassMembers as fetchClassMembersService, 
+import {
+  fetchClassMembers as fetchClassMembersService,
   fetchClassSchedules as fetchClassSchedulesService,
   fetchClassInfo,
   addMemberToClass,
@@ -122,7 +122,7 @@ const ManageUsersInClassScreen = ({ navigation }) => {
   const availableStudents = useMemo(() => {
     const classStudentIds = classMembers.map((member) => member.users.id);
     return allStudents.filter(
-        (student) => !classStudentIds.includes(student.id)
+      (student) => !classStudentIds.includes(student.id)
     );
   }, [allStudents, classMembers]);
 
@@ -338,10 +338,10 @@ const ManageUsersInClassScreen = ({ navigation }) => {
 
     setSaving(true);
     try {
-      await updateClassSchedule(selectedSchedule.id, { 
-        start_time: startTime.toISOString(), 
-        end_time: endTime.toISOString(), 
-        class_info: tempClassInfo 
+      await updateClassSchedule(selectedSchedule.id, {
+        start_time: startTime.toISOString(),
+        end_time: endTime.toISOString(),
+        class_info: tempClassInfo
       });
 
       fetchClassSchedules();
@@ -587,10 +587,16 @@ const ManageUsersInClassScreen = ({ navigation }) => {
                   Management portal for {className}. Select a session to proceed.
                 </Text>
               </View>
-              <TouchableOpacity onPress={openAddScheduleModal} style={styles.heroActionBtn}>
-                <FontAwesomeIcon icon={faPlus} size={14} color="#4f46e5" />
-                <Text style={styles.heroActionText}>New</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity onPress={() => navigation.navigate('Gradebook', { classId, className })} style={styles.heroActionBtn}>
+                  <FontAwesomeIcon icon={faGraduationCap} size={14} color="#4f46e5" />
+                  <Text style={styles.heroActionText}>Grades</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={openAddScheduleModal} style={styles.heroActionBtn}>
+                  <FontAwesomeIcon icon={faPlus} size={14} color="#4f46e5" />
+                  <Text style={styles.heroActionText}>New</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </LinearGradient>
 
@@ -745,11 +751,11 @@ const ManageUsersInClassScreen = ({ navigation }) => {
         <Pressable style={styles.modalOverlay} onPress={() => setAddModalVisible(false)}>
           <View style={[styles.modalBoxLarge, { backgroundColor: theme.colors.surface }]}>
             <Text style={[styles.modalTitle, { color: theme.colors.text }]}>New Session</Text>
-            <Calendar 
-              onDayPress={handleDayPress} 
+            <Calendar
+              onDayPress={handleDayPress}
               hideExtraDays={true}
-              markedDates={{ [newScheduleDate]: { selected: true, selectedColor: theme.colors.primary } }} 
-              theme={{ calendarBackground: theme.colors.surface, dayTextColor: theme.colors.text, monthTextColor: theme.colors.text }} 
+              markedDates={{ [newScheduleDate]: { selected: true, selectedColor: theme.colors.primary } }}
+              theme={{ calendarBackground: theme.colors.surface, dayTextColor: theme.colors.text, monthTextColor: theme.colors.text }}
             />
             {newScheduleDate && (
               <View style={{ marginTop: 20 }}>

@@ -4,10 +4,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { 
-    faFootballBall, faUserFriends, faBullhorn, faCalendarAlt, 
-    faChevronLeft, faClock, faUser, faInfoCircle, faPlus, 
-    faCheckCircle, faPen, faTrash, faMinus, faSignOutAlt, faSpinner, faChevronRight
+import {
+    faFootballBall, faUserFriends, faBullhorn, faCalendarAlt,
+    faChevronLeft, faClock, faUser, faInfoCircle, faPlus,
+    faCheckCircle, faPen, faTrash, faMinus, faSignOutAlt, faSpinner, faChevronRight, faBookOpen
 } from '@fortawesome/free-solid-svg-icons';
 import CardSkeleton from '../../components/skeletons/CardSkeleton';
 import LinearGradient from 'react-native-linear-gradient';
@@ -15,88 +15,88 @@ import LinearGradient from 'react-native-linear-gradient';
 // Import services
 import { getCurrentUser } from '../../services/authService';
 import { getUserProfile, fetchUsersByIdsWithPreferences } from '../../services/userService';
-import { 
-  fetchClassInfo, 
-  fetchClassMembers, 
-  fetchClassSchedules,
-  removeMemberFromClass,
-  updateClassMemberIds,
-  addMemberToClass,
-  fetchClassMembersIdsService
+import {
+    fetchClassInfo,
+    fetchClassMembers,
+    fetchClassSchedules,
+    removeMemberFromClass,
+    updateClassMemberIds,
+    addMemberToClass,
+    fetchClassMembersIdsService
 } from '../../services/classService';
 import { fetchAnnouncements } from '../../services/announcementService';
-import { 
-  fetchClubJoinRequests, 
-  sendNotification, 
-  markAsRead 
+import {
+    fetchClubJoinRequests,
+    sendNotification,
+    markAsRead
 } from '../../services/notificationService';
 
 const { width } = Dimensions.get('window');
 const defaultUserImage = require('../../assets/user.png');
 
 const ClubDetailScreen = ({ route, navigation }) => {
-  const { clubId } = route.params;
-  const { theme } = useTheme();
-  const { showToast } = useToast();
-  const insets = useSafeAreaInsets();
+    const { clubId } = route.params;
+    const { theme } = useTheme();
+    const { showToast } = useToast();
+    const insets = useSafeAreaInsets();
 
-  const [clubData, setClubData] = useState(null);
-  const [currentUserProfile, setCurrentUserProfile] = useState(null);
-  const [announcements, setAnnouncements] = useState([]);
-  const [members, setMembers] = useState([]);
-  const [schedules, setSchedules] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('news');
-  const [processingId, setProcessingId] = useState(null);
-  const [isLeaving, setIsLeaving] = useState(false);
+    const [clubData, setClubData] = useState(null);
+    const [currentUserProfile, setCurrentUserProfile] = useState(null);
+    const [announcements, setAnnouncements] = useState([]);
+    const [members, setMembers] = useState([]);
+    const [schedules, setSchedules] = useState([]);
+    const [requests, setRequests] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [activeTab, setActiveTab] = useState('news');
+    const [processingId, setProcessingId] = useState(null);
+    const [isLeaving, setIsLeaving] = useState(false);
 
-  const fetchClubDetails = useCallback(async () => {
-    try {
-      const authUser = await getCurrentUser();
-      if (!authUser) return;
+    const fetchClubDetails = useCallback(async () => {
+        try {
+            const authUser = await getCurrentUser();
+            if (!authUser) return;
 
-      const profile = await getUserProfile(authUser.id);
-      setCurrentUserProfile(profile);
+            const profile = await getUserProfile(authUser.id);
+            setCurrentUserProfile(profile);
 
-      const clubDetail = await fetchClassInfo(clubId);
-      
-      setClubData(clubDetail);
+            const clubDetail = await fetchClassInfo(clubId);
 
-      const ann = await fetchAnnouncements(clubId);
-      setAnnouncements(ann || []);
+            setClubData(clubDetail);
 
-      const mem = await fetchClassMembers(clubId);
-      
-      if (profile?.role === 'student' && clubDetail.users?.length > (mem?.length || 0)) {
-        const usersData = await fetchUsersByIdsWithPreferences(clubDetail.users);
-        if (usersData) {
-          setMembers(usersData.map(u => ({ user_id: u.id, users: u })));
-        } else {
-          setMembers(mem || []);
+            const ann = await fetchAnnouncements(clubId);
+            setAnnouncements(ann || []);
+
+            const mem = await fetchClassMembers(clubId);
+
+            if (profile?.role === 'student' && clubDetail.users?.length > (mem?.length || 0)) {
+                const usersData = await fetchUsersByIdsWithPreferences(clubDetail.users);
+                if (usersData) {
+                    setMembers(usersData.map(u => ({ user_id: u.id, users: u })));
+                } else {
+                    setMembers(mem || []);
+                }
+            } else {
+                setMembers(mem || []);
+            }
+
+            const sch = await fetchClassSchedules([clubId]);
+            setSchedules(sch || []);
+
+            const isCoord = profile?.role === 'admin' || clubDetail.teacher_id === authUser.id;
+            if (isCoord) {
+                const allReqs = await fetchClubJoinRequests(authUser.id);
+                setRequests(allReqs?.filter(r => r.message.includes(clubDetail.name)) || []);
+            }
+
+        } catch (error) {
+            console.error('Error fetching club details:', error);
+            showToast('Failed to load club details.', 'error');
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
         }
-      } else {
-        setMembers(mem || []);
-      }
-
-      const sch = await fetchClassSchedules([clubId]);
-      setSchedules(sch || []);
-
-      const isCoord = profile?.role === 'admin' || clubDetail.teacher_id === authUser.id;
-      if (isCoord) {
-        const allReqs = await fetchClubJoinRequests(authUser.id);
-        setRequests(allReqs?.filter(r => r.message.includes(clubDetail.name)) || []);
-      }
-
-    } catch (error) {
-      console.error('Error fetching club details:', error);
-      showToast('Failed to load club details.', 'error');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [clubId, showToast]);
+    }, [clubId, showToast]);
 
     useEffect(() => {
         fetchClubDetails();
@@ -113,8 +113,8 @@ const ClubDetailScreen = ({ route, navigation }) => {
             `Are you sure you want to leave ${clubData?.name}?`,
             [
                 { text: "Cancel", style: "cancel" },
-                { 
-                    text: "Leave", 
+                {
+                    text: "Leave",
                     style: "destructive",
                     onPress: async () => {
                         setIsLeaving(true);
@@ -180,7 +180,7 @@ const ClubDetailScreen = ({ route, navigation }) => {
 
     const renderHeader = useCallback(() => (
         <LinearGradient
-            colors={['#9333ea', '#4f46e5']} 
+            colors={['#9333ea', '#4f46e5']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroContainer}
@@ -192,14 +192,14 @@ const ClubDetailScreen = ({ route, navigation }) => {
                     </TouchableOpacity>
                     <View style={styles.heroActions}>
                         {isCoordinator ? (
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={styles.heroActionBtn}
                                 onPress={() => navigation.navigate('CreateClub', { clubToEdit: clubData })}
                             >
                                 <Text style={styles.heroActionBtnText}>MANAGE</Text>
                             </TouchableOpacity>
                         ) : isMember ? (
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={[styles.heroActionBtn, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}
                                 onPress={handleLeaveClub}
                                 disabled={isLeaving}
@@ -253,11 +253,12 @@ const ClubDetailScreen = ({ route, navigation }) => {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
                 {[
                     { id: 'news', label: 'News', icon: faBullhorn },
+                    { id: 'lessons', label: 'Lessons', icon: faBookOpen },
                     { id: 'members', label: 'Members', icon: faUserFriends },
                     { id: 'calendar', label: 'Calendar', icon: faCalendarAlt },
                     ...(isCoordinator ? [{ id: 'requests', label: 'Requests', icon: faPlus }] : [])
                 ].map(tab => (
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         key={tab.id}
                         onPress={() => setActiveTab(tab.id)}
                         style={[styles.tab, activeTab === tab.id && { borderBottomColor: '#AF52DE', borderBottomWidth: 2 }]}
@@ -280,7 +281,7 @@ const ClubDetailScreen = ({ route, navigation }) => {
                         <View style={styles.tabHeaderRow}>
                             <Text style={[styles.tabTitle, { color: theme.colors.text }]}>Updates & Announcements</Text>
                             {isCoordinator && (
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={[styles.addButton, { backgroundColor: '#AF52DE' }]}
                                     onPress={() => navigation.navigate('CreateAnnouncement', { classId: clubId })}
                                 >
@@ -319,9 +320,9 @@ const ClubDetailScreen = ({ route, navigation }) => {
                             {members.map((item, idx) => (
                                 <View key={item.id || item.user_id} style={[styles.memberItem, idx === members.length - 1 && { borderBottomWidth: 0 }, { borderBottomColor: theme.colors.cardBorder + '30' }]}>
                                     <View style={[styles.memberAvatarBox, { borderColor: theme.colors.cardBorder }]}>
-                                        <Image 
-                                            source={item.users?.avatar_url ? { uri: item.users.avatar_url } : defaultUserImage} 
-                                            style={styles.memberAvatar} 
+                                        <Image
+                                            source={item.users?.avatar_url ? { uri: item.users.avatar_url } : defaultUserImage}
+                                            style={styles.memberAvatar}
                                         />
                                     </View>
                                     <View style={styles.memberInfo}>
@@ -388,14 +389,14 @@ const ClubDetailScreen = ({ route, navigation }) => {
                                         </View>
                                     </View>
                                     <View style={styles.reqActions}>
-                                        <TouchableOpacity 
+                                        <TouchableOpacity
                                             style={[styles.reqBtn, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
                                             onPress={() => handleRequestAction(req, false)}
                                             disabled={processingId === req.id}
                                         >
                                             <Text style={{ color: theme.colors.text, fontWeight: '700', fontSize: 12 }}>DECLINE</Text>
                                         </TouchableOpacity>
-                                        <TouchableOpacity 
+                                        <TouchableOpacity
                                             style={[styles.reqBtn, { backgroundColor: '#10b981' }]}
                                             onPress={() => handleRequestAction(req, true)}
                                             disabled={processingId === req.id}
@@ -408,6 +409,31 @@ const ClubDetailScreen = ({ route, navigation }) => {
                         )}
                     </View>
                 );
+            case 'lessons':
+                return (
+                    <View style={styles.tabContent}>
+                        <View style={styles.tabHeaderRow}>
+                            <Text style={[styles.tabTitle, { color: theme.colors.text }]}>Learning Path</Text>
+                            <TouchableOpacity
+                                style={[styles.addButton, { backgroundColor: '#4f46e5' }]}
+                                onPress={() => navigation.navigate('LessonPlans', { classId: clubId, className: clubData?.name, role: currentUserProfile?.role })}
+                            >
+                                <FontAwesomeIcon icon={faChevronRight} size={12} color="white" />
+                            </TouchableOpacity>
+                        </View>
+                        <View style={[styles.annCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                            <Text style={[styles.annTitle, { color: theme.colors.text }]}>Curriculum Timeline</Text>
+                            <Text style={[styles.annBody, { color: theme.colors.text }]}>View all scheduled lessons, objectives, and resources for this class.</Text>
+                            <TouchableOpacity
+                                style={{ marginTop: 15, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                                onPress={() => navigation.navigate('LessonPlans', { classId: clubId, className: clubData?.name, role: currentUserProfile?.role })}
+                            >
+                                <Text style={{ color: theme.colors.primary, fontWeight: '900', fontSize: 13 }}>VIEW FULL TIMELINE</Text>
+                                <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.primary} />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                );
             default:
                 return null;
         }
@@ -415,7 +441,7 @@ const ClubDetailScreen = ({ route, navigation }) => {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            <ScrollView 
+            <ScrollView
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#AF52DE" />}
             >
@@ -464,22 +490,22 @@ const styles = StyleSheet.create({
     logoText: { fontSize: 36, fontWeight: '900', color: '#fff' },
     clubNameHero: { fontSize: 28, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
     heroMetaRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
-    heroBadge: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        backgroundColor: 'rgba(0,0,0,0.1)', 
-        paddingHorizontal: 10, 
-        paddingVertical: 4, 
+    heroBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.1)',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
         borderRadius: 20,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.1)',
     },
     heroBadgeText: { color: '#fff', fontSize: 8, fontWeight: '900', letterSpacing: 1, marginLeft: 6 },
-    coordBox: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        backgroundColor: 'rgba(255,255,255,0.1)', 
-        padding: 12, 
+    coordBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        padding: 12,
         borderRadius: 20,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.2)',
@@ -489,11 +515,11 @@ const styles = StyleSheet.create({
     coordAvatar: { width: '100%', height: '100%' },
     coordLabel: { fontSize: 8, fontWeight: '900', color: 'rgba(255,255,255,0.6)', letterSpacing: 1 },
     coordName: { fontSize: 13, fontWeight: '700', color: '#fff' },
-    
+
     tabBar: { marginTop: 12 },
     tab: { paddingVertical: 16, marginRight: 24, flexDirection: 'row', alignItems: 'center', gap: 8 },
     tabLabel: { fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
-    
+
     tabContent: { padding: 20 },
     tabHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     tabTitle: { fontSize: 18, fontWeight: '900', letterSpacing: -0.5 },
@@ -506,7 +532,7 @@ const styles = StyleSheet.create({
     annAuthorRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     annAuthor: { fontSize: 11, fontWeight: '700' },
     annDate: { fontSize: 11, fontWeight: '600' },
-    
+
     membersList: { borderRadius: 24, overflow: 'hidden' },
     memberItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
     memberAvatarBox: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
@@ -515,7 +541,7 @@ const styles = StyleSheet.create({
     memberName: { fontSize: 15, fontWeight: '800' },
     memberRoleLabel: { fontSize: 9, fontWeight: '900', marginTop: 2, letterSpacing: 1 },
     memberBadgeSmall: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-    
+
     scheduleItem: { flexDirection: 'row', padding: 16, borderRadius: 24, marginBottom: 12, alignItems: 'center' },
     dateBox: { width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
     dateMonth: { fontSize: 9, fontWeight: '900' },
@@ -523,7 +549,7 @@ const styles = StyleSheet.create({
     scheduleInfo: { flex: 1, marginLeft: 16 },
     scheduleTime: { fontSize: 14, fontWeight: '800' },
     scheduleLabel: { fontSize: 12, fontWeight: '500', marginTop: 2 },
-    
+
     reqCard: { padding: 20, borderRadius: 24, marginBottom: 16 },
     reqTop: { flexDirection: 'row', alignItems: 'center' },
     reqInfo: { flex: 1, marginLeft: 16 },

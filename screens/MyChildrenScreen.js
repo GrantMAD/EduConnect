@@ -49,17 +49,19 @@ import { useGamification } from '../context/GamificationContext';
 
 // Import services
 import { getCurrentUser } from '../services/authService';
-import { 
-  getUserProfile, 
-  fetchParentChildren, 
-  fetchAllParentsWithChildren, 
+import {
+  getUserProfile,
+  fetchParentChildren,
+  fetchAllParentsWithChildren,
   fetchStudentMarks,
   fetchUsersByIdsWithPreferences
 } from '../services/userService';
-import { 
-  fetchClassMemberships, 
-  fetchClassSchedulesForAttendance 
+import {
+  fetchClassMemberships,
+  fetchClassSchedulesForAttendance,
+  fetchClassInfo
 } from '../services/classService';
+import { fetchGradingCategories, calculateWeightedGrade } from '../services/gradebookService';
 
 const { width } = Dimensions.get('window');
 const defaultUserImage = require('../assets/user.png');
@@ -93,13 +95,13 @@ const GradeDetailModal = React.memo(({ visible, onClose, mark, theme }) => {
       visible={visible}
       onRequestClose={onClose}
     >
-      <TouchableOpacity 
-        style={styles.modalOverlay} 
-        activeOpacity={1} 
+      <TouchableOpacity
+        style={styles.modalOverlay}
+        activeOpacity={1}
         onPress={onClose}
       >
-        <TouchableOpacity 
-          activeOpacity={1} 
+        <TouchableOpacity
+          activeOpacity={1}
           style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}
         >
           <View style={[styles.modalHeader, { borderBottomColor: theme.colors.cardBorder }]}>
@@ -142,23 +144,23 @@ const GradeDetailModal = React.memo(({ visible, onClose, mark, theme }) => {
             )}
 
             <View style={[styles.detailCard, { marginTop: 8 }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <FontAwesomeIcon icon={faCalendarAlt} size={14} color={theme.colors.placeholder} />
-                    <Text style={[styles.detailLabel, { color: theme.colors.placeholder, marginLeft: 8, marginBottom: 0 }]}>RECORDED ON</Text>
-                </View>
-                <Text style={[styles.dateText, { color: theme.colors.text, marginTop: 4 }]}>
-                    {new Date(mark.created_at || new Date()).toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                    })}
-                </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <FontAwesomeIcon icon={faCalendarAlt} size={14} color={theme.colors.placeholder} />
+                <Text style={[styles.detailLabel, { color: theme.colors.placeholder, marginLeft: 8, marginBottom: 0 }]}>RECORDED ON</Text>
+              </View>
+              <Text style={[styles.dateText, { color: theme.colors.text, marginTop: 4 }]}>
+                {new Date(mark.created_at || new Date()).toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </Text>
             </View>
           </ScrollView>
 
-          <TouchableOpacity 
-            style={[styles.modalCloseBtn, { backgroundColor: theme.colors.primary }]} 
+          <TouchableOpacity
+            style={[styles.modalCloseBtn, { backgroundColor: theme.colors.primary }]}
             onPress={onClose}
           >
             <Text style={styles.modalCloseBtnText}>Close</Text>
@@ -203,17 +205,17 @@ const MarkRow = React.memo(({ mark, theme }) => {
   }
 
   const assessmentName = mark.assessment_name?.includes(':') ? mark.assessment_name.split(':')[1].trim() : (mark.assessment_name || 'Assessment');
-  const assessmentType = mark.assessment_name?.includes(':') ? mark.assessment_name.split(':')[0] : 'Assessment';
+  const assessmentType = mark.category?.name || (mark.assessment_name?.includes(':') ? mark.assessment_name.split(':')[0] : 'Assessment');
 
   return (
     <>
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.markRowContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
         onPress={toggleModal}
         activeOpacity={0.7}
       >
         <View style={[styles.markTypeBadge, { backgroundColor: theme.colors.primary + '10' }]}>
-            <Text style={[styles.markTypeText, { color: theme.colors.primary }]}>{assessmentType.substring(0, 4).toUpperCase()}</Text>
+          <Text style={[styles.markTypeText, { color: theme.colors.primary }]}>{assessmentType.substring(0, 4).toUpperCase()}</Text>
         </View>
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={[styles.markAssessment, { color: theme.colors.text }]} numberOfLines={1}>
@@ -222,7 +224,7 @@ const MarkRow = React.memo(({ mark, theme }) => {
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
             <FontAwesomeIcon icon={faCalendarAlt} size={10} color={theme.colors.placeholder} />
             <Text style={{ fontSize: 11, color: theme.colors.placeholder, marginLeft: 4, fontWeight: '500' }}>
-              {new Date(mark.created_at || new Date()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {new Date(mark.assessment_date || mark.created_at || new Date()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </Text>
           </View>
         </View>
@@ -232,11 +234,11 @@ const MarkRow = React.memo(({ mark, theme }) => {
         </View>
       </TouchableOpacity>
 
-      <GradeDetailModal 
-        visible={modalVisible} 
-        onClose={toggleModal} 
-        mark={mark} 
-        theme={theme} 
+      <GradeDetailModal
+        visible={modalVisible}
+        onClose={toggleModal}
+        mark={mark}
+        theme={theme}
       />
     </>
   );
@@ -257,27 +259,8 @@ const ClassCard = React.memo(({ classInfo, theme }) => {
     : 0;
 
   const averageMark = useMemo(() => {
-    if (!classInfo.marks?.length) return null;
-
-    const validMarks = classInfo.marks.filter(m =>
-      (m.score !== null && m.total_possible !== null && m.total_possible > 0) ||
-      !isNaN(parseFloat(m.mark))
-    );
-
-    if (validMarks.length === 0) return null;
-
-    const sum = validMarks.reduce((acc, curr) => {
-      let pct = 0;
-      if (curr.score !== null && curr.total_possible !== null && curr.total_possible > 0) {
-        pct = (curr.score / curr.total_possible) * 100;
-      } else {
-        pct = parseFloat(curr.mark) || 0;
-      }
-      return acc + pct;
-    }, 0);
-
-    return Math.round(sum / validMarks.length);
-  }, [classInfo.marks]);
+    return calculateWeightedGrade(classInfo.marks, classInfo.categories);
+  }, [classInfo.marks, classInfo.categories]);
 
   return (
     <View style={[styles.clsCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
@@ -359,9 +342,10 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger }) => {
         const allSchedules = await fetchClassSchedulesForAttendance(classIds);
         const allMarks = await fetchStudentMarks(student.id, classIds);
 
-        const processed = memberships.map(member => {
+        const processed = await Promise.all(memberships.map(async (member) => {
           const classSchedules = (allSchedules || []).filter(s => s.class_id === member.class_id);
           const classMarks = (allMarks || []).filter(m => m.class_id === member.class_id);
+          const categories = await fetchGradingCategories(member.class_id);
 
           const fullAttendance = classSchedules.map(sch => {
             const date = sch.start_time?.split('T')[0] || '';
@@ -375,9 +359,10 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger }) => {
           return {
             ...member,
             fullAttendance,
-            marks: classMarks
+            marks: classMarks,
+            categories
           };
-        });
+        }));
 
         setClasses(processed);
       } catch (err) {
@@ -497,8 +482,8 @@ const AdminFamilyDetail = React.memo(({ parentData, onBack, theme }) => (
         <Text style={styles.heroName}>{parentData.parent.full_name}</Text>
         <Text style={styles.heroEmail}>{parentData.parent.email}</Text>
         <View style={styles.badgeRow}>
-            <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>Parent Account</Text></View>
-            <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>{parentData.children.length} Students</Text></View>
+          <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>Parent Account</Text></View>
+          <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>{parentData.children.length} Students</Text></View>
         </View>
       </View>
     </LinearGradient>
@@ -584,34 +569,34 @@ const MyChildrenScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-        <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <LinearGradient
-                    colors={['#4f46e5', '#7c3aed']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.heroContainer}
-                >
-                    <View style={styles.heroContent}>
-                        <View style={styles.heroTextContainer}>
-                            <Text style={styles.heroTitle}>My Children</Text>
-                            <Text style={styles.heroDescription}>
-                                Academic performance and attendance overview.
-                            </Text>
-                        </View>
-                        <View style={[styles.heroActionBtn, { opacity: 0.5 }]}>
-                            <FontAwesomeIcon icon={faUserPlus} size={14} color="#4f46e5" />
-                        </View>
-                    </View>
-                </LinearGradient>
+      <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <LinearGradient
+            colors={['#4f46e5', '#7c3aed']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroContainer}
+          >
+            <View style={styles.heroContent}>
+              <View style={styles.heroTextContainer}>
+                <Text style={styles.heroTitle}>My Children</Text>
+                <Text style={styles.heroDescription}>
+                  Academic performance and attendance overview.
+                </Text>
+              </View>
+              <View style={[styles.heroActionBtn, { opacity: 0.5 }]}>
+                <FontAwesomeIcon icon={faUserPlus} size={14} color="#4f46e5" />
+              </View>
+            </View>
+          </LinearGradient>
 
-                <View style={{ padding: 20 }}>
-                    <ChildCardSkeleton />
-                    <ChildCardSkeleton />
-                    <ChildCardSkeleton />
-                </View>
-            </ScrollView>
-        </View>
+          <View style={{ padding: 20 }}>
+            <ChildCardSkeleton />
+            <ChildCardSkeleton />
+            <ChildCardSkeleton />
+          </View>
+        </ScrollView>
+      </View>
     );
   }
 
@@ -633,36 +618,36 @@ const MyChildrenScreen = ({ navigation }) => {
             ListHeaderComponent={
               <View>
                 <LinearGradient
-                    colors={['#4f46e5', '#7c3aed']} 
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.heroContainer}
+                  colors={['#4f46e5', '#7c3aed']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.heroContainer}
                 >
-                    <View style={styles.heroContent}>
-                        <View style={styles.heroTextContainer}>
-                            <Text style={styles.heroTitle}>Family Connections</Text>
-                            <Text style={styles.heroDescription}>
-                                Manage parent-child links across the school community.
-                            </Text>
-                        </View>
-                        <View style={styles.statusBadge}>
-                            <FontAwesomeIcon icon={faUserFriends} size={16} color="rgba(255,255,255,0.7)" />
-                            <Text style={styles.statusBadgeValue}>{parents.length}</Text>
-                        </View>
+                  <View style={styles.heroContent}>
+                    <View style={styles.heroTextContainer}>
+                      <Text style={styles.heroTitle}>Family Connections</Text>
+                      <Text style={styles.heroDescription}>
+                        Manage parent-child links across the school community.
+                      </Text>
                     </View>
+                    <View style={styles.statusBadge}>
+                      <FontAwesomeIcon icon={faUserFriends} size={16} color="rgba(255,255,255,0.7)" />
+                      <Text style={styles.statusBadgeValue}>{parents.length}</Text>
+                    </View>
+                  </View>
                 </LinearGradient>
 
                 <View style={{ paddingHorizontal: 20 }}>
-                    <View style={[styles.searchBox, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+                  <View style={[styles.searchBox, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
                     <FontAwesomeIcon icon={faSearch} color={theme.colors.placeholder} size={16} />
                     <TextInput
-                        style={[styles.searchInput, { color: theme.colors.text }]}
-                        placeholder="Search parents..."
-                        placeholderTextColor={theme.colors.placeholder}
-                        value={searchTerm}
-                        onChangeText={setSearchTerm}
+                      style={[styles.searchInput, { color: theme.colors.text }]}
+                      placeholder="Search parents..."
+                      placeholderTextColor={theme.colors.placeholder}
+                      value={searchTerm}
+                      onChangeText={setSearchTerm}
                     />
-                    </View>
+                  </View>
                 </View>
               </View>
             }
@@ -690,22 +675,22 @@ const MyChildrenScreen = ({ navigation }) => {
         }
       >
         <LinearGradient
-            colors={['#4f46e5', '#7c3aed']} 
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroContainer}
+          colors={['#4f46e5', '#7c3aed']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroContainer}
         >
-            <View style={styles.heroContent}>
-                <View style={styles.heroTextContainer}>
-                    <Text style={styles.heroTitle}>My Children</Text>
-                    <Text style={styles.heroDescription}>
-                        Academic performance and attendance overview.
-                    </Text>
-                </View>
-                <TouchableOpacity style={styles.heroActionBtn} onPress={() => navigation.navigate('Search')}>
-                    <FontAwesomeIcon icon={faUserPlus} size={14} color="#4f46e5" />
-                </TouchableOpacity>
+          <View style={styles.heroContent}>
+            <View style={styles.heroTextContainer}>
+              <Text style={styles.heroTitle}>My Children</Text>
+              <Text style={styles.heroDescription}>
+                Academic performance and attendance overview.
+              </Text>
             </View>
+            <TouchableOpacity style={styles.heroActionBtn} onPress={() => navigation.navigate('Search')}>
+              <FontAwesomeIcon icon={faUserPlus} size={14} color="#4f46e5" />
+            </TouchableOpacity>
+          </View>
         </LinearGradient>
 
         {children.length === 0 ? (
@@ -735,9 +720,9 @@ const MyChildrenScreen = ({ navigation }) => {
             {selectedChild && (
               <View style={{ padding: 20 }}>
                 <LinearGradient colors={['#4F46E5', '#7C3AED']} style={styles.childHero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-                  <Image 
-                    source={selectedChild.avatar_url ? { uri: selectedChild.avatar_url } : defaultUserImage} 
-                    style={styles.heroAvatar} 
+                  <Image
+                    source={selectedChild.avatar_url ? { uri: selectedChild.avatar_url } : defaultUserImage}
+                    style={styles.heroAvatar}
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.heroName}>{selectedChild.full_name || 'Unknown Student'}</Text>
@@ -766,48 +751,48 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 32,
   },
   heroContent: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   heroTextContainer: {
-      flex: 1,
-      paddingRight: 10,
+    flex: 1,
+    paddingRight: 10,
   },
   heroTitle: {
-      color: '#fff',
-      fontSize: 28,
-      fontWeight: '900',
-      marginBottom: 8,
-      letterSpacing: -1,
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '900',
+    marginBottom: 8,
+    letterSpacing: -1,
   },
   heroDescription: {
-      color: '#e0e7ff',
-      fontSize: 14,
-      fontWeight: '500',
+    color: '#e0e7ff',
+    fontSize: 14,
+    fontWeight: '500',
   },
   heroActionBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 10,
-      backgroundColor: '#fff',
-      justifyContent: 'center',
-      alignItems: 'center',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statusBadge: {
-      backgroundColor: 'rgba(255,255,255,0.15)',
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 12,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   statusBadgeValue: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: '900',
-      marginTop: 2,
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '900',
+    marginTop: 2,
   },
   selectorScroll: { paddingHorizontal: 20, marginBottom: 24 },
   childBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingLeft: 8, paddingRight: 16, borderRadius: 30, borderWidth: 1, marginRight: 12 },
