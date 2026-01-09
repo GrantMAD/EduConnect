@@ -37,7 +37,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 
 const DashboardScreen = ({ navigation }) => {
     const { theme, isDarkTheme } = useTheme();
-    const { schoolId, schoolLogo } = useSchool();
+    const { schoolId, schoolData } = useSchool();
     const { showToast } = useToast();
     const { startWalkthrough } = useWalkthrough();
     const { awardXP } = useGamification();
@@ -98,7 +98,7 @@ const DashboardScreen = ({ navigation }) => {
             ].sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).slice(0, 5);
 
             setUpcomingTasks(combined);
-        } catch (e) { 
+        } catch (e) {
             console.error('Error fetching upcoming tasks:', e);
         }
     }, [schoolId]);
@@ -118,13 +118,13 @@ const DashboardScreen = ({ navigation }) => {
                         id: p.id,
                         start_time: p.slot.start_time,
                         end_time: p.slot.end_time,
-                        title: `Meeting: ${p.notes || 'PTM'}`, 
+                        title: `Meeting: ${p.notes || 'PTM'}`,
                         eventType: 'meeting'
                     }))
             ].sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 
             setTodaySessions(combined);
-        } catch (e) { 
+        } catch (e) {
             console.error('Error fetching today sessions:', e);
         }
     }, [schoolId]);
@@ -303,29 +303,50 @@ const DashboardScreen = ({ navigation }) => {
                     </View>
                 </View>
 
-                {/* School Logo/Banner */}
-                {schoolLogo && (
-                    <View style={styles.bannerContainer}>
-                        <Image source={{ uri: schoolLogo }} style={styles.bannerImage} resizeMode="cover" />
-                    </View>
-                )}
-
-                {/* Welcome Card - Modern Gradient */}
+                {/* School Banner & Welcome Card combined (Matches Web Design) */}
                 <WalkthroughTarget id="dashboard-welcome">
-                    <LinearGradient
-                        colors={['#4f46e5', '#4338ca']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.welcomeCard}
-                    >
-                        {/* Decorative Circle */}
-                        <View style={styles.decorativeCircle} />
+                    <View style={styles.bannerContainer}>
+                        {schoolData?.logo_url ? (
+                            <Image
+                                source={{ uri: schoolData.logo_url }}
+                                style={styles.bannerImage}
+                                resizeMode="cover"
+                            />
+                        ) : (
+                            <LinearGradient
+                                colors={['#4f46e5', '#4338ca']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={StyleSheet.absoluteFill}
+                            />
+                        )}
 
-                        <View style={styles.welcomeContent}>
-                            <Text style={styles.welcomeTitle}>Welcome to ClassConnect</Text>
-                            <Text style={styles.welcomeSubtitle}>Your school's complete digital companion.</Text>
+                        {/* Gradient Overlay for Text Readability */}
+                        <LinearGradient
+                            colors={schoolData?.logo_url
+                                ? ['rgba(30, 27, 75, 0.95)', 'rgba(30, 27, 75, 0.6)', 'transparent']
+                                : ['transparent', 'rgba(0,0,0,0.1)']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={StyleSheet.absoluteFill}
+                        />
+
+                        <View style={styles.bannerContent}>
+                            <Text style={styles.bannerTitle} numberOfLines={2}>
+                                {schoolData?.name || "Welcome to ClassConnect"}
+                            </Text>
+                            <Text style={styles.bannerSubtitle} numberOfLines={3}>
+                                {"Explore your school's portal, stay connected, and track your progress all in one place."}
+                            </Text>
+
+                            <View style={styles.bannerDecoration}>
+                                <View style={[styles.decorationLine, { backgroundColor: schoolData?.logo_url ? '#818cf8' : 'rgba(255,255,255,0.4)' }]} />
+                                <Text style={[styles.decorationText, { color: schoolData?.logo_url ? '#a5b4fc' : 'rgba(255,255,255,0.6)' }]}>
+                                    ClassConnect Portal
+                                </Text>
+                            </View>
                         </View>
-                    </LinearGradient>
+                    </View>
                 </WalkthroughTarget>
 
                 {/* Gamification Hub */}
@@ -441,7 +462,7 @@ const DashboardScreen = ({ navigation }) => {
                         <Text style={[styles.sectionDescription, { color: theme.colors.placeholder, marginTop: -12, marginBottom: 16 }]}>
                             Monitor educational materials and engagement across the platform.
                         </Text>
-                        
+
                         {loading ? (
                             <View style={styles.statsGrid}>
                                 {[1, 2, 3, 4].map((item) => (
@@ -549,27 +570,62 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         textTransform: 'uppercase',
     },
-    bannerContainer: { width: '100%', height: 120, borderRadius: 20, overflow: 'hidden', marginBottom: 20 },
-    bannerImage: { width: '100%', height: '100%' },
-    welcomeCard: {
-        padding: 24,
-        borderRadius: 20,
-        marginBottom: 20,
+    bannerContainer: {
+        width: '100%',
+        height: 200,
+        borderRadius: 24,
         overflow: 'hidden',
+        marginBottom: 24,
         position: 'relative',
-        elevation: 0 // Explicitly 0
+        backgroundColor: '#4f46e5',
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
     },
-    decorativeCircle: {
+    bannerImage: {
+        width: '100%',
+        height: '100%',
         position: 'absolute',
-        right: -30,
-        bottom: -30,
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        backgroundColor: 'rgba(255,255,255,0.1)',
     },
-    welcomeTitle: { color: '#fff', fontSize: 20, fontWeight: '900', marginBottom: 4, zIndex: 1 },
-    welcomeSubtitle: { color: 'rgba(255,255,255,0.9)', fontSize: 14, fontWeight: '600', zIndex: 1 },
+    bannerContent: {
+        flex: 1,
+        padding: 24,
+        justifyContent: 'center',
+        zIndex: 10,
+    },
+    bannerTitle: {
+        color: '#fff',
+        fontSize: 26,
+        fontWeight: '900',
+        letterSpacing: -0.5,
+        marginBottom: 8,
+    },
+    bannerSubtitle: {
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontSize: 14,
+        fontWeight: '600',
+        lineHeight: 20,
+        maxWidth: '85%',
+    },
+    bannerDecoration: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 16,
+    },
+    decorationLine: {
+        height: 3,
+        width: 40,
+        borderRadius: 2,
+        marginRight: 10,
+    },
+    decorationText: {
+        fontSize: 10,
+        fontWeight: '900',
+        textTransform: 'uppercase',
+        letterSpacing: 2,
+    },
     row: { flexDirection: 'row', gap: 16, marginBottom: 20 },
     fullWidth: { flex: 1 },
     statsSection: { marginTop: 10 },
