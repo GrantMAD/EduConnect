@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 export const fetchExamSessions = async (schoolId) => {
     const { data, error } = await supabase
         .from('exam_sessions')
-        .select('*, exam_papers(exam_seat_allocations(count))')
+        .select('*, exam_papers(id, subject_name, paper_code, date, start_time, exam_seat_allocations(count), exam_invigilators(count))')
         .eq('school_id', schoolId)
         .order('start_date', { ascending: false });
 
@@ -106,7 +106,7 @@ export const deleteExamVenue = async (id) => {
 export const fetchExamPapers = async (sessionId) => {
     const { data, error } = await supabase
         .from('exam_papers')
-        .select('*, exam_seat_allocations(count)')
+        .select('*, exam_seat_allocations(count), exam_invigilators(count)')
         .eq('session_id', sessionId)
         .order('date', { ascending: true })
         .order('start_time', { ascending: true });

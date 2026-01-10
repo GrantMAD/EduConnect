@@ -76,12 +76,11 @@ const ManagementScreen = ({ navigation }) => {
             >
                 <View style={styles.heroContent}>
                     <View style={styles.heroTextContainer}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <TouchableOpacity onPress={navigateBack} style={styles.backButton}>
-                                <FontAwesomeIcon icon={faArrowLeft} size={18} color="#fff" />
-                            </TouchableOpacity>
-                            <Text style={styles.heroTitle}>Management Hub</Text>
-                        </View>
+                        <TouchableOpacity onPress={navigateBack} style={styles.backRow}>
+                            <FontAwesomeIcon icon={faArrowLeft} size={12} color="rgba(255,255,255,0.8)" />
+                            <Text style={styles.backText}>Back to Dashboard</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.heroTitle}>Management Hub</Text>
                         <Text style={styles.heroDescription}>
                             Centralized tools for school administration and content management.
                         </Text>
@@ -253,6 +252,17 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '500',
         lineHeight: 20,
+    },
+    backRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+        gap: 8,
+    },
+    backText: {
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: 12,
+        fontWeight: '700',
     },
     backButton: { marginRight: 12 },
     roleBadge: {

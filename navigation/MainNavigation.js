@@ -47,6 +47,7 @@ import CreateExamSessionScreen from '../screens/CreateExamSessionScreen';
 import ExamSessionDetailScreen from '../screens/ExamSessionDetailScreen';
 import CreateExamPaperScreen from '../screens/CreateExamPaperScreen';
 import ExamAllocationsScreen from '../screens/ExamAllocationsScreen';
+import InvigilatorManagementScreen from '../screens/InvigilatorManagementScreen';
 
 // Gamification Screens
 import LeaderboardScreen from '../screens/gamification/LeaderboardScreen';
@@ -110,6 +111,7 @@ const MainStackNavigator = () => (
     <Stack.Screen name="ExamSessionDetail" component={ExamSessionDetailScreen} options={{ headerShown: false }} />
     <Stack.Screen name="CreateExamPaper" component={CreateExamPaperScreen} options={{ headerShown: false }} />
     <Stack.Screen name="ExamAllocations" component={ExamAllocationsScreen} options={{ headerShown: false }} />
+    <Stack.Screen name="InvigilatorManagement" component={InvigilatorManagementScreen} options={{ headerShown: false }} />
 
     {/* Gamification Screens */}
     <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: 'Leaderboard' }} />

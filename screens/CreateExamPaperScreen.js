@@ -19,6 +19,7 @@ export default function CreateExamPaperScreen({ route, navigation }) {
   const [date, setDate] = useState(new Date());
   const [startTime, setStartTime] = useState(new Date());
   const [duration, setDuration] = useState('');
+  const [totalMarks, setTotalMarks] = useState('100');
   const [loading, setLoading] = useState(false);
 
   // Date picker state
@@ -40,6 +41,7 @@ export default function CreateExamPaperScreen({ route, navigation }) {
         date: date.toISOString().split('T')[0],
         start_time: startTime.toLocaleTimeString('en-US', { hour12: false }), // HH:MM:SS
         duration_minutes: parseInt(duration),
+        total_marks: parseInt(totalMarks),
       });
       navigation.goBack();
     } catch (error) {
@@ -62,30 +64,32 @@ export default function CreateExamPaperScreen({ route, navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <LinearGradient
-            colors={['#0f766e', '#14b8a6']} 
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.heroContainer, { paddingTop: insets.top + 20 }]}
+        colors={['#0d9488', '#14b8a6']} 
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.heroContainer, { paddingTop: insets.top + 20 }]}
       >
         <View style={styles.heroContent}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <FontAwesomeIcon icon={faArrowLeft} size={20} color="#fff" />
-                </TouchableOpacity>
-                <View style={{ marginLeft: 12, flex: 1 }}>
-                    <Text style={styles.heroTitle}>New Exam Paper</Text>
-                    <Text style={styles.heroSubtitle}>Add a subject to the schedule</Text>
-                    <Text style={styles.heroDescription}>Define the paper details, time, and duration.</Text>
-                </View>
-            </View>
+          <View style={styles.heroTextContainer}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backRow}>
+              <FontAwesomeIcon icon={faArrowLeft} size={12} color="rgba(255,255,255,0.8)" />
+              <Text style={styles.backText}>Back to Session Details</Text>
+            </TouchableOpacity>
+            <Text style={styles.heroTitle}>New Exam Paper</Text>
+            <Text style={styles.heroDescription}>Add a subject to the schedule</Text>
+          </View>
+          <View style={styles.roleBadge}>
+            <FontAwesomeIcon icon={faBook} size={16} color="rgba(255,255,255,0.7)" />
+            <Text style={styles.roleText}>PAPER</Text>
+          </View>
         </View>
       </LinearGradient>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+        <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
             <View style={styles.formGroup}>
                 <View style={styles.labelContainer}>
-                    <FontAwesomeIcon icon={faBook} size={12} color={theme.primary} style={{ marginRight: 6 }} />
+                    <FontAwesomeIcon icon={faBook} size={12} color="#0d9488" style={{ marginRight: 6 }} />
                     <Text style={[styles.label, { color: theme.textSecondary }]}>SUBJECT NAME *</Text>
                 </View>
                 <TextInput
@@ -97,24 +101,40 @@ export default function CreateExamPaperScreen({ route, navigation }) {
                 />
             </View>
 
-            <View style={styles.formGroup}>
-                <View style={styles.labelContainer}>
-                    <FontAwesomeIcon icon={faBarcode} size={12} color={theme.primary} style={{ marginRight: 6 }} />
-                    <Text style={[styles.label, { color: theme.textSecondary }]}>PAPER CODE *</Text>
+            <View style={styles.row}>
+                <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
+                    <View style={styles.labelContainer}>
+                        <FontAwesomeIcon icon={faBarcode} size={12} color="#0d9488" style={{ marginRight: 6 }} />
+                        <Text style={[styles.label, { color: theme.textSecondary }]}>PAPER CODE *</Text>
+                    </View>
+                    <TextInput
+                        style={[styles.input, { backgroundColor: theme.colors.background, color: theme.text, borderColor: theme.border }]}
+                        placeholder="e.g. MAT101"
+                        placeholderTextColor={theme.textSecondary}
+                        value={paperCode}
+                        onChangeText={setPaperCode}
+                    />
                 </View>
-                <TextInput
-                    style={[styles.input, { backgroundColor: theme.colors.background, color: theme.text, borderColor: theme.border }]}
-                    placeholder="e.g. MAT101"
-                    placeholderTextColor={theme.textSecondary}
-                    value={paperCode}
-                    onChangeText={setPaperCode}
-                />
+                <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
+                    <View style={styles.labelContainer}>
+                        <FontAwesomeIcon icon={faHourglassHalf} size={12} color="#0d9488" style={{ marginRight: 6 }} />
+                        <Text style={[styles.label, { color: theme.textSecondary }]}>TOTAL MARKS *</Text>
+                    </View>
+                    <TextInput
+                        style={[styles.input, { backgroundColor: theme.colors.background, color: theme.text, borderColor: theme.border }]}
+                        placeholder="e.g. 100"
+                        placeholderTextColor={theme.textSecondary}
+                        value={totalMarks}
+                        onChangeText={setTotalMarks}
+                        keyboardType="numeric"
+                    />
+                </View>
             </View>
 
             <View style={styles.row}>
                 <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
                     <View style={styles.labelContainer}>
-                        <FontAwesomeIcon icon={faCalendarAlt} size={12} color={theme.primary} style={{ marginRight: 6 }} />
+                        <FontAwesomeIcon icon={faCalendarAlt} size={12} color="#0d9488" style={{ marginRight: 6 }} />
                         <Text style={[styles.label, { color: theme.textSecondary }]}>DATE *</Text>
                     </View>
                     <TouchableOpacity 
@@ -126,7 +146,7 @@ export default function CreateExamPaperScreen({ route, navigation }) {
                 </View>
                 <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
                     <View style={styles.labelContainer}>
-                        <FontAwesomeIcon icon={faClock} size={12} color={theme.primary} style={{ marginRight: 6 }} />
+                        <FontAwesomeIcon icon={faClock} size={12} color="#0d9488" style={{ marginRight: 6 }} />
                         <Text style={[styles.label, { color: theme.textSecondary }]}>START TIME *</Text>
                     </View>
                     <TouchableOpacity 
@@ -147,7 +167,7 @@ export default function CreateExamPaperScreen({ route, navigation }) {
 
             <View style={styles.formGroup}>
                 <View style={styles.labelContainer}>
-                    <FontAwesomeIcon icon={faHourglassHalf} size={12} color={theme.primary} style={{ marginRight: 6 }} />
+                    <FontAwesomeIcon icon={faHourglassHalf} size={12} color="#0d9488" style={{ marginRight: 6 }} />
                     <Text style={[styles.label, { color: theme.textSecondary }]}>DURATION (MINUTES) *</Text>
                 </View>
                 <TextInput
@@ -164,7 +184,6 @@ export default function CreateExamPaperScreen({ route, navigation }) {
         <View style={styles.footer}>
             <Button title="Add Paper" onPress={handleSave} loading={loading} />
         </View>
-
       </ScrollView>
     </View>
   );
@@ -179,47 +198,64 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-    marginBottom: 8,
   },
   heroContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  heroTextContainer: {
+    flex: 1,
+    paddingRight: 10,
+  },
   heroTitle: {
     color: '#fff',
-    fontSize: 20,
+    fontSize: 28,
     fontWeight: '900',
-  },
-  heroSubtitle: {
-      color: 'rgba(255,255,255,0.8)',
-      fontSize: 14,
-      marginTop: 2,
+    marginBottom: 4,
+    letterSpacing: -1,
   },
   heroDescription: {
-      color: 'rgba(255,255,255,0.7)',
-      fontSize: 12,
-      marginTop: 4,
+    color: '#e0f2f1',
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  backText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 12,
+    fontWeight: '700',
   },
   backButton: {
       padding: 4,
   },
+  roleBadge: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  roleText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '900',
+    marginTop: 2,
+  },
   content: {
-    padding: 16,
+    padding: 20,
   },
   card: {
-      borderRadius: 20,
+      borderRadius: 18,
       padding: 20,
-      borderWidth: 1,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 4,
   },
   formGroup: {
     marginBottom: 20,
