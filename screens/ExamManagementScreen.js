@@ -101,6 +101,9 @@ export default function ExamManagementScreen({ navigation }) {
         0
       ) || 0;
 
+    const unsentPapers = item.exam_papers?.filter(p => !p.notifications_sent) || [];
+    const unsentCount = unsentPapers.length;
+
     return (
       <View style={styles.glowWrapper}>
         <TouchableOpacity
@@ -179,44 +182,35 @@ export default function ExamManagementScreen({ navigation }) {
                     color="#f59e0b"
                   />
                   <Text style={[styles.alertText, { color: '#c2410c' }]}>
-                    Invigilators Missing
+                    Staff Missing
                   </Text>
                 </View>
               )}
 
-              {totalAllocations > 0 && totalInvigilators > 0 && (
-                <View
-                  style={[
-                    styles.alertBadge,
-                    {
-                      backgroundColor: item.notifications_sent
-                        ? '#f0fdf4'
-                        : '#f0fdfa',
-                    },
-                  ]}
-                >
-                  <FontAwesomeIcon
-                    icon={
-                      item.notifications_sent ? faCheckCircle : faInfoCircle
-                    }
-                    size={10}
-                    color={item.notifications_sent ? '#16a34a' : '#0d9488'}
-                  />
-                  <Text
-                    style={[
-                      styles.alertText,
-                      {
-                        color: item.notifications_sent
-                          ? '#166534'
-                          : '#0f766e',
-                      },
-                    ]}
-                  >
-                    {item.notifications_sent
-                      ? 'Notified'
-                      : 'Ready to Notify'}
-                  </Text>
-                </View>
+              {totalAllocations > 0 && (
+                unsentCount > 0 ? (
+                  <View style={[styles.alertBadge, { backgroundColor: '#f0fdfa' }]}>
+                    <FontAwesomeIcon
+                      icon={faInfoCircle}
+                      size={10}
+                      color="#0d9488"
+                    />
+                    <Text style={[styles.alertText, { color: '#0f766e' }]}>
+                      {unsentCount} to Notify
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={[styles.alertBadge, { backgroundColor: '#f0fdf4' }]}>
+                    <FontAwesomeIcon
+                      icon={faCheckCircle}
+                      size={10}
+                      color="#16a34a"
+                    />
+                    <Text style={[styles.alertText, { color: '#166534' }]}>
+                      Notified
+                    </Text>
+                  </View>
+                )
               )}
             </View>
 
@@ -328,6 +322,13 @@ export default function ExamManagementScreen({ navigation }) {
           ListHeaderComponent={
             <Text style={styles.sectionTitle}>EXAM SESSIONS</Text>
           }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <FontAwesomeIcon icon={faClipboardCheck} size={64} color={theme.border} />
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No exam sessions found.</Text>
+              <Text style={[styles.emptySubText, { color: theme.textSecondary }]}>Tap the + button to create a new session.</Text>
+            </View>
+          }
         />
       )}
 
@@ -351,6 +352,7 @@ const styles = StyleSheet.create({
   heroContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
 
   heroTextContainer: { flex: 1 },
@@ -360,12 +362,14 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '900',
     marginBottom: 8,
+    letterSpacing: -1,
   },
 
   heroDescription: {
     color: '#e0f2f1',
     fontSize: 14,
     fontWeight: '500',
+    lineHeight: 20,
   },
 
   backRow: {
@@ -381,53 +385,37 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-    roleBadge: {
-      backgroundColor: 'rgba(255,255,255,0.15)',
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 12,
-      alignItems: 'center',
-      alignSelf: 'center',
-    },
+  roleBadge: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    alignItems: 'center',
+    alignSelf: 'center',
+  },
 
-    roleText: {
-      color: '#fff',
-      fontSize: 10,
-      fontWeight: '900',
-      marginTop: 2,
-    },
+  roleText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '900',
+    marginTop: 2,
+  },
 
-  
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#94a3b8',
+    letterSpacing: 1.5,
+    marginBottom: 16,
+    marginTop: 24,
+  },
 
-    sectionTitle: {
+  listContent: {
+    padding: 20,
+    paddingBottom: 100,
+  },
 
-      fontSize: 11,
-
-      fontWeight: '900',
-
-      color: '#94a3b8',
-
-      letterSpacing: 1.5,
-
-      marginBottom: 16,
-
-      marginTop: 24,
-
-    },
-
-  
-
-    listContent: {
-
-      padding: 20,
-
-      paddingBottom: 100,
-
-    },
-
-  
-
-    card: {
+  card: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
@@ -449,165 +437,85 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  
-
-    titleRow: {
-
-      flexDirection: 'row',
-
-      alignItems: 'center',
-
-      justifyContent: 'space-between',
-
-      marginBottom: 4,
-
-    },
-
-  
-
-    cardTitle: {
-
-      fontSize: 16,
-
-      fontWeight: '800',
-
-      flex: 1,
-
-      marginRight: 8,
-
-    },
-
-  
-
-    statusPill: {
-
-      paddingHorizontal: 8,
-
-      paddingVertical: 2,
-
-      borderRadius: 999,
-
-    },
-
-  
-
-    statusText: {
-
-      fontSize: 9,
-
-      fontWeight: '900',
-
-    },
-
-  
-
-    dateText: {
-
-      fontSize: 12,
-
-      fontWeight: '500',
-
-    },
-
-  
-
-    badgeRow: {
-
-      flexDirection: 'row',
-
-      flexWrap: 'wrap',
-
-      gap: 6,
-
-      marginVertical: 10,
-
-    },
-
-  
-
-    alertBadge: {
-
-      flexDirection: 'row',
-
-      alignItems: 'center',
-
-      gap: 6,
-
-      paddingHorizontal: 8,
-
-      paddingVertical: 4,
-
-      borderRadius: 8,
-
-    },
-
-  
-
-    alertText: {
-
-      fontSize: 10,
-
-      fontWeight: '700',
-
-    },
-
-  
-
-    footerRow: {
-
-      flexDirection: 'row',
-
-      alignItems: 'center',
-
-      gap: 10,
-
-      marginTop: 6,
-
-    },
-
-  
-
-    statPill: {
-
-      flexDirection: 'row',
-
-      alignItems: 'center',
-
-      gap: 6,
-
-      paddingHorizontal: 8,
-
-      paddingVertical: 4,
-
-      borderRadius: 8,
-
-      backgroundColor: 'rgba(0,0,0,0.04)',
-
-    },
-
-  
-
-    statText: {
-
-      fontSize: 11,
-
-      fontWeight: '700',
-
-    },
-
-  
-
-    deleteGhost: {
-
-      marginLeft: 'auto',
-
-      padding: 6,
-
-    },
-
-  
-
-    fab: {
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    flex: 1,
+    marginRight: 8,
+  },
+
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+
+  statusText: {
+    fontSize: 9,
+    fontWeight: '900',
+  },
+
+  dateText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginVertical: 10,
+  },
+
+  alertBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+
+  alertText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 6,
+  },
+
+  statPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.04)',
+  },
+
+  statText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  deleteGhost: {
+    marginLeft: 'auto',
+    padding: 6,
+  },
+
+  fab: {
     position: 'absolute',
     right: 24,
     bottom: 24,
@@ -619,6 +527,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     elevation: 8,
   },
-});
 
-  
+  glowWrapper: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    padding: 2,
+
+    // iOS glow
+    shadowColor: '#0d9488',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+
+    // Android glow
+    elevation: 4,
+  },
+
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 80,
+    opacity: 0.5,
+  },
+
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+
+  emptySubText: {
+    fontSize: 14,
+    marginTop: 8,
+  },
+});

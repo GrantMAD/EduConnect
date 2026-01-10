@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { fetchExamPapers, deleteExamPaper, autoAllocateSession, fetchExamVenues, notifySessionStudents, clearSessionAllocations } from '../services/examService';
+import { fetchExamPapers, deleteExamPaper, autoAllocateSession, fetchExamVenues, notifySessionStudents, clearSessionAllocations, fetchExamSession } from '../services/examService';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTrash, faArrowLeft, faFileAlt, faClock, faCalendarAlt, faChair, faBullhorn, faPlus, faCheckCircle, faList, faRedo, faBan, faUserShield } from '@fortawesome/free-solid-svg-icons';
 import Button from '../components/Button';
@@ -16,6 +16,7 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
     const { profile } = useAuth();
     const { theme } = useTheme();
 
+    const [session, setSession] = useState(null);
     const [papers, setPapers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [allocating, setAllocating] = useState(false);
@@ -29,12 +30,14 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [papersData, venuesData] = await Promise.all([
+            const [papersData, venuesData, sessionData] = await Promise.all([
                 fetchExamPapers(sessionId),
-                fetchExamVenues(profile.school_id)
+                fetchExamVenues(profile.school_id),
+                fetchExamSession(sessionId)
             ]);
             setPapers(papersData);
             setVenues(venuesData);
+            setSession(sessionData);
         } catch (error) {
             Alert.alert('Error', error.message);
         } finally {
@@ -87,6 +90,7 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
                             } else {
                                 Alert.alert("Success", `Sent notifications to ${result.count} students.`);
                             }
+                            loadData();
                         } catch (error) {
                             Alert.alert("Error", error.message);
                         } finally {
@@ -106,7 +110,7 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
 
         setAllocating(true);
         try {
-            const count = await autoAllocateSession(sessionId, selectedVenue, profile.school_id, null); // passing null for targetGrade for now
+            const count = await autoAllocateSession(sessionId, selectedVenue, profile.school_id, session?.target_grade);
             Alert.alert("Success", `Allocated ${count} seats successfully.`);
             setShowAllocateModal(false);
             loadData(); // Refresh counts
@@ -439,66 +443,70 @@ const styles = StyleSheet.create({
         marginTop: 8,
         marginLeft: 20,
     },
-    listContent: {
+  listContent: {
         padding: 20,
         paddingTop: 0,
     },
-          paperCard: {
-              flexDirection: 'row',
-              alignItems: 'center',
-              padding: 16,
-              borderRadius: 18,
-              borderWidth: 1,
-              borderColor: 'rgba(13, 148, 136, 0.1)',
-          },
-              iconBadge: {
+    paperCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: 'rgba(13, 148, 136, 0.1)',
+    },
+    iconBadge: {
         width: 48,
         height: 48,
         borderRadius: 14,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
-      },
-      paperInfo: {
-          flex: 1,
-      },
-      paperCode: {
-          fontSize: 10,
-          fontWeight: '900',
-          marginBottom: 2,
-          textTransform: 'uppercase',
-      },
-      paperSubject: {
-          fontSize: 15,
-          fontWeight: '800',
-          marginBottom: 4,
-      },
-      timeInfo: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 6,
-      },
-      paperTime: {
-          fontSize: 12,
-          fontWeight: '500',
-      },
-      dotSeparator: {
-          fontSize: 10,
-      },
-      deleteGhost: {
+    },
+    paperInfo: {
+        flex: 1,
+    },
+    paperCode: {
+        fontSize: 10,
+        fontWeight: '900',
+        marginBottom: 2,
+        textTransform: 'uppercase',
+    },
+    paperSubject: {
+        fontSize: 15,
+        fontWeight: '800',
+        marginBottom: 4,
+    },
+    timeInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    paperTime: {
+        fontSize: 12,
+        fontWeight: '500',
+    },
+    dotSeparator: {
+        fontSize: 10,
+    },
+    deleteGhost: {
         padding: 6,
         marginLeft: 8,
-      },
-      glowWrapper: {
-        marginBottom: 16,
+    },
+    glowWrapper: {
+        marginHorizontal: 16,
+        marginVertical: 8,
+        padding: 2,
+
         // iOS glow
         shadowColor: '#0d9488',
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
+        shadowOpacity: 0.25,
+        shadowRadius: 10,
+
         // Android glow
         elevation: 4,
-      },
+    },
     
     emptyContainer: {
         alignItems: 'center',

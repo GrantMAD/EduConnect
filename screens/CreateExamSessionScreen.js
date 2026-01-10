@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, Alert, TouchableOpacity, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { createExamSession } from '../services/examService';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faArrowLeft, faCalendarAlt, faGraduationCap, faSignature, faAlignLeft, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faCalendarAlt, faGraduationCap, faSignature, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import Button from '../components/Button';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
@@ -20,18 +20,12 @@ export default function CreateExamSessionScreen({ navigation }) {
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
   const [targetGrade, setTargetGrade] = useState('');
-  const [description, setDescription] = useState('');
   const [isActive, setIsActive] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   // Date picker state
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
-
-  // Only disable loading initially after render
-  React.useEffect(() => {
-    setLoading(false);
-  }, []);
 
   const handleSave = async () => {
     if (!name || !startDate || !endDate) {
@@ -91,215 +85,89 @@ export default function CreateExamSessionScreen({ navigation }) {
         </View>
       </LinearGradient>
 
-            <ScrollView contentContainerStyle={styles.content}>
-
-              <View style={styles.glowWrapper}>
-
-                <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-
-                  {/* SESSION NAME */}
-
-                  <View style={styles.formGroup}>
-
-                    <View style={styles.labelContainer}>
-
-                      <FontAwesomeIcon icon={faSignature} size={12} color="#0d9488" style={{ marginRight: 6 }} />
-
-                      <Text style={[styles.label, { color: theme.textSecondary }]}>SESSION NAME *</Text>
-
-                    </View>
-
-                    <TextInput
-
-                      style={[styles.input, { backgroundColor: theme.colors.background, color: theme.text, borderColor: theme.border }]}
-
-                      placeholder="e.g. Mid-Year 2026"
-
-                      placeholderTextColor={theme.textSecondary}
-
-                      value={name}
-
-                      onChangeText={setName}
-
-                    />
-
-                  </View>
-
-      
-
-                              {/* TARGET GRADE */}
-
-      
-
-                              <View style={styles.formGroup}>
-
-      
-
-                                <View style={styles.labelContainer}>
-
-      
-
-                                  <FontAwesomeIcon icon={faGraduationCap} size={12} color="#0d9488" style={{ marginRight: 6 }} />
-
-      
-
-                                  <Text style={[styles.label, { color: theme.textSecondary }]}>TARGET GRADE (Optional)</Text>
-
-      
-
-                                </View>
-
-      
-
-                                <View style={[styles.pickerContainer, { backgroundColor: theme.colors.background, borderColor: theme.border }]}>
-
-      
-
-                                                  <Picker
-
-      
-
-                                                    selectedValue={targetGrade}
-
-      
-
-                                                    onValueChange={(itemValue) => setTargetGrade(itemValue)}
-
-      
-
-                                                    style={{ color: theme.text }}
-
-      
-
-                                                    dropdownIconColor={theme.text}
-
-      
-
-                                                  >
-
-      
-
-                                                    <Picker.Item label="General / All Grades" value="" />
-
-      
-
-                                                    {['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].map(g => (
-
-      
-
-                                                      <Picker.Item key={g} label={g} value={g} />
-
-      
-
-                                                    ))}
-
-      
-
-                                                  </Picker>
-
-      
-
-                                  
-
-      
-
-                                </View>
-
-      
-
-                              </View>
-
-      
-
-                  
-
-      
-
-                  {/* DATE ROW */}
-
-                  <View style={styles.row}>
-
-                    <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
-
-                      <View style={styles.labelContainer}>
-
-                        <FontAwesomeIcon icon={faCalendarAlt} size={12} color="#0d9488" style={{ marginRight: 6 }} />
-
-                        <Text style={[styles.label, { color: theme.textSecondary }]}>START DATE *</Text>
-
-                      </View>
-
-                      <TouchableOpacity
-
-                        style={[styles.dateButton, { backgroundColor: theme.colors.background, borderColor: theme.border }]}
-
-                        onPress={() => setShowStartPicker(true)}
-
-                      >
-
-                        <Text style={{ color: theme.text }}>{startDate.toLocaleDateString()}</Text>
-
-                      </TouchableOpacity>
-
-                    </View>
-
-                    
-
-                    <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
-
-                      <View style={styles.labelContainer}>
-
-                        <FontAwesomeIcon icon={faCalendarAlt} size={12} color="#0d9488" style={{ marginRight: 6 }} />
-
-                        <Text style={[styles.label, { color: theme.textSecondary }]}>END DATE *</Text>
-
-                      </View>
-
-                      <TouchableOpacity
-
-                        style={[styles.dateButton, { backgroundColor: theme.colors.background, borderColor: theme.border }]}
-
-                        onPress={() => setShowEndPicker(true)}
-
-                      >
-
-                        <Text style={{ color: theme.text }}>{endDate.toLocaleDateString()}</Text>
-
-                      </TouchableOpacity>
-
-                    </View>
-
-                  </View>
-
-      
-
-                  {showStartPicker && (
-
-                    <DateTimePicker value={startDate} mode="date" display="default" onChange={onStartDateChange} />
-
-                  )}
-
-                  {showEndPicker && (
-
-                    <DateTimePicker value={endDate} mode="date" display="default" onChange={onEndDateChange} />
-
-                  )}
-
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.glowWrapper}>
+          <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
+            {/* SESSION NAME */}
+            <View style={styles.formGroup}>
+              <View style={styles.labelContainer}>
+                <FontAwesomeIcon icon={faSignature} size={12} color="#0d9488" style={{ marginRight: 6 }} />
+                <Text style={[styles.label, { color: theme.textSecondary }]}>SESSION NAME *</Text>
+              </View>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.colors.background, color: theme.text, borderColor: theme.border }]}
+                placeholder="e.g. Mid-Year 2026"
+                placeholderTextColor={theme.textSecondary}
+                value={name}
+                onChangeText={setName}
+              />
+            </View>
+
+            {/* TARGET GRADE */}
+            <View style={styles.formGroup}>
+              <View style={styles.labelContainer}>
+                <FontAwesomeIcon icon={faGraduationCap} size={12} color="#0d9488" style={{ marginRight: 6 }} />
+                <Text style={[styles.label, { color: theme.textSecondary }]}>TARGET GRADE (Optional)</Text>
+              </View>
+              <View style={[styles.pickerContainer, { backgroundColor: theme.colors.background, borderColor: theme.border }]}>
+                <Picker
+                  selectedValue={targetGrade}
+                  onValueChange={(itemValue) => {
+                    setTargetGrade(itemValue);
+                  }}
+                  style={{ color: theme.text }}
+                  dropdownIconColor={theme.text}
+                >
+                  <Picker.Item label="General / All Grades" value="" />
+                  {['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].map(g => (
+                    <Picker.Item key={g} label={g} value={g} />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+
+            {/* DATE ROW */}
+            <View style={styles.row}>
+              <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
+                <View style={styles.labelContainer}>
+                  <FontAwesomeIcon icon={faCalendarAlt} size={12} color="#0d9488" style={{ marginRight: 6 }} />
+                  <Text style={[styles.label, { color: theme.textSecondary }]}>START DATE *</Text>
                 </View>
-
+                <TouchableOpacity
+                  style={[styles.dateButton, { backgroundColor: theme.colors.background, borderColor: theme.border }]}
+                  onPress={() => setShowStartPicker(true)}
+                >
+                  <Text style={{ color: theme.text }}>{startDate.toLocaleDateString()}</Text>
+                </TouchableOpacity>
               </View>
-
-      
-
-              <View style={styles.footer}>
-
-                <Button title="Create Session" onPress={handleSave} loading={loading} />
-
+              
+              <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
+                <View style={styles.labelContainer}>
+                  <FontAwesomeIcon icon={faCalendarAlt} size={12} color="#0d9488" style={{ marginRight: 6 }} />
+                  <Text style={[styles.label, { color: theme.textSecondary }]}>END DATE *</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.dateButton, { backgroundColor: theme.colors.background, borderColor: theme.border }]}
+                  onPress={() => setShowEndPicker(true)}
+                >
+                  <Text style={{ color: theme.text }}>{endDate.toLocaleDateString()}</Text>
+                </TouchableOpacity>
               </View>
+            </View>
 
-            </ScrollView>
+            {showStartPicker && (
+              <DateTimePicker value={startDate} mode="date" display="default" onChange={onStartDateChange} />
+            )}
+            {showEndPicker && (
+              <DateTimePicker value={endDate} mode="date" display="default" onChange={onEndDateChange} />
+            )}
+          </View>
+        </View>
 
-      
+        <View style={styles.footer}>
+          <Button title="Create Session" onPress={handleSave} loading={loading} />
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -414,16 +282,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     justifyContent: 'center'
-  },
-  switchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8
-  },
-  switchLabel: {
-    fontSize: 15,
-    fontWeight: '600'
   },
   footer: {
     marginTop: 24,

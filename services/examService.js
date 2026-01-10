@@ -5,12 +5,23 @@ import { supabase } from '../lib/supabase';
 export const fetchExamSessions = async (schoolId) => {
     const { data, error } = await supabase
         .from('exam_sessions')
-        .select('*, exam_papers(id, subject_name, paper_code, date, start_time, exam_seat_allocations(count), exam_invigilators(count))')
+        .select('*, exam_papers(id, subject_name, paper_code, date, start_time, notifications_sent, exam_seat_allocations(count), exam_invigilators(count))')
         .eq('school_id', schoolId)
         .order('start_date', { ascending: false });
 
     if (error) throw error;
     return data || [];
+};
+
+export const fetchExamSession = async (sessionId) => {
+    const { data, error } = await supabase
+        .from('exam_sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .single();
+
+    if (error) throw error;
+    return data;
 };
 
 export const createExamSession = async (sessionData) => {
@@ -106,7 +117,7 @@ export const deleteExamVenue = async (id) => {
 export const fetchExamPapers = async (sessionId) => {
     const { data, error } = await supabase
         .from('exam_papers')
-        .select('*, exam_seat_allocations(count), exam_invigilators(count)')
+        .select('*, exam_seat_allocations(count), exam_invigilators(count), notifications_sent')
         .eq('session_id', sessionId)
         .order('date', { ascending: true })
         .order('start_time', { ascending: true });
@@ -123,6 +134,13 @@ export const createExamPaper = async (paperData) => {
         .single();
 
     if (error) throw error;
+
+    // Reset session notification flag when a new paper is added
+    await supabase
+        .from('exam_sessions')
+        .update({ notifications_sent: false })
+        .eq('id', paperData.session_id);
+
     return data;
 };
 
@@ -234,14 +252,17 @@ export const autoAllocateSession = async (sessionId, venueId, schoolId, targetGr
     if (papers.length === 0) throw new Error("No papers found in this session.");
 
     // 3. Fetch Eligible Students
-    let query = supabase.from('users').select('*').eq('school_id', schoolId).eq('role', 'student');
+    let query = supabase.from('users').select('id, grade, full_name').eq('school_id', schoolId).eq('role', 'student');
     
     const { data: allStudents, error: studentsError } = await query;
     if (studentsError) throw new Error(`Students error: ${studentsError.message}`);
 
     let eligibleStudents = allStudents;
-    if (targetGrade) {
-        eligibleStudents = allStudents.filter(s => s.grade === targetGrade);
+    if (targetGrade && targetGrade.trim() !== "") {
+        const normalizedTarget = targetGrade.trim().toLowerCase();
+        eligibleStudents = allStudents.filter(s => 
+            s.grade && s.grade.trim().toLowerCase() === normalizedTarget
+        );
     }
 
     if (eligibleStudents.length === 0) throw new Error("No eligible students found.");
@@ -251,13 +272,14 @@ export const autoAllocateSession = async (sessionId, venueId, schoolId, targetGr
 
     // 4. Loop through each paper and generate allocations
     for (const paper of papers) {
-        // Fetch existing allocations for this paper to avoid duplicates (optional safety)
+        // Fetch existing allocations for this paper to avoid duplicates
         const { data: existing } = await supabase
             .from('exam_seat_allocations')
-            .select('student_id')
+            .select('student_id, seat_label')
             .eq('paper_id', paper.id);
 
         const existingStudentIds = new Set(existing?.map(a => a.student_id) || []);
+        const occupiedSeats = new Set(existing?.map(a => a.seat_label) || []);
         const studentsToAllocate = eligibleStudents.filter(s => !existingStudentIds.has(s.id));
 
         let studentIdx = 0;
@@ -266,8 +288,12 @@ export const autoAllocateSession = async (sessionId, venueId, schoolId, targetGr
             for (let c = 1; c <= venue.columns; c++) {
                 if (studentIdx >= studentsToAllocate.length) break;
 
-                const student = studentsToAllocate[studentIdx];
                 const seatLabel = `${String.fromCharCode(64 + r)}-${c}`; // A-1
+                
+                // Skip if seat is already taken in this paper
+                if (occupiedSeats.has(seatLabel)) continue;
+
+                const student = studentsToAllocate[studentIdx];
 
                 allAllocations.push({
                     paper_id: paper.id,
@@ -292,6 +318,83 @@ export const autoAllocateSession = async (sessionId, venueId, schoolId, targetGr
 
     if (insertError) throw insertError;
     return allAllocations.length;
+};
+
+/**
+ * Auto-allocates seats for a SPECIFIC paper.
+ */
+export const autoAllocatePaper = async (paperId, venueId, schoolId, targetGrade) => {
+    // 1. Fetch Venue Details
+    const { data: venue, error: venueError } = await supabase
+        .from('exam_venues')
+        .select('*')
+        .eq('id', venueId)
+        .single();
+    if (venueError) throw new Error(`Venue error: ${venueError.message}`);
+
+    // 2. Fetch Existing Allocations for this paper
+    const { data: existing, error: existingError } = await supabase
+        .from('exam_seat_allocations')
+        .select('student_id, seat_label')
+        .eq('paper_id', paperId);
+    if (existingError) throw existingError;
+
+    const allocatedStudentIds = new Set(existing?.map(a => a.student_id) || []);
+    const occupiedSeats = new Set(existing?.map(a => a.seat_label) || []);
+
+    // 3. Fetch Eligible Students
+    const { data: allStudents, error: studentsError } = await supabase
+        .from('users')
+        .select('id, grade, full_name')
+        .eq('school_id', schoolId)
+        .eq('role', 'student');
+    if (studentsError) throw new Error(`Students error: ${studentsError.message}`);
+
+    let eligibleStudents = allStudents;
+    if (targetGrade && targetGrade.trim() !== "") {
+        const normalizedTarget = targetGrade.trim().toLowerCase();
+        eligibleStudents = allStudents.filter(s => 
+            s.grade && s.grade.trim().toLowerCase() === normalizedTarget
+        );
+    }
+
+    const unallocatedStudents = eligibleStudents.filter(s => !allocatedStudentIds.has(s.id));
+    if (unallocatedStudents.length === 0) throw new Error("All eligible students are already allocated for this paper.");
+
+    const newAllocations = [];
+    let studentIdx = 0;
+
+    // 4. Generate seats based on Venue Capacity/Grid
+    for (let r = 1; r <= venue.rows; r++) {
+        for (let c = 1; c <= venue.columns; c++) {
+            if (studentIdx >= unallocatedStudents.length) break;
+
+            const seatLabel = `${String.fromCharCode(64 + r)}-${c}`;
+            
+            // Skip if seat is already taken in this paper
+            if (occupiedSeats.has(seatLabel)) continue;
+
+            newAllocations.push({
+                paper_id: paperId,
+                student_id: unallocatedStudents[studentIdx].id,
+                venue_id: venueId,
+                seat_row: r,
+                seat_col: c,
+                seat_label: seatLabel,
+                status: 'scheduled'
+            });
+            studentIdx++;
+        }
+    }
+
+    if (newAllocations.length === 0) throw new Error("No available seats in this venue.");
+
+    const { error: insertError } = await supabase
+        .from('exam_seat_allocations')
+        .insert(newAllocations);
+
+    if (insertError) throw insertError;
+    return newAllocations.length;
 };
 
 export const clearPaperAllocations = async (paperId) => {
@@ -431,7 +534,16 @@ export const notifySessionStudents = async (sessionId, sessionName) => {
 
     if (notifyError) throw notifyError;
 
-    // 5. Mark session as notified
+    // 5. Update Papers and Session status
+    // Mark these specific papers as notified
+    const { error: updatePapersError } = await supabase
+        .from('exam_papers')
+        .update({ notifications_sent: true })
+        .in('id', paperIds);
+
+    if (updatePapersError) throw updatePapersError;
+
+    // Mark session as notified
     const { error: updateError } = await supabase
         .from('exam_sessions')
         .update({ notifications_sent: true })

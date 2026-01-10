@@ -40,7 +40,9 @@ import {
   faFileSignature,
   faUserEdit,
   faCalendarAlt,
-  faExclamationCircle
+  faExclamationCircle,
+  faMapMarkerAlt,
+  faChair
 } from '@fortawesome/free-solid-svg-icons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -62,6 +64,7 @@ import {
   fetchClassInfo
 } from '../services/classService';
 import { fetchGradingCategories, calculateWeightedGrade } from '../services/gradebookService';
+import { fetchStudentExamSchedule } from '../services/examService';
 
 const { width } = Dimensions.get('window');
 const defaultUserImage = require('../assets/user.png');
@@ -322,15 +325,26 @@ const ClassCard = React.memo(({ classInfo, theme }) => {
   );
 });
 
-const StudentDashboard = React.memo(({ student, theme, refreshTrigger }) => {
+const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTab = 'performance' }) => {
   const [classes, setClasses] = useState([]);
+  const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   useEffect(() => {
     const fetchClassData = async () => {
       setLoading(true);
       try {
-        const memberships = await fetchClassMemberships(student.id);
+        const [memberships, examsData] = await Promise.all([
+          fetchClassMemberships(student.id),
+          fetchStudentExamSchedule(student.id)
+        ]);
+
+        setExams(examsData || []);
 
         if (!memberships || memberships.length === 0) {
           setClasses([]);
@@ -399,44 +413,120 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger }) => {
 
   if (loading) return <View style={{ marginTop: 40 }}><ActivityIndicator size="large" color={theme.colors.primary} /></View>;
 
-  if (classes.length === 0) {
-    return (
-      <View style={[styles.emptyState, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, borderStyle: 'dashed' }]}>
-        <FontAwesomeIcon icon={faGraduationCap} size={48} color={theme.colors.placeholder} style={{ opacity: 0.3 }} />
-        <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>No Active Classes</Text>
-        <Text style={[styles.emptyStateDesc, { color: theme.colors.placeholder }]}>This student is not enrolled in any classes yet.</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.dashboardContainer}>
-      <View style={styles.statsGrid}>
-        <View style={[styles.statItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-          <View style={[styles.statIconBox, { backgroundColor: '#eef2ff' }]}>
-            <FontAwesomeIcon icon={faGraduationCap} color="#4f46e5" size={14} />
+      {/* Tab Switcher */}
+      <View style={[styles.tabContainer, { borderBottomColor: theme.colors.cardBorder }]}>
+        <TouchableOpacity 
+          onPress={() => setActiveTab('performance')} 
+          style={[styles.tabBtn, activeTab === 'performance' && { borderBottomColor: theme.colors.primary }]}
+        >
+          <Text style={[styles.tabText, { color: activeTab === 'performance' ? theme.colors.primary : theme.colors.placeholder }]}>PERFORMANCE</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          onPress={() => setActiveTab('exams')} 
+          style={[styles.tabBtn, activeTab === 'exams' && { borderBottomColor: theme.colors.primary }]}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={[styles.tabText, { color: activeTab === 'exams' ? theme.colors.primary : theme.colors.placeholder }]}>EXAMS</Text>
+            {exams.length > 0 && (
+              <View style={[styles.tabCount, { backgroundColor: activeTab === 'exams' ? theme.colors.primary : theme.colors.cardBorder }]}>
+                <Text style={styles.tabCountText}>{exams.length}</Text>
+              </View>
+            )}
           </View>
-          <Text style={[styles.statBigVal, { color: theme.colors.text }]}>{stats.classes}</Text>
-          <Text style={styles.statSmallLabel}>ENROLLED</Text>
-        </View>
-        <View style={[styles.statItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-          <View style={[styles.statIconBox, { backgroundColor: '#ecfdf5' }]}>
-            <FontAwesomeIcon icon={faPercentage} color="#10b981" size={14} />
-          </View>
-          <Text style={[styles.statBigVal, { color: theme.colors.text }]}>{stats.avgAttendance}%</Text>
-          <Text style={styles.statSmallLabel}>ATTENDANCE</Text>
-        </View>
-        <View style={[styles.statItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-          <View style={[styles.statIconBox, { backgroundColor: '#f5f3ff' }]}>
-            <FontAwesomeIcon icon={faChartLine} color="#8b5cf6" size={14} />
-          </View>
-          <Text style={[styles.statBigVal, { color: theme.colors.text }]}>{stats.marks}</Text>
-          <Text style={styles.statSmallLabel}>GRADED</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
-      <Text style={[styles.sectionTitleLabel, { color: theme.colors.text }]}>Subject Performance</Text>
-      {classes.map((cls, idx) => <ClassCard key={idx} classInfo={cls} theme={theme} />)}
+      {activeTab === 'performance' ? (
+        classes.length === 0 ? (
+          <View style={[styles.emptyState, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, borderStyle: 'dashed' }]}>
+            <FontAwesomeIcon icon={faGraduationCap} size={48} color={theme.colors.placeholder} style={{ opacity: 0.3 }} />
+            <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>No Active Classes</Text>
+            <Text style={[styles.emptyStateDesc, { color: theme.colors.placeholder }]}>This student is not enrolled in any classes yet.</Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.statsGrid}>
+              <View style={[styles.statItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                <View style={[styles.statIconBox, { backgroundColor: '#eef2ff' }]}>
+                  <FontAwesomeIcon icon={faGraduationCap} color="#4f46e5" size={14} />
+                </View>
+                <Text style={[styles.statBigVal, { color: theme.colors.text }]}>{stats.classes}</Text>
+                <Text style={styles.statSmallLabel}>ENROLLED</Text>
+              </View>
+              <View style={[styles.statItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                <View style={[styles.statIconBox, { backgroundColor: '#ecfdf5' }]}>
+                  <FontAwesomeIcon icon={faPercentage} color="#10b981" size={14} />
+                </View>
+                <Text style={[styles.statBigVal, { color: theme.colors.text }]}>{stats.avgAttendance}%</Text>
+                <Text style={styles.statSmallLabel}>ATTENDANCE</Text>
+              </View>
+              <View style={[styles.statItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                <View style={[styles.statIconBox, { backgroundColor: '#f5f3ff' }]}>
+                  <FontAwesomeIcon icon={faChartLine} color="#8b5cf6" size={14} />
+                </View>
+                <Text style={[styles.statBigVal, { color: theme.colors.text }]}>{stats.marks}</Text>
+                <Text style={styles.statSmallLabel}>GRADED</Text>
+              </View>
+            </View>
+
+            <Text style={[styles.sectionTitleLabel, { color: theme.colors.text }]}>Subject Performance</Text>
+            {classes.map((cls, idx) => <ClassCard key={idx} classInfo={cls} theme={theme} />)}
+          </>
+        )
+      ) : (
+        <View style={styles.examContainer}>
+          {exams.length === 0 ? (
+            <View style={[styles.emptyState, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, borderStyle: 'dashed' }]}>
+              <FontAwesomeIcon icon={faCalendarAlt} size={48} color={theme.colors.placeholder} style={{ opacity: 0.3 }} />
+              <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>No Exams Found</Text>
+              <Text style={[styles.emptyStateDesc, { color: theme.colors.placeholder }]}>No examination timetable has been published yet.</Text>
+            </View>
+          ) : (
+            exams.map((exam, idx) => (
+              <View key={idx} style={[styles.examCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+                <View style={styles.examDateBox}>
+                  <Text style={styles.examMonth}>{new Date(exam.date).toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}</Text>
+                  <Text style={[styles.examDay, { color: theme.colors.text }]}>{new Date(exam.date).getDate()}</Text>
+                </View>
+                <View style={styles.examMain}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <View style={[styles.paperCodeBadge, { backgroundColor: theme.colors.primary + '15' }]}>
+                      <Text style={[styles.paperCodeText, { color: theme.colors.primary }]}>{exam.paper_code}</Text>
+                    </View>
+                    <Text style={[styles.examTime, { color: theme.colors.placeholder }]}>
+                      <FontAwesomeIcon icon={faClock} size={10} color={theme.colors.placeholder} /> {exam.start_time.slice(0, 5)}
+                    </Text>
+                  </View>
+                  <Text style={[styles.examSubject, { color: theme.colors.text }]} numberOfLines={1}>{exam.subject_name}</Text>
+                  
+                  <View style={[styles.examVenueRow, { borderTopColor: theme.colors.cardBorder }]}>
+                    <View style={styles.venueStat}>
+                      <FontAwesomeIcon icon={faMapMarkerAlt} size={10} color="#0d9488" />
+                      <Text style={[styles.venueStatText, { color: '#0d9488' }]}>{exam.venue_name || 'TBA'}</Text>
+                    </View>
+                    <View style={styles.venueStat}>
+                      <FontAwesomeIcon icon={faChair} size={10} color="#0d9488" />
+                      <Text style={[styles.venueStatText, { color: '#0d9488' }]}>SEAT: {exam.seat_label || 'TBA'}</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+      )}
+
+      <StudentClassDetailModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedClass(null);
+        }}
+        classInfo={selectedClass}
+        studentName={student.full_name}
+      />
     </View>
   );
 });
@@ -510,11 +600,11 @@ const AdminFamilyDetail = React.memo(({ parentData, onBack, theme }) => (
   </ScrollView>
 ));
 
-const MyChildrenScreen = ({ navigation }) => {
+const MyChildrenScreen = ({ navigation, route }) => {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const [children, setChildren] = useState([]);
-  const [selectedChildId, setSelectedChildId] = useState(null);
+  const [selectedChildId, setSelectedChildId] = useState(route.params?.studentId || null);
   const [parents, setParents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -523,6 +613,13 @@ const MyChildrenScreen = ({ navigation }) => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedParent, setSelectedParent] = useState(null);
+
+  // Sync state with route params (for notifications)
+  useEffect(() => {
+    if (route.params?.studentId) {
+      setSelectedChildId(route.params.studentId);
+    }
+  }, [route.params?.studentId]);
 
   const fetchInitialData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -731,7 +828,12 @@ const MyChildrenScreen = ({ navigation }) => {
                   </View>
                 </LinearGradient>
 
-                <StudentDashboard student={selectedChild} theme={theme} refreshTrigger={refreshTrigger} />
+                <StudentDashboard 
+                  student={selectedChild} 
+                  theme={theme} 
+                  refreshTrigger={refreshTrigger} 
+                  initialTab={route.params?.activeTab || 'performance'} 
+                />
               </View>
             )}
           </>
@@ -984,6 +1086,96 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
+  tabContainer: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    marginBottom: 20,
+  },
+  tabBtn: {
+    paddingVertical: 12,
+    marginRight: 24,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabText: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  tabCount: {
+    marginLeft: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  tabCountText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#fff',
+  },
+  examContainer: {
+    gap: 12,
+  },
+  examCard: {
+    flexDirection: 'row',
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: 'hidden',
+    padding: 16,
+  },
+  examDateBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 50,
+    marginRight: 16,
+  },
+  examMonth: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#94a3b8',
+  },
+  examDay: {
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  examMain: {
+    flex: 1,
+  },
+  paperCodeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  paperCodeText: {
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  examTime: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  examSubject: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 12,
+  },
+  examVenueRow: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    paddingTop: 8,
+    gap: 16,
+  },
+  venueStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  venueStatText: {
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  }
 });
 
 export default React.memo(MyChildrenScreen);

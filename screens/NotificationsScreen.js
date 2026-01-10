@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, SectionList, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, ScrollView, Linking, RefreshControl } from 'react-native';
 import NotificationCardSkeleton, { SkeletonPiece } from '../components/skeletons/NotificationCardSkeleton';
 import { FontAwesome5 } from '@expo/vector-icons';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
@@ -31,6 +32,7 @@ const NotificationsScreen = ({ route, navigation }) => {
   const [modalLoading, setModalLoading] = useState(false);
   const { showToast } = useToast();
   const { theme } = useTheme();
+  const { profile } = useAuth();
 
   const fetchNotifications = useCallback(async () => {
     if (!refreshing) setLoading(true);
@@ -102,6 +104,19 @@ const NotificationsScreen = ({ route, navigation }) => {
         );
 
         navigation.navigate('ClubList');
+        return;
+      case 'exam_schedule':
+        await markAsRead(notification.id);
+
+        setNotifications(prev =>
+          prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
+        );
+
+        if (profile?.role === 'parent') {
+            navigation.navigate('MyChildren', { studentId: notification.related_user_id, activeTab: 'exams' });
+        } else {
+            navigation.navigate('MyExams');
+        }
         return;
       default:
         return;

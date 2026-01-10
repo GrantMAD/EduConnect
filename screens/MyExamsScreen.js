@@ -6,13 +6,20 @@ import { fetchStudentExamSchedule } from '../services/examService';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 
-export default function MyExamsScreen({ navigation }) {
+export default function MyExamsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { user, profile } = useAuth();
   const { theme } = useTheme();
   const [schedule, setSchedule] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Redirect parents to My Children page as that's where their child's exams are now
+  useEffect(() => {
+    if (profile?.role === 'parent') {
+      navigation.replace('MyChildren', route.params);
+    }
+  }, [profile?.role, navigation, route.params]);
 
   const loadSchedule = async () => {
     try {

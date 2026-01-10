@@ -18,7 +18,8 @@ import {
     faStore,
     faHandshake,
     faFootballBall,
-    faSearch
+    faSearch,
+    faFileSignature
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -346,6 +347,20 @@ const CustomDrawerContent = React.memo((props) => {
                     }
                     color="#f59e0b"
                 />
+
+                {userRole !== 'parent' && (
+                    <DrawerItem
+                        icon={faFileSignature}
+                        label={['admin', 'teacher'].includes(userRole) ? "Exams" : "My Exams"}
+                        description={['admin', 'teacher'].includes(userRole) ? "Schedule & Staff" : "Hall ticket"}
+                        theme={theme}
+                        active={activeMainStackRouteName === (['admin', 'teacher'].includes(userRole) ? 'ExamManagement' : 'MyExams')}
+                        onPress={() =>
+                            props.navigation.navigate('MainStack', { screen: (['admin', 'teacher'].includes(userRole) ? 'ExamManagement' : 'MyExams') })
+                        }
+                        color="#0d9488"
+                    />
+                )}
 
                 <SectionHeader title="System" />
                 <DrawerItem
