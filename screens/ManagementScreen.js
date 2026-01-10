@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faUsers, faSchool, faBullhorn, faStore, faCog, faArrowLeft, faHandshake, faChartLine, faUserShield, faChevronRight, faUserFriends } from '@fortawesome/free-solid-svg-icons';
+import { faUsers, faSchool, faBullhorn, faStore, faCog, faArrowLeft, faHandshake, faChartLine, faUserShield, faChevronRight, faUserFriends, faClipboard } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import SettingsScreenSkeleton, { SkeletonPiece } from '../components/skeletons/SettingsScreenSkeleton';
 import LinearGradient from 'react-native-linear-gradient';
@@ -61,6 +61,7 @@ const ManagementScreen = ({ navigation }) => {
     const navigateToSchoolData = useCallback(() => navigation.navigate('SchoolData'), [navigation]);
     const navigateToEngagementInsights = useCallback(() => navigation.navigate('EngagementInsights'), [navigation]);
     const navigateToManageMarketData = useCallback(() => navigation.navigate('ManageMarketData'), [navigation]);
+    const navigateToExamManagement = useCallback(() => navigation.navigate('ExamManagement'), [navigation]);
 
     return (
         <ScrollView
@@ -155,6 +156,20 @@ const ManagementScreen = ({ navigation }) => {
                                 description="Manage availability and bookings"
                                 onPress={navigateToMeetings}
                                 color="#06b6d4"
+                                theme={theme}
+                            />
+                        </View>
+                    )}
+
+                    {user && (user.role === 'admin' || user.role === 'teacher') && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>EXAMINATION</Text>
+                            <ManagementButton
+                                icon={faClipboard}
+                                title="Exam Management"
+                                description="Manage sessions, papers, and seating"
+                                onPress={navigateToExamManagement}
+                                color="#0d9488"
                                 theme={theme}
                             />
                         </View>

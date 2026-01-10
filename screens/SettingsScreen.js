@@ -273,21 +273,6 @@ const SettingsScreen = ({ navigation }) => {
         )}
       </View>
 
-      {/* Management - Admin/Teacher Only */}
-      {user && (user.role === 'admin' || user.role === 'teacher') && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>MANAGEMENT</Text>
-          <LinkButton
-            icon={faCog}
-            title="Management Center"
-            description="Manage users, content, and school data"
-            onPress={() => navigation.navigate('Management')}
-            color="#4f46e5"
-            theme={theme}
-          />
-        </View>
-      )}
-
       {/* Information Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>INFORMATION</Text>

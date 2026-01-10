@@ -40,6 +40,13 @@ import CalendarScreen from '../screens/CalendarScreen';
 import HomeworkScreen from '../screens/HomeworkScreen';
 import MarketScreen from '../screens/market/MarketScreen';
 import MeetingsScreen from '../screens/meetings/MeetingsScreen';
+import MyExamsScreen from '../screens/MyExamsScreen';
+
+import ExamManagementScreen from '../screens/ExamManagementScreen';
+import CreateExamSessionScreen from '../screens/CreateExamSessionScreen';
+import ExamSessionDetailScreen from '../screens/ExamSessionDetailScreen';
+import CreateExamPaperScreen from '../screens/CreateExamPaperScreen';
+import ExamAllocationsScreen from '../screens/ExamAllocationsScreen';
 
 // Gamification Screens
 import LeaderboardScreen from '../screens/gamification/LeaderboardScreen';
@@ -95,6 +102,14 @@ const MainStackNavigator = () => (
     <Stack.Screen name="Homework" component={HomeworkScreen} options={{ title: 'Homework' }} />
     <Stack.Screen name="Market" component={MarketScreen} options={{ title: 'Marketplace' }} />
     <Stack.Screen name="Meetings" component={MeetingsScreen} options={{ title: 'Meetings' }} />
+    <Stack.Screen name="MyExams" component={MyExamsScreen} options={{ headerShown: false }} />
+
+    {/* Exam Management */}
+    <Stack.Screen name="ExamManagement" component={ExamManagementScreen} options={{ headerShown: false }} />
+    <Stack.Screen name="CreateExamSession" component={CreateExamSessionScreen} options={{ headerShown: false }} />
+    <Stack.Screen name="ExamSessionDetail" component={ExamSessionDetailScreen} options={{ headerShown: false }} />
+    <Stack.Screen name="CreateExamPaper" component={CreateExamPaperScreen} options={{ headerShown: false }} />
+    <Stack.Screen name="ExamAllocations" component={ExamAllocationsScreen} options={{ headerShown: false }} />
 
     {/* Gamification Screens */}
     <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: 'Leaderboard' }} />
