@@ -27,6 +27,8 @@ const CreateClassScreen = ({ navigation, route }) => {
   const { fromDashboard, fromManageClassesScreen } = route.params || {};
   const [className, setClassName] = useState('');
   const [subject, setSubject] = useState('');
+  const [selectedGrade, setSelectedGrade] = useState('');
+  const [filterByGrade, setFilterByGrade] = useState(true);
   const [loading, setLoading] = useState(false);
   const [allStudents, setAllStudents] = useState([]);
   const [students, setStudents] = useState([]);
@@ -52,7 +54,6 @@ const CreateClassScreen = ({ navigation, route }) => {
       const data = await fetchUsersBySchool(schoolId, { role: 'student' });
 
       setAllStudents(data || []);
-      setStudents(data || []);
     } catch (error) {
       console.error('Error fetching students:', error.message);
       showToast('Failed to fetch students.', 'error');
@@ -68,15 +69,22 @@ const CreateClassScreen = ({ navigation, route }) => {
   }, [schoolId, fetchStudents]);
 
   useEffect(() => {
-    if (searchQuery === '') {
-      setStudents(allStudents);
-    } else {
-      const filtered = allStudents.filter(student =>
+    let filtered = allStudents;
+    
+    // Apply search query
+    if (searchQuery !== '') {
+      filtered = filtered.filter(student =>
         student.full_name.toLowerCase().includes(searchQuery.toLowerCase())
       );
-      setStudents(filtered);
     }
-  }, [searchQuery, allStudents]);
+    
+    // Apply grade filter if enabled
+    if (selectedGrade && filterByGrade) {
+      filtered = filtered.filter(student => student.grade === selectedGrade);
+    }
+    
+    setStudents(filtered);
+  }, [searchQuery, allStudents, selectedGrade, filterByGrade]);
 
   const toggleStudentSelection = useCallback((studentId) => {
     setSelectedStudents(prev => {
@@ -132,6 +140,7 @@ const CreateClassScreen = ({ navigation, route }) => {
       const newClass = await createClassService({ 
         name: className, 
         subject: subject, 
+        grade: selectedGrade,
         school_id: schoolId, 
         teacher_id: authUser.id 
       });
@@ -251,10 +260,40 @@ const CreateClassScreen = ({ navigation, route }) => {
                     />
                 </View>
             </View>
+            <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>TARGET GRADE</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                    {['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].map(g => (
+                        <TouchableOpacity 
+                            key={g} 
+                            style={[
+                                styles.gradeChip, 
+                                { backgroundColor: selectedGrade === g ? theme.colors.primary : theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }
+                            ]}
+                            onPress={() => setSelectedGrade(g)}
+                        >
+                            <Text style={[styles.gradeChipText, { color: selectedGrade === g ? '#fff' : theme.colors.text }]}>{g}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
         </View>
 
         <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 20 }]}>
-            <Text style={styles.cardSectionLabel}>STUDENT ROSTER</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <Text style={[styles.cardSectionLabel, { marginBottom: 0 }]}>STUDENT ROSTER</Text>
+                {selectedGrade ? (
+                    <TouchableOpacity 
+                        style={styles.filterToggle} 
+                        onPress={() => setFilterByGrade(!filterByGrade)}
+                    >
+                        <FontAwesomeIcon icon={filterByGrade ? faPlusCircle : faMinusCircle} size={12} color={filterByGrade ? '#10b981' : theme.colors.placeholder} />
+                        <Text style={[styles.filterToggleText, { color: filterByGrade ? '#10b981' : theme.colors.placeholder }]}>
+                            {filterByGrade ? `Filtered: ${selectedGrade}` : 'Show All'}
+                        </Text>
+                    </TouchableOpacity>
+                ) : null}
+            </View>
             
             <View style={[styles.searchWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                 <FontAwesomeIcon icon={faSearch} size={14} color={theme.colors.placeholder} />
@@ -454,10 +493,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  backButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
-  },
-});
+    backButtonText: {
+      marginLeft: 8,
+      fontSize: 16,
+      color: '#333',
+      fontWeight: '500',
+    },
+    gradeChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 12,
+      marginRight: 8,
+    },
+    gradeChipText: {
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    filterToggle: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    filterToggleText: {
+      fontSize: 10,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+    }
+  });
+  

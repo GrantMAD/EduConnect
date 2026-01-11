@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTimes, faGraduationCap, faCalendarAlt, faChevronRight, faCircle } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faGraduationCap, faCalendarAlt, faChevronRight, faCircle, faFileSignature } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
 const StudentGradeDetailModal = ({ visible, onClose, student, marks, categories }) => {
@@ -66,11 +66,15 @@ const StudentGradeDetailModal = ({ visible, onClose, student, marks, categories 
 
                                 {cat.marks.map((mark, mIdx) => {
                                     const percentage = mark.score !== null && mark.total_possible ? Math.round((mark.score / mark.total_possible) * 100) : null;
+                                    const isExam = !!mark.exam_paper_id;
 
                                     return (
                                         <View key={mark.id || mIdx} style={[styles.markRow, { borderColor: theme.colors.cardBorder }]}>
                                             <View style={styles.markMain}>
-                                                <Text style={[styles.assessmentName, { color: theme.colors.text }]}>{mark.assessment_name || 'Assessment'}</Text>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                    {isExam && <FontAwesomeIcon icon={faFileSignature} size={14} color="#10b981" />}
+                                                    <Text style={[styles.assessmentName, { color: theme.colors.text }]}>{mark.assessment_name || 'Assessment'}</Text>
+                                                </View>
                                                 <View style={styles.dateRow}>
                                                     <FontAwesomeIcon icon={faCalendarAlt} size={10} color={theme.colors.placeholder} />
                                                     <Text style={[styles.dateText, { color: theme.colors.placeholder }]}>

@@ -136,10 +136,12 @@ export const createExamPaper = async (paperData) => {
     if (error) throw error;
 
     // Reset session notification flag when a new paper is added
-    await supabase
-        .from('exam_sessions')
-        .update({ notifications_sent: false })
-        .eq('id', paperData.session_id);
+    if (paperData.session_id) {
+        await supabase
+            .from('exam_sessions')
+            .update({ notifications_sent: false })
+            .eq('id', paperData.session_id);
+    }
 
     return data;
 };

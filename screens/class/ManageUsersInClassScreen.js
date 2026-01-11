@@ -641,6 +641,14 @@ const ManageUsersInClassScreen = ({ navigation }) => {
         </LinearGradient>
 
         <View style={{ padding: 20 }}>
+          {/* Helpful Instruction Description */}
+          <View style={[styles.instructionCard, { backgroundColor: theme.colors.primary + '08', borderColor: theme.colors.primary + '20' }]}>
+            <FontAwesomeIcon icon={faQuestionCircle} size={16} color={theme.colors.primary} />
+            <Text style={[styles.instructionText, { color: theme.colors.textSecondary }]}>
+              Mark attendance using the grid below. Tap a student to manage their academic history and link marks to scheduled exams.
+            </Text>
+          </View>
+
           <View style={styles.actionBar}>
             <TouchableOpacity style={[styles.mainActionBtn, { backgroundColor: '#10b981' }]} onPress={markAllPresent}>
               <FontAwesomeIcon icon={faCheckCircle} size={14} color="#fff" />
@@ -898,7 +906,23 @@ const styles = StyleSheet.create({
   modalCancel: { flex: 1, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.05)' },
   modalCancelText: { fontSize: 12, fontWeight: '900', color: '#94a3b8' },
   modalSave: { flex: 1, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  modalSaveText: { fontSize: 12, fontWeight: '900', color: '#fff' },
-  emptyText: { textAlign: 'center', marginVertical: 20, fontSize: 14, fontStyle: 'italic' },
-  emptyMarks: { textAlign: 'center', fontSize: 12, fontStyle: 'italic', paddingVertical: 10 }
-});
+    modalSaveText: { fontSize: 12, fontWeight: '900', color: '#fff' },
+    emptyText: { textAlign: 'center', marginVertical: 20, fontSize: 14, fontStyle: 'italic' },
+    emptyMarks: { textAlign: 'center', fontSize: 12, fontStyle: 'italic', paddingVertical: 10 },
+    instructionCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      borderRadius: 20,
+      borderWidth: 1,
+      marginBottom: 24,
+      gap: 12,
+    },
+    instructionText: {
+      flex: 1,
+      fontSize: 13,
+      fontWeight: '600',
+      lineHeight: 18,
+    },
+  });
+  

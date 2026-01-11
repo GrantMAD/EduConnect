@@ -5,7 +5,7 @@ export const fetchAllClasses = async (schoolId) => {
     
     const { data, error } = await supabase
         .from('classes')
-        .select('id, name')
+        .select('id, name, grade, subject')
         .eq('school_id', schoolId);
         
     if (error) throw error;

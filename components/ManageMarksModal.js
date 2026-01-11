@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Alert, ActivityIndicator } from 'react-native';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { useToast, useToastState } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTrash, faSave, faTimes, faPlus, faPencilAlt } from '@fortawesome/free-solid-svg-icons';
+import { faTrash, faSave, faTimes, faPlus, faPencilAlt, faFileSignature } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { supabase } from '../lib/supabase';
 import Toast from './Toast';
 
 // Import services
@@ -15,6 +16,7 @@ import {
   updateStudentMark,
   deleteStudentMark
 } from '../services/userService';
+import { fetchExamPapers } from '../services/examService';
 
 const MarkItem = React.memo(({ item, onUpdate, onDelete }) => {
   const { theme } = useTheme();
@@ -116,15 +118,46 @@ const ManageMarksModal = React.memo(({ visible, onClose, student, classId }) => 
   const [newMarkTotal, setNewMarkTotal] = useState('100');
   const [newFeedback, setNewFeedback] = useState('');
   const [assessmentType, setAssessmentType] = useState('Test');
+  const [linkedExams, setLinkedExams] = useState([]);
+  const [selectedExamId, setSelectedExamId] = useState(null);
 
   useEffect(() => {
     if (student) {
       fetchMarks();
+      fetchLinkedExamsData();
       setAddingNew(false);
       resetNewMarkForm();
     }
     setMarksChanged(false);
   }, [student, classId]); // Added classId dependency
+
+  const fetchLinkedExamsData = async () => {
+    try {
+      // Note: We need a way to get the session ID or fetch by class_id directly.
+      // Based on our new DB column, we can fetch exam_papers where class_id = classId.
+      const { data, error } = await supabase
+        .from('exam_papers')
+        .select('*')
+        .eq('class_id', classId)
+        .order('date', { ascending: false });
+      
+      if (!error) setLinkedExams(data || []);
+    } catch (e) {
+      console.error("Error fetching linked exams:", e);
+    }
+  };
+
+  const handleExamSelect = (exam) => {
+    if (selectedExamId === exam.id) {
+      setSelectedExamId(null);
+      resetNewMarkForm();
+    } else {
+      setSelectedExamId(exam.id);
+      setNewMarkName(exam.subject_name);
+      setNewMarkTotal(exam.total_marks?.toString() || '100');
+      setAssessmentType('Exam');
+    }
+  };
 
   const resetNewMarkForm = () => {
     setNewMarkName('');
@@ -132,6 +165,7 @@ const ManageMarksModal = React.memo(({ visible, onClose, student, classId }) => 
     setNewMarkTotal('100');
     setNewFeedback('');
     setAssessmentType('Test');
+    setSelectedExamId(null);
   };
 
   const handleClose = () => {
@@ -142,7 +176,7 @@ const ManageMarksModal = React.memo(({ visible, onClose, student, classId }) => 
     if (!student) return;
     setLoading(true);
     try {
-      const data = await fetchStudentMarksService(student.users.id, [classId]);
+      const data = await fetchStudentMarksService(student.id, [classId]);
       setMarks(data);
     } catch (error) {
       showToast('Error loading marks.', 'error');
@@ -164,9 +198,10 @@ const ManageMarksModal = React.memo(({ visible, onClose, student, classId }) => 
 
     try {
       await saveStudentMarks([{
-        student_id: student.users.id,
+        student_id: student.id,
         teacher_id: user.id,
         class_id: classId,
+        exam_paper_id: selectedExamId,
         assessment_name: `${assessmentType}: ${newMarkName}`,
         mark: formattedMark,
         score: score,
@@ -242,6 +277,29 @@ const ManageMarksModal = React.memo(({ visible, onClose, student, classId }) => 
         {addingNew ? (
           <View style={[styles.addForm, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
             <Text style={[styles.formTitle, { color: theme.colors.text }]}>New Entry</Text>
+
+            {linkedExams.length > 0 && (
+              <View style={{ marginBottom: 20 }}>
+                <Text style={[styles.labelSmall, { color: '#94a3b8', marginBottom: 8 }]}>LINK TO SCHEDULED EXAM</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+                  {linkedExams.map((exam) => (
+                    <TouchableOpacity
+                      key={exam.id}
+                      activeOpacity={0.8}
+                      style={[
+                        styles.examChip,
+                        { borderColor: theme.colors.cardBorder, borderWidth: 1, backgroundColor: theme.colors.background },
+                        selectedExamId === exam.id && { backgroundColor: '#10b981', borderColor: '#10b981' }
+                      ]}
+                      onPress={() => handleExamSelect(exam)}
+                    >
+                      <FontAwesomeIcon icon={faFileSignature} size={12} color={selectedExamId === exam.id ? '#fff' : '#10b981'} style={{ marginRight: 8 }} />
+                      <Text style={[styles.examChipText, { color: selectedExamId === exam.id ? '#fff' : theme.colors.text }]}>{exam.subject_name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
 
             <View style={styles.typeSelector}>
               {['Test', 'Assignment'].map((type) => (
@@ -341,7 +399,7 @@ const ManageMarksModal = React.memo(({ visible, onClose, student, classId }) => 
               </View>
               <View>
                 <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Student Marks</Text>
-                <Text style={[styles.modalSub, { color: theme.colors.placeholder }]}>{student?.users.full_name.toUpperCase()}</Text>
+                <Text style={[styles.modalSub, { color: theme.colors.placeholder }]}>{student?.full_name.toUpperCase()}</Text>
               </View>
             </View>
             <TouchableOpacity onPress={handleClose} style={[styles.closeBtn, { backgroundColor: theme.colors.background }]}>
@@ -451,6 +509,18 @@ const styles = StyleSheet.create({
 
   center: { padding: 40, alignItems: 'center' },
   emptyText: { textAlign: 'center', marginTop: 40, fontSize: 14, fontWeight: '700' },
+  examChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    marginRight: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  examChipText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
 });
 
 export default ManageMarksModal;

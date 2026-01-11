@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, TextInput, ScrollView, Alert, TouchableOpacity, Modal, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
-import { createExamPaper } from '../services/examService';
+import { fetchExamPaper, createExamPaper, fetchExamSession } from '../services/examService';
+import { fetchAllClasses } from '../services/classService';
+import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faArrowLeft, faBook, faBarcode, faCalendarAlt, faClock, faHourglassHalf } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faBook, faBarcode, faCalendarAlt, faClock, faHourglassHalf, faChalkboardTeacher, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import Button from '../components/Button';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import LinearGradient from 'react-native-linear-gradient';
@@ -13,6 +15,7 @@ export default function CreateExamPaperScreen({ route, navigation }) {
   const { sessionId } = route.params;
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const { profile } = useAuth();
   
   const [subjectName, setSubjectName] = useState('');
   const [paperCode, setPaperCode] = useState('');
@@ -22,9 +25,43 @@ export default function CreateExamPaperScreen({ route, navigation }) {
   const [totalMarks, setTotalMarks] = useState('100');
   const [loading, setLoading] = useState(false);
 
+  // Class Selection State
+  const [classes, setClasses] = useState([]);
+  const [selectedClassId, setSelectedClassId] = useState(null);
+  const [selectedClassName, setSelectedClassName] = useState('');
+  const [showClassPicker, setShowClassPicker] = useState(false);
+  const [session, setSession] = useState(null);
+  const [showAllClasses, setShowAllClasses] = useState(false);
+
   // Date picker state
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  const loadData = useCallback(async () => {
+    try {
+      const [sessionData, classesData] = await Promise.all([
+        fetchExamSession(sessionId),
+        fetchAllClasses(profile.school_id)
+      ]);
+      setSession(sessionData);
+      setClasses(classesData || []);
+    } catch (error) {
+      console.error('Error loading paper creation data:', error);
+    }
+  }, [sessionId, profile.school_id]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const filteredClasses = useMemo(() => {
+    if (showAllClasses || !session?.target_grade) return classes;
+    const target = session.target_grade.toLowerCase().trim();
+    return classes.filter(c => {
+      const classGrade = c.grade?.toString().toLowerCase().trim() || "";
+      return classGrade === target;
+    });
+  }, [classes, session, showAllClasses]);
 
   const handleSave = async () => {
     if (!subjectName || !paperCode || !date || !startTime || !duration) {
@@ -38,8 +75,9 @@ export default function CreateExamPaperScreen({ route, navigation }) {
         session_id: sessionId,
         subject_name: subjectName,
         paper_code: paperCode,
+        class_id: selectedClassId,
         date: date.toISOString().split('T')[0],
-        start_time: startTime.toLocaleTimeString('en-US', { hour12: false }), // HH:MM:SS
+        start_time: startTime.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }), // HH:MM
         duration_minutes: parseInt(duration),
         total_marks: parseInt(totalMarks),
       });
@@ -87,6 +125,27 @@ export default function CreateExamPaperScreen({ route, navigation }) {
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
+            <View style={styles.formGroup}>
+                <View style={styles.labelContainer}>
+                    <FontAwesomeIcon icon={faChalkboardTeacher} size={12} color="#0d9488" style={{ marginRight: 6 }} />
+                    <Text style={[styles.label, { color: theme.textSecondary }]}>LINK TO CLASS (OPTIONAL)</Text>
+                </View>
+                <TouchableOpacity 
+                    style={[styles.input, { backgroundColor: theme.colors.background, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+                    onPress={() => setShowClassPicker(true)}
+                >
+                    <Text style={{ color: selectedClassId ? theme.text : theme.textSecondary }}>
+                        {selectedClassId ? selectedClassName : 'Select an academic class'}
+                    </Text>
+                    <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.textSecondary} />
+                </TouchableOpacity>
+                {session?.target_grade && !showAllClasses && (
+                    <Text style={{ fontSize: 10, color: '#0d9488', fontWeight: 'bold', marginTop: 4 }}>
+                        Filtering for {session.target_grade} classes
+                    </Text>
+                )}
+            </View>
+
             <View style={styles.formGroup}>
                 <View style={styles.labelContainer}>
                     <FontAwesomeIcon icon={faBook} size={12} color="#0d9488" style={{ marginRight: 6 }} />
@@ -185,6 +244,67 @@ export default function CreateExamPaperScreen({ route, navigation }) {
             <Button title="Add Paper" onPress={handleSave} loading={loading} />
         </View>
       </ScrollView>
+
+      {/* Class Picker Modal */}
+      <Modal visible={showClassPicker} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface || '#ffffff' }]}>
+                <View style={styles.modalHeader}>
+                    <Text style={[styles.modalTitle, { color: theme.text }]}>Select Class</Text>
+                    {session?.target_grade && (
+                        <TouchableOpacity 
+                            style={{ flexDirection: 'row', alignItems: 'center' }}
+                            onPress={() => setShowAllClasses(!showAllClasses)}
+                        >
+                            <View style={[styles.miniCheckbox, { backgroundColor: showAllClasses ? '#0d9488' : 'transparent', borderColor: '#0d9488' }]} />
+                            <Text style={{ fontSize: 10, fontWeight: 'bold', color: theme.textSecondary }}>SHOW ALL</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                <FlatList
+                    data={filteredClasses}
+                    keyExtractor={item => item.id}
+                    style={{ maxHeight: 300, marginVertical: 16 }}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity 
+                            style={[styles.classItem, { borderColor: theme.border }]}
+                            onPress={() => {
+                                setSelectedClassId(item.id);
+                                setSelectedClassName(item.name);
+                                setShowClassPicker(false);
+                            }}
+                        >
+                            <Text style={[styles.className, { color: theme.text }]}>{item.name}</Text>
+                            <Text style={{ color: theme.textSecondary, fontSize: 12 }}>{item.subject}</Text>
+                        </TouchableOpacity>
+                    )}
+                    ListEmptyComponent={
+                        <Text style={{ textAlign: 'center', color: theme.textSecondary, marginVertical: 20 }}>
+                            No matching classes found.
+                        </Text>
+                    }
+                />
+
+                <TouchableOpacity 
+                    style={[styles.closeBtn, { backgroundColor: theme.colors.background }]}
+                    onPress={() => {
+                        setSelectedClassId(null);
+                        setSelectedClassName('');
+                        setShowClassPicker(false);
+                    }}
+                >
+                    <Text style={{ color: theme.text, fontWeight: 'bold' }}>Clear Selection</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                    style={{ marginTop: 12, alignItems: 'center' }}
+                    onPress={() => setShowClassPicker(false)}
+                >
+                    <Text style={{ color: theme.textSecondary }}>Cancel</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -290,5 +410,52 @@ const styles = StyleSheet.create({
   footer: {
       marginTop: 24,
       marginBottom: 40
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  classItem: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  className: {
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  miniCheckbox: {
+    width: 12,
+    height: 12,
+    borderRadius: 3,
+    borderWidth: 1,
+    marginRight: 6,
+  },
+  closeBtn: {
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
   }
 });
