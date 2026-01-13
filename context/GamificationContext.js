@@ -19,10 +19,12 @@ import {
   updateEquipStatus
 } from '../services/gamificationService';
 import { getUserProfile } from '../services/userService';
+import { useAuth } from './AuthContext';
 
 const GamificationContext = createContext();
 
 export const GamificationProvider = ({ children, session }) => {
+    const { profile } = useAuth();
     const [gamificationState, setGamificationState] = useState({
         current_xp: 0,
         current_level: 1,
@@ -198,7 +200,7 @@ export const GamificationProvider = ({ children, session }) => {
     };
 
     useEffect(() => {
-        if (session?.user) {
+        if (session?.user && profile) {
             fetchGamificationState();
 
             // Subscribe to changes

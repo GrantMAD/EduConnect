@@ -2,8 +2,8 @@ import { supabase } from '../lib/supabase';
 
 export const handleJoinRequest = async (requestId, approved) => {
     const { data, error } = await supabase.rpc('handle_join_request', {
-        request_id: requestId,
-        approved: approved
+        p_notification_id: requestId,
+        p_accept: approved
     });
     
     if (error) throw error;

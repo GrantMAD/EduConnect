@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
+import { supabase } from '../lib/supabase';
+import AssignGradeModal from '../components/AssignGradeModal';
 
 // Import services
 import { getCurrentUser } from '../services/authService';
@@ -30,6 +32,13 @@ const NotificationsScreen = ({ route, navigation }) => {
   const [isDetailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedItemDetail, setSelectedItemDetail] = useState(null);
   const [modalLoading, setModalLoading] = useState(false);
+
+  // Grade assignment state
+  const [gradeModalVisible, setGradeModalVisible] = useState(false);
+  const [pendingStudent, setPendingStudent] = useState(null);
+  const [existingShadow, setExistingShadow] = useState(null);
+  const [isProcessingGrade, setIsProcessingGrade] = useState(false);
+
   const { showToast } = useToast();
   const { theme } = useTheme();
   const { profile } = useAuth();
@@ -188,6 +197,41 @@ const NotificationsScreen = ({ route, navigation }) => {
 
   const handleJoinResponse = useCallback(async (notification, accept) => {
     try {
+      if (accept) {
+        const requesterId = notification.related_user_id || notification.created_by;
+        
+        // Check if this is a student. If so, we need to assign a grade.
+        const { data: requester } = await supabase
+          .from('users')
+          .select('role, full_name, school_id, requested_school_id')
+          .eq('id', requesterId)
+          .single();
+
+        if (requester?.role === 'student') {
+          const schoolIdToUse = requester.school_id || requester.requested_school_id || profile?.school_id;
+          
+          setPendingStudent({
+            id: requesterId,
+            name: requester.full_name,
+            notificationId: notification.id,
+            schoolId: schoolIdToUse
+          });
+
+          // Check for shadow profile
+          const { data: shadow } = await supabase
+            .from('users')
+            .select('id, full_name, grade')
+            .eq('school_id', schoolIdToUse)
+            .eq('is_managed', true)
+            .ilike('full_name', requester.full_name)
+            .maybeSingle();
+
+          setExistingShadow(shadow);
+          setGradeModalVisible(true);
+          return;
+        }
+      }
+
       await handleJoinRequest(notification.id, accept);
 
       setNotifications(prev =>
@@ -203,7 +247,47 @@ const NotificationsScreen = ({ route, navigation }) => {
       console.error('Error handling join response:', err);
       showToast('Could not process the request.', 'error');
     }
-  }, [showToast]);
+  }, [showToast, profile?.school_id]);
+
+  const handleAssignGradeConfirm = async (grade, isRestricted, shadowId) => {
+    if (isRestricted || !pendingStudent) return;
+
+    setIsProcessingGrade(true);
+    try {
+      // 1. Assign grade
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ grade: grade })
+        .eq('id', pendingStudent.id);
+      
+      if (updateError) throw updateError;
+
+      // 2. Merge accounts if needed
+      if (shadowId) {
+        const { error: mergeError } = await supabase.rpc('merge_student_accounts', {
+          p_shadow_id: shadowId,
+          p_new_auth_id: pendingStudent.id
+        });
+        if (mergeError) throw mergeError;
+      }
+
+      // 3. Complete join
+      await handleJoinRequest(pendingStudent.notificationId, true);
+
+      // 4. Update local UI
+      setNotifications(prev => prev.filter(n => n.id !== pendingStudent.notificationId));
+      showToast('Student accepted and grade assigned.', 'success');
+      
+      setGradeModalVisible(false);
+      setPendingStudent(null);
+      setExistingShadow(null);
+    } catch (err) {
+      console.error('Error in handleAssignGradeConfirm:', err);
+      showToast('Failed to complete enrollment.', 'error');
+    } finally {
+      setIsProcessingGrade(false);
+    }
+  };
 
   const handleDelete = useCallback(async (notificationId) => {
     try {
@@ -524,6 +608,20 @@ const NotificationsScreen = ({ route, navigation }) => {
           </View>
         </View>
       </Modal>
+
+      <AssignGradeModal
+        visible={gradeModalVisible}
+        onClose={() => {
+          setGradeModalVisible(false);
+          setPendingStudent(null);
+          setExistingShadow(null);
+        }}
+        onConfirm={handleAssignGradeConfirm}
+        requesterName={pendingStudent?.name}
+        existingShadow={existingShadow}
+        isLoading={isProcessingGrade}
+        theme={theme}
+      />
     </View>
   );
 }

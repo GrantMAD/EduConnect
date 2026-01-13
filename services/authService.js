@@ -32,7 +32,7 @@ export const checkPlatformSession = async (userId) => {
         .select('client_id')
         .eq('user_id', userId)
         .eq('platform', PLATFORM)
-        .single();
+        .maybeSingle();
 
     if (error) return true; // Assume okay if check fails
     return data?.client_id === clientId;
@@ -57,6 +57,9 @@ export const signUp = async (email, password, options = {}) => {
         options,
     });
     if (error) throw error;
+    if (data?.user && data?.session) {
+        await registerPlatformSession(data.user.id);
+    }
     return data;
 };
 

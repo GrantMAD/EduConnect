@@ -78,13 +78,16 @@ const CreateClassScreen = ({ navigation, route }) => {
       );
     }
     
-    // Apply grade filter if enabled
-    if (selectedGrade && filterByGrade) {
+    // Apply grade filter strictly (Teacher MUST select grade first)
+    if (selectedGrade) {
       filtered = filtered.filter(student => student.grade === selectedGrade);
+    } else {
+      // If no grade selected, don't show any students
+      filtered = [];
     }
     
     setStudents(filtered);
-  }, [searchQuery, allStudents, selectedGrade, filterByGrade]);
+  }, [searchQuery, allStudents, selectedGrade]);
 
   const toggleStudentSelection = useCallback((studentId) => {
     setSelectedStudents(prev => {
@@ -283,50 +286,58 @@ const CreateClassScreen = ({ navigation, route }) => {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                 <Text style={[styles.cardSectionLabel, { marginBottom: 0 }]}>STUDENT ROSTER</Text>
                 {selectedGrade ? (
-                    <TouchableOpacity 
-                        style={styles.filterToggle} 
-                        onPress={() => setFilterByGrade(!filterByGrade)}
-                    >
-                        <FontAwesomeIcon icon={filterByGrade ? faPlusCircle : faMinusCircle} size={12} color={filterByGrade ? '#10b981' : theme.colors.placeholder} />
-                        <Text style={[styles.filterToggleText, { color: filterByGrade ? '#10b981' : theme.colors.placeholder }]}>
-                            {filterByGrade ? `Filtered: ${selectedGrade}` : 'Show All'}
+                    <View style={styles.filterToggle}>
+                        <FontAwesomeIcon icon={faPlusCircle} size={12} color={'#10b981'} />
+                        <Text style={[styles.filterToggleText, { color: '#10b981' }]}>
+                            {`Filtered: ${selectedGrade}`}
                         </Text>
-                    </TouchableOpacity>
+                    </View>
                 ) : null}
             </View>
             
-            <View style={[styles.searchWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                <FontAwesomeIcon icon={faSearch} size={14} color={theme.colors.placeholder} />
-                <TextInput
-                    style={[styles.searchInput, { color: theme.colors.text }]}
-                    placeholder="Search students to add..."
-                    placeholderTextColor={theme.colors.placeholder}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                />
-            </View>
+            {selectedGrade ? (
+                <>
+                    <View style={[styles.searchWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                        <FontAwesomeIcon icon={faSearch} size={14} color={theme.colors.placeholder} />
+                        <TextInput
+                            style={[styles.searchInput, { color: theme.colors.text }]}
+                            placeholder="Search students to add..."
+                            placeholderTextColor={theme.colors.placeholder}
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                        />
+                    </View>
 
-            <Text style={styles.subLabel}>AVAILABLE STUDENTS ({students.filter(s => !selectedStudents.includes(s.id)).length})</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-                {students.filter(s => !selectedStudents.includes(s.id)).map(item => (
-                    <TouchableOpacity key={item.id} style={styles.userCircle} onPress={() => toggleStudentSelection(item.id)}>
-                        <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={[styles.userAvatar, { borderColor: theme.colors.cardBorder }]} />
-                        <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name.split(' ')[0]}</Text>
-                        <View style={styles.addBadge}><FontAwesomeIcon icon={faPlusCircle} size={12} color="#10b981" /></View>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
+                    <Text style={styles.subLabel}>AVAILABLE STUDENTS ({students.filter(s => !selectedStudents.includes(s.id)).length})</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+                        {students.filter(s => !selectedStudents.includes(s.id)).map(item => (
+                            <TouchableOpacity key={item.id} style={styles.userCircle} onPress={() => toggleStudentSelection(item.id)}>
+                                <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={[styles.userAvatar, { borderColor: theme.colors.cardBorder }]} />
+                                <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name.split(' ')[0]}</Text>
+                                <View style={styles.addBadge}><FontAwesomeIcon icon={faPlusCircle} size={12} color="#10b981" /></View>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
 
-            <Text style={[styles.subLabel, { marginTop: 20 }]}>SELECTED MEMBERS ({selectedStudents.length})</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-                {students.filter(s => selectedStudents.includes(s.id)).map(item => (
-                    <TouchableOpacity key={item.id} style={styles.userCircle} onPress={() => toggleStudentSelection(item.id)}>
-                        <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={[styles.userAvatar, { borderColor: theme.colors.primary }]} />
-                        <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name.split(' ')[0]}</Text>
-                        <View style={styles.addBadge}><FontAwesomeIcon icon={faMinusCircle} size={12} color="#ef4444" /></View>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
+                    <Text style={[styles.subLabel, { marginTop: 20 }]}>SELECTED MEMBERS ({selectedStudents.length})</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+                        {students.filter(s => selectedStudents.includes(s.id)).map(item => (
+                            <TouchableOpacity key={item.id} style={styles.userCircle} onPress={() => toggleStudentSelection(item.id)}>
+                                <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={[styles.userAvatar, { borderColor: theme.colors.primary }]} />
+                                <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name.split(' ')[0]}</Text>
+                                <View style={styles.addBadge}><FontAwesomeIcon icon={faMinusCircle} size={12} color="#ef4444" /></View>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </>
+            ) : (
+                <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                    <FontAwesomeIcon icon={faUser} size={32} color={theme.colors.placeholder} style={{ opacity: 0.2, marginBottom: 12 }} />
+                    <Text style={{ fontSize: 12, color: theme.colors.placeholder, fontWeight: '700', textAlign: 'center' }}>
+                        Please select a Target Grade above to see available students.
+                    </Text>
+                </View>
+            )}
         </View>
 
         <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 20 }]}>

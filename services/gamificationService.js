@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 
 export const fetchUserGamification = async (userId) => {
+    if (!userId) return null;
     const { data, error } = await supabase
         .from('user_gamification')
         .select('*')
@@ -12,13 +13,20 @@ export const fetchUserGamification = async (userId) => {
 };
 
 export const createUserGamification = async (userId, initialData = {}) => {
+    if (!userId) return null;
     const { data, error } = await supabase
         .from('user_gamification')
-        .insert([{ user_id: userId, ...initialData }])
+        .upsert({ user_id: userId, ...initialData }, { onConflict: 'user_id', ignoreDuplicates: true })
         .select()
-        .single();
+        .maybeSingle();
     
     if (error) throw error;
+    
+    // If upsert returned null (due to ignoreDuplicates), fetch existing
+    if (!data) {
+        return fetchUserGamification(userId);
+    }
+    
     return data;
 };
 
@@ -97,13 +105,19 @@ export const fetchStreaks = async (userId) => {
 };
 
 export const createStreak = async (userId) => {
+    if (!userId) return null;
     const { data, error } = await supabase
         .from('streaks')
-        .insert({ user_id: userId })
+        .upsert({ user_id: userId }, { onConflict: 'user_id', ignoreDuplicates: true })
         .select()
-        .single();
+        .maybeSingle();
     
     if (error) throw error;
+    
+    if (!data) {
+        return fetchStreaks(userId);
+    }
+    
     return data;
 };
 

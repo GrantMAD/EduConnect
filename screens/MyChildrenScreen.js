@@ -14,6 +14,7 @@ import {
   Modal
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
   faUser,
@@ -32,6 +33,7 @@ import {
   faArrowLeft,
   faEnvelope,
   faUserPlus,
+  faChild,
   faCircleInfo,
   faClock,
   faComment,
@@ -48,6 +50,8 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MyChildrenScreenSkeleton, { ChildCardSkeleton } from '../components/skeletons/MyChildrenScreenSkeleton';
 import { useGamification } from '../context/GamificationContext';
+import { supabase } from '../lib/supabase';
+import CreateManagedStudentModal from '../components/CreateManagedStudentModal';
 
 // Import services
 import { getCurrentUser } from '../services/authService';
@@ -109,7 +113,7 @@ const GradeDetailModal = React.memo(({ visible, onClose, mark, theme }) => {
         >
           <View style={[styles.modalHeader, { borderBottomColor: theme.colors.cardBorder }]}>
             <View style={[styles.modalIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
-              <FontAwesomeIcon icon={faFileSignature} size={20} color={theme.colors.primary} />
+              <FontAwesome5 name="file-signature" size={20} color={theme.colors.primary} />
             </View>
             <View style={{ flex: 1, marginLeft: 16 }}>
               <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Grade Details</Text>
@@ -170,6 +174,94 @@ const GradeDetailModal = React.memo(({ visible, onClose, mark, theme }) => {
           </TouchableOpacity>
         </TouchableOpacity>
       </TouchableOpacity>
+    </Modal>
+  );
+});
+
+const StudentClassDetailModal = React.memo(({ isOpen, onClose, classInfo, studentName, theme }) => {
+  if (!isOpen || !classInfo) return null;
+
+  // Calculate stats
+  const attendanceStats = classInfo.fullAttendance?.reduce((acc, curr) => {
+    if (curr.status === 'present') acc.present++;
+    if (curr.status !== 'unmarked') acc.total++;
+    return acc;
+  }, { present: 0, total: 0 });
+
+  const attendanceRate = attendanceStats?.total > 0
+    ? Math.round((attendanceStats.present / attendanceStats.total) * 100)
+    : 0;
+
+  const averageMark = calculateWeightedGrade(classInfo.marks, classInfo.categories);
+
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={isOpen}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, padding: 0 }]}>
+          {/* Header */}
+          <LinearGradient
+            colors={['#4f46e5', '#7c3aed']}
+            style={[styles.modalHeader, { marginBottom: 0, padding: 24, borderBottomWidth: 0 }]}
+          >
+            <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { position: 'absolute', top: 20, right: 20, zIndex: 10 }]}>
+              <FontAwesome5 name="times" size={20} color="#fff" />
+            </TouchableOpacity>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={[styles.modalIconBox, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                <Text style={{ color: '#fff', fontSize: 24, fontWeight: '900' }}>{classInfo.classes?.name?.charAt(0)}</Text>
+              </View>
+              <View style={{ marginLeft: 16 }}>
+                <Text style={[styles.modalTitle, { color: '#fff' }]}>{classInfo.classes?.name}</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: '600' }}>{studentName}'s Performance</Text>
+              </View>
+            </View>
+          </LinearGradient>
+
+          <ScrollView style={{ padding: 20 }}>
+            {/* Stats Row */}
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+              <View style={[styles.detailCard, { flex: 1, backgroundColor: '#ecfdf5', borderColor: '#10b98120', borderWidth: 1 }]}>
+                <Text style={[styles.detailLabel, { color: '#059669' }]}>ATTENDANCE</Text>
+                <Text style={[styles.detailValue, { color: '#065f46' }]}>{attendanceRate}%</Text>
+              </View>
+              <View style={[styles.detailCard, { flex: 1, backgroundColor: '#eef2ff', borderColor: '#4f46e520', borderWidth: 1 }]}>
+                <Text style={[styles.detailLabel, { color: '#4f46e5' }]}>AVERAGE</Text>
+                <Text style={[styles.detailValue, { color: '#3730a3' }]}>{averageMark || '--'}%</Text>
+              </View>
+            </View>
+
+            <Text style={[styles.expandedTitle, { marginBottom: 12 }]}>INSTRUCTOR</Text>
+            <View style={[styles.detailCard, { flexDirection: 'row', alignItems: 'center', marginBottom: 20 }]}>
+              <View style={[styles.clsIconBox, { width: 32, height: 32, backgroundColor: theme.colors.primary + '15' }]}>
+                <FontAwesomeIcon icon={faChalkboardTeacher} size={14} color={theme.colors.primary} />
+              </View>
+              <Text style={{ marginLeft: 12, fontWeight: '700', color: theme.colors.text }}>{classInfo.classes?.teacher?.full_name || 'N/A'}</Text>
+            </View>
+
+            <Text style={[styles.expandedTitle, { marginBottom: 12 }]}>ACADEMIC HISTORY</Text>
+            {classInfo.marks?.length > 0 ? (
+              <View style={{ marginBottom: 20 }}>
+                {classInfo.marks.map((mark, i) => <MarkRow key={i} mark={mark} theme={theme} />)}
+              </View>
+            ) : (
+              <Text style={[styles.emptyDetails, { color: theme.colors.placeholder, marginBottom: 20 }]}>No grades recorded.</Text>
+            )}
+
+            <Text style={[styles.expandedTitle, { marginBottom: 12 }]}>ATTENDANCE LOG</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingBottom: 20 }}>
+              {classInfo.fullAttendance?.slice().reverse().map((att, i) => (
+                <AttendancePill key={i} status={att.status} date={att.date} theme={theme} />
+              ))}
+            </ScrollView>
+          </ScrollView>
+        </View>
+      </View>
     </Modal>
   );
 });
@@ -247,7 +339,7 @@ const MarkRow = React.memo(({ mark, theme }) => {
   );
 });
 
-const ClassCard = React.memo(({ classInfo, theme }) => {
+const ClassCard = React.memo(({ classInfo, theme, onPress }) => {
   const [expanded, setExpanded] = useState(false);
   const toggleExpanded = useCallback(() => setExpanded(prev => !prev), []);
 
@@ -267,7 +359,7 @@ const ClassCard = React.memo(({ classInfo, theme }) => {
 
   return (
     <View style={[styles.clsCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-      <TouchableOpacity onPress={toggleExpanded} style={styles.clsCardHeader}>
+      <TouchableOpacity onPress={onPress || toggleExpanded} style={styles.clsCardHeader}>
         <View style={styles.clsIconNameRow}>
           <View style={[styles.clsIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
             <FontAwesomeIcon icon={faChalkboardTeacher} size={18} color={theme.colors.primary} />
@@ -330,6 +422,8 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [selectedClass, setSelectedClass] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -472,7 +566,17 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
             </View>
 
             <Text style={[styles.sectionTitleLabel, { color: theme.colors.text }]}>Subject Performance</Text>
-            {classes.map((cls, idx) => <ClassCard key={idx} classInfo={cls} theme={theme} />)}
+            {classes.map((cls, idx) => (
+              <ClassCard 
+                key={idx} 
+                classInfo={cls} 
+                theme={theme} 
+                onPress={() => {
+                  setSelectedClass(cls);
+                  setIsModalOpen(true);
+                }}
+              />
+            ))}
           </>
         )
       ) : (
@@ -526,6 +630,7 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
         }}
         classInfo={selectedClass}
         studentName={student.full_name}
+        theme={theme}
       />
     </View>
   );
@@ -602,6 +707,7 @@ const AdminFamilyDetail = React.memo(({ parentData, onBack, theme }) => (
 
 const MyChildrenScreen = ({ navigation, route }) => {
   const { theme } = useTheme();
+  const { user, profile } = useAuth();
   const insets = useSafeAreaInsets();
   const [children, setChildren] = useState([]);
   const [selectedChildId, setSelectedChildId] = useState(route.params?.studentId || null);
@@ -610,6 +716,7 @@ const MyChildrenScreen = ({ navigation, route }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [userRole, setUserRole] = useState(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedParent, setSelectedParent] = useState(null);
@@ -637,7 +744,11 @@ const MyChildrenScreen = ({ navigation, route }) => {
         const childIds = await fetchParentChildren(authUser.id);
 
         if (childIds?.length > 0) {
-          const students = await fetchUsersByIdsWithPreferences(childIds);
+          const { data: students } = await supabase
+            .from('users')
+            .select('id, full_name, email, avatar_url, grade, is_managed')
+            .in('id', childIds);
+            
           setChildren(students || []);
           if (students?.length > 0 && !selectedChildId) setSelectedChildId(students[0].id);
         }
@@ -794,7 +905,21 @@ const MyChildrenScreen = ({ navigation, route }) => {
           <View style={[styles.emptyState, { margin: 20, backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, padding: 40, borderStyle: 'dashed' }]}>
             <FontAwesomeIcon icon={faUserPlus} size={48} color={theme.colors.placeholder} style={{ opacity: 0.3 }} />
             <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>No Students Linked</Text>
-            <Text style={[styles.emptyStateDesc, { color: theme.colors.placeholder }]}>Link a student account to view their progress.</Text>
+            <Text style={[styles.emptyStateDesc, { color: theme.colors.placeholder }]}>Link or create a child profile to track their progress.</Text>
+            <View style={{ flexDirection: 'column', gap: 12, marginTop: 24, width: '100%' }}>
+              <TouchableOpacity 
+                style={[styles.modalCloseBtn, { backgroundColor: theme.colors.primary }]}
+                onPress={() => navigation.navigate('Search')}
+              >
+                <Text style={styles.modalCloseBtnText}>Link Existing Student</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalCloseBtn, { backgroundColor: '#f97316' }]}
+                onPress={() => setIsCreateModalOpen(true)}
+              >
+                <Text style={styles.modalCloseBtnText}>Create Child Profile</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ) : (
           <>
@@ -809,9 +934,25 @@ const MyChildrenScreen = ({ navigation, route }) => {
                   }]}
                 >
                   <Image source={child.avatar_url ? { uri: child.avatar_url } : defaultUserImage} style={[styles.selectorAvatar, { borderColor: selectedChildId === child.id ? '#ffffff50' : theme.colors.cardBorder }]} />
-                  <Text style={[styles.childBtnText, { color: selectedChildId === child.id ? '#FFFFFF' : theme.colors.text }]}>{child.full_name?.split(' ')[0] || 'Student'}</Text>
+                  <View>
+                    <Text style={[styles.childBtnText, { color: selectedChildId === child.id ? '#FFFFFF' : theme.colors.text }]}>{child.full_name?.split(' ')[0] || 'Student'}</Text>
+                    <Text style={{ fontSize: 8, color: selectedChildId === child.id ? '#ffffff80' : theme.colors.placeholder, fontWeight: '800' }}>{child.is_managed ? 'MANAGED' : 'ACCOUNT'}</Text>
+                  </View>
                 </TouchableOpacity>
               ))}
+              {/* Add child buttons */}
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Search')}
+                style={[styles.childBtn, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderStyle: 'dashed', paddingRight: 12 }]}
+              >
+                <FontAwesomeIcon icon={faUserPlus} size={14} color={theme.colors.placeholder} style={{ marginRight: 0 }} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setIsCreateModalOpen(true)}
+                style={[styles.childBtn, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderStyle: 'dashed', paddingRight: 12 }]}
+              >
+                <FontAwesomeIcon icon={faChild} size={14} color={theme.colors.placeholder} style={{ marginRight: 0 }} />
+              </TouchableOpacity>
             </ScrollView>
 
             {selectedChild && (
@@ -839,6 +980,14 @@ const MyChildrenScreen = ({ navigation, route }) => {
           </>
         )}
       </ScrollView>
+      <CreateManagedStudentModal
+        visible={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onRefresh={onRefresh}
+        user={user}
+        profile={profile}
+        theme={theme}
+      />
     </View>
   );
 };
