@@ -73,7 +73,7 @@ export const getSchoolLogoUrl = (filePath) => {
 export const searchSchools = async (searchTerm) => {
     const { data, error } = await supabase
         .from('schools')
-        .select('id, name, created_by, logo_url, address')
+        .select('id, name, created_by, logo_url, address, join_password')
         .ilike('name', `%${searchTerm}%`)
         .limit(10);
     

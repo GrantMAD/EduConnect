@@ -93,6 +93,16 @@ const NotificationsScreen = ({ route, navigation }) => {
 
         navigation.navigate('Polls');
         return;
+      case 'parent_child_request':
+      case 'parent_welcome':
+        await markAsRead(notification.id);
+
+        setNotifications(prev =>
+          prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
+        );
+
+        navigation.navigate('MyChildren');
+        return;
       case 'new_ptm_booking':
       case 'ptm_cancellation':
         await markAsRead(notification.id);
@@ -229,6 +239,16 @@ const NotificationsScreen = ({ route, navigation }) => {
           setExistingShadow(shadow);
           setGradeModalVisible(true);
           return;
+        }
+
+        if (requester?.role === 'parent') {
+          await sendNotification({
+            user_id: requesterId,
+            type: 'parent_welcome',
+            title: 'Welcome to the School!',
+            message: 'You have been accepted. Please link to your child to start tracking their progress.',
+            is_read: false
+          });
         }
       }
 
@@ -408,6 +428,7 @@ const NotificationsScreen = ({ route, navigation }) => {
       ptm_cancellation: { icon: 'handshake-slash', color: '#FF3B30', label: 'PTM Cancel' },
       school_join_request: { icon: 'school', color: '#007AFF', label: 'Join Request' },
       parent_child_request: { icon: 'user-friends', color: '#5AC8FA', label: 'Association' },
+      parent_welcome: { icon: 'user-plus', color: '#34C759', label: 'Welcome' },
       added_to_club: { icon: 'users', color: '#AF52DE', label: 'Club' },
     };
 
@@ -423,7 +444,10 @@ const NotificationsScreen = ({ route, navigation }) => {
       'ptm_cancellation',
       'added_to_club',
       'club_join_request',
-      'club_join_accepted'
+      'club_join_accepted',
+      'parent_child_request',
+      'parent_welcome',
+      'exam_schedule'
     ].includes(item.type);
 
     return (

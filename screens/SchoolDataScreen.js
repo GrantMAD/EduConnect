@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, Image, TouchableOpacity, Pla
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import SchoolDataScreenSkeleton from '../components/skeletons/SchoolDataScreenSkeleton';
 import { SkeletonPiece } from '../components/skeletons/SettingsScreenSkeleton';
-import { faImage, faArrowLeft, faBuilding, faMapMarkerAlt, faEnvelope, faPhone, faGraduationCap, faChevronDown, faSchool, faTimes, faCopy, faCamera } from '@fortawesome/free-solid-svg-icons';
+import { faImage, faArrowLeft, faBuilding, faMapMarkerAlt, faEnvelope, faPhone, faGraduationCap, faChevronDown, faSchool, faTimes, faCopy, faCamera, faLock } from '@fortawesome/free-solid-svg-icons';
 import Modal from 'react-native-modal';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from "expo-file-system/legacy";
@@ -31,6 +31,7 @@ const SchoolDataScreen = ({ navigation, route }) => {
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [schoolType, setSchoolType] = useState('Primary School');
+  const [joinPassword, setJoinPassword] = useState('');
   const [showTypePicker, setShowTypePicker] = useState(false);
   const schoolTypes = ['Primary School', 'High School', 'University', 'College', 'Other'];
 
@@ -49,6 +50,7 @@ const SchoolDataScreen = ({ navigation, route }) => {
         setContactEmail(data.contact_email || '');
         setContactPhone(data.contact_phone || '');
         setSchoolType(data.school_type || 'Primary School');
+        setJoinPassword(data.join_password || '');
       }
     } catch (error) {
       console.error(error.message);
@@ -136,6 +138,7 @@ const SchoolDataScreen = ({ navigation, route }) => {
         contact_email: contactEmail,
         contact_phone: contactPhone,
         school_type: schoolType,
+        join_password: joinPassword,
       });
 
       setSchoolData(prev => ({ ...prev, logo_url: logoUrl }));
@@ -263,6 +266,27 @@ const SchoolDataScreen = ({ navigation, route }) => {
                         placeholderTextColor={theme.colors.placeholder}
                         keyboardType="phone-pad"
                     />
+                </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>ACCESS PASSWORD</Text>
+                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                    <FontAwesomeIcon icon={faLock} size={14} color={theme.colors.primary} />
+                    <TextInput
+                        style={[styles.input, { color: theme.colors.text, letterSpacing: 2, marginRight: 80 }]}
+                        value={joinPassword}
+                        onChangeText={(text) => setJoinPassword(text.toUpperCase())}
+                        placeholder="AUTO-GENERATED"
+                        placeholderTextColor={theme.colors.placeholder}
+                        autoCapitalize="characters"
+                    />
+                    <TouchableOpacity 
+                        style={{ position: 'absolute', right: 8, backgroundColor: theme.colors.primary + '20', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 }}
+                        onPress={() => setJoinPassword(Math.random().toString(36).substring(2, 8).toUpperCase())}
+                    >
+                        <Text style={{ color: theme.colors.primary, fontSize: 10, fontWeight: '900' }}>REGEN</Text>
+                    </TouchableOpacity>
                 </View>
             </View>
 
