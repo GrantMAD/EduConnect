@@ -4,7 +4,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
   faCog, faMoon, faSun, faBell, faInfoCircle, faFileContract,
   faShieldAlt, faQuestionCircle, faBullhorn, faBookOpen, faPoll,
-  faCalendar, faStore, faTrophy, faUser, faLock, faDoorOpen, faPalette, faGlobe, faChevronRight
+  faCalendar, faStore, faTrophy, faUser, faLock, faDoorOpen, faPalette, faGlobe, faChevronRight,
+  faBug
 } from '@fortawesome/free-solid-svg-icons';
 import { Switch } from 'react-native-paper';
 import * as Notifications from 'expo-notifications';
@@ -20,6 +21,7 @@ import PrivacyPolicyModal from '../components/PrivacyPolicyModal';
 import EditProfileModal from '../components/EditProfileModal';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import ConfirmationModal from '../components/ConfirmationModal';
+import ReportIssueModal from '../components/ReportIssueModal';
 import LinearGradient from 'react-native-linear-gradient';
 
 // Import services
@@ -69,6 +71,7 @@ const SettingsScreen = ({ navigation }) => {
   const [showHelpSupport, setShowHelpSupport] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showReportIssue, setShowReportIssue] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showLeaveSchoolConfirm, setShowLeaveSchoolConfirm] = useState(false);
@@ -182,6 +185,8 @@ const SettingsScreen = ({ navigation }) => {
   const closeTerms = useCallback(() => setShowTerms(false), []);
   const openPrivacy = useCallback(() => setShowPrivacy(true), []);
   const closePrivacy = useCallback(() => setShowPrivacy(false), []);
+  const openReportIssue = useCallback(() => setShowReportIssue(true), []);
+  const closeReportIssue = useCallback(() => setShowReportIssue(false), []);
   const openEditProfile = useCallback(() => setShowEditProfile(true), []);
   const openChangePassword = useCallback(() => setShowChangePassword(true), []);
   const closeChangePassword = useCallback(() => setShowChangePassword(false), []);
@@ -277,6 +282,7 @@ const SettingsScreen = ({ navigation }) => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>INFORMATION</Text>
         <LinkButton icon={faInfoCircle} title="About ClassConnect" onPress={openAppInfo} color="#3b82f6" theme={theme} />
+        <LinkButton icon={faBug} title="Report an Issue" onPress={openReportIssue} color="#ef4444" theme={theme} />
         <LinkButton icon={faQuestionCircle} title="Help & Support" onPress={openHelpSupport} color="#10b981" theme={theme} />
         <LinkButton icon={faFileContract} title="Terms of Service" onPress={openTerms} color="#6366f1" theme={theme} />
         <LinkButton icon={faShieldAlt} title="Privacy Policy" onPress={openPrivacy} color="#f59e0b" theme={theme} />
@@ -288,6 +294,7 @@ const SettingsScreen = ({ navigation }) => {
 
       {/* Modals */}
       <AppInfoModal visible={showAppInfo} onClose={closeAppInfo} />
+      <ReportIssueModal visible={showReportIssue} onClose={closeReportIssue} />
       <HelpSupportModal visible={showHelpSupport} onClose={closeHelpSupport} />
       <TermsOfServiceModal visible={showTerms} onClose={closeTerms} />
       <PrivacyPolicyModal visible={showPrivacy} onClose={closePrivacy} />

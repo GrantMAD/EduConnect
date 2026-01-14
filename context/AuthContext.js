@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import { AppState } from 'react-native';
-import { getSession, onAuthStateChange, signOut as signOutService, checkPlatformSession } from '../services/authService';
+import { getSession, onAuthStateChange, signOut as signOutService, checkPlatformSession, registerPlatformSession } from '../services/authService';
 import { getUserProfile } from '../services/userService';
 
 const AuthContext = createContext({});
@@ -27,9 +27,11 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // 1. Get initial session
     getSession().then((session) => {
-      setUser(session?.user || null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
+      const currentUser = session?.user || null;
+      setUser(currentUser);
+      if (currentUser) {
+        registerPlatformSession(currentUser.id);
+        fetchProfile(currentUser.id);
       } else {
         setLoading(false);
       }
@@ -38,9 +40,11 @@ export const AuthProvider = ({ children }) => {
     // 2. Listen for auth changes
     const { data: { subscription } } = onAuthStateChange(
       (_event, session) => {
-        setUser(session?.user || null);
-        if (session?.user) {
-          fetchProfile(session.user.id);
+        const currentUser = session?.user || null;
+        setUser(currentUser);
+        if (currentUser) {
+          registerPlatformSession(currentUser.id);
+          fetchProfile(currentUser.id);
         } else {
           setProfile(null);
           setLoading(false);
