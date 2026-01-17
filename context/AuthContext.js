@@ -28,6 +28,12 @@ export const AuthProvider = ({ children }) => {
     // 1. Get initial session
     getSession().then((session) => {
       const currentUser = session?.user || null;
+      if (currentUser && !currentUser.email_confirmed_at) {
+        signOutService();
+        setUser(null);
+        setLoading(false);
+        return;
+      }
       setUser(currentUser);
       if (currentUser) {
         registerPlatformSession(currentUser.id);
@@ -41,6 +47,13 @@ export const AuthProvider = ({ children }) => {
     const { data: { subscription } } = onAuthStateChange(
       (_event, session) => {
         const currentUser = session?.user || null;
+        if (currentUser && !currentUser.email_confirmed_at) {
+          signOutService();
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
         setUser(currentUser);
         if (currentUser) {
           registerPlatformSession(currentUser.id);
