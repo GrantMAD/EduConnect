@@ -1,5 +1,111 @@
 import { supabase } from '../lib/supabase';
 
+// --- HELPERS ---
+
+const doTimesOverlap = (date1, start1, duration1, date2, start2, duration2) => {
+    if (date1 !== date2) return false
+
+    // Convert to minutes from midnight
+    const [h1, m1] = start1.split(':').map(Number)
+    const [h2, m2] = start2.split(':').map(Number)
+
+    const startMin1 = h1 * 60 + m1
+    const endMin1 = startMin1 + duration1
+
+    const startMin2 = h2 * 60 + m2
+    const endMin2 = startMin2 + duration2
+
+    return Math.max(startMin1, startMin2) < Math.min(endMin1, endMin2)
+}
+
+const getPaperTimeDetails = async (paperId) => {
+    const { data, error } = await supabase
+        .from('exam_papers')
+        .select('date, start_time, duration_minutes, subject_name')
+        .eq('id', paperId)
+        .single()
+    if (error) throw error
+    return data
+}
+
+const checkStudentAvailability = async (studentId, paperId) => {
+    const newPaper = await getPaperTimeDetails(paperId)
+
+    // Fetch all other seat allocations for this student
+    const { data: allocations, error } = await supabase
+        .from('exam_seat_allocations')
+        .select('paper_id, paper:exam_papers(date, start_time, duration_minutes, subject_name)')
+        .eq('student_id', studentId)
+
+    if (error) throw error
+
+    for (const alloc of allocations) {
+        if (alloc.paper_id === paperId) continue
+
+        if (doTimesOverlap(
+            newPaper.date, newPaper.start_time, newPaper.duration_minutes,
+            alloc.paper.date, alloc.paper.start_time, alloc.paper.duration_minutes
+        )) {
+            throw new Error(`Student has a clash with exam "${alloc.paper.subject_name}".`)
+        }
+    }
+}
+
+const checkSeatAvailability = async (venueId, seatRow, seatCol, paperId) => {
+    const newPaper = await getPaperTimeDetails(paperId)
+
+    const { data: allocations, error } = await supabase
+        .from('exam_seat_allocations')
+        .select('paper_id, paper:exam_papers(date, start_time, duration_minutes, subject_name)')
+        .eq('venue_id', venueId)
+        .eq('seat_row', seatRow)
+        .eq('seat_col', seatCol)
+
+    if (error) throw error
+
+    for (const alloc of allocations) {
+        if (alloc.paper_id === paperId) continue
+
+        if (doTimesOverlap(
+            newPaper.date, newPaper.start_time, newPaper.duration_minutes,
+            alloc.paper.date, alloc.paper.start_time, alloc.paper.duration_minutes
+        )) {
+            throw new Error(`Seat ${String.fromCharCode(64 + seatRow)}-${seatCol} is already booked for "${alloc.paper.subject_name}" at this time.`)
+        }
+    }
+}
+
+export const fetchUnavailableStudentIds = async (paperId, studentIds) => {
+    if (!studentIds || studentIds.length === 0) return new Set()
+
+    const newPaper = await getPaperTimeDetails(paperId)
+
+    // Fetch all allocations for these students on the SAME DAY
+    // Optimisation: We filter by date in DB to reduce load, then check times in JS
+    const { data: allocations, error } = await supabase
+        .from('exam_seat_allocations')
+        .select('student_id, paper:exam_papers!inner(date, start_time, duration_minutes)')
+        .in('student_id', studentIds)
+        .eq('paper.date', newPaper.date)
+
+    if (error) throw error
+
+    const busyStudentIds = new Set()
+
+    for (const alloc of allocations) {
+        if (alloc.paper_id === paperId) continue;
+
+        if (doTimesOverlap(
+            newPaper.date, newPaper.start_time, newPaper.duration_minutes,
+            alloc.paper.date, alloc.paper.start_time, alloc.paper.duration_minutes
+        )) {
+            busyStudentIds.add(alloc.student_id)
+        }
+    }
+
+    return busyStudentIds
+}
+
 // --- SESSIONS ---
 
 export const fetchExamSessions = async (schoolId) => {
@@ -213,6 +319,10 @@ export const fetchStudentExamSchedule = async (studentId) => {
 };
 
 export const allocateSeat = async (allocationData) => {
+    // Check Conflicts
+    await checkStudentAvailability(allocationData.student_id, allocationData.paper_id)
+    await checkSeatAvailability(allocationData.venue_id, allocationData.seat_row, allocationData.seat_col, allocationData.paper_id)
+
     const { data, error } = await supabase
         .from('exam_seat_allocations')
         .insert(allocationData)
@@ -255,14 +365,14 @@ export const autoAllocateSession = async (sessionId, venueId, schoolId, targetGr
 
     // 3. Fetch Eligible Students
     let query = supabase.from('users').select('id, grade, full_name').eq('school_id', schoolId).eq('role', 'student');
-    
+
     const { data: allStudents, error: studentsError } = await query;
     if (studentsError) throw new Error(`Students error: ${studentsError.message}`);
 
     let eligibleStudents = allStudents;
     if (targetGrade && targetGrade.trim() !== "") {
         const normalizedTarget = targetGrade.trim().toLowerCase();
-        eligibleStudents = allStudents.filter(s => 
+        eligibleStudents = allStudents.filter(s =>
             s.grade && s.grade.trim().toLowerCase() === normalizedTarget
         );
     }
@@ -291,7 +401,7 @@ export const autoAllocateSession = async (sessionId, venueId, schoolId, targetGr
                 if (studentIdx >= studentsToAllocate.length) break;
 
                 const seatLabel = `${String.fromCharCode(64 + r)}-${c}`; // A-1
-                
+
                 // Skip if seat is already taken in this paper
                 if (occupiedSeats.has(seatLabel)) continue;
 
@@ -334,7 +444,16 @@ export const autoAllocatePaper = async (paperId, venueId, schoolId, targetGrade)
         .single();
     if (venueError) throw new Error(`Venue error: ${venueError.message}`);
 
-    // 2. Fetch Existing Allocations for this paper
+    // 2. Fetch Paper Details (to check for class_id)
+    const { data: paper, error: paperError } = await supabase
+        .from('exam_papers')
+        .select('*, class:classes(*)')
+        .eq('id', paperId)
+        .single();
+
+    if (paperError) throw new Error(`Paper error: ${paperError.message}`);
+
+    // 3. Fetch Existing Allocations
     const { data: existing, error: existingError } = await supabase
         .from('exam_seat_allocations')
         .select('student_id, seat_label')
@@ -344,24 +463,54 @@ export const autoAllocatePaper = async (paperId, venueId, schoolId, targetGrade)
     const allocatedStudentIds = new Set(existing?.map(a => a.student_id) || []);
     const occupiedSeats = new Set(existing?.map(a => a.seat_label) || []);
 
-    // 3. Fetch Eligible Students
-    const { data: allStudents, error: studentsError } = await supabase
-        .from('users')
-        .select('id, grade, full_name')
-        .eq('school_id', schoolId)
-        .eq('role', 'student');
-    if (studentsError) throw new Error(`Students error: ${studentsError.message}`);
+    // 4. Fetch Eligible Students
+    let eligibleStudents = [];
 
-    let eligibleStudents = allStudents;
-    if (targetGrade && targetGrade.trim() !== "") {
-        const normalizedTarget = targetGrade.trim().toLowerCase();
-        eligibleStudents = allStudents.filter(s => 
-            s.grade && s.grade.trim().toLowerCase() === normalizedTarget
-        );
+    if (paper.class_id) {
+        // Fetch students from the specific class
+        const { data: classMembers, error: classError } = await supabase
+            .from('class_members')
+            .select('user_id, student:users(id, grade, full_name)')
+            .eq('class_id', paper.class_id);
+
+        if (classError) throw new Error(`Class members error: ${classError.message}`);
+
+        // Filter out any potential nulls if user was deleted
+        eligibleStudents = classMembers
+            .map(cm => cm.student)
+            .filter(s => s !== null);
+
+    } else {
+        // Fallback to Grade-based fetching
+        const { data: allStudents, error: studentsError } = await supabase
+            .from('users')
+            .select('id, grade, full_name')
+            .eq('school_id', schoolId)
+            .eq('role', 'student');
+
+        if (studentsError) throw new Error(`Students error: ${studentsError.message}`);
+
+        eligibleStudents = allStudents;
+        if (targetGrade && targetGrade.trim() !== "") {
+            const normalizedTarget = targetGrade.trim().toLowerCase();
+            eligibleStudents = allStudents.filter(s =>
+                s.grade && s.grade.trim().toLowerCase() === normalizedTarget
+            );
+        }
     }
 
-    const unallocatedStudents = eligibleStudents.filter(s => !allocatedStudentIds.has(s.id));
-    if (unallocatedStudents.length === 0) throw new Error("All eligible students are already allocated for this paper.");
+    // --- CONFLICT CHECK ---
+    const eligibleStudentIds = eligibleStudents.map(s => s.id);
+    const busyStudentIds = await fetchUnavailableStudentIds(paperId, eligibleStudentIds);
+
+    // Filter busy then allocated
+    const availableStudents = eligibleStudents.filter(s => !busyStudentIds.has(s.id));
+    const unallocatedStudents = availableStudents.filter(s => !allocatedStudentIds.has(s.id));
+
+    if (unallocatedStudents.length === 0) {
+        if (busyStudentIds.size > 0) throw new Error(`All eligible students are allocated or have conflicts (${busyStudentIds.size} skipped).`);
+        throw new Error("All eligible students are already allocated for this paper.");
+    }
 
     const newAllocations = [];
     let studentIdx = 0;
@@ -372,7 +521,7 @@ export const autoAllocatePaper = async (paperId, venueId, schoolId, targetGrade)
             if (studentIdx >= unallocatedStudents.length) break;
 
             const seatLabel = `${String.fromCharCode(64 + r)}-${c}`;
-            
+
             // Skip if seat is already taken in this paper
             if (occupiedSeats.has(seatLabel)) continue;
 
@@ -396,7 +545,7 @@ export const autoAllocatePaper = async (paperId, venueId, schoolId, targetGrade)
         .insert(newAllocations);
 
     if (insertError) throw insertError;
-    return newAllocations.length;
+    return { allocated: newAllocations.length, skipped: busyStudentIds.size };
 };
 
 export const clearPaperAllocations = async (paperId) => {
@@ -413,22 +562,22 @@ export const clearSessionAllocations = async (sessionId) => {
     // Or we can delete from exam_seat_allocations where paper_id in (select id from exam_papers where session_id = ...)
     // But Supabase JS doesn't support subquery delete easily directly like that without RLS or specific setup usually.
     // Easiest is to fetch paper IDs then delete.
-    
+
     const { data: papers, error: papersError } = await supabase
         .from('exam_papers')
         .select('id')
         .eq('session_id', sessionId);
-    
+
     if (papersError) throw papersError;
-    
+
     const paperIds = papers.map(p => p.id);
-    
+
     if (paperIds.length > 0) {
         const { error } = await supabase
             .from('exam_seat_allocations')
             .delete()
             .in('paper_id', paperIds);
-            
+
         if (error) throw error;
     }
 };
@@ -555,4 +704,3 @@ export const notifySessionStudents = async (sessionId, sessionName) => {
 
     return { count: studentIds.length, parents: relationships?.length || 0 };
 };
-

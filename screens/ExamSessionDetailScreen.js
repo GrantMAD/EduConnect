@@ -169,9 +169,10 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
 
     const renderPaperItem = ({ item }) => (
         <View style={styles.glowWrapper}>
-            <TouchableOpacity 
+            <TouchableOpacity
                 style={[styles.paperCard, { backgroundColor: theme.cardBackground }]}
                 activeOpacity={0.85}
+                onPress={() => navigation.navigate('ExamAllocations', { sessionId, sessionName, initialPaperId: item.id })}
             >
                 {/* LEFT ICON */}
                 <LinearGradient
@@ -206,9 +207,9 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
                     </View>
                 </View>
 
-                <TouchableOpacity 
-                    onPress={() => handleDeletePaper(item.id)} 
-                    style={styles.deleteGhost} 
+                <TouchableOpacity
+                    onPress={() => handleDeletePaper(item.id)}
+                    style={styles.deleteGhost}
                     hitSlop={10}
                 >
                     <FontAwesomeIcon icon={faTrash} size={12} color="#ef4444" />
@@ -443,7 +444,7 @@ const styles = StyleSheet.create({
         marginTop: 8,
         marginLeft: 20,
     },
-  listContent: {
+    listContent: {
         padding: 20,
         paddingTop: 0,
     },
@@ -507,7 +508,7 @@ const styles = StyleSheet.create({
         // Android glow
         elevation: 4,
     },
-    
+
     emptyContainer: {
         alignItems: 'center',
         justifyContent: 'center',
