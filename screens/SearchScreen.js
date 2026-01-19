@@ -32,7 +32,9 @@ import {
   faCog,
   faChalkboardTeacher,
   faChartLine,
-  faChevronRight
+  faChevronRight,
+  faPoll,
+  faUsers
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useSchool } from '../context/SchoolContext';
@@ -78,6 +80,7 @@ const STATIC_PAGES = [
   { id: 'create-homework', title: 'Assign Homework', screen: 'CreateHomework', icon: faBookOpen, description: 'Create new homework for students' },
   { id: 'create-assignment', title: 'Create Assignment', screen: 'CreateAssignment', icon: faFileSignature, description: 'Post new graded assignments' },
   { id: 'create-poll', title: 'Create New Poll', screen: 'CreatePoll', icon: faBullhorn, description: 'Start a new school survey' },
+  { id: 'exam-management', title: 'Exam Management', screen: 'ExamManagement', icon: faFileSignature, description: 'Manage exam sessions and papers' },
 ];
 
 const SearchScreen = ({ navigation }) => {
@@ -141,7 +144,11 @@ const SearchScreen = ({ navigation }) => {
           assignments: activeFilter === 'assignments',
           resources: activeFilter === 'resources',
           users: activeFilter === 'users',
-          classes: activeFilter === 'classes'
+          classes: activeFilter === 'classes',
+          market: activeFilter === 'market',
+          polls: activeFilter === 'polls',
+          clubs: activeFilter === 'clubs',
+          exams: activeFilter === 'exams',
         }
       });
 
@@ -215,6 +222,10 @@ const SearchScreen = ({ navigation }) => {
       case 'user': return faUser;
       case 'page': return item.icon || faSearch;
       case 'class': return faChalkboardTeacher;
+      case 'market': return faStore;
+      case 'poll': return faPoll;
+      case 'club': return faUsers;
+      case 'exam': return faFileSignature;
       default: return faSearch;
     }
   }, []);
@@ -243,6 +254,18 @@ const SearchScreen = ({ navigation }) => {
       case 'class':
         navigation.navigate('ManageUsersInClass', { classId: item.id, className: item.title });
         break;
+      case 'market':
+        navigation.navigate('Market');
+        break;
+      case 'poll':
+        navigation.navigate('Polls');
+        break;
+      case 'club':
+        navigation.navigate('ClubDetail', { clubId: item.id });
+        break;
+      case 'exam':
+        navigation.navigate('ExamSessionDetail', { sessionId: item.id });
+        break;
     }
   }, [navigation, saveSearch]);
 
@@ -255,6 +278,10 @@ const SearchScreen = ({ navigation }) => {
       case 'user': return '#06b6d4';
       case 'page': return '#8b5cf6';
       case 'class': return '#f59e0b';
+      case 'market': return '#db2777';
+      case 'poll': return '#f97316';
+      case 'club': return '#dc2626';
+      case 'exam': return '#7c3aed';
       default: return theme.colors.primary;
     }
   }, [theme.colors.primary]);

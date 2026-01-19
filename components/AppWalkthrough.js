@@ -20,11 +20,19 @@ const AppWalkthrough = React.memo(() => {
         prevStep,
         finishWalkthrough,
         currentStepIndex,
-        totalSteps
+        totalSteps,
+        scrollToTarget // New
     } = useWalkthrough();
 
     // const { user, setProfile } = useAuth(); // Removed
     const [dontShowAgain, setDontShowAgain] = useState(false);
+
+    // Scroll to target when step changes
+    React.useEffect(() => {
+        if (isOpen && currentStep && currentStep.target) {
+            scrollToTarget(currentStep.target);
+        }
+    }, [isOpen, currentStep, scrollToTarget]);
 
     if (!isOpen || !currentStep || totalSteps === 0) return null;
 

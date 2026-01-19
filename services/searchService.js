@@ -78,6 +78,54 @@ export const searchEverything = async ({ schoolId, query, filters = {} }) => {
         );
     }
 
+    if (filters.all || filters.market) {
+        searchTasks.push(
+            supabase
+                .from('marketplace_items')
+                .select('id, name, description, price_coins')
+                .eq('school_id', schoolId)
+                .ilike('name', term)
+                .limit(10)
+                .then(res => (res.data || []).map(item => ({ ...item, type: 'market', title: item.name })))
+        );
+    }
+
+    if (filters.all || filters.polls) {
+        searchTasks.push(
+            supabase
+                .from('polls')
+                .select('id, question, end_date')
+                .eq('school_id', schoolId)
+                .ilike('question', term)
+                .limit(10)
+                .then(res => (res.data || []).map(item => ({ ...item, type: 'poll', title: item.question })))
+        );
+    }
+
+    if (filters.all || filters.clubs) {
+        searchTasks.push(
+            supabase
+                .from('clubs')
+                .select('id, name, description')
+                .eq('school_id', schoolId)
+                .ilike('name', term)
+                .limit(10)
+                .then(res => (res.data || []).map(item => ({ ...item, type: 'club', title: item.name })))
+        );
+    }
+
+    if (filters.all || filters.exams) {
+        searchTasks.push(
+            supabase
+                .from('exam_sessions')
+                .select('id, name, start_date')
+                .eq('school_id', schoolId)
+                .ilike('name', term)
+                .limit(10)
+                .then(res => (res.data || []).map(item => ({ ...item, type: 'exam', title: item.name })))
+        );
+    }
+
     const allResults = await Promise.all(searchTasks);
     return allResults.flat();
 };

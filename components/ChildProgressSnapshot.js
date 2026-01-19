@@ -5,6 +5,7 @@ import { faStar, faBookOpen, faTrophy, faChevronRight, faExclamationCircle } fro
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { SkeletonPiece } from './skeletons/DashboardScreenSkeleton';
+import WalkthroughTarget from './WalkthroughTarget';
 
 // Import services
 import { getCurrentUser } from '../services/authService';
@@ -14,18 +15,18 @@ import { fetchUserMemberships } from '../services/classService';
 import { fetchUpcomingHomework } from '../services/homeworkService';
 import { fetchUpcomingAssignments } from '../services/assignmentService';
 
-const ChildProgressSnapshot = React.memo(() => {
+const ChildProgressSnapshot = React.memo(({ id, loading }) => {
     const { theme } = useTheme();
     const navigation = useNavigation();
     const [childrenData, setChildrenData] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         fetchChildrenData();
     }, []);
 
     const fetchChildrenData = async () => {
-        setLoading(true);
+        setIsLoading(true);
         try {
             const user = await getCurrentUser();
             if (!user) return;
@@ -35,7 +36,7 @@ const ChildProgressSnapshot = React.memo(() => {
 
             if (childIds.length === 0) {
                 setChildrenData([]);
-                setLoading(false);
+                setIsLoading(false);
                 return;
             }
 
@@ -57,7 +58,7 @@ const ChildProgressSnapshot = React.memo(() => {
 
                     if (members && members.length > 0) {
                         const classIds = members.map(m => m.class_id);
-                        
+
                         const hwResult = await fetchUpcomingHomework(classIds);
                         const asgResult = await fetchUpcomingAssignments(classIds);
 
@@ -94,11 +95,11 @@ const ChildProgressSnapshot = React.memo(() => {
         } catch (error) {
             console.error('Error fetching child progress:', error);
         } finally {
-            setLoading(false);
+            setIsLoading(false);
         }
     };
 
-    if (loading) {
+    if (loading || isLoading) {
         return (
             <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
@@ -119,71 +120,73 @@ const ChildProgressSnapshot = React.memo(() => {
     if (childrenData.length === 0) return null;
 
     return (
-        <View style={{ marginBottom: 32 }}>
-            <View style={styles.header}>
-                <View>
-                    <Text style={[styles.title, { color: theme.colors.text }]}>Learning Pulse</Text>
-                    <Text style={[styles.subtitle, { color: theme.colors.placeholder }]}>Real-time monitoring for your children.</Text>
+        <WalkthroughTarget id={id}>
+            <View style={{ marginBottom: 32 }}>
+                <View style={styles.header}>
+                    <View>
+                        <Text style={[styles.title, { color: theme.colors.text }]}>Learning Pulse</Text>
+                        <Text style={[styles.subtitle, { color: theme.colors.placeholder }]}>Real-time monitoring for your children.</Text>
+                    </View>
                 </View>
-            </View>
 
-            {childrenData.map((child) => (
-                <TouchableOpacity
-                    key={child.id}
-                    style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-                    onPress={() => navigation.navigate('MyChildren')}
-                    activeOpacity={0.7}
-                >
-                    <View style={[styles.cardHeader, { borderBottomColor: theme.colors.cardBorder }]}>
-                        <View style={styles.profileInfo}>
-                            <Image
-                                source={child.avatar ? { uri: child.avatar } : require('../assets/user.png')}
-                                style={styles.avatar}
-                            />
-                            <View>
-                                <Text style={[styles.childName, { color: theme.colors.text }]}>{child.name}</Text>
-                                <View style={styles.levelBadge}>
-                                    <FontAwesomeIcon icon={faStar} size={10} color="#F59E0B" />
-                                    <Text style={styles.levelText}>Lvl {child.level}</Text>
+                {childrenData.map((child) => (
+                    <TouchableOpacity
+                        key={child.id}
+                        style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                        onPress={() => navigation.navigate('MyChildren')}
+                        activeOpacity={0.7}
+                    >
+                        <View style={[styles.cardHeader, { borderBottomColor: theme.colors.cardBorder }]}>
+                            <View style={styles.profileInfo}>
+                                <Image
+                                    source={child.avatar ? { uri: child.avatar } : require('../assets/user.png')}
+                                    style={styles.avatar}
+                                />
+                                <View>
+                                    <Text style={[styles.childName, { color: theme.colors.text }]}>{child.name}</Text>
+                                    <View style={styles.levelBadge}>
+                                        <FontAwesomeIcon icon={faStar} size={10} color="#F59E0B" />
+                                        <Text style={styles.levelText}>Lvl {child.level}</Text>
+                                    </View>
                                 </View>
                             </View>
+                            <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.placeholder} />
                         </View>
-                        <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.placeholder} />
-                    </View>
 
-                    <View style={styles.statsContainer}>
-                        <View style={[styles.statBox, { backgroundColor: theme.colors.primary + '10' }]}>
-                            <View style={styles.statLabelRow}>
-                                <FontAwesomeIcon icon={faBookOpen} size={10} color={theme.colors.primary} />
-                                <Text style={[styles.statLabel, { color: theme.colors.primary }]}>UPCOMING</Text>
+                        <View style={styles.statsContainer}>
+                            <View style={[styles.statBox, { backgroundColor: theme.colors.primary + '10' }]}>
+                                <View style={styles.statLabelRow}>
+                                    <FontAwesomeIcon icon={faBookOpen} size={10} color={theme.colors.primary} />
+                                    <Text style={[styles.statLabel, { color: theme.colors.primary }]}>UPCOMING</Text>
+                                </View>
+                                <Text style={[styles.statValue, { color: theme.colors.text }]}>{child.upcomingCount}</Text>
+                                {child.nextDue && (
+                                    <Text style={[styles.statSubtext, { color: theme.colors.placeholder }]}>
+                                        {child.nextDue.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}
+                                    </Text>
+                                )}
                             </View>
-                            <Text style={[styles.statValue, { color: theme.colors.text }]}>{child.upcomingCount}</Text>
-                            {child.nextDue && (
-                                <Text style={[styles.statSubtext, { color: theme.colors.placeholder }]}>
-                                    {child.nextDue.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}
-                                </Text>
-                            )}
-                        </View>
 
-                        <View style={[styles.statBox, { backgroundColor: '#f59e0b' + '10' }]}>
-                            <View style={styles.statLabelRow}>
-                                <FontAwesomeIcon icon={faTrophy} size={10} color="#D97706" />
-                                <Text style={[styles.statLabel, { color: '#D97706' }]}>EXPERIENCE</Text>
+                            <View style={[styles.statBox, { backgroundColor: '#f59e0b' + '10' }]}>
+                                <View style={styles.statLabelRow}>
+                                    <FontAwesomeIcon icon={faTrophy} size={10} color="#D97706" />
+                                    <Text style={[styles.statLabel, { color: '#D97706' }]}>EXPERIENCE</Text>
+                                </View>
+                                <Text style={[styles.statValue, { color: theme.colors.text }]}>{child.xp}</Text>
+                                <Text style={[styles.statSubtext, { color: theme.colors.placeholder }]}>TOTAL XP</Text>
                             </View>
-                            <Text style={[styles.statValue, { color: theme.colors.text }]}>{child.xp}</Text>
-                            <Text style={[styles.statSubtext, { color: theme.colors.placeholder }]}>TOTAL XP</Text>
                         </View>
-                    </View>
 
-                    {child.upcomingCount > 0 && child.nextDue && (new Date(child.nextDue) - new Date() < 86400000 * 2) && (
-                        <View style={[styles.alertBox, { backgroundColor: '#ef4444' + '10', borderColor: '#ef4444' + '20' }]}>
-                            <FontAwesomeIcon icon={faExclamationCircle} size={12} color="#EF4444" />
-                            <Text style={[styles.alertText, { color: '#EF4444' }]}>CRITICAL DEADLINE APPROACHING</Text>
-                        </View>
-                    )}
-                </TouchableOpacity>
-            ))}
-        </View>
+                        {child.upcomingCount > 0 && child.nextDue && (new Date(child.nextDue) - new Date() < 86400000 * 2) && (
+                            <View style={[styles.alertBox, { backgroundColor: '#ef4444' + '10', borderColor: '#ef4444' + '20' }]}>
+                                <FontAwesomeIcon icon={faExclamationCircle} size={12} color="#EF4444" />
+                                <Text style={[styles.alertText, { color: '#EF4444' }]}>CRITICAL DEADLINE APPROACHING</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                ))}
+            </View>
+        </WalkthroughTarget>
     );
 });
 

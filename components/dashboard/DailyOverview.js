@@ -10,8 +10,9 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { SkeletonPiece } from '../skeletons/DashboardScreenSkeleton';
+import WalkthroughTarget from '../WalkthroughTarget';
 
-const DailyOverview = React.memo(({ loading, todaySessions, navigation }) => {
+const DailyOverview = React.memo(({ id, loading, todaySessions, navigation }) => {
     const { theme } = useTheme();
 
     const renderTodaySchedule = () => {
@@ -80,21 +81,23 @@ const DailyOverview = React.memo(({ loading, todaySessions, navigation }) => {
     };
 
     return (
-        <View style={styles.container}>
-            {/* Today's Schedule */}
-            <View style={styles.fullSection}>
-                <View style={styles.sectionHeaderRow}>
-                    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Schedule</Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('Calendar')} activeOpacity={0.7}>
-                        <View style={[styles.viewAllBtn, { backgroundColor: theme.colors.primary + '10' }]}>
-                            <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.primary} />
-                        </View>
-                    </TouchableOpacity>
+        <WalkthroughTarget id={id}>
+            <View style={styles.container}>
+                {/* Today's Schedule */}
+                <View style={styles.fullSection}>
+                    <View style={styles.sectionHeaderRow}>
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Schedule</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('Calendar')} activeOpacity={0.7}>
+                            <View style={[styles.viewAllBtn, { backgroundColor: theme.colors.primary + '10' }]}>
+                                <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.primary} />
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+                    <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>TODAY'S CLASSES</Text>
+                    {renderTodaySchedule()}
                 </View>
-                <Text style={[styles.miniDescription, { color: theme.colors.placeholder }]}>TODAY'S CLASSES</Text>
-                {renderTodaySchedule()}
             </View>
-        </View>
+        </WalkthroughTarget>
     );
 });
 

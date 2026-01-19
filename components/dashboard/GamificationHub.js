@@ -5,10 +5,11 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faCoins, faFire, faTrophy, faArrowUp } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { SkeletonPiece } from '../skeletons/DashboardScreenSkeleton';
+import WalkthroughTarget from '../WalkthroughTarget';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-const GamificationHub = React.memo(() => {
+const GamificationHub = React.memo(({ id }) => {
     const { theme } = useTheme();
     const { current_xp, current_level, coins, streak, nextBadge, loading } = useGamification();
 
@@ -37,83 +38,85 @@ const GamificationHub = React.memo(() => {
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-            <Text style={[styles.title, { color: theme.colors.text }]}>Your Stats</Text>
-            <Text style={[styles.subtitle, { color: theme.colors.placeholder }]}>
-                TRACK PERFORMANCE METRICS AND ACHIEVEMENTS
-            </Text>
+        <WalkthroughTarget id={id}>
+            <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                <Text style={[styles.title, { color: theme.colors.text }]}>Your Stats</Text>
+                <Text style={[styles.subtitle, { color: theme.colors.placeholder }]}>
+                    TRACK PERFORMANCE METRICS AND ACHIEVEMENTS
+                </Text>
 
-            <View style={styles.mainRow}>
-                {/* Level & XP */}
-                <View style={styles.xpSection}>
-                    <View style={styles.levelRow}>
-                        <View>
-                            <Text style={[styles.levelText, { color: theme.colors.primary }]}>LVL {current_level || 1}</Text>
-                            <Text style={[styles.xpText, { color: theme.colors.placeholder }]}>
-                                {(current_xp || 0) % xpForNextLevel} / {xpForNextLevel} XP
-                            </Text>
-                        </View>
-                        <Text style={[styles.nextLevelLabel, { color: '#94a3b8' }]}>NEXT LEVEL</Text>
-                    </View>
-
-                    <View style={[styles.progressBarBg, { backgroundColor: theme.colors.background }]}>
-                        <View
-                            style={[
-                                styles.progressBarFill,
-                                { backgroundColor: theme.colors.primary, width: `${progress * 100}%` }
-                            ]}
-                        />
-                    </View>
-
-                    <View style={styles.statsGrid}>
-                        <View style={[styles.statBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                            <View style={[styles.iconBox, { backgroundColor: '#f59e0b' + '15' }]}>
-                                <FontAwesomeIcon icon={faCoins} color="#f59e0b" size={10} />
-                            </View>
+                <View style={styles.mainRow}>
+                    {/* Level & XP */}
+                    <View style={styles.xpSection}>
+                        <View style={styles.levelRow}>
                             <View>
-                                <Text style={[styles.statValue, { color: theme.colors.text }]}>{coins || 0}</Text>
-                                <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>COINS</Text>
-                            </View>
-                        </View>
-                        <View style={[styles.statBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                            <View style={[styles.iconBox, { backgroundColor: '#ef4444' + '15' }]}>
-                                <FontAwesomeIcon icon={faFire} color="#ef4444" size={10} />
-                            </View>
-                            <View>
-                                <Text style={[styles.statValue, { color: theme.colors.text }]}>{streak?.current_streak || 0}D</Text>
-                                <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>STREAK</Text>
-                            </View>
-                        </View>
-                    </View>
-                </View>
-
-                {/* Next Badge Card */}
-                <View style={[styles.badgeCard, { backgroundColor: theme.colors.primary + '05', borderColor: theme.colors.primary + '20', borderWidth: 1 }]}>
-                    <Text style={[styles.badgeGoalLabel, { color: theme.colors.primary }]}>GOAL</Text>
-                    {nextBadge ? (
-                        <>
-                            <View style={[styles.badgeIconContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                                <FontAwesomeIcon icon={nextBadge.icon} color={theme.colors.primary} size={20} />
-                            </View>
-                            <Text style={[styles.badgeName, { color: theme.colors.text }]} numberOfLines={1}>{nextBadge.name.toUpperCase()}</Text>
-                            <View style={styles.badgeXpRow}>
-                                <Text style={[styles.badgeXpText, { color: theme.colors.primary }]}>
-                                    +{nextBadge.min_xp - (current_xp || 0)} XP
+                                <Text style={[styles.levelText, { color: theme.colors.primary }]}>LVL {current_level || 1}</Text>
+                                <Text style={[styles.xpText, { color: theme.colors.placeholder }]}>
+                                    {(current_xp || 0) % xpForNextLevel} / {xpForNextLevel} XP
                                 </Text>
                             </View>
-                        </>
-                    ) : (
-                        <>
-                            <View style={[styles.badgeIconContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                                <FontAwesomeIcon icon={faTrophy} color="#f59e0b" size={20} />
+                            <Text style={[styles.nextLevelLabel, { color: '#94a3b8' }]}>NEXT LEVEL</Text>
+                        </View>
+
+                        <View style={[styles.progressBarBg, { backgroundColor: theme.colors.background }]}>
+                            <View
+                                style={[
+                                    styles.progressBarFill,
+                                    { backgroundColor: theme.colors.primary, width: `${progress * 100}%` }
+                                ]}
+                            />
+                        </View>
+
+                        <View style={styles.statsGrid}>
+                            <View style={[styles.statBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                                <View style={[styles.iconBox, { backgroundColor: '#f59e0b' + '15' }]}>
+                                    <FontAwesomeIcon icon={faCoins} color="#f59e0b" size={10} />
+                                </View>
+                                <View>
+                                    <Text style={[styles.statValue, { color: theme.colors.text }]}>{coins || 0}</Text>
+                                    <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>COINS</Text>
+                                </View>
                             </View>
-                            <Text style={[styles.badgeName, { color: theme.colors.text }]}>ELITE</Text>
-                            <Text style={[styles.badgeXpText, { color: theme.colors.placeholder }]}>MAX</Text>
-                        </>
-                    )}
+                            <View style={[styles.statBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                                <View style={[styles.iconBox, { backgroundColor: '#ef4444' + '15' }]}>
+                                    <FontAwesomeIcon icon={faFire} color="#ef4444" size={10} />
+                                </View>
+                                <View>
+                                    <Text style={[styles.statValue, { color: theme.colors.text }]}>{streak?.current_streak || 0}D</Text>
+                                    <Text style={[styles.statLabel, { color: theme.colors.placeholder }]}>STREAK</Text>
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Next Badge Card */}
+                    <View style={[styles.badgeCard, { backgroundColor: theme.colors.primary + '05', borderColor: theme.colors.primary + '20', borderWidth: 1 }]}>
+                        <Text style={[styles.badgeGoalLabel, { color: theme.colors.primary }]}>GOAL</Text>
+                        {nextBadge ? (
+                            <>
+                                <View style={[styles.badgeIconContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                                    <FontAwesomeIcon icon={nextBadge.icon} color={theme.colors.primary} size={20} />
+                                </View>
+                                <Text style={[styles.badgeName, { color: theme.colors.text }]} numberOfLines={1}>{nextBadge.name.toUpperCase()}</Text>
+                                <View style={styles.badgeXpRow}>
+                                    <Text style={[styles.badgeXpText, { color: theme.colors.primary }]}>
+                                        +{nextBadge.min_xp - (current_xp || 0)} XP
+                                    </Text>
+                                </View>
+                            </>
+                        ) : (
+                            <>
+                                <View style={[styles.badgeIconContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                                    <FontAwesomeIcon icon={faTrophy} color="#f59e0b" size={20} />
+                                </View>
+                                <Text style={[styles.badgeName, { color: theme.colors.text }]}>ELITE</Text>
+                                <Text style={[styles.badgeXpText, { color: theme.colors.placeholder }]}>MAX</Text>
+                            </>
+                        )}
+                    </View>
                 </View>
             </View>
-        </View>
+        </WalkthroughTarget>
     );
 });
 

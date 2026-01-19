@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import { findNodeHandle, UIManager } from 'react-native';
 
 const WalkthroughContext = createContext({});
 
@@ -7,6 +8,7 @@ export const useWalkthrough = () => useContext(WalkthroughContext);
 export const WalkthroughProvider = ({ children }) => {
     const [targets, setTargets] = useState({});
     const [targetRefs, setTargetRefs] = useState({}); // Store refs
+    const [scrollContainerRef, setScrollContainerRef] = useState(null); // Store main ScrollView ref
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
     const [isOpen, setIsOpen] = useState(false);
     const [steps, setSteps] = useState([]);
@@ -26,6 +28,10 @@ export const WalkthroughProvider = ({ children }) => {
         setTargetRefs(prev => ({ ...prev, [id]: ref }));
     }, []);
 
+    const registerScrollContainer = useCallback((ref) => {
+        setScrollContainerRef(ref);
+    }, []);
+
     const reMeasureTarget = useCallback((id) => {
         const ref = targetRefs[id];
         if (ref && ref.measure) {
@@ -34,6 +40,38 @@ export const WalkthroughProvider = ({ children }) => {
             });
         }
     }, [targetRefs, registerTarget]);
+
+    const scrollToTarget = useCallback((id) => {
+        const targetRef = targetRefs[id];
+        
+        if (targetRef && scrollContainerRef) {
+            try {
+                const scrollHandle = findNodeHandle(scrollContainerRef);
+                const targetHandle = findNodeHandle(targetRef);
+
+                if (scrollHandle && targetHandle) {
+                    UIManager.measureLayout(
+                        targetHandle,
+                        scrollHandle,
+                        (error) => {},
+                        (left, top, width, height) => {
+                            if (scrollContainerRef.scrollTo) {
+                                // Scroll to position
+                                scrollContainerRef.scrollTo({ y: Math.max(0, top - 60), animated: true });
+                                
+                                // Perform multiple re-measures during and after scroll to ensure accuracy
+                                setTimeout(() => reMeasureTarget(id), 100);
+                                setTimeout(() => reMeasureTarget(id), 400);
+                                setTimeout(() => reMeasureTarget(id), 800);
+                            }
+                        }
+                    );
+                }
+            } catch (e) {
+                console.log('Scroll to target failed:', e);
+            }
+        }
+    }, [targetRefs, scrollContainerRef]);
 
     const unregisterTarget = useCallback((id) => {
         setTargets(prev => {
@@ -57,6 +95,7 @@ export const WalkthroughProvider = ({ children }) => {
         }
     }, [currentStepIndex, steps.length, finishWalkthrough]);
 
+
     const prevStep = useCallback(() => {
         if (currentStepIndex > 0) {
             setCurrentStepIndex(prev => prev - 1);
@@ -77,6 +116,8 @@ export const WalkthroughProvider = ({ children }) => {
         targetRefs, // Export refs
         registerTarget,
         registerTargetRef,
+        registerScrollContainer, // New
+        scrollToTarget, // New
         reMeasureTarget,
         unregisterTarget,
         isOpen,
@@ -89,7 +130,7 @@ export const WalkthroughProvider = ({ children }) => {
         finishWalkthrough,
         setIsOpen
     }), [
-        targets, targetRefs, registerTarget, registerTargetRef, reMeasureTarget,
+        targets, targetRefs, registerTarget, registerTargetRef, registerScrollContainer, scrollToTarget, reMeasureTarget,
         unregisterTarget, isOpen, steps, currentStepIndex, startWalkthrough,
         nextStep, prevStep, finishWalkthrough
     ]);
