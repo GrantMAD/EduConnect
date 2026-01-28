@@ -219,13 +219,6 @@ const ChatListScreen = ({ navigation }) => {
                 maxToRenderPerBatch={5}
                 windowSize={5}
             />
-
-            <TouchableOpacity
-                style={[styles.fab, { backgroundColor: theme.colors.primary, bottom: 20 + insets.bottom }]}
-                onPress={navigateToNewChat}
-            >
-                <FontAwesomeIcon icon={faPlus} size={24} color="#fff" />
-            </TouchableOpacity>
         </View>
     );
 }
@@ -356,20 +349,6 @@ const styles = StyleSheet.create({
         color: '#4f46e5',
         fontSize: 9,
         fontWeight: '900',
-    },
-    fab: {
-        position: 'absolute',
-        right: 20,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4.65,
-        elevation: 8,
     },
     emptyContainer: {
         alignItems: 'center',

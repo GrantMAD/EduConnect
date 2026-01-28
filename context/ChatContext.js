@@ -224,6 +224,9 @@ export const ChatProvider = ({ children, session }) => {
   }, [user?.id, fetchEquippedItemsMap, showToast]);
 
   const fetchMessages = useCallback(async (channelId, start = 0, limit = 20) => {
+    // Prevent multiple simultaneous loads for the same channel
+    if (loadingMessages[channelId] && start === 0) return 0;
+
     try {
       if (start === 0) {
         setLoadingMessages(prev => ({ ...prev, [channelId]: true }));
@@ -249,22 +252,20 @@ export const ChatProvider = ({ children, session }) => {
       setMessages(prev => {
         const currentMessages = prev[channelId] || [];
         // If start is 0, replace entirely. Otherwise append.
-        const newMessages = start === 0 ? data : [...currentMessages, ...data];
+        const newMessages = start === 0 ? (data || []) : [...currentMessages, ...data];
         return {
           ...prev,
           [channelId]: newMessages
         };
       });
 
-      return data.length;
+      return (data || []).length;
     } catch (error) {
       console.error('Error fetching messages:', error);
       showToast('Failed to load messages', 'error');
       return 0;
     } finally {
-      if (start === 0) {
-        setLoadingMessages(prev => ({ ...prev, [channelId]: false }));
-      }
+      setLoadingMessages(prev => ({ ...prev, [channelId]: false }));
     }
   }, [fetchEquippedItemsMap, showToast]);
 
@@ -538,7 +539,7 @@ export const ChatProvider = ({ children, session }) => {
         sender: {
           id: user.id,
           full_name: userProfile?.full_name || 'Me',
-          avatar_url: user.user_metadata?.avatar_url,
+          avatar_url: userProfile?.avatar_url || user.user_metadata?.avatar_url,
           equippedItems: myEquipped
         },
         message_reactions: [],
@@ -607,30 +608,73 @@ export const ChatProvider = ({ children, session }) => {
     try {
       if (!user) throw new Error('Not authenticated');
 
+      // Check if it's a direct message and if a channel already exists
+      if (type === 'direct' && memberIds.length === 1) {
+        const otherUserId = memberIds[0];
+        
+        // Find if we already have a direct channel with this user
+        const existingChannel = channels.find(c => 
+          c.type === 'direct' && 
+          c.channel_members.some(m => m.user_id === otherUserId) &&
+          c.channel_members.some(m => m.user_id === user.id)
+        );
+
+        if (existingChannel) {
+          return existingChannel;
+        }
+      }
+
+      let currentSchoolId = userProfile?.school_id || user.user_metadata?.school_id;
+
+      // Fallback: if no school_id, try to fetch profile again
+      if (!currentSchoolId) {
+        const freshProfile = await getUserProfile(user.id);
+        if (freshProfile?.school_id) {
+          currentSchoolId = freshProfile.school_id;
+          setUserProfile(freshProfile);
+        }
+      }
+
+      if (!currentSchoolId) {
+        throw new Error('User has no school association');
+      }
+
       const channel = await createChannelService({
         name,
         type,
         class_id: classId,
-        school_id: user.user_metadata?.school_id,
+        school_id: currentSchoolId,
         created_by: user.id
       });
 
-      const members = [user.id, ...memberIds].map(uid => ({
+      // 1. First, always add the current user
+      await addChannelMembers([{
         channel_id: channel.id,
-        user_id: uid,
-        role: uid === user.id ? 'admin' : 'member'
-      }));
+        user_id: user.id
+      }]);
 
-      await addChannelMembers(members);
+      // 2. Then add any other members if specified
+      if (memberIds && memberIds.length > 0) {
+        const otherMembers = memberIds.map(uid => ({
+          channel_id: channel.id,
+          user_id: uid
+        }));
+        await addChannelMembers(otherMembers);
+      }
 
       fetchChannels();
       return channel;
     } catch (error) {
-      console.error('Error creating channel:', error);
+      console.error('Error creating channel details:', {
+        message: error.message,
+        code: error.code,
+        userId: user?.id,
+        schoolId: userProfile?.school_id || user?.user_metadata?.school_id
+      });
       showToast('Failed to create channel', 'error');
       throw error;
     }
-  }, [user, fetchChannels, showToast]);
+  }, [user, userProfile, fetchChannels, showToast]);
 
   const uploadAttachment = useCallback(async (uri, fileName, type) => {
     try {

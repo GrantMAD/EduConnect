@@ -224,6 +224,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
     const [typingUsers, setTypingUsers] = useState({});
 
     const flatListRef = useRef();
+    const initialLoadRef = useRef(null);
 
     const allStickersList = useMemo(() => Object.values(STICKER_PACKS).flatMap(pack => pack.stickers), []);
     const availableStickers = useMemo(() => ownedStickerPacks?.flatMap(pack => STICKER_PACKS[pack.image_url]?.stickers || []) || [], [ownedStickerPacks]);
@@ -254,8 +255,12 @@ const ChatRoomScreen = ({ route, navigation }) => {
 
     useEffect(() => {
         navigation.setOptions({ title: name });
-        fetchMessages(channelId, 0);
-        markAsRead(channelId);
+
+        if (initialLoadRef.current !== channelId) {
+            initialLoadRef.current = channelId;
+            fetchMessages(channelId, 0);
+            markAsRead(channelId);
+        }
 
         subscribeToChannel(channelId, (payload) => {
             if (payload.userId !== user.id) {
@@ -284,7 +289,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
             unsubscribeFromChannel(channelId);
             unsubscribeFromMemberStatus(memberSub);
         };
-    }, [channelId, fetchChannelTypeData, fetchRecipientLastReadAt, fetchMessages, markAsRead, name, navigation, subscribeToChannel, unsubscribeFromChannel, user.id]);
+    }, [channelId, user.id, name, navigation, subscribeToChannel, unsubscribeFromChannel, fetchChannelTypeData, fetchRecipientLastReadAt]);
 
     const handlePickImage = useCallback(async () => {
         try {
@@ -423,7 +428,29 @@ const ChatRoomScreen = ({ route, navigation }) => {
     const handleActionModalPin = useCallback((msg) => pinMessage(msg.id, !msg.is_pinned), [pinMessage]);
     const handleActionModalReply = useCallback((msg) => setReplyingTo(msg), []);
 
-    const toggleSearching = useCallback(() => setIsSearching(prev => !prev), []);
+    const toggleSearching = useCallback(() => {
+        setIsSearching(prev => {
+            if (prev) {
+                setSearchQuery('');
+                setSearchResults([]);
+            }
+            return !prev;
+        });
+    }, []);
+
+    const handleSearch = useCallback((query) => {
+        setSearchQuery(query);
+        if (!query.trim()) {
+            setSearchResults([]);
+            return;
+        }
+        
+        const filtered = (messages[channelId] || []).filter(msg => 
+            msg.content?.toLowerCase().includes(query.toLowerCase())
+        );
+        setSearchResults(filtered);
+    }, [messages, channelId]);
+
     const toggleAttachMenu = useCallback(() => setShowAttachMenu(prev => !prev), []);
     const closeStickerPicker = useCallback(() => setShowStickerPicker(false), []);
     const openStickerPicker = useCallback(() => { setShowStickerPicker(true); setShowAttachMenu(false); }, []);
@@ -441,27 +468,50 @@ const ChatRoomScreen = ({ route, navigation }) => {
                         <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, marginRight: 8 }}>
                             <FontAwesomeIcon icon={faChevronLeft} size={20} color={theme.colors.text} />
                         </TouchableOpacity>
-                        <AnimatedAvatarBorder
-                            avatarSource={avatar ? { uri: avatar } : defaultUserImage}
-                            size={36}
-                            borderStyle={equippedItem ? BORDER_STYLES[equippedItem.image_url] : {}}
-                            isRainbow={equippedItem && BORDER_STYLES[equippedItem.image_url]?.rainbow}
-                            isAnimated={equippedItem && BORDER_STYLES[equippedItem.image_url]?.animated}
-                        />
-                        <View style={{ marginLeft: 12, flex: 1 }}>
-                            <Text style={[styles.chatHeaderTitle, { color: theme.colors.text }]} numberOfLines={1}>{name}</Text>
-                            {Object.keys(typingUsers).length > 0 && (
-                                <Text style={{ fontSize: 10, color: theme.colors.typingIndicator, fontWeight: 'bold' }}>typing...</Text>
-                            )}
-                        </View>
+                        
+                        {isSearching ? (
+                            <TextInput
+                                style={{ 
+                                    flex: 1, 
+                                    backgroundColor: theme.colors.background, 
+                                    color: theme.colors.text, 
+                                    paddingHorizontal: 16, 
+                                    paddingVertical: 8, 
+                                    borderRadius: 20,
+                                    fontSize: 14,
+                                    fontWeight: '600'
+                                }}
+                                placeholder="Search messages..."
+                                placeholderTextColor={theme.colors.placeholder}
+                                value={searchQuery}
+                                onChangeText={handleSearch}
+                                autoFocus
+                            />
+                        ) : (
+                            <>
+                                <AnimatedAvatarBorder
+                                    avatarSource={avatar ? { uri: avatar } : defaultUserImage}
+                                    size={36}
+                                    borderStyle={equippedItem ? BORDER_STYLES[equippedItem.image_url] : {}}
+                                    isRainbow={equippedItem && BORDER_STYLES[equippedItem.image_url]?.rainbow}
+                                    isAnimated={equippedItem && BORDER_STYLES[equippedItem.image_url]?.animated}
+                                />
+                                <View style={{ marginLeft: 12, flex: 1 }}>
+                                    <Text style={[styles.chatHeaderTitle, { color: theme.colors.text }]} numberOfLines={1}>{name}</Text>
+                                    {Object.keys(typingUsers).length > 0 && (
+                                        <Text style={{ fontSize: 10, color: theme.colors.typingIndicator, fontWeight: 'bold' }}>typing...</Text>
+                                    )}
+                                </View>
+                            </>
+                        )}
                     </View>
-                    <TouchableOpacity style={{ padding: 8 }} onPress={toggleSearching}>
+                    <TouchableOpacity style={{ padding: 8, marginLeft: 8 }} onPress={toggleSearching}>
                         <FontAwesomeIcon icon={isSearching ? faTimes : faSearch} size={18} color={theme.colors.placeholder} />
                     </TouchableOpacity>
                 </View>
             </View>
 
-            {loadingMessages && uniqueMessages.length === 0 ? (
+            {loadingMessages[channelId] && uniqueMessages.length === 0 ? (
                 <ChatMessagesSkeleton />
             ) : (
                 <FlatList
@@ -471,7 +521,11 @@ const ChatRoomScreen = ({ route, navigation }) => {
                     renderItem={renderMessage}
                     contentContainerStyle={[styles.listContent, { paddingBottom: 20 }]}
                     inverted
-                    onEndReached={() => hasMoreMessages && fetchOlderMessages(channelId)}
+                    onEndReached={() => {
+                        if (uniqueMessages.length > 0 && hasMoreMessages && !loadingMessages[channelId]) {
+                            fetchOlderMessages(channelId);
+                        }
+                    }}
                     onEndReachedThreshold={0.5}
                     removeClippedSubviews={Platform.OS === 'android'}
                     initialNumToRender={15}
