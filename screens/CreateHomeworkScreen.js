@@ -15,22 +15,146 @@ import LinearGradient from 'react-native-linear-gradient';
 
 // Import services
 import { getCurrentUser } from '../services/authService';
-import { 
-  fetchTemplates as fetchTemplatesService, 
-  createTemplate as createTemplateService, 
+import {
+  fetchTemplates as fetchTemplatesService,
+  createTemplate as createTemplateService,
   deleteTemplate as deleteTemplateService,
   fetchClassMembersIds,
   fetchParentsOfStudentsRpc,
   fetchUsersByIdsWithPreferences
 } from '../services/userService';
 import { fetchClassesByTeacher, fetchClassInfo } from '../services/classService';
-import { 
-  createHomework as createHomeworkService, 
-  fetchHomeworkSchedules 
+import {
+  createHomework as createHomeworkService,
+  fetchHomeworkSchedules
 } from '../services/homeworkService';
 import { sendBatchNotifications } from '../services/notificationService';
 
 const { width } = Dimensions.get('window');
+
+// Memoized Sub-components to prevent unnecessary re-renders
+const HeroSection = React.memo(({ onBack, onOpenTemplates, theme }) => (
+  <LinearGradient
+    colors={['#059669', '#0d9488']}
+    start={{ x: 0, y: 0 }}
+    end={{ x: 1, y: 1 }}
+    style={styles.heroContainer}
+  >
+    <View style={styles.heroContent}>
+      <View style={styles.heroTextContainer}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity onPress={onBack} style={styles.backButtonHero}>
+            <FontAwesomeIcon icon={faChevronLeft} size={18} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.heroTitle}>New Homework</Text>
+        </View>
+        <Text style={styles.heroDescription}>
+          Assign tasks and study materials to your students.
+        </Text>
+      </View>
+      <TouchableOpacity
+        style={styles.heroButton}
+        onPress={onOpenTemplates}
+      >
+        <FontAwesomeIcon icon={faFolderOpen} size={14} color="#059669" />
+        <Text style={styles.heroButtonText}>Templates</Text>
+      </TouchableOpacity>
+    </View>
+  </LinearGradient>
+));
+
+const ClassSelection = React.memo(({
+  classes,
+  selectedClass,
+  setSelectedClass,
+  schedules,
+  selectedSchedule,
+  setSelectedSchedule,
+  setDueDate,
+  theme
+}) => (
+  <>
+    <View style={styles.inputGroup}>
+      <Text style={styles.inputLabel}>SELECT CLASS</Text>
+      <View style={[styles.pickerWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+        <Picker
+          selectedValue={selectedClass}
+          onValueChange={(itemValue) => setSelectedClass(itemValue)}
+          style={{ color: theme.colors.text }}
+          dropdownIconColor={theme.colors.placeholder}
+        >
+          <Picker.Item label="Choose a class..." value={null} />
+          {classes.map((c) => (
+            <Picker.Item key={c.id} label={c.name} value={c.id} />
+          ))}
+        </Picker>
+      </View>
+    </View>
+
+    {selectedClass && (
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>SELECT CLASS DAY (OPTIONAL)</Text>
+        <View style={[styles.pickerWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+          <Picker
+            selectedValue={selectedSchedule}
+            onValueChange={(itemValue) => {
+              setSelectedSchedule(itemValue);
+              if (itemValue) {
+                const schedule = schedules.find(s => s.id === itemValue);
+                if (schedule) {
+                  setDueDate(new Date(schedule.start_time).toISOString().split('T')[0]);
+                }
+              }
+            }}
+            style={{ color: theme.colors.text }}
+            dropdownIconColor={theme.colors.placeholder}
+          >
+            <Picker.Item label="-- Select a day --" value={null} />
+            {schedules.map((s) => (
+              <Picker.Item
+                key={s.id}
+                label={`${s.title} - ${new Date(s.start_time).toLocaleString()}`}
+                value={s.id}
+              />
+            ))}
+          </Picker>
+        </View>
+      </View>
+    )}
+  </>
+));
+
+const CalendarSection = React.memo(({ dueDate, onDayPress, theme }) => (
+  <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 20 }]}>
+    <Text style={styles.cardSectionLabel}>DUE DATE</Text>
+
+    <View style={styles.inputGroup}>
+      <Text style={styles.inputLabel}>SELECT DEADLINE</Text>
+      <Calendar
+        onDayPress={(day) => onDayPress(day.dateString)}
+        hideExtraDays={true}
+        markedDates={{
+          [dueDate]: { selected: true, marked: true, selectedColor: theme.colors.primary },
+        }}
+        theme={{
+          backgroundColor: theme.colors.card,
+          calendarBackground: theme.colors.card,
+          textSectionTitleColor: theme.colors.text,
+          selectedDayBackgroundColor: theme.colors.primary,
+          selectedDayTextColor: '#fff',
+          todayTextColor: theme.colors.primary,
+          dayTextColor: theme.colors.text,
+          textDisabledColor: theme.colors.placeholder,
+          dotColor: theme.colors.primary,
+          selectedDotColor: '#fff',
+          arrowColor: theme.colors.primary,
+          monthTextColor: theme.colors.text,
+        }}
+        style={styles.calendar}
+      />
+    </View>
+  </View>
+));
 
 const CreateHomeworkScreen = ({ route }) => {
   const { fromDashboard } = route.params || {};
@@ -220,6 +344,7 @@ const CreateHomeworkScreen = ({ route }) => {
 
   const openTemplatesModal = useCallback(() => setIsTemplatesModalVisible(true), []);
   const closeTemplatesModal = useCallback(() => setIsTemplatesModalVisible(false), []);
+  const handleNavBack = useCallback(() => navigation.goBack(), [navigation]);
 
   if (loading) {
     return <CreateHomeworkScreenSkeleton />;
@@ -227,189 +352,113 @@ const CreateHomeworkScreen = ({ route }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <LinearGradient
-        colors={['#059669', '#0d9488']} 
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.heroContainer}
-      >
-        <View style={styles.heroContent}>
-            <View style={styles.heroTextContainer}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
-                        <FontAwesomeIcon icon={faChevronLeft} size={18} color="#fff" />
-                    </TouchableOpacity>
-                    <Text style={styles.heroTitle}>New Homework</Text>
-                </View>
-                <Text style={styles.heroDescription}>
-                    Assign tasks and study materials to your students.
-                </Text>
-            </View>
-            <TouchableOpacity
-                style={styles.heroButton}
-                onPress={openTemplatesModal}
-            >
-                <FontAwesomeIcon icon={faFolderOpen} size={14} color="#059669" />
-                <Text style={styles.heroButtonText}>Templates</Text>
-            </TouchableOpacity>
-        </View>
-      </LinearGradient>
+      <HeroSection
+        onBack={handleNavBack}
+        onOpenTemplates={openTemplatesModal}
+        theme={theme}
+      />
 
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 + insets.bottom }} showsVerticalScrollIndicator={false}>
         <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-            <Text style={styles.cardSectionLabel}>ASSIGNMENT DETAILS</Text>
-            
-            <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>SELECT CLASS</Text>
-                <View style={[styles.pickerWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                    <Picker
-                        selectedValue={selectedClass}
-                        onValueChange={(itemValue) => setSelectedClass(itemValue)}
-                        style={{ color: theme.colors.text }}
-                        dropdownIconColor={theme.colors.placeholder}
-                    >
-                        <Picker.Item label="Choose a class..." value={null} />
-                        {classes.map((c) => (
-                        <Picker.Item key={c.id} label={c.name} value={c.id} />
-                        ))}
-                    </Picker>
-                </View>
-            </View>
+          <Text style={styles.cardSectionLabel}>ASSIGNMENT DETAILS</Text>
 
-            {selectedClass && (
-                <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>SELECT CLASS DAY (OPTIONAL)</Text>
-                    <View style={[styles.pickerWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                        <Picker
-                            selectedValue={selectedSchedule}
-                            onValueChange={(itemValue) => {
-                                setSelectedSchedule(itemValue);
-                                if (itemValue) {
-                                    const schedule = schedules.find(s => s.id === itemValue);
-                                    if (schedule) {
-                                        setDueDate(new Date(schedule.start_time).toISOString().split('T')[0]);
-                                    }
-                                }
-                            }}
-                            style={{ color: theme.colors.text }}
-                            dropdownIconColor={theme.colors.placeholder}
-                        >
-                            <Picker.Item label="-- Select a day --" value={null} />
-                            {schedules.map((s) => (
-                                <Picker.Item
-                                    key={s.id}
-                                    label={`${s.title} - ${new Date(s.start_time).toLocaleString()}`}
-                                    value={s.id}
-                                />
-                            ))}
-                        </Picker>
-                    </View>
-                </View>
-            )}
+          <ClassSelection
+            classes={classes}
+            selectedClass={selectedClass}
+            setSelectedClass={setSelectedClass}
+            schedules={schedules}
+            selectedSchedule={selectedSchedule}
+            setSelectedSchedule={setSelectedSchedule}
+            setDueDate={setDueDate}
+            theme={theme}
+          />
 
-            <View style={styles.inputGroup}>
-                <View style={styles.labelRow}>
-                    <Text style={styles.inputLabel}>SUBJECT</Text>
-                    <Text style={styles.charCount}>{subject.length}/100</Text>
-                </View>
-                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                    <TextInput
-                        style={[styles.input, { color: theme.colors.text }]}
-                        placeholder="e.g. Mathematics"
-                        placeholderTextColor={theme.colors.placeholder}
-                        value={subject}
-                        onChangeText={setSubject}
-                        maxLength={100}
-                    />
-                </View>
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <Text style={styles.inputLabel}>SUBJECT</Text>
+              <Text style={styles.charCount}>{subject.length}/100</Text>
             </View>
+            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, paddingHorizontal: 0, paddingTop: 0 }]}>
+              <TextInput
+                style={[styles.input, { color: theme.colors.text, height: '100%', width: '100%', paddingHorizontal: 16, includeFontPadding: false }]}
+                placeholder="e.g. Mathematics"
+                placeholderTextColor={theme.colors.placeholder}
+                value={subject}
+                onChangeText={setSubject}
+                autoCorrect={false}
+                underlineColorAndroid="transparent"
+                blurOnSubmit={false}
+                maxLength={100}
+              />
+            </View>
+          </View>
 
-            <View style={styles.inputGroup}>
-                <View style={styles.labelRow}>
-                    <Text style={styles.inputLabel}>DESCRIPTION</Text>
-                    <Text style={styles.charCount}>{description.length}/1000</Text>
-                </View>
-                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, height: 120, alignItems: 'flex-start', paddingTop: 12 }]}>
-                    <TextInput
-                        style={[styles.input, { color: theme.colors.text, height: 100 }]}
-                        placeholder="Describe the homework..."
-                        placeholderTextColor={theme.colors.placeholder}
-                        value={description}
-                        onChangeText={setDescription}
-                        multiline
-                        textAlignVertical="top"
-                        maxLength={1000}
-                    />
-                </View>
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <Text style={styles.inputLabel}>DESCRIPTION</Text>
+              <Text style={styles.charCount}>{description.length}/1000</Text>
             </View>
+            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, minHeight: 120, height: 'auto', paddingHorizontal: 0, paddingTop: 0, justifyContent: 'flex-start' }]}>
+              <TextInput
+                style={[styles.input, { color: theme.colors.text, width: '100%', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, includeFontPadding: false }]}
+                placeholder="Describe the homework..."
+                placeholderTextColor={theme.colors.placeholder}
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                scrollEnabled={false}
+                textAlignVertical="top"
+                autoCorrect={false}
+                underlineColorAndroid="transparent"
+                blurOnSubmit={false}
+                maxLength={1000}
+              />
+            </View>
+          </View>
         </View>
 
-        <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 20 }]}>
-            <Text style={styles.cardSectionLabel}>DUE DATE</Text>
-            
-            <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>SELECT DEADLINE</Text>
-                <Calendar
-                    onDayPress={(day) => setDueDate(day.dateString)}
-                    hideExtraDays={true}
-                    markedDates={{
-                        [dueDate]: { selected: true, marked: true, selectedColor: theme.colors.primary },
-                    }}
-                    theme={{
-                        backgroundColor: theme.colors.card,
-                        calendarBackground: theme.colors.card,
-                        textSectionTitleColor: theme.colors.text,
-                        selectedDayBackgroundColor: theme.colors.primary,
-                        selectedDayTextColor: '#fff',
-                        todayTextColor: theme.colors.primary,
-                        dayTextColor: theme.colors.text,
-                        textDisabledColor: theme.colors.placeholder,
-                        dotColor: theme.colors.primary,
-                        selectedDotColor: '#fff',
-                        arrowColor: theme.colors.primary,
-                        monthTextColor: theme.colors.text,
-                    }}
-                    style={styles.calendar}
-                />
-            </View>
-        </View>
+        <CalendarSection
+          dueDate={dueDate}
+          onDayPress={setDueDate}
+          theme={theme}
+        />
 
-        <TouchableOpacity 
-            style={[styles.createBtnContainer, { marginTop: 30 }]} 
-            onPress={handleCreate} 
-            disabled={isCreating}
-            activeOpacity={0.8}
+        <TouchableOpacity
+          style={[styles.createBtnContainer, { marginTop: 30 }]}
+          onPress={handleCreate}
+          disabled={isCreating}
+          activeOpacity={0.8}
         >
-            <LinearGradient
-                colors={['#059669', '#0d9488']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.createBtn}
-            >
-                {isCreating ? (
-                    <ActivityIndicator color="#fff" />
-                ) : (
-                    <>
-                        <FontAwesomeIcon icon={faSave} size={16} color="#fff" style={{ marginRight: 10 }} />
-                        <Text style={styles.createBtnText}>Assign Homework</Text>
-                    </>
-                )}
-            </LinearGradient>
+          <LinearGradient
+            colors={['#059669', '#0d9488']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.createBtn}
+          >
+            {isCreating ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <FontAwesomeIcon icon={faSave} size={16} color="#fff" style={{ marginRight: 10 }} />
+                <Text style={styles.createBtnText}>Assign Homework</Text>
+              </>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
 
         <TouchableOpacity
-            style={[styles.templateActionBtn, { borderColor: theme.colors.primary + '40', borderWidth: 1, borderStyle: 'dashed' }]}
-            onPress={handleSaveTemplate}
-            disabled={isSavingTemplate}
+          style={[styles.templateActionBtn, { borderColor: theme.colors.primary + '40', borderWidth: 1, borderStyle: 'dashed' }]}
+          onPress={handleSaveTemplate}
+          disabled={isSavingTemplate}
         >
-            {isSavingTemplate ? (
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-            ) : (
-                <>
-                    <FontAwesomeIcon icon={faSave} size={14} color={theme.colors.primary} style={{ marginRight: 8 }} />
-                    <Text style={[styles.templateActionText, { color: theme.colors.primary }]}>Save as Template</Text>
-                </>
-            )}
+          {isSavingTemplate ? (
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+          ) : (
+            <>
+              <FontAwesomeIcon icon={faSave} size={14} color={theme.colors.primary} style={{ marginRight: 8 }} />
+              <Text style={[styles.templateActionText, { color: theme.colors.primary }]}>Save as Template</Text>
+            </>
+          )}
         </TouchableOpacity>
       </ScrollView>
 
@@ -470,52 +519,52 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 32,
   },
   heroContent: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   heroTextContainer: {
-      flex: 1,
-      paddingRight: 10,
+    flex: 1,
+    paddingRight: 10,
   },
   heroTitle: {
-      color: '#fff',
-      fontSize: 28,
-      fontWeight: '900',
-      marginBottom: 8,
-      letterSpacing: -1,
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '900',
+    marginBottom: 8,
+    letterSpacing: -1,
   },
   heroDescription: {
-      color: '#d1fae5',
-      fontSize: 14,
-      fontWeight: '500',
+    color: '#d1fae5',
+    fontSize: 14,
+    fontWeight: '500',
   },
   backButtonHero: { marginRight: 12 },
   heroButton: {
-      backgroundColor: '#fff',
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-      borderRadius: 20,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 2,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   heroButtonText: {
-      color: '#059669',
-      fontWeight: 'bold',
-      marginLeft: 6,
-      fontSize: 14,
+    color: '#059669',
+    fontWeight: 'bold',
+    marginLeft: 6,
+    fontSize: 14,
   },
   card: { padding: 24, borderRadius: 32 },
   cardSectionLabel: {
-      fontSize: 10,
-      fontWeight: '900',
-      color: '#94a3b8',
-      letterSpacing: 1.5,
-      marginBottom: 20,
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#94a3b8',
+    letterSpacing: 1.5,
+    marginBottom: 20,
   },
   inputGroup: { marginBottom: 20 },
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4 },

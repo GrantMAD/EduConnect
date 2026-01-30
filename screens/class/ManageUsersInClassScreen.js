@@ -448,9 +448,17 @@ const ManageUsersInClassScreen = ({ navigation }) => {
     }
   }, [selectedScheduleDate, classMembers, fetchClassMembers, awardXP, showToast]);
 
-  const handleCloseMarksModal = useCallback(() => {
+  const handleCloseMarksModal = useCallback((refresh = false) => {
     setMarksModalVisible(false);
-  }, []);
+    if (refresh) {
+      // Re-fetch marks for all currently expanded students to show updates immediately
+      Object.keys(expandedStudents).forEach(sid => {
+        if (expandedStudents[sid]) {
+          fetchStudentMarks(sid, classId);
+        }
+      });
+    }
+  }, [expandedStudents, classId, fetchStudentMarks]);
 
   const handleOpenManageMarksModal = useCallback((member) => {
     setSelectedStudent(member.users);
@@ -493,7 +501,13 @@ const ManageUsersInClassScreen = ({ navigation }) => {
 
     return (
       <View style={[styles.studentCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-        <TouchableOpacity onPress={() => setExpandedStudents(prev => ({ ...prev, [student.id]: !prev[student.id] }))}>
+        <TouchableOpacity onPress={() => {
+          const isExpanding = !expandedStudents[student.id];
+          setExpandedStudents(prev => ({ ...prev, [student.id]: isExpanding }));
+          if (isExpanding) {
+            fetchStudentMarks(student.id, classId);
+          }
+        }}>
           <View style={styles.studentHeader}>
             <Image source={student.avatar_url ? { uri: student.avatar_url } : defaultUserImage} style={styles.studentAvatar} />
             <View style={{ flex: 1, marginLeft: 12 }}>
@@ -906,23 +920,22 @@ const styles = StyleSheet.create({
   modalCancel: { flex: 1, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.05)' },
   modalCancelText: { fontSize: 12, fontWeight: '900', color: '#94a3b8' },
   modalSave: { flex: 1, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-    modalSaveText: { fontSize: 12, fontWeight: '900', color: '#fff' },
-    emptyText: { textAlign: 'center', marginVertical: 20, fontSize: 14, fontStyle: 'italic' },
-    emptyMarks: { textAlign: 'center', fontSize: 12, fontStyle: 'italic', paddingVertical: 10 },
-    instructionCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: 16,
-      borderRadius: 20,
-      borderWidth: 1,
-      marginBottom: 24,
-      gap: 12,
-    },
-    instructionText: {
-      flex: 1,
-      fontSize: 13,
-      fontWeight: '600',
-      lineHeight: 18,
-    },
-  });
-  
+  modalSaveText: { fontSize: 12, fontWeight: '900', color: '#fff' },
+  emptyText: { textAlign: 'center', marginVertical: 20, fontSize: 14, fontStyle: 'italic' },
+  emptyMarks: { textAlign: 'center', fontSize: 12, fontStyle: 'italic', paddingVertical: 10 },
+  instructionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 24,
+    gap: 12,
+  },
+  instructionText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+});

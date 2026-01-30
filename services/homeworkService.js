@@ -22,7 +22,7 @@ export const fetchHomework = async ({ userId, userRole, schoolId, childIds = [] 
                     .from('class_members')
                     .select('class_id')
                     .in('user_id', targetUsers);
-                
+
                 const classIds = [...new Set(members?.map(m => m.class_id) || [])];
                 if (classIds.length > 0) {
                     query = query.in('class_id', classIds);
@@ -43,13 +43,24 @@ export const fetchHomework = async ({ userId, userRole, schoolId, childIds = [] 
     }
 };
 
+export const fetchHomeworkByClass = async (classId) => {
+    const { data, error } = await supabase
+        .from('homework')
+        .select('*, created_by_user:users!created_by(full_name, email)')
+        .eq('class_id', classId)
+        .order('due_date', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+};
+
 export const updateHomework = async (id, homeworkData) => {
     const { data, error } = await supabase
         .from('homework')
         .update(homeworkData)
         .eq('id', id)
         .select();
-    
+
     if (error) throw error;
     return data[0];
 };
@@ -66,7 +77,7 @@ export const createHomework = async (homeworkData) => {
         .insert([homeworkData])
         .select()
         .single();
-    
+
     if (error) throw error;
     return data;
 };
@@ -76,7 +87,7 @@ export const fetchHomeworkSchedules = async (classId) => {
         .from('class_schedules')
         .select('id, start_time, title')
         .eq('class_id', classId);
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -91,7 +102,7 @@ export const fetchUpcomingHomework = async (classIds, limit = 1) => {
         .gt('due_date', now)
         .order('due_date', { ascending: true })
         .limit(limit);
-    
+
     if (error) throw error;
     return { data, count };
 };

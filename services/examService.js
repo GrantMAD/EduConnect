@@ -232,6 +232,17 @@ export const fetchExamPapers = async (sessionId) => {
     return data || [];
 };
 
+export const fetchExamPapersByClass = async (classId) => {
+    const { data, error } = await supabase
+        .from('exam_papers')
+        .select('*, exam_seat_allocations(count), exam_invigilators(count), notifications_sent')
+        .eq('class_id', classId)
+        .order('date', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+};
+
 export const createExamPaper = async (paperData) => {
     const { data, error } = await supabase
         .from('exam_papers')

@@ -22,7 +22,7 @@ export const fetchAssignments = async ({ userId, userRole, schoolId, childIds = 
                     .from('class_members')
                     .select('class_id')
                     .in('user_id', targetUsers);
-                
+
                 const classIds = [...new Set(members?.map(m => m.class_id) || [])];
                 if (classIds.length > 0) {
                     query = query.in('class_id', classIds);
@@ -43,13 +43,24 @@ export const fetchAssignments = async ({ userId, userRole, schoolId, childIds = 
     }
 };
 
+export const fetchAssignmentsByClass = async (classId) => {
+    const { data, error } = await supabase
+        .from('assignments')
+        .select('*, assigned_by_user:users!assigned_by(full_name, email)')
+        .eq('class_id', classId)
+        .order('due_date', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+};
+
 export const updateAssignment = async (id, assignmentData) => {
     const { data, error } = await supabase
         .from('assignments')
         .update(assignmentData)
         .eq('id', id)
         .select();
-    
+
     if (error) throw error;
     return data[0];
 };
@@ -70,7 +81,7 @@ export const fetchUpcomingAssignments = async (classIds, limit = 1) => {
         .gt('due_date', now)
         .order('due_date', { ascending: true })
         .limit(limit);
-    
+
     if (error) throw error;
     return { data, count };
 };
@@ -81,7 +92,7 @@ export const createAssignment = async (assignmentData) => {
         .insert([assignmentData])
         .select()
         .single();
-    
+
     if (error) throw error;
     return data;
 };
@@ -93,7 +104,7 @@ export const uploadAssignmentFile = async (filePath, fileBody, mimeType) => {
             contentType: mimeType,
             upsert: false,
         });
-    
+
     if (error) throw error;
     return data;
 };

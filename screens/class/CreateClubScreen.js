@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSchool } from '../../context/SchoolContext';
 import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faPlusCircle, faMinusCircle, faUser, faClock, faArrowLeft, faUsersCog, faCalendarAlt, faSearch, faCheckCircle, faFootballBall, faChevronLeft, faSave, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faPlusCircle, faMinusCircle, faUser, faClock, faArrowLeft, faUsersCog, faCalendarAlt, faSearch, faCheckCircle, faFootballBall, faChevronLeft, faSave, faTrash, faUserGraduate, faChalkboardTeacher } from '@fortawesome/free-solid-svg-icons';
 import { Calendar } from 'react-native-calendars';
 import { useToast } from '../../context/ToastContext';
 const defaultUserImage = require('../../assets/user.png');
@@ -41,6 +41,7 @@ const CreateClubScreen = ({ navigation, route }) => {
   const [selectedUserIds, setSelectedUserIds] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [fetchingUsers, setFetchingUsers] = useState(false);
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'student', 'teacher'
 
   const [schedules, setSchedules] = useState([]);
   const [isModalVisible, setModalVisible] = useState(false);
@@ -210,12 +211,17 @@ const CreateClubScreen = ({ navigation, route }) => {
   }, [name, clubToEdit, schoolId, selectedUserIds, allUsers, schedules, navigation, showToast]);
 
   const { availableUsers, selectedUsers } = useMemo(() => {
-    const filtered = allUsers.filter(u => u.full_name.toLowerCase().includes(searchQuery.toLowerCase()));
+    let filtered = allUsers.filter(u => u.full_name.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    if (activeFilter !== 'all') {
+        filtered = filtered.filter(u => u.role === activeFilter);
+    }
+    
     return {
         availableUsers: filtered.filter(u => !selectedUserIds.includes(u.id)),
         selectedUsers: allUsers.filter(u => selectedUserIds.includes(u.id))
     };
-  }, [allUsers, searchQuery, selectedUserIds]);
+  }, [allUsers, searchQuery, selectedUserIds, activeFilter]);
 
   const markedDates = useMemo(() => schedules.reduce((acc, s) => ({...acc, [s.date]: {marked: true, dotColor: '#9333ea'}}), {}), [schedules]);
 
@@ -265,6 +271,29 @@ const CreateClubScreen = ({ navigation, route }) => {
         <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 20 }]}>
             <Text style={styles.cardSectionLabel}>RECRUIT MEMBERS</Text>
             
+            <View style={styles.filterContainer}>
+                <TouchableOpacity 
+                    style={[styles.filterChip, activeFilter === 'all' && styles.filterChipActive, { borderColor: activeFilter === 'all' ? '#9333ea' : theme.colors.cardBorder }]} 
+                    onPress={() => setActiveFilter('all')}
+                >
+                    <Text style={[styles.filterChipText, activeFilter === 'all' ? { color: '#fff' } : { color: theme.colors.text }]}>All</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                    style={[styles.filterChip, activeFilter === 'student' && styles.filterChipActive, { borderColor: activeFilter === 'student' ? '#9333ea' : theme.colors.cardBorder }]} 
+                    onPress={() => setActiveFilter('student')}
+                >
+                    <FontAwesomeIcon icon={faUserGraduate} size={12} color={activeFilter === 'student' ? '#fff' : theme.colors.text} style={{ marginRight: 6 }} />
+                    <Text style={[styles.filterChipText, activeFilter === 'student' ? { color: '#fff' } : { color: theme.colors.text }]}>Students</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                    style={[styles.filterChip, activeFilter === 'teacher' && styles.filterChipActive, { borderColor: activeFilter === 'teacher' ? '#9333ea' : theme.colors.cardBorder }]} 
+                    onPress={() => setActiveFilter('teacher')}
+                >
+                    <FontAwesomeIcon icon={faChalkboardTeacher} size={12} color={activeFilter === 'teacher' ? '#fff' : theme.colors.text} style={{ marginRight: 6 }} />
+                    <Text style={[styles.filterChipText, activeFilter === 'teacher' ? { color: '#fff' } : { color: theme.colors.text }]}>Teachers</Text>
+                </TouchableOpacity>
+            </View>
+
             <View style={[styles.searchWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                 <FontAwesomeIcon icon={faSearch} size={14} color={theme.colors.placeholder} />
                 <TextInput
@@ -293,7 +322,7 @@ const CreateClubScreen = ({ navigation, route }) => {
                     <TouchableOpacity key={item.id} style={styles.userCircle} onPress={() => toggleUserSelection(item.id)}>
                         <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={[styles.userAvatar, { borderColor: '#9333ea' }]} />
                         <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name.split(' ')[0]}</Text>
-                        <View style={styles.addBadge}><FontAwesomeIcon icon={faPlusCircle} size={12} color="#ef4444" /></View>
+                        <View style={styles.addBadge}><FontAwesomeIcon icon={faMinusCircle} size={12} color="#ef4444" /></View>
                     </TouchableOpacity>
                 ))}
             </ScrollView>
@@ -430,11 +459,11 @@ const styles = StyleSheet.create({
   searchWrapper: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, borderRadius: 16, height: 48, marginBottom: 20 },
   searchInput: { flex: 1, fontSize: 14, fontWeight: '600', marginLeft: 10 },
   subLabel: { fontSize: 9, fontWeight: '900', color: '#94a3b8', letterSpacing: 1, marginBottom: 12 },
-  horizontalScroll: { flexDirection: 'row' },
-  userCircle: { alignItems: 'center', marginRight: 16, width: 64 },
-  userAvatar: { width: 50, height: 50, borderRadius: 18, borderWidth: 2, marginBottom: 6 },
-  userName: { fontSize: 10, fontWeight: '800', textAlign: 'center' },
-  addBadge: { position: 'absolute', top: -4, right: -4, backgroundColor: '#fff', borderRadius: 10, padding: 2 },
+  horizontalScroll: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 4 },
+  userCircle: { alignItems: 'center', marginRight: 20, width: 70 },
+  userAvatar: { width: 54, height: 54, borderRadius: 20, borderWidth: 2, marginBottom: 8 },
+  userName: { fontSize: 11, fontWeight: '800', textAlign: 'center' },
+  addBadge: { position: 'absolute', top: -2, right: 4, backgroundColor: '#fff', borderRadius: 10, padding: 2, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 1 },
   scheduleItem: { flexDirection: 'row', padding: 16, borderRadius: 20, marginBottom: 10, alignItems: 'center', justifyContent: 'space-between' },
   scheduleLeft: { flex: 1 },
   dateBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start', marginBottom: 4 },
@@ -454,4 +483,24 @@ const styles = StyleSheet.create({
   scheduleInfo: { fontSize: 12, fontStyle: 'italic' },
   submitButton: { padding: 16, borderRadius: 15, alignItems: 'center', marginTop: 30, shadowColor: '#AF52DE', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
   submitButtonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  filterContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    gap: 8,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  filterChipActive: {
+    backgroundColor: '#9333ea',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });

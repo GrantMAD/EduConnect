@@ -12,18 +12,18 @@ import LinearGradient from 'react-native-linear-gradient';
 
 // Import services
 import { getCurrentUser } from '../services/authService';
-import { 
-  fetchAllClasses, 
-  fetchClassInfo 
+import {
+  fetchAllClasses,
+  fetchClassInfo
 } from '../services/classService';
-import { 
-  createAnnouncement as createAnnouncementService 
+import {
+  createAnnouncement as createAnnouncementService
 } from '../services/announcementService';
-import { 
-  fetchUsersBySchoolWithPreferences, 
-  fetchClassMembersIds, 
-  fetchParentsOfStudents, 
-  fetchUsersByIdsWithPreferences 
+import {
+  fetchUsersBySchoolWithPreferences,
+  fetchClassMembersIds,
+  fetchParentsOfStudents,
+  fetchUsersByIdsWithPreferences
 } from '../services/userService';
 import { sendBatchNotifications } from '../services/notificationService';
 
@@ -170,154 +170,157 @@ const CreateAnnouncementScreen = ({ route }) => {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <LinearGradient
-        colors={['#4f46e5', '#7c3aed']} 
+        colors={['#4f46e5', '#7c3aed']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.heroContainer}
       >
         <View style={styles.heroContent}>
-            <View style={styles.heroTextContainer}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
-                        <FontAwesomeIcon icon={faChevronLeft} size={18} color="#fff" />
-                    </TouchableOpacity>
-                    <Text style={styles.heroTitle}>New Announcement</Text>
-                </View>
-                <Text style={styles.heroDescription}>
-                    Broadcast news and updates to your school community.
-                </Text>
+          <View style={styles.heroTextContainer}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
+                <FontAwesomeIcon icon={faChevronLeft} size={18} color="#fff" />
+              </TouchableOpacity>
+              <Text style={styles.heroTitle}>New Announcement</Text>
             </View>
-            <View style={styles.iconBoxHero}>
-                <FontAwesomeIcon icon={faBullhorn} size={24} color="rgba(255,255,255,0.7)" />
-            </View>
+            <Text style={styles.heroDescription}>
+              Broadcast news and updates to your school community.
+            </Text>
+          </View>
+          <View style={styles.iconBoxHero}>
+            <FontAwesomeIcon icon={faBullhorn} size={24} color="rgba(255,255,255,0.7)" />
+          </View>
         </View>
       </LinearGradient>
 
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 + insets.bottom }} showsVerticalScrollIndicator={false}>
         <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-            <Text style={styles.cardSectionLabel}>ANNOUNCEMENT DETAILS</Text>
-            
-            <View style={styles.inputGroup}>
-                <View style={styles.labelRow}>
-                    <Text style={styles.inputLabel}>TITLE</Text>
-                    <Text style={styles.charCount}>{title.length}/100</Text>
-                </View>
-                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                    <TextInput
-                        style={[styles.input, { color: theme.colors.text }]}
-                        placeholder="Enter a descriptive title..."
-                        placeholderTextColor={theme.colors.placeholder}
-                        value={title}
-                        onChangeText={setTitle}
-                        maxLength={100}
-                    />
-                </View>
-            </View>
+          <Text style={styles.cardSectionLabel}>ANNOUNCEMENT DETAILS</Text>
 
-            <View style={styles.inputGroup}>
-                <View style={styles.labelRow}>
-                    <Text style={styles.inputLabel}>MESSAGE CONTENT</Text>
-                    <Text style={styles.charCount}>{message.length}/1000</Text>
-                </View>
-                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, height: 150, alignItems: 'flex-start', paddingTop: 12 }]}>
-                    <TextInput
-                        style={[styles.input, { color: theme.colors.text, height: 130 }]}
-                        placeholder="Write your announcement message here..."
-                        placeholderTextColor={theme.colors.placeholder}
-                        value={message}
-                        onChangeText={setMessage}
-                        multiline
-                        textAlignVertical="top"
-                        maxLength={1000}
-                    />
-                </View>
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <Text style={styles.inputLabel}>TITLE</Text>
+              <Text style={styles.charCount}>{title.length}/100</Text>
             </View>
+            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+              <TextInput
+                style={[styles.input, { color: theme.colors.text }]}
+                placeholder="Enter a descriptive title..."
+                placeholderTextColor={theme.colors.placeholder}
+                value={title}
+                onChangeText={setTitle}
+                maxLength={100}
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <Text style={styles.inputLabel}>MESSAGE CONTENT</Text>
+              <Text style={styles.charCount}>{message.length}/1000</Text>
+            </View>
+            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, minHeight: 150, paddingHorizontal: 0, paddingTop: 0 }]}>
+              <TextInput
+                style={[styles.input, { color: theme.colors.text, minHeight: 130, width: '100%', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, includeFontPadding: false }]}
+                placeholder="Write your announcement message here..."
+                placeholderTextColor={theme.colors.placeholder}
+                value={message}
+                onChangeText={setMessage}
+                multiline
+                textAlignVertical="top"
+                autoCorrect={false}
+                underlineColorAndroid="transparent"
+                blurOnSubmit={false}
+                maxLength={1000}
+              />
+            </View>
+          </View>
         </View>
 
         <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 20 }]}>
-            <Text style={styles.cardSectionLabel}>TARGET AUDIENCE</Text>
-            
-            <View style={styles.switchRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={[styles.smallIconBox, { backgroundColor: '#eef2ff' }]}>
-                        <FontAwesomeIcon icon={faUsers} size={14} color="#4f46e5" />
-                    </View>
-                    <Text style={[styles.switchLabel, { color: theme.colors.text }]}>Specific Class or Club</Text>
-                </View>
-                <Switch
-                    value={isClassSpecific}
-                    onValueChange={setIsClassSpecific}
-                    trackColor={{ false: "#e2e8f0", true: theme.colors.primary }}
-                    thumbColor="#fff"
-                />
-            </View>
+          <Text style={styles.cardSectionLabel}>TARGET AUDIENCE</Text>
 
-            {isClassSpecific ? (
-                <View style={{ marginTop: 16 }}>
-                    <Text style={styles.inputLabel}>SELECT DESTINATION</Text>
-                    <View style={[styles.pickerWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                        <Picker
-                            selectedValue={selectedClass}
-                            onValueChange={(itemValue) => setSelectedClass(itemValue)}
-                            style={{ color: theme.colors.text }}
-                            dropdownIconColor={theme.colors.placeholder}
-                        >
-                            <Picker.Item label="Choose a class or club..." value={null} />
-                            {classes.map((cls) => (
-                                <Picker.Item key={cls.id} label={cls.name} value={cls.id} />
-                            ))}
-                        </Picker>
-                    </View>
-                </View>
-            ) : (
-                <View style={{ marginTop: 16 }}>
-                    <Text style={styles.inputLabel}>BROADCAST TO ROLES</Text>
-                    <View style={styles.rolesRow}>
-                        {Object.keys(targetRoles).map((role) => (
-                        <TouchableOpacity
-                            key={role}
-                            style={[
-                                styles.roleChip,
-                                { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 },
-                                targetRoles[role] && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }
-                            ]}
-                            onPress={() => setTargetRoles(prev => ({ ...prev, [role]: !prev[role] }))}
-                        >
-                            <Text style={[
-                                styles.roleChipText,
-                                { color: theme.colors.text },
-                                targetRoles[role] && { color: '#fff' }
-                            ]}>
-                                {role.toUpperCase()}S
-                            </Text>
-                        </TouchableOpacity>
-                        ))}
-                    </View>
-                </View>
-            )}
+          <View style={styles.switchRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={[styles.smallIconBox, { backgroundColor: '#eef2ff' }]}>
+                <FontAwesomeIcon icon={faUsers} size={14} color="#4f46e5" />
+              </View>
+              <Text style={[styles.switchLabel, { color: theme.colors.text }]}>Specific Class or Club</Text>
+            </View>
+            <Switch
+              value={isClassSpecific}
+              onValueChange={setIsClassSpecific}
+              trackColor={{ false: "#e2e8f0", true: theme.colors.primary }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          {isClassSpecific ? (
+            <View style={{ marginTop: 16 }}>
+              <Text style={styles.inputLabel}>SELECT DESTINATION</Text>
+              <View style={[styles.pickerWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                <Picker
+                  selectedValue={selectedClass}
+                  onValueChange={(itemValue) => setSelectedClass(itemValue)}
+                  style={{ color: theme.colors.text }}
+                  dropdownIconColor={theme.colors.placeholder}
+                >
+                  <Picker.Item label="Choose a class or club..." value={null} />
+                  {classes.map((cls) => (
+                    <Picker.Item key={cls.id} label={cls.name} value={cls.id} />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+          ) : (
+            <View style={{ marginTop: 16 }}>
+              <Text style={styles.inputLabel}>BROADCAST TO ROLES</Text>
+              <View style={styles.rolesRow}>
+                {Object.keys(targetRoles).map((role) => (
+                  <TouchableOpacity
+                    key={role}
+                    style={[
+                      styles.roleChip,
+                      { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 },
+                      targetRoles[role] && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }
+                    ]}
+                    onPress={() => setTargetRoles(prev => ({ ...prev, [role]: !prev[role] }))}
+                  >
+                    <Text style={[
+                      styles.roleChipText,
+                      { color: theme.colors.text },
+                      targetRoles[role] && { color: '#fff' }
+                    ]}>
+                      {role.toUpperCase()}S
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
         </View>
 
-        <TouchableOpacity 
-            style={[styles.createBtnContainer, { marginTop: 30 }]} 
-            onPress={handleCreate} 
-            disabled={loading}
-            activeOpacity={0.8}
+        <TouchableOpacity
+          style={[styles.createBtnContainer, { marginTop: 30 }]}
+          onPress={handleCreate}
+          disabled={loading}
+          activeOpacity={0.8}
         >
-            <LinearGradient
-                colors={['#4f46e5', '#7c3aed']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.createBtn}
-            >
-                {loading ? (
-                    <ActivityIndicator color="#fff" />
-                ) : (
-                    <>
-                        <FontAwesomeIcon icon={faPaperPlane} size={16} color="#fff" style={{ marginRight: 10 }} />
-                        <Text style={styles.createBtnText}>Post Announcement</Text>
-                    </>
-                )}
-            </LinearGradient>
+          <LinearGradient
+            colors={['#4f46e5', '#7c3aed']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.createBtn}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <FontAwesomeIcon icon={faPaperPlane} size={16} color="#fff" style={{ marginRight: 10 }} />
+                <Text style={styles.createBtnText}>Post Announcement</Text>
+              </>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -338,117 +341,117 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 32,
   },
   heroContent: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   heroTextContainer: {
-      flex: 1,
-      paddingRight: 10,
+    flex: 1,
+    paddingRight: 10,
   },
   heroTitle: {
-      color: '#fff',
-      fontSize: 28,
-      fontWeight: '900',
-      marginBottom: 8,
-      letterSpacing: -1,
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '900',
+    marginBottom: 8,
+    letterSpacing: -1,
   },
   heroDescription: {
-      color: '#e0e7ff',
-      fontSize: 14,
-      fontWeight: '500',
+    color: '#e0e7ff',
+    fontSize: 14,
+    fontWeight: '500',
   },
   backButtonHero: { marginRight: 12 },
   iconBoxHero: {
-      width: 48,
-      height: 48,
-      borderRadius: 14,
-      backgroundColor: 'rgba(255,255,255,0.15)',
-      justifyContent: 'center',
-      alignItems: 'center',
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   card: {
-      padding: 24,
-      borderRadius: 32,
+    padding: 24,
+    borderRadius: 32,
   },
   cardSectionLabel: {
-      fontSize: 10,
-      fontWeight: '900',
-      color: '#94a3b8',
-      letterSpacing: 1.5,
-      marginBottom: 20,
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#94a3b8',
+    letterSpacing: 1.5,
+    marginBottom: 20,
   },
   inputGroup: {
-      marginBottom: 20,
+    marginBottom: 20,
   },
   labelRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 8,
-      paddingHorizontal: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 4,
   },
   inputLabel: {
-      fontSize: 10,
-      fontWeight: '900',
-      color: '#94a3b8',
-      letterSpacing: 1,
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#94a3b8',
+    letterSpacing: 1,
   },
   charCount: {
-      fontSize: 10,
-      fontWeight: '700',
-      color: '#cbd5e1',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#cbd5e1',
   },
   inputWrapper: {
-      borderRadius: 16,
-      paddingHorizontal: 16,
-      height: 56,
-      justifyContent: 'center',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    height: 56,
+    justifyContent: 'center',
   },
   input: {
-      fontSize: 15,
-      fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '600',
   },
   switchRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   smallIconBox: {
-      width: 32,
-      height: 32,
-      borderRadius: 8,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   switchLabel: {
-      fontSize: 15,
-      fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '700',
   },
   pickerWrapper: {
-      borderRadius: 16,
-      marginTop: 8,
-      overflow: 'hidden',
+    borderRadius: 16,
+    marginTop: 8,
+    overflow: 'hidden',
   },
   rolesRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 10,
-      marginTop: 4,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 4,
   },
   roleChip: {
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
   },
   roleChipText: {
-      fontSize: 11,
-      fontWeight: '900',
-      letterSpacing: 0.5,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   createBtnContainer: {
-      marginBottom: 20,
+    marginBottom: 20,
   },
   createBtn: {
     height: 60,

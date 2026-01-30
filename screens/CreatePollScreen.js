@@ -33,9 +33,9 @@ const CreatePollScreen = ({ navigation, route }) => {
 
   const handleOptionChange = useCallback((text, index) => {
     setOptions(prevOptions => {
-        const newOptions = [...prevOptions];
-        newOptions[index] = text;
-        return newOptions;
+      const newOptions = [...prevOptions];
+      newOptions[index] = text;
+      return newOptions;
     });
   }, []);
 
@@ -45,9 +45,9 @@ const CreatePollScreen = ({ navigation, route }) => {
 
   const removeOption = useCallback((index) => {
     setOptions(prevOptions => {
-        const newOptions = [...prevOptions];
-        newOptions.splice(index, 1);
-        return newOptions;
+      const newOptions = [...prevOptions];
+      newOptions.splice(index, 1);
+      return newOptions;
     });
   }, []);
 
@@ -116,131 +116,135 @@ const CreatePollScreen = ({ navigation, route }) => {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <LinearGradient
-        colors={['#4f46e5', '#7c3aed']} 
+        colors={['#4f46e5', '#7c3aed']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.heroContainer}
       >
         <View style={styles.heroContent}>
-            <View style={styles.heroTextContainer}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
-                        <FontAwesomeIcon icon={faChevronLeft} size={18} color="#fff" />
-                    </TouchableOpacity>
-                    <Text style={styles.heroTitle}>New Poll</Text>
-                </View>
-                <Text style={styles.heroDescription}>
-                    Engage your school community by creating a custom poll.
-                </Text>
+          <View style={styles.heroTextContainer}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
+                <FontAwesomeIcon icon={faChevronLeft} size={18} color="#fff" />
+              </TouchableOpacity>
+              <Text style={styles.heroTitle}>New Poll</Text>
             </View>
-            <View style={styles.iconBoxHero}>
-                <FontAwesomeIcon icon={faPoll} size={24} color="rgba(255,255,255,0.7)" />
-            </View>
+            <Text style={styles.heroDescription}>
+              Engage your school community by creating a custom poll.
+            </Text>
+          </View>
+          <View style={styles.iconBoxHero}>
+            <FontAwesomeIcon icon={faPoll} size={24} color="rgba(255,255,255,0.7)" />
+          </View>
         </View>
       </LinearGradient>
 
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 + insets.bottom }} showsVerticalScrollIndicator={false}>
         <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-            <Text style={styles.cardSectionLabel}>POLL QUESTION</Text>
-            <View style={styles.inputGroup}>
-                <View style={styles.labelRow}>
-                    <Text style={styles.inputLabel}>QUESTION</Text>
-                    <Text style={styles.charCount}>{question.length}/200</Text>
-                </View>
-                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, height: 80, alignItems: 'flex-start', paddingTop: 12 }]}>
-                    <TextInput
-                        style={[styles.input, { color: theme.colors.text, height: 60 }]}
-                        placeholder="What would you like to ask?"
-                        placeholderTextColor={theme.colors.placeholder}
-                        value={question}
-                        onChangeText={setQuestion}
-                        multiline
-                        maxLength={200}
-                    />
-                </View>
+          <Text style={styles.cardSectionLabel}>POLL QUESTION</Text>
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <Text style={styles.inputLabel}>QUESTION</Text>
+              <Text style={styles.charCount}>{question.length}/200</Text>
             </View>
+            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, minHeight: 80, paddingHorizontal: 0, paddingTop: 0 }]}>
+              <TextInput
+                style={[styles.input, { color: theme.colors.text, height: '100%', width: '100%', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, includeFontPadding: false }]}
+                placeholder="What would you like to ask?"
+                placeholderTextColor={theme.colors.placeholder}
+                value={question}
+                onChangeText={setQuestion}
+                multiline
+                textAlignVertical="top"
+                autoCorrect={false}
+                underlineColorAndroid="transparent"
+                blurOnSubmit={false}
+                maxLength={200}
+              />
+            </View>
+          </View>
         </View>
 
         <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 20 }]}>
-            <Text style={styles.cardSectionLabel}>VOTING OPTIONS</Text>
-            
-            {options.map((option, index) => (
-                <View key={index} style={styles.optionItem}>
-                    <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, flex: 1 }]}>
-                        <TextInput
-                            style={[styles.input, { color: theme.colors.text }]}
-                            placeholder={`Option ${index + 1}`}
-                            placeholderTextColor={theme.colors.placeholder}
-                            value={option}
-                            onChangeText={(text) => handleOptionChange(text, index)}
-                            maxLength={50}
-                        />
-                    </View>
-                    {options.length > 2 && (
-                        <TouchableOpacity onPress={() => removeOption(index)} style={[styles.removeBtn, { backgroundColor: '#fff1f2' }]}>
-                            <FontAwesomeIcon icon={faMinus} size={12} color="#e11d48" />
-                        </TouchableOpacity>
-                    )}
-                </View>
-            ))}
+          <Text style={styles.cardSectionLabel}>VOTING OPTIONS</Text>
 
-            <TouchableOpacity style={[styles.addOptionBtn, { borderColor: theme.colors.primary, borderWidth: 1, borderStyle: 'dashed' }]} onPress={addOption}>
-                <FontAwesomeIcon icon={faPlus} size={14} color={theme.colors.primary} />
-                <Text style={[styles.addOptionText, { color: theme.colors.primary }]}>ADD OPTION</Text>
-            </TouchableOpacity>
+          {options.map((option, index) => (
+            <View key={index} style={styles.optionItem}>
+              <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, flex: 1 }]}>
+                <TextInput
+                  style={[styles.input, { color: theme.colors.text }]}
+                  placeholder={`Option ${index + 1}`}
+                  placeholderTextColor={theme.colors.placeholder}
+                  value={option}
+                  onChangeText={(text) => handleOptionChange(text, index)}
+                  maxLength={50}
+                />
+              </View>
+              {options.length > 2 && (
+                <TouchableOpacity onPress={() => removeOption(index)} style={[styles.removeBtn, { backgroundColor: '#fff1f2' }]}>
+                  <FontAwesomeIcon icon={faMinus} size={12} color="#e11d48" />
+                </TouchableOpacity>
+              )}
+            </View>
+          ))}
+
+          <TouchableOpacity style={[styles.addOptionBtn, { borderColor: theme.colors.primary, borderWidth: 1, borderStyle: 'dashed' }]} onPress={addOption}>
+            <FontAwesomeIcon icon={faPlus} size={14} color={theme.colors.primary} />
+            <Text style={[styles.addOptionText, { color: theme.colors.primary }]}>ADD OPTION</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 20 }]}>
-            <Text style={styles.cardSectionLabel}>POLL DURATION</Text>
-            <Calendar
-                onDayPress={handleDayPress}
-                hideExtraDays={true}
-                markedDates={{
-                    [endDate]: { selected: true, marked: true, selectedColor: theme.colors.primary },
-                }}
-                theme={{
-                    backgroundColor: theme.colors.card,
-                    calendarBackground: theme.colors.card,
-                    textSectionTitleColor: theme.colors.text,
-                    selectedDayBackgroundColor: theme.colors.primary,
-                    selectedDayTextColor: '#fff',
-                    todayTextColor: theme.colors.primary,
-                    dayTextColor: theme.colors.text,
-                    textDisabledColor: theme.colors.placeholder,
-                    dotColor: theme.colors.primary,
-                    arrowColor: theme.colors.primary,
-                    monthTextColor: theme.colors.text,
-                }}
-                style={styles.calendar}
-            />
-            {endDate ? (
-                <View style={[styles.datePreview, { backgroundColor: theme.colors.background }]}>
-                    <Text style={[styles.datePreviewText, { color: theme.colors.text }]}>ENDS ON: {new Date(endDate).toLocaleDateString()}</Text>
-                </View>
-            ) : null}
+          <Text style={styles.cardSectionLabel}>POLL DURATION</Text>
+          <Calendar
+            onDayPress={handleDayPress}
+            hideExtraDays={true}
+            markedDates={{
+              [endDate]: { selected: true, marked: true, selectedColor: theme.colors.primary },
+            }}
+            theme={{
+              backgroundColor: theme.colors.card,
+              calendarBackground: theme.colors.card,
+              textSectionTitleColor: theme.colors.text,
+              selectedDayBackgroundColor: theme.colors.primary,
+              selectedDayTextColor: '#fff',
+              todayTextColor: theme.colors.primary,
+              dayTextColor: theme.colors.text,
+              textDisabledColor: theme.colors.placeholder,
+              dotColor: theme.colors.primary,
+              arrowColor: theme.colors.primary,
+              monthTextColor: theme.colors.text,
+            }}
+            style={styles.calendar}
+          />
+          {endDate ? (
+            <View style={[styles.datePreview, { backgroundColor: theme.colors.background }]}>
+              <Text style={[styles.datePreviewText, { color: theme.colors.text }]}>ENDS ON: {new Date(endDate).toLocaleDateString()}</Text>
+            </View>
+          ) : null}
         </View>
 
-        <TouchableOpacity 
-            style={[styles.createBtnContainer, { marginTop: 30 }]} 
-            onPress={handleCreatePoll} 
-            disabled={isSubmitting}
-            activeOpacity={0.8}
+        <TouchableOpacity
+          style={[styles.createBtnContainer, { marginTop: 30 }]}
+          onPress={handleCreatePoll}
+          disabled={isSubmitting}
+          activeOpacity={0.8}
         >
-            <LinearGradient
-                colors={['#4f46e5', '#7c3aed']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.createBtn}
-            >
-                {isSubmitting ? (
-                    <ActivityIndicator color="#fff" />
-                ) : (
-                    <>
-                        <FontAwesomeIcon icon={faCheckCircle} size={18} color="#fff" style={{ marginRight: 10 }} />
-                        <Text style={styles.createBtnText}>Create Poll</Text>
-                    </>
-                )}
-            </LinearGradient>
+          <LinearGradient
+            colors={['#4f46e5', '#7c3aed']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.createBtn}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <FontAwesomeIcon icon={faCheckCircle} size={18} color="#fff" style={{ marginRight: 10 }} />
+                <Text style={styles.createBtnText}>Create Poll</Text>
+              </>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -259,42 +263,42 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 32,
   },
   heroContent: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   heroTextContainer: {
-      flex: 1,
-      paddingRight: 10,
+    flex: 1,
+    paddingRight: 10,
   },
   heroTitle: {
-      color: '#fff',
-      fontSize: 28,
-      fontWeight: '900',
-      marginBottom: 8,
-      letterSpacing: -1,
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '900',
+    marginBottom: 8,
+    letterSpacing: -1,
   },
   heroDescription: {
-      color: '#e0e7ff',
-      fontSize: 14,
-      fontWeight: '500',
+    color: '#e0e7ff',
+    fontSize: 14,
+    fontWeight: '500',
   },
   backButtonHero: { marginRight: 12 },
   iconBoxHero: {
-      width: 48,
-      height: 48,
-      borderRadius: 14,
-      backgroundColor: 'rgba(255,255,255,0.15)',
-      justifyContent: 'center',
-      alignItems: 'center',
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   card: { padding: 24, borderRadius: 32, elevation: 0 },
   cardSectionLabel: {
-      fontSize: 10,
-      fontWeight: '900',
-      color: '#94a3b8',
-      letterSpacing: 1.5,
-      marginBottom: 20,
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#94a3b8',
+    letterSpacing: 1.5,
+    marginBottom: 20,
   },
   inputGroup: { marginBottom: 12 },
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4 },
