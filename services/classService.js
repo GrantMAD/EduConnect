@@ -2,12 +2,12 @@ import { supabase } from '../lib/supabase';
 
 export const fetchAllClasses = async (schoolId) => {
     if (!schoolId) return [];
-    
+
     const { data, error } = await supabase
         .from('classes')
         .select('id, name, grade, subject')
         .eq('school_id', schoolId);
-        
+
     if (error) throw error;
     return data || [];
 };
@@ -99,13 +99,13 @@ export const fetchClassIds = async (userId, role, schoolId) => {
 
 export const fetchClassSchedules = async (classIds) => {
     if (!classIds || classIds.length === 0) return [];
-    
+
     const { data, error } = await supabase
         .from('class_schedules')
         .select('*, class:classes(id, name, subject)')
         .in('class_id', classIds)
         .order('start_time', { ascending: true });
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -127,7 +127,7 @@ export const fetchClassInfo = async (classId) => {
         .select('name')
         .eq('id', classId)
         .single();
-    
+
     if (error) throw error;
     return data;
 };
@@ -138,7 +138,7 @@ export const createClass = async (classData) => {
         .insert(classData)
         .select()
         .single();
-    
+
     if (error) throw error;
     return data;
 };
@@ -148,7 +148,7 @@ export const createClassMembers = async (members) => {
         .from('class_members')
         .insert(members)
         .select();
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -158,7 +158,7 @@ export const createClassSchedules = async (schedules) => {
         .from('class_schedules')
         .insert(schedules)
         .select();
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -168,7 +168,7 @@ export const fetchUserMemberships = async (userId) => {
         .from('class_members')
         .select('class_id')
         .eq('user_id', userId);
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -179,7 +179,7 @@ export const fetchClubsBySchool = async (schoolId) => {
         .select('*, teacher:users(email, full_name)')
         .eq('subject', 'Extracurricular')
         .eq('school_id', schoolId);
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -189,7 +189,7 @@ export const fetchClassMemberships = async (userId) => {
         .from('class_members')
         .select('id, attendance, class_id, classes (id, name, teacher:users(full_name))')
         .eq('user_id', userId);
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -201,7 +201,7 @@ export const fetchClassSchedulesForAttendance = async (classIds) => {
         .in('class_id', classIds)
         .lte('start_time', new Date().toISOString())
         .order('start_time', { ascending: true });
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -218,7 +218,7 @@ export const fetchClassesByTeacher = async (teacherId) => {
 export const getClassesBySchoolQuery = ({ schoolId, teacherId = null }) => {
     let query = supabase
         .from('classes')
-        .select('id, name, subject, teacher_id, teacher:users!teacher_id(full_name)') 
+        .select('id, name, subject, teacher_id, teacher:users!teacher_id(full_name)')
         .eq('school_id', schoolId);
 
     if (teacherId) {
@@ -235,7 +235,7 @@ export const updateClass = async (classId, classData) => {
         .eq('id', classId)
         .select()
         .single();
-    
+
     if (error) throw error;
     return data;
 };
@@ -245,7 +245,17 @@ export const deleteClassSchedules = async (classId) => {
         .from('class_schedules')
         .delete()
         .eq('class_id', classId);
-    
+
+    if (error) throw error;
+    return true;
+};
+
+export const deleteClassScheduleById = async (scheduleId) => {
+    const { error } = await supabase
+        .from('class_schedules')
+        .delete()
+        .eq('id', scheduleId);
+
     if (error) throw error;
     return true;
 };
@@ -256,7 +266,7 @@ export const removeClassMembers = async (classId, userIds) => {
         .delete()
         .eq('class_id', classId)
         .in('user_id', userIds);
-    
+
     if (error) throw error;
     return true;
 };
@@ -267,7 +277,7 @@ export const removeMemberFromClass = async (classId, userId) => {
         .delete()
         .eq('class_id', classId)
         .eq('user_id', userId);
-    
+
     if (error) throw error;
     return true;
 };
@@ -277,7 +287,7 @@ export const updateClassMemberIds = async (classId, userIds) => {
         .from('classes')
         .update({ users: userIds })
         .eq('id', classId);
-    
+
     if (error) throw error;
     return true;
 };
@@ -287,7 +297,7 @@ export const addMemberToClass = async (memberData) => {
         .from('class_members')
         .insert([memberData])
         .select();
-    
+
     if (error) throw error;
     return data[0];
 };
@@ -298,7 +308,7 @@ export const updateAttendance = async (memberId, attendance) => {
         .update({ attendance })
         .eq('id', memberId)
         .select();
-    
+
     if (error) throw error;
     return data[0];
 };
@@ -309,7 +319,7 @@ export const updateClassSchedule = async (scheduleId, scheduleData) => {
         .update(scheduleData)
         .eq('id', scheduleId)
         .select();
-    
+
     if (error) throw error;
     return data[0];
 };
@@ -319,7 +329,7 @@ export const fetchStudentCompletions = async (idField, itemId) => {
         .from('student_completions')
         .select('student_id')
         .eq(idField, itemId);
-    
+
     if (error) throw error;
     return data?.map(c => c.student_id) || [];
 };
@@ -330,7 +340,7 @@ export const deleteStudentCompletion = async (studentId, idField, itemId) => {
         .delete()
         .eq('student_id', studentId)
         .eq(idField, itemId);
-    
+
     if (error) throw error;
     return true;
 };
@@ -343,14 +353,14 @@ export const addStudentCompletion = async (studentId, idField, itemId) => {
             [idField]: itemId
         })
         .select();
-    
+
     if (error) throw error;
     return data[0];
 };
 
 export const fetchTeachersOfStudents = async (studentIds) => {
     if (!studentIds || studentIds.length === 0) return [];
-    
+
     const { data, error } = await supabase
         .from('class_members')
         .select(`
@@ -361,9 +371,9 @@ export const fetchTeachersOfStudents = async (studentIds) => {
             )
         `)
         .in('user_id', studentIds);
-    
+
     if (error) throw error;
-    
+
     const uniqueTeachers = [];
     const teacherIds = new Set();
     data?.forEach(item => {
@@ -381,19 +391,19 @@ export const fetchStudentSubjects = async (userId) => {
         .from('class_members')
         .select('classes(subject)')
         .eq('user_id', userId);
-    
+
     if (error) throw error;
     return data?.map(m => m.classes?.subject).filter(Boolean) || [];
 };
 
 export const fetchChildrenSubjects = async (childIds) => {
     if (!childIds || childIds.length === 0) return [];
-    
+
     const { data, error } = await supabase
         .from('class_members')
         .select('classes(subject)')
         .in('user_id', childIds);
-    
+
     if (error) throw error;
     return data?.map(m => m.classes?.subject).filter(Boolean) || [];
 };
@@ -412,10 +422,74 @@ export const fetchClassMembersIdsService = async (classId) => {
         .from('class_members')
         .select('user_id')
         .eq('class_id', classId);
-    
+
     if (error) throw error;
     return data?.map(m => m.user_id) || [];
 };
+
+/**
+ * Deletes a class and all associated data (schedules, members, etc.)
+ * @param {string} classId - The ID of the class to delete
+ * @returns {Promise<boolean>} - Returns true if successful
+ */
+export const deleteClass = async (classId) => {
+    // Delete in order: child tables first, then parent table
+
+    // 1. Delete all class schedules
+    const { error: schedulesError } = await supabase
+        .from('class_schedules')
+        .delete()
+        .eq('class_id', classId);
+
+    if (schedulesError) throw schedulesError;
+
+    // 2. Delete all class members
+    const { error: membersError } = await supabase
+        .from('class_members')
+        .delete()
+        .eq('class_id', classId);
+
+    if (membersError) throw membersError;
+
+    // 3. Delete student marks (Has class_id)
+    const { error: marksError } = await supabase
+        .from('student_marks')
+        .delete()
+        .eq('class_id', classId);
+
+    if (marksError) throw marksError;
+
+    // 4. Delete homework and assignments (Both have class_id)
+    const { error: hwError } = await supabase
+        .from('homework')
+        .delete()
+        .eq('class_id', classId);
+    if (hwError) throw hwError;
+
+    const { error: asgnError } = await supabase
+        .from('assignments')
+        .delete()
+        .eq('class_id', classId);
+    if (asgnError) throw asgnError;
+
+    // 5. Delete exam papers (Has class_id)
+    const { error: examError } = await supabase
+        .from('exam_papers')
+        .delete()
+        .eq('class_id', classId);
+    if (examError) throw examError;
+
+    // 6. Finally, delete the class itself
+    const { error: classError } = await supabase
+        .from('classes')
+        .delete()
+        .eq('id', classId);
+
+    if (classError) throw classError;
+
+    return true;
+};
+
 
 
 

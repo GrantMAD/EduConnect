@@ -107,13 +107,15 @@ const GradebookScreen = ({ route, navigation }) => {
                 colors={['#0f172a', '#1e293b']}
                 style={styles.header}
             >
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <FontAwesomeIcon icon={faChevronLeft} size={20} color="#fff" />
-                </TouchableOpacity>
                 <View style={styles.headerTitleRow}>
-                    <View>
-                        <Text style={styles.headerTitle}>Gradebook</Text>
-                        <Text style={styles.headerSubtitle}>{className}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                            <FontAwesomeIcon icon={faChevronLeft} size={20} color="#fff" />
+                        </TouchableOpacity>
+                        <View style={{ marginLeft: 16 }}>
+                            <Text style={styles.headerTitle}>Gradebook</Text>
+                            <Text style={styles.headerSubtitle}>{className}</Text>
+                        </View>
                     </View>
                     <TouchableOpacity
                         style={styles.setupButton}
@@ -181,7 +183,7 @@ const GradebookScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { padding: 24, paddingTop: 60, paddingBottom: 24, borderBottomLeftRadius: 32, borderBottomRightRadius: 32 },
-    backButton: { marginBottom: 16 },
+    backButton: {},
     headerTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     headerTitle: { fontSize: 28, fontWeight: '900', color: '#fff' },
     headerSubtitle: { fontSize: 16, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },

@@ -5,19 +5,18 @@ import { useSchool } from '../../context/SchoolContext';
 import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faPlusCircle, faMinusCircle, faUser, faClock, faArrowLeft, faChevronLeft, faChalkboardTeacher, faBookOpen, faSearch, faSave, faTrash } from '@fortawesome/free-solid-svg-icons';
-import { Calendar } from 'react-native-calendars';
 import { useToast } from '../../context/ToastContext';
 const defaultUserImage = require('../../assets/user.png');
-import ClassScheduleModal from '../../components/ClassScheduleModal';
+import TimetableManager from '../../components/TimetableManager';
 import LinearGradient from 'react-native-linear-gradient';
 
 // Import services
 import { getCurrentUser } from '../../services/authService';
 import { fetchUsersBySchool, fetchUsersByIdsWithPreferences } from '../../services/userService';
-import { 
-  createClass as createClassService, 
-  createClassMembers, 
-  createClassSchedules 
+import {
+  createClass as createClassService,
+  createClassMembers,
+  createClassSchedules
 } from '../../services/classService';
 import { sendBatchNotifications } from '../../services/notificationService';
 
@@ -37,8 +36,6 @@ const CreateClassScreen = ({ navigation, route }) => {
   const [fetchingStudents, setFetchingStudents] = useState(false);
 
   const [schedules, setSchedules] = useState([]);
-  const [isModalVisible, setModalVisible] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(null);
 
   const { schoolId } = useSchool();
   const { theme } = useTheme();
@@ -46,7 +43,7 @@ const CreateClassScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
 
   const fetchStudents = useCallback(async () => {
-    setFetchingStudents(true); 
+    setFetchingStudents(true);
     try {
       const authUser = await getCurrentUser();
       if (!authUser) return;
@@ -70,14 +67,14 @@ const CreateClassScreen = ({ navigation, route }) => {
 
   useEffect(() => {
     let filtered = allStudents;
-    
+
     // Apply search query
     if (searchQuery !== '') {
       filtered = filtered.filter(student =>
         student.full_name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
+
     // Apply grade filter strictly (Teacher MUST select grade first)
     if (selectedGrade) {
       filtered = filtered.filter(student => student.grade === selectedGrade);
@@ -85,7 +82,7 @@ const CreateClassScreen = ({ navigation, route }) => {
       // If no grade selected, don't show any students
       filtered = [];
     }
-    
+
     setStudents(filtered);
   }, [searchQuery, allStudents, selectedGrade]);
 
@@ -101,33 +98,7 @@ const CreateClassScreen = ({ navigation, route }) => {
     });
   }, []);
 
-  const handleDayPress = useCallback((day) => {
-    setSelectedDate(day.dateString);
-    setModalVisible(true);
-  }, []);
 
-  const handleSaveSchedule = useCallback((startTimeStr, endTimeStr, infoStr) => {
-    const [startHours, startMinutes] = startTimeStr.split(':').map(Number);
-    const [endHours, endMinutes] = endTimeStr.split(':').map(Number);
-
-    const startTime = new Date(selectedDate);
-    startTime.setHours(startHours, startMinutes);
-    const endTime = new Date(selectedDate);
-    endTime.setHours(endHours, endMinutes);
-
-    if (startTime >= endTime) {
-      showToast('End time must be after start time.', 'error');
-      return;
-    }
-
-    const newSchedule = { date: selectedDate, startTime, endTime, info: infoStr };
-    setSchedules(prev => [...prev, newSchedule]);
-    setModalVisible(false);
-  }, [selectedDate, showToast]);
-
-  const handleRemoveSchedule = useCallback((indexToRemove) => {
-    setSchedules(prevSchedules => prevSchedules.filter((_, index) => index !== indexToRemove));
-  }, []);
 
   const handleCreateClass = useCallback(async () => {
     if (!className || !subject) {
@@ -140,12 +111,12 @@ const CreateClassScreen = ({ navigation, route }) => {
       const authUser = await getCurrentUser();
       if (!authUser || !schoolId) throw new Error('Auth session invalid');
 
-      const newClass = await createClassService({ 
-        name: className, 
-        subject: subject, 
+      const newClass = await createClassService({
+        name: className,
+        subject: subject,
         grade: selectedGrade,
-        school_id: schoolId, 
-        teacher_id: authUser.id 
+        school_id: schoolId,
+        teacher_id: authUser.id
       });
 
       if (selectedStudents.length > 0) {
@@ -205,212 +176,170 @@ const CreateClassScreen = ({ navigation, route }) => {
     }
   }, [className, subject, schoolId, selectedStudents, schedules, navigation, showToast]);
 
-  const markedDates = useMemo(() => schedules.reduce((acc, sched) => {
-    acc[sched.date] = { marked: true, dotColor: '#10b981' };
-    return acc;
-  }, {}), [schedules]);
+
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <LinearGradient
-        colors={['#059669', '#0d9488']} 
+        colors={['#059669', '#0d9488']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.heroContainer}
       >
         <View style={styles.heroContent}>
-            <View style={styles.heroTextContainer}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
-                        <FontAwesomeIcon icon={faChevronLeft} size={18} color="#fff" />
-                    </TouchableOpacity>
-                    <Text style={styles.heroTitle}>Create Class</Text>
-                </View>
-                <Text style={styles.heroDescription}>
-                    Establish a new course and manage your student roster.
-                </Text>
+          <View style={styles.heroTextContainer}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
+                <FontAwesomeIcon icon={faChevronLeft} size={18} color="#fff" />
+              </TouchableOpacity>
+              <Text style={styles.heroTitle}>Create Class</Text>
             </View>
-            <View style={styles.iconBoxHero}>
-                <FontAwesomeIcon icon={faBookOpen} size={24} color="rgba(255,255,255,0.7)" />
-            </View>
+            <Text style={styles.heroDescription}>
+              Establish a new course and manage your student roster.
+            </Text>
+          </View>
+          <View style={styles.iconBoxHero}>
+            <FontAwesomeIcon icon={faBookOpen} size={24} color="rgba(255,255,255,0.7)" />
+          </View>
         </View>
       </LinearGradient>
 
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 + insets.bottom }} showsVerticalScrollIndicator={false}>
         <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-            <Text style={styles.cardSectionLabel}>CLASS IDENTITY</Text>
-            <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>OFFICIAL NAME</Text>
-                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                    <TextInput
-                        style={[styles.input, { color: theme.colors.text }]}
-                        placeholder="e.g. Mathematics 101"
-                        placeholderTextColor={theme.colors.placeholder}
-                        value={className}
-                        onChangeText={setClassName}
-                    />
-                </View>
+          <Text style={styles.cardSectionLabel}>CLASS IDENTITY</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>OFFICIAL NAME</Text>
+            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+              <TextInput
+                style={[styles.input, { color: theme.colors.text }]}
+                placeholder="e.g. Mathematics 101"
+                placeholderTextColor={theme.colors.placeholder}
+                value={className}
+                onChangeText={setClassName}
+              />
             </View>
-            <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>SUBJECT CATEGORY</Text>
-                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                    <TextInput
-                        style={[styles.input, { color: theme.colors.text }]}
-                        placeholder="e.g. Science"
-                        placeholderTextColor={theme.colors.placeholder}
-                        value={subject}
-                        onChangeText={setSubject}
-                    />
-                </View>
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>SUBJECT CATEGORY</Text>
+            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+              <TextInput
+                style={[styles.input, { color: theme.colors.text }]}
+                placeholder="e.g. Science"
+                placeholderTextColor={theme.colors.placeholder}
+                value={subject}
+                onChangeText={setSubject}
+              />
             </View>
-            <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>TARGET GRADE</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-                    {['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].map(g => (
-                        <TouchableOpacity 
-                            key={g} 
-                            style={[
-                                styles.gradeChip, 
-                                { backgroundColor: selectedGrade === g ? theme.colors.primary : theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }
-                            ]}
-                            onPress={() => setSelectedGrade(g)}
-                        >
-                            <Text style={[styles.gradeChipText, { color: selectedGrade === g ? '#fff' : theme.colors.text }]}>{g}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-            </View>
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>TARGET GRADE</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+              {['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].map(g => (
+                <TouchableOpacity
+                  key={g}
+                  style={[
+                    styles.gradeChip,
+                    { backgroundColor: selectedGrade === g ? theme.colors.primary : theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }
+                  ]}
+                  onPress={() => setSelectedGrade(g)}
+                >
+                  <Text style={[styles.gradeChipText, { color: selectedGrade === g ? '#fff' : theme.colors.text }]}>{g}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         </View>
 
         <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 20 }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <Text style={[styles.cardSectionLabel, { marginBottom: 0 }]}>STUDENT ROSTER</Text>
-                {selectedGrade ? (
-                    <View style={styles.filterToggle}>
-                        <FontAwesomeIcon icon={faPlusCircle} size={12} color={'#10b981'} />
-                        <Text style={[styles.filterToggleText, { color: '#10b981' }]}>
-                            {`Filtered: ${selectedGrade}`}
-                        </Text>
-                    </View>
-                ) : null}
-            </View>
-            
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <Text style={[styles.cardSectionLabel, { marginBottom: 0 }]}>STUDENT ROSTER</Text>
             {selectedGrade ? (
-                <>
-                    <View style={[styles.searchWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                        <FontAwesomeIcon icon={faSearch} size={14} color={theme.colors.placeholder} />
-                        <TextInput
-                            style={[styles.searchInput, { color: theme.colors.text }]}
-                            placeholder="Search students to add..."
-                            placeholderTextColor={theme.colors.placeholder}
-                            value={searchQuery}
-                            onChangeText={setSearchQuery}
-                        />
-                    </View>
+              <View style={styles.filterToggle}>
+                <FontAwesomeIcon icon={faPlusCircle} size={12} color={'#10b981'} />
+                <Text style={[styles.filterToggleText, { color: '#10b981' }]}>
+                  {`Filtered: ${selectedGrade}`}
+                </Text>
+              </View>
+            ) : null}
+          </View>
 
-                    <Text style={styles.subLabel}>AVAILABLE STUDENTS ({students.filter(s => !selectedStudents.includes(s.id)).length})</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-                        {students.filter(s => !selectedStudents.includes(s.id)).map(item => (
-                            <TouchableOpacity key={item.id} style={styles.userCircle} onPress={() => toggleStudentSelection(item.id)}>
-                                <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={[styles.userAvatar, { borderColor: theme.colors.cardBorder }]} />
-                                <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name.split(' ')[0]}</Text>
-                                <View style={styles.addBadge}><FontAwesomeIcon icon={faPlusCircle} size={12} color="#10b981" /></View>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
+          {selectedGrade ? (
+            <>
+              <View style={[styles.searchWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                <FontAwesomeIcon icon={faSearch} size={14} color={theme.colors.placeholder} />
+                <TextInput
+                  style={[styles.searchInput, { color: theme.colors.text }]}
+                  placeholder="Search students to add..."
+                  placeholderTextColor={theme.colors.placeholder}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+              </View>
 
-                    <Text style={[styles.subLabel, { marginTop: 20 }]}>SELECTED MEMBERS ({selectedStudents.length})</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-                        {students.filter(s => selectedStudents.includes(s.id)).map(item => (
-                            <TouchableOpacity key={item.id} style={styles.userCircle} onPress={() => toggleStudentSelection(item.id)}>
-                                <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={[styles.userAvatar, { borderColor: theme.colors.primary }]} />
-                                <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name.split(' ')[0]}</Text>
-                                <View style={styles.addBadge}><FontAwesomeIcon icon={faMinusCircle} size={12} color="#ef4444" /></View>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </>
-            ) : (
-                <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                    <FontAwesomeIcon icon={faUser} size={32} color={theme.colors.placeholder} style={{ opacity: 0.2, marginBottom: 12 }} />
-                    <Text style={{ fontSize: 12, color: theme.colors.placeholder, fontWeight: '700', textAlign: 'center' }}>
-                        Please select a Target Grade above to see available students.
-                    </Text>
-                </View>
-            )}
+              <Text style={styles.subLabel}>AVAILABLE STUDENTS ({students.filter(s => !selectedStudents.includes(s.id)).length})</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+                {students.filter(s => !selectedStudents.includes(s.id)).map(item => (
+                  <TouchableOpacity key={item.id} style={styles.userCircle} onPress={() => toggleStudentSelection(item.id)}>
+                    <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={[styles.userAvatar, { borderColor: theme.colors.cardBorder }]} />
+                    <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name.split(' ')[0]}</Text>
+                    <View style={styles.addBadge}><FontAwesomeIcon icon={faPlusCircle} size={12} color="#10b981" /></View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <Text style={[styles.subLabel, { marginTop: 20 }]}>SELECTED MEMBERS ({selectedStudents.length})</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+                {students.filter(s => selectedStudents.includes(s.id)).map(item => (
+                  <TouchableOpacity key={item.id} style={styles.userCircle} onPress={() => toggleStudentSelection(item.id)}>
+                    <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={[styles.userAvatar, { borderColor: theme.colors.primary }]} />
+                    <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name.split(' ')[0]}</Text>
+                    <View style={styles.addBadge}><FontAwesomeIcon icon={faMinusCircle} size={12} color="#ef4444" /></View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </>
+          ) : (
+            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+              <FontAwesomeIcon icon={faUser} size={32} color={theme.colors.placeholder} style={{ opacity: 0.2, marginBottom: 12 }} />
+              <Text style={{ fontSize: 12, color: theme.colors.placeholder, fontWeight: '700', textAlign: 'center' }}>
+                Please select a Target Grade above to see available students.
+              </Text>
+            </View>
+          )}
         </View>
 
-        <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 20 }]}>
-            <Text style={styles.cardSectionLabel}>TIME SLOTS</Text>
-            <Calendar 
-                onDayPress={handleDayPress} 
-                hideExtraDays={true}
-                markedDates={markedDates}
-                theme={{
-                    backgroundColor: theme.colors.card,
-                    calendarBackground: theme.colors.card,
-                    textSectionTitleColor: theme.colors.placeholder,
-                    selectedDayBackgroundColor: theme.colors.primary,
-                    todayTextColor: theme.colors.primary,
-                    dayTextColor: theme.colors.text,
-                    monthTextColor: theme.colors.text,
-                    arrowColor: theme.colors.primary,
-                }}
-                style={{ borderRadius: 16 }}
-            />
-
-            {schedules.length > 0 && (
-                <View style={{ marginTop: 20 }}>
-                    {schedules.map((item, index) => (
-                        <View key={index} style={[styles.scheduleItem, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                            <View style={styles.scheduleLeft}>
-                                <View style={[styles.dateBadge, { backgroundColor: theme.colors.primary + '15' }]}>
-                                    <FontAwesomeIcon icon={faClock} size={12} color={theme.colors.primary} />
-                                    <Text style={[styles.dateText, { color: theme.colors.primary }]}>{item.date}</Text>
-                                </View>
-                                <Text style={[styles.timeText, { color: theme.colors.text }]}>
-                                    {item.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {item.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </Text>
-                            </View>
-                            <TouchableOpacity onPress={() => handleRemoveSchedule(index)}>
-                                <FontAwesomeIcon icon={faTrash} size={16} color="#ef4444" />
-                            </TouchableOpacity>
-                        </View>
-                    ))}
-                </View>
-            )}
+        <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 20, minHeight: 400 }]}>
+          <TimetableManager
+            schedules={schedules}
+            onSchedulesChange={setSchedules}
+          />
         </View>
 
-        <TouchableOpacity 
-            style={[styles.createBtnContainer, { marginTop: 30 }]} 
-            onPress={handleCreateClass} 
-            disabled={loading}
-            activeOpacity={0.8}
+        <TouchableOpacity
+          style={[styles.createBtnContainer, { marginTop: 30 }]}
+          onPress={handleCreateClass}
+          disabled={loading}
+          activeOpacity={0.8}
         >
-            <LinearGradient
-                colors={['#10b981', '#059669']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.createBtn}
-            >
-                {loading ? (
-                    <ActivityIndicator color="#fff" />
-                ) : (
-                    <>
-                        <FontAwesomeIcon icon={faSave} size={16} color="#fff" style={{ marginRight: 10 }} />
-                        <Text style={styles.createBtnText}>Finish Registration</Text>
-                    </>
-                )}
-            </LinearGradient>
+          <LinearGradient
+            colors={['#10b981', '#059669']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.createBtn}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <FontAwesomeIcon icon={faSave} size={16} color="#fff" style={{ marginRight: 10 }} />
+                <Text style={styles.createBtnText}>Finish Registration</Text>
+              </>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
 
-      <ClassScheduleModal
-        visible={isModalVisible}
-        onClose={() => setModalVisible(false)}
-        selectedDate={selectedDate}
-        onSave={handleSaveSchedule}
-      />
+
     </View>
   );
 }
@@ -427,42 +356,42 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 32,
   },
   heroContent: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   heroTextContainer: {
-      flex: 1,
-      paddingRight: 10,
+    flex: 1,
+    paddingRight: 10,
   },
   heroTitle: {
-      color: '#fff',
-      fontSize: 28,
-      fontWeight: '900',
-      marginBottom: 8,
-      letterSpacing: -1,
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '900',
+    marginBottom: 8,
+    letterSpacing: -1,
   },
   heroDescription: {
-      color: '#d1fae5',
-      fontSize: 14,
-      fontWeight: '500',
+    color: '#d1fae5',
+    fontSize: 14,
+    fontWeight: '500',
   },
   backButtonHero: { marginRight: 12 },
   iconBoxHero: {
-      width: 48,
-      height: 48,
-      borderRadius: 14,
-      backgroundColor: 'rgba(255,255,255,0.15)',
-      justifyContent: 'center',
-      alignItems: 'center',
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   card: { padding: 24, borderRadius: 32 },
   cardSectionLabel: {
-      fontSize: 10,
-      fontWeight: '900',
-      color: '#94a3b8',
-      letterSpacing: 1.5,
-      marginBottom: 20,
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#94a3b8',
+    letterSpacing: 1.5,
+    marginBottom: 20,
   },
   inputGroup: { marginBottom: 16 },
   inputLabel: { fontSize: 10, fontWeight: '900', color: '#94a3b8', letterSpacing: 1, marginBottom: 8, marginLeft: 4 },
@@ -504,31 +433,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-    backButtonText: {
-      marginLeft: 8,
-      fontSize: 16,
-      color: '#333',
-      fontWeight: '500',
-    },
-    gradeChip: {
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 12,
-      marginRight: 8,
-    },
-    gradeChipText: {
-      fontSize: 12,
-      fontWeight: '700',
-    },
-    filterToggle: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    filterToggleText: {
-      fontSize: 10,
-      fontWeight: '800',
-      textTransform: 'uppercase',
-    }
-  });
-  
+  backButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  gradeChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  gradeChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  filterToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  filterToggleText: {
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  }
+});

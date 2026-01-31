@@ -40,6 +40,7 @@ import {
   faPlus,
   faChevronRight,
   faSearch,
+  faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { useToast } from "../../context/ToastContext";
 import { useAuth } from "../../context/AuthContext";
@@ -65,7 +66,9 @@ import {
   removeMemberFromClass,
   updateAttendance,
   updateClassSchedule,
-  createClassSchedules
+  createClassSchedules,
+  deleteClassScheduleById,
+  deleteClass
 } from '../../services/classService';
 import { sendBatchNotifications } from '../../services/notificationService';
 
@@ -415,6 +418,60 @@ const ManageUsersInClassScreen = ({ navigation }) => {
     }
   }, [newScheduleDate, newStartTime, newEndTime, classId, className, classSubject, newClassInfo, schoolId, fetchClassSchedules, showToast]);
 
+  const handleDeleteSchedule = useCallback(async (scheduleId) => {
+    Alert.alert(
+      'Delete Session',
+      'Are you sure you want to delete this session?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setSaving(true);
+            try {
+              await deleteClassScheduleById(scheduleId);
+              fetchClassSchedules();
+              showToast('Session deleted successfully.', 'success');
+            } catch (error) {
+              console.error(error);
+              showToast('Failed to delete session.', 'error');
+            } finally {
+              setSaving(false);
+            }
+          }
+        }
+      ]
+    );
+  }, [fetchClassSchedules, showToast]);
+
+  const handleDeleteClass = useCallback(async () => {
+    Alert.alert(
+      'Delete Class',
+      `Are you sure you want to permanently delete "${className}"? This will remove all sessions, members, and related data. This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Permanently',
+          style: 'destructive',
+          onPress: async () => {
+            setSaving(true);
+            try {
+              await deleteClass(classId);
+              showToast('Class deleted successfully.', 'success');
+              navigation.goBack();
+            } catch (error) {
+              console.error(error);
+              showToast('Failed to delete class.', 'error');
+            } finally {
+              setSaving(false);
+            }
+          }
+        }
+      ]
+    );
+  }, [classId, className, navigation, showToast]);
+
   const markAllPresent = useCallback(async () => {
     if (!selectedScheduleDate) return;
     setSaving(true);
@@ -488,11 +545,16 @@ const ManageUsersInClassScreen = ({ navigation }) => {
           </Text>
         </View>
       </View>
-      <TouchableOpacity onPress={() => handleEditSchedule(item)} style={styles.sessionEditBtn}>
-        <FontAwesomeIcon icon={faEdit} size={16} color={theme.colors.placeholder} />
-      </TouchableOpacity>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <TouchableOpacity onPress={() => handleEditSchedule(item)} style={styles.sessionEditBtn}>
+          <FontAwesomeIcon icon={faEdit} size={16} color={theme.colors.placeholder} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => handleDeleteSchedule(item.id)} style={styles.sessionEditBtn}>
+          <FontAwesomeIcon icon={faTrash} size={16} color="#ef4444" />
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
-  ), [theme, formatTime, handleEditSchedule]);
+  ), [theme, formatTime, handleEditSchedule, handleDeleteSchedule]);
 
   const renderStudent = useCallback(({ item }) => {
     const student = item.users;
@@ -601,18 +663,29 @@ const ManageUsersInClassScreen = ({ navigation }) => {
                   Management portal for {className}. Select a session to proceed.
                 </Text>
               </View>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity onPress={() => navigation.navigate('Gradebook', { classId, className })} style={styles.heroActionBtn}>
-                  <FontAwesomeIcon icon={faGraduationCap} size={14} color="#4f46e5" />
-                  <Text style={styles.heroActionText}>Grades</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={openAddScheduleModal} style={styles.heroActionBtn}>
-                  <FontAwesomeIcon icon={faPlus} size={14} color="#4f46e5" />
-                  <Text style={styles.heroActionText}>New</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity onPress={openAddScheduleModal} style={styles.heroActionBtn}>
+                <FontAwesomeIcon icon={faPlus} size={14} color="#4f46e5" />
+                <Text style={styles.heroActionText}>New</Text>
+              </TouchableOpacity>
             </View>
           </LinearGradient>
+
+          <View style={{ paddingHorizontal: 20, paddingTop: 24, flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Gradebook', { classId, className })}
+              style={[styles.mainActionBtn, { backgroundColor: theme.colors.primary }]}
+            >
+              <FontAwesomeIcon icon={faGraduationCap} size={14} color="#fff" />
+              <Text style={styles.mainActionText}>ACADEMIC GRADES</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleDeleteClass}
+              style={[styles.mainActionBtn, { backgroundColor: '#fee2e2' }]}
+            >
+              <FontAwesomeIcon icon={faTrash} size={14} color="#ef4444" />
+              <Text style={[styles.mainActionText, { color: '#ef4444' }]}>DELETE CLASS</Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={{ padding: 20 }}>
             <Text style={styles.sectionTitle}>SESSIONS & CALENDAR</Text>
