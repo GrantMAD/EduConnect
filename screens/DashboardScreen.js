@@ -16,14 +16,13 @@ import RecommendedResources from '../components/dashboard/RecommendedResources';
 import { useTheme } from '../context/ThemeContext';
 import { useSchool } from '../context/SchoolContext';
 import { useToast } from '../context/ToastContext';
-import { useWalkthrough } from '../context/WalkthroughContext';
+import { useGamification } from '../context/GamificationContext';
 import UserListModal from '../components/UserListModal';
 import FamilyLinksModal from '../components/FamilyLinksModal';
 import DashboardSkeleton, { StatCardSkeleton, SkeletonPiece } from '../components/skeletons/DashboardScreenSkeleton';
 import ChildProgressSnapshot from '../components/ChildProgressSnapshot';
-import { useGamification } from '../context/GamificationContext';
 import LinearGradient from 'react-native-linear-gradient';
-import WalkthroughTarget from '../components/WalkthroughTarget';
+import WelcomeModal from '../components/WelcomeModal';
 
 // Import services
 import { getCurrentUser } from '../services/authService';
@@ -34,6 +33,7 @@ import { fetchTodaySchedules, fetchClassIds } from '../services/classService';
 import { fetchTodayPTMBookings } from '../services/ptmService';
 import { fetchUpcomingLessons } from '../services/lessonService';
 import { getDashboardStats, dailyCheckIn, fetchParentChildLinkCount, fetchClubsCount, fetchTotalClassesCount } from '../services/dashboardService';
+import { markWalkthroughAsSeen } from '../services/userService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -41,8 +41,9 @@ const DashboardScreen = ({ navigation }) => {
     const { theme, isDarkTheme } = useTheme();
     const { schoolId, schoolData } = useSchool();
     const { showToast } = useToast();
-    const { startWalkthrough, registerScrollContainer } = useWalkthrough();
     const { awardXP } = useGamification();
+
+    const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
     const [userRole, setUserRole] = useState('');
     const [userProfile, setUserProfile] = useState(null);
@@ -204,59 +205,14 @@ const DashboardScreen = ({ navigation }) => {
             setUserProfile(userData);
 
             if (userData && !userData.has_seen_walkthrough) {
-                const baseSteps = [
-                    {
-                        target: 'dashboard-welcome',
-                        title: 'Welcome to ClassConnect',
-                        content: 'This is your main dashboard on mobile. Access everything you need on the go.'
-                    },
-                    {
-                        target: 'dashboard-header',
-                        title: 'Daily Overview',
-                        content: 'See your daily greeting and today\'s date at a glance.'
-                    },
-                    {
-                        target: 'dashboard-gamification',
-                        title: 'Your Progress',
-                        content: 'Track your XP, Level, and daily streaks right here.'
-                    }
-                ];
-
-                if (['admin', 'teacher'].includes(userData.role)) {
-                    baseSteps.push({
-                        target: 'dashboard-stats',
-                        title: 'Quick Stats',
-                        content: 'Tap these cards for detailed statistics and management.'
-                    });
-                } else if (userData.role === 'student' || userData.role === 'parent') {
-                    baseSteps.push({
-                        target: 'dashboard-recommendations',
-                        title: 'Recommendations',
-                        content: 'Discover top learning materials tailored to your specific subjects.'
-                    });
-                    baseSteps.push({
-                        target: 'dashboard-tasks',
-                        title: 'Upcoming Tasks',
-                        content: 'Stay on top of your homework and assignments here.'
-                    });
-                }
-
-                baseSteps.push({
-                    target: 'dashboard-recent',
-                    title: 'Recent Activity',
-                    content: 'Catch up on the latest announcements and messages.'
-                });
-
-                setTimeout(() => {
-                    startWalkthrough(baseSteps);
-                }, 1500);
+                setShowWelcomeModal(true);
             }
         } catch (error) {
             console.error('Error checking access:', error);
             showToast('Failed to verify access.', 'error');
             navigation.goBack();
         }
-    }, [navigation, showToast, startWalkthrough]);
+    }, [navigation, showToast]);
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
@@ -282,6 +238,17 @@ const DashboardScreen = ({ navigation }) => {
         }
     }, [schoolId, showToast]);
 
+    const handleCloseWelcomeModal = async (dontShowAgain) => {
+        setShowWelcomeModal(false);
+        if (dontShowAgain && userProfile?.id) {
+            try {
+                await markWalkthroughAsSeen(userProfile.id);
+            } catch (error) {
+                console.error('Error marking walkthrough as seen:', error);
+            }
+        }
+    };
+
     useEffect(() => {
         if (schoolId) {
             fetchDashboardData();
@@ -296,7 +263,6 @@ const DashboardScreen = ({ navigation }) => {
 
     return (
         <ScrollView
-            ref={registerScrollContainer}
             style={[styles.container, { backgroundColor: theme.colors.background }]}
             refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} tintColor={theme.colors.primary} />
@@ -304,75 +270,71 @@ const DashboardScreen = ({ navigation }) => {
         >
             <View style={styles.content}>
                 {/* Header Badge */}
-                <WalkthroughTarget id="dashboard-header">
-                    <View style={styles.headerBadge}>
-                        <View style={styles.headerLeft}>
-                            <View style={[styles.greetingBadge, { backgroundColor: theme.colors.primary + '15' }]}>
-                                <Text style={[styles.greetingText, { color: theme.colors.primary }]}>
-                                    {greeting}
-                                </Text>
-                            </View>
-                            {userProfile ? (
-                                <Text style={[styles.userNameLarge, { color: theme.colors.text }]}>
-                                    {userProfile.full_name?.split(' ')[0]}
-                                </Text>
-                            ) : (
-                                <SkeletonPiece style={{ width: 140, height: 34, borderRadius: 8, marginTop: 4, marginLeft: 4 }} />
-                            )}
-                        </View>
-                        <View style={[styles.dateBadgeFull, { backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '20', borderWidth: 1 }]}>
-                            <Text style={[styles.dateTextFull, { color: theme.colors.primary }]}>
-                                {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                <View style={styles.headerBadge}>
+                    <View style={styles.headerLeft}>
+                        <View style={[styles.greetingBadge, { backgroundColor: theme.colors.primary + '15' }]}>
+                            <Text style={[styles.greetingText, { color: theme.colors.primary }]}>
+                                {greeting}
                             </Text>
                         </View>
+                        {userProfile ? (
+                            <Text style={[styles.userNameLarge, { color: theme.colors.text }]}>
+                                {userProfile.full_name?.split(' ')[0]}
+                            </Text>
+                        ) : (
+                            <SkeletonPiece style={{ width: 140, height: 34, borderRadius: 8, marginTop: 4, marginLeft: 4 }} />
+                        )}
                     </View>
-                </WalkthroughTarget>
+                    <View style={[styles.dateBadgeFull, { backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '20', borderWidth: 1 }]}>
+                        <Text style={[styles.dateTextFull, { color: theme.colors.primary }]}>
+                            {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </Text>
+                    </View>
+                </View>
 
                 {/* School Banner & Welcome Card combined (Matches Web Design) */}
-                <WalkthroughTarget id="dashboard-welcome">
-                    <View style={styles.bannerContainer}>
-                        {schoolData?.logo_url ? (
-                            <Image
-                                source={{ uri: schoolData.logo_url }}
-                                style={styles.bannerImage}
-                                resizeMode="cover"
-                            />
-                        ) : (
-                            <LinearGradient
-                                colors={['#4f46e5', '#4338ca']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={StyleSheet.absoluteFill}
-                            />
-                        )}
-
-                        {/* Gradient Overlay for Text Readability */}
+                <View style={styles.bannerContainer}>
+                    {schoolData?.logo_url ? (
+                        <Image
+                            source={{ uri: schoolData.logo_url }}
+                            style={styles.bannerImage}
+                            resizeMode="cover"
+                        />
+                    ) : (
                         <LinearGradient
-                            colors={schoolData?.logo_url
-                                ? ['rgba(30, 27, 75, 0.95)', 'rgba(30, 27, 75, 0.6)', 'transparent']
-                                : ['transparent', 'rgba(0,0,0,0.1)']}
+                            colors={['#4f46e5', '#4338ca']}
                             start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
+                            end={{ x: 1, y: 1 }}
                             style={StyleSheet.absoluteFill}
                         />
+                    )}
 
-                        <View style={styles.bannerContent}>
-                            <Text style={styles.bannerTitle} numberOfLines={2}>
-                                {schoolData?.name || "Welcome to ClassConnect"}
-                            </Text>
-                            <Text style={styles.bannerSubtitle} numberOfLines={3}>
-                                {"Explore your school's portal, stay connected, and track your progress all in one place."}
-                            </Text>
+                    {/* Gradient Overlay for Text Readability */}
+                    <LinearGradient
+                        colors={schoolData?.logo_url
+                            ? ['rgba(30, 27, 75, 0.95)', 'rgba(30, 27, 75, 0.6)', 'transparent']
+                            : ['transparent', 'rgba(0,0,0,0.1)']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={StyleSheet.absoluteFill}
+                    />
 
-                            <View style={styles.bannerDecoration}>
-                                <View style={[styles.decorationLine, { backgroundColor: schoolData?.logo_url ? '#818cf8' : 'rgba(255,255,255,0.4)' }]} />
-                                <Text style={[styles.decorationText, { color: schoolData?.logo_url ? '#a5b4fc' : 'rgba(255,255,255,0.6)' }]}>
-                                    ClassConnect Portal
-                                </Text>
-                            </View>
+                    <View style={styles.bannerContent}>
+                        <Text style={styles.bannerTitle} numberOfLines={2}>
+                            {schoolData?.name || "Welcome to ClassConnect"}
+                        </Text>
+                        <Text style={styles.bannerSubtitle} numberOfLines={3}>
+                            {"Explore your school's portal, stay connected, and track your progress all in one place."}
+                        </Text>
+
+                        <View style={styles.bannerDecoration}>
+                            <View style={[styles.decorationLine, { backgroundColor: schoolData?.logo_url ? '#818cf8' : 'rgba(255,255,255,0.4)' }]} />
+                            <Text style={[styles.decorationText, { color: schoolData?.logo_url ? '#a5b4fc' : 'rgba(255,255,255,0.6)' }]}>
+                                ClassConnect Portal
+                            </Text>
                         </View>
                     </View>
-                </WalkthroughTarget>
+                </View>
 
                 {/* Gamification Hub */}
                 <GamificationHub id="dashboard-gamification" />
@@ -421,124 +383,123 @@ const DashboardScreen = ({ navigation }) => {
                 />
 
                 {/* Admin/Teacher Stats */}
+                {/* Admin/Teacher Stats */}
                 {['admin', 'teacher'].includes(userRole) && (
-                    <WalkthroughTarget id="dashboard-stats">
-                        <View style={styles.statsSection}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>School Statistics</Text>
-                            <Text style={[styles.sectionDescription, { color: theme.colors.placeholder, marginTop: -12, marginBottom: 16 }]}>
-                                A comprehensive overview of your school's community and reach.
-                            </Text>
+                    <View style={styles.statsSection}>
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>School Statistics</Text>
+                        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder, marginTop: -12, marginBottom: 16 }]}>
+                            A comprehensive overview of your school's community and reach.
+                        </Text>
 
-                            {loading ? (
-                                <View style={styles.statsGrid}>
-                                    {[1, 2, 3, 4].map((item) => (
-                                        <StatCardSkeleton key={item} />
-                                    ))}
-                                </View>
-                            ) : (
-                                <View style={styles.statsGrid}>
-                                    <StatCard
-                                        icon={faUsers}
-                                        title="Total Users"
-                                        value={stats.totalUsers}
-                                        color="#007AFF"
-                                        onPress={() => fetchUsersByCategory('total')}
-                                        style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
-                                    />
-                                    <StatCard
-                                        icon={faUserTie}
-                                        title="Admins"
-                                        value={stats.adminCount}
-                                        color="#FF3B30"
-                                        onPress={() => fetchUsersByCategory('admin')}
-                                        style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
-                                    />
-                                    <StatCard
-                                        icon={faChalkboardTeacher}
-                                        title="Teachers"
-                                        value={stats.teacherCount}
-                                        color="#34C759"
-                                        onPress={() => fetchUsersByCategory('teacher')}
-                                        style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
-                                    />
-                                    <StatCard
-                                        icon={faUserGraduate}
-                                        title="Students"
-                                        value={stats.studentCount}
-                                        color="#5856D6"
-                                        onPress={() => fetchUsersByCategory('student')}
-                                        style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
-                                    />
-                                    <StatCard
-                                        icon={faChild}
-                                        title="Parents"
-                                        value={stats.parentCount}
-                                        color="#FF9500"
-                                        onPress={() => fetchUsersByCategory('parent')}
-                                        style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
-                                    />
-                                    {userRole === 'admin' && (
-                                        <StatCard
-                                            icon={faUserFriends}
-                                            title="Family Links"
-                                            value={stats.parentChildLinkCount}
-                                            color="#AF52DE"
-                                            onPress={() => setShowFamilyLinksModal(true)}
-                                            style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
-                                        />
-                                    )}
-                                </View>
-                            )}
-
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text, marginTop: 24 }]}>Content & Activity</Text>
-                            <Text style={[styles.sectionDescription, { color: theme.colors.placeholder, marginTop: -12, marginBottom: 16 }]}>
-                                Monitor educational materials and engagement across the platform.
-                            </Text>
-
-                            {loading ? (
-                                <View style={styles.statsGrid}>
-                                    {[1, 2, 3, 4].map((item) => (
-                                        <StatCardSkeleton key={item} />
-                                    ))}
-                                </View>
-                            ) : (
-                                <View style={styles.statsGrid}>
-                                    <StatCard
-                                        icon={faBookOpen}
-                                        title="Classes"
-                                        value={stats.classCount}
-                                        color="#007AFF"
-                                        onPress={() => navigation.navigate('ManageClasses')}
-                                        style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
-                                    />
+                        {loading ? (
+                            <View style={styles.statsGrid}>
+                                {[1, 2, 3, 4].map((item) => (
+                                    <StatCardSkeleton key={item} />
+                                ))}
+                            </View>
+                        ) : (
+                            <View style={styles.statsGrid}>
+                                <StatCard
+                                    icon={faUsers}
+                                    title="Total Users"
+                                    value={stats.totalUsers}
+                                    color="#007AFF"
+                                    onPress={() => fetchUsersByCategory('total')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                />
+                                <StatCard
+                                    icon={faUserTie}
+                                    title="Admins"
+                                    value={stats.adminCount}
+                                    color="#FF3B30"
+                                    onPress={() => fetchUsersByCategory('admin')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                />
+                                <StatCard
+                                    icon={faChalkboardTeacher}
+                                    title="Teachers"
+                                    value={stats.teacherCount}
+                                    color="#34C759"
+                                    onPress={() => fetchUsersByCategory('teacher')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                />
+                                <StatCard
+                                    icon={faUserGraduate}
+                                    title="Students"
+                                    value={stats.studentCount}
+                                    color="#5856D6"
+                                    onPress={() => fetchUsersByCategory('student')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                />
+                                <StatCard
+                                    icon={faChild}
+                                    title="Parents"
+                                    value={stats.parentCount}
+                                    color="#FF9500"
+                                    onPress={() => fetchUsersByCategory('parent')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                />
+                                {userRole === 'admin' && (
                                     <StatCard
                                         icon={faUserFriends}
-                                        title="Clubs"
-                                        value={stats.clubCount}
-                                        color="#FF9500"
-                                        onPress={() => navigation.navigate('ClubList')}
+                                        title="Family Links"
+                                        value={stats.parentChildLinkCount}
+                                        color="#AF52DE"
+                                        onPress={() => setShowFamilyLinksModal(true)}
                                         style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
                                     />
-                                    <StatCard
-                                        icon={faClipboardList}
-                                        title="Assignments"
-                                        value={stats.assignmentCount}
-                                        color="#5856D6"
-                                        onPress={() => navigation.navigate('Homework')}
-                                        style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
-                                    />
-                                    <StatCard
-                                        icon={faPoll}
-                                        title="Active Polls"
-                                        value={stats.pollCount}
-                                        color="#FF9500"
-                                        onPress={() => navigation.navigate('Polls')}
-                                        style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
-                                    />
-                                </View>
-                            )}
-                        </View>
-                    </WalkthroughTarget>
+                                )}
+                            </View>
+                        )}
+
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text, marginTop: 24 }]}>Content & Activity</Text>
+                        <Text style={[styles.sectionDescription, { color: theme.colors.placeholder, marginTop: -12, marginBottom: 16 }]}>
+                            Monitor educational materials and engagement across the platform.
+                        </Text>
+
+                        {loading ? (
+                            <View style={styles.statsGrid}>
+                                {[1, 2, 3, 4].map((item) => (
+                                    <StatCardSkeleton key={item} />
+                                ))}
+                            </View>
+                        ) : (
+                            <View style={styles.statsGrid}>
+                                <StatCard
+                                    icon={faBookOpen}
+                                    title="Classes"
+                                    value={stats.classCount}
+                                    color="#007AFF"
+                                    onPress={() => navigation.navigate('ManageClasses')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                />
+                                <StatCard
+                                    icon={faUserFriends}
+                                    title="Clubs"
+                                    value={stats.clubCount}
+                                    color="#FF9500"
+                                    onPress={() => navigation.navigate('ClubList')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                />
+                                <StatCard
+                                    icon={faClipboardList}
+                                    title="Assignments"
+                                    value={stats.assignmentCount}
+                                    color="#5856D6"
+                                    onPress={() => navigation.navigate('Homework')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                />
+                                <StatCard
+                                    icon={faPoll}
+                                    title="Active Polls"
+                                    value={stats.pollCount}
+                                    color="#FF9500"
+                                    onPress={() => navigation.navigate('Polls')}
+                                    style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
+                                />
+                            </View>
+                        )}
+                    </View>
                 )}
             </View>
 
@@ -552,6 +513,11 @@ const DashboardScreen = ({ navigation }) => {
             <FamilyLinksModal
                 visible={showFamilyLinksModal}
                 onClose={() => setShowFamilyLinksModal(false)}
+            />
+
+            <WelcomeModal
+                visible={showWelcomeModal}
+                onClose={handleCloseWelcomeModal}
             />
         </ScrollView>
     );
