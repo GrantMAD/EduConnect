@@ -353,10 +353,10 @@ export const updateNotificationPreferences = async (userId, preferences) => {
     return true;
 };
 
-export const markWalkthroughAsSeen = async (userId) => {
+export const markWelcomeModalAsSeen = async (userId) => {
     const { error } = await supabase
         .from('users')
-        .update({ has_seen_walkthrough: true })
+        .update({ has_seen_welcome_modal: true })
         .eq('id', userId);
 
     if (error) throw error;

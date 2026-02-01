@@ -33,7 +33,7 @@ import { fetchTodaySchedules, fetchClassIds } from '../services/classService';
 import { fetchTodayPTMBookings } from '../services/ptmService';
 import { fetchUpcomingLessons } from '../services/lessonService';
 import { getDashboardStats, dailyCheckIn, fetchParentChildLinkCount, fetchClubsCount, fetchTotalClassesCount } from '../services/dashboardService';
-import { markWalkthroughAsSeen } from '../services/userService';
+import { markWelcomeModalAsSeen } from '../services/userService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -204,7 +204,7 @@ const DashboardScreen = ({ navigation }) => {
             setUserRole(userData.role);
             setUserProfile(userData);
 
-            if (userData && !userData.has_seen_walkthrough) {
+            if (userData && !userData.has_seen_welcome_modal) {
                 setShowWelcomeModal(true);
             }
         } catch (error) {
@@ -242,7 +242,7 @@ const DashboardScreen = ({ navigation }) => {
         setShowWelcomeModal(false);
         if (dontShowAgain && userProfile?.id) {
             try {
-                await markWalkthroughAsSeen(userProfile.id);
+                await markWelcomeModalAsSeen(userProfile.id);
             } catch (error) {
                 console.error('Error marking walkthrough as seen:', error);
             }
