@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
   faUser,
@@ -44,7 +45,8 @@ import {
   faCalendarAlt,
   faExclamationCircle,
   faMapMarkerAlt,
-  faChair
+  faChair,
+  faTimes
 } from '@fortawesome/free-solid-svg-icons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -113,7 +115,7 @@ const GradeDetailModal = React.memo(({ visible, onClose, mark, theme }) => {
         >
           <View style={[styles.modalHeader, { borderBottomColor: theme.colors.cardBorder }]}>
             <View style={[styles.modalIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
-              <FontAwesome5 name="file-signature" size={20} color={theme.colors.primary} />
+              <FontAwesomeIcon icon={faFileSignature} size={20} color={theme.colors.primary} />
             </View>
             <View style={{ flex: 1, marginLeft: 16 }}>
               <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Grade Details</Text>
@@ -209,7 +211,7 @@ const StudentClassDetailModal = React.memo(({ isOpen, onClose, classInfo, studen
             style={[styles.modalHeader, { marginBottom: 0, padding: 24, borderBottomWidth: 0 }]}
           >
             <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { position: 'absolute', top: 20, right: 20, zIndex: 10 }]}>
-              <FontAwesome5 name="times" size={20} color="#fff" />
+              <FontAwesomeIcon icon={faTimes} size={20} color="#fff" />
             </TouchableOpacity>
 
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -418,6 +420,7 @@ const ClassCard = React.memo(({ classInfo, theme, onPress }) => {
 });
 
 const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTab = 'performance' }) => {
+  const navigation = useNavigation();
   const [classes, setClasses] = useState([]);
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -454,6 +457,8 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
           const classSchedules = (allSchedules || []).filter(s => s.class_id === member.class_id);
           const classMarks = (allMarks || []).filter(m => m.class_id === member.class_id);
           const categories = await fetchGradingCategories(member.class_id);
+
+
 
           const fullAttendance = classSchedules.map(sch => {
             const date = sch.start_time?.split('T')[0] || '';
@@ -511,14 +516,14 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
     <View style={styles.dashboardContainer}>
       {/* Tab Switcher */}
       <View style={[styles.tabContainer, { borderBottomColor: theme.colors.cardBorder }]}>
-        <TouchableOpacity 
-          onPress={() => setActiveTab('performance')} 
+        <TouchableOpacity
+          onPress={() => setActiveTab('performance')}
           style={[styles.tabBtn, activeTab === 'performance' && { borderBottomColor: theme.colors.primary }]}
         >
           <Text style={[styles.tabText, { color: activeTab === 'performance' ? theme.colors.primary : theme.colors.placeholder }]}>PERFORMANCE</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
-          onPress={() => setActiveTab('exams')} 
+        <TouchableOpacity
+          onPress={() => setActiveTab('exams')}
           style={[styles.tabBtn, activeTab === 'exams' && { borderBottomColor: theme.colors.primary }]}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -567,13 +572,16 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
 
             <Text style={[styles.sectionTitleLabel, { color: theme.colors.text }]}>Subject Performance</Text>
             {classes.map((cls, idx) => (
-              <ClassCard 
-                key={idx} 
-                classInfo={cls} 
-                theme={theme} 
+              <ClassCard
+                key={idx}
+                classInfo={cls}
+                theme={theme}
                 onPress={() => {
-                  setSelectedClass(cls);
-                  setIsModalOpen(true);
+                  navigation.navigate('StudentClassDashboard', {
+                    classId: cls.class_id,
+                    className: cls.classes?.name,
+                    studentId: student.id // Explicitly pass studentId
+                  });
                 }}
               />
             ))}
@@ -604,7 +612,7 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
                     </Text>
                   </View>
                   <Text style={[styles.examSubject, { color: theme.colors.text }]} numberOfLines={1}>{exam.subject_name}</Text>
-                  
+
                   <View style={[styles.examVenueRow, { borderTopColor: theme.colors.cardBorder }]}>
                     <View style={styles.venueStat}>
                       <FontAwesomeIcon icon={faMapMarkerAlt} size={10} color="#0d9488" />
@@ -748,7 +756,7 @@ const MyChildrenScreen = ({ navigation, route }) => {
             .from('users')
             .select('id, full_name, email, avatar_url, grade, is_managed')
             .in('id', childIds);
-            
+
           setChildren(students || []);
           if (students?.length > 0 && !selectedChildId) setSelectedChildId(students[0].id);
         }
@@ -907,13 +915,13 @@ const MyChildrenScreen = ({ navigation, route }) => {
             <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>No Students Linked</Text>
             <Text style={[styles.emptyStateDesc, { color: theme.colors.placeholder }]}>Link or create a child profile to track their progress.</Text>
             <View style={{ flexDirection: 'column', gap: 12, marginTop: 24, width: '100%' }}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.modalCloseBtn, { backgroundColor: theme.colors.primary }]}
                 onPress={() => navigation.navigate('Search')}
               >
                 <Text style={styles.modalCloseBtnText}>Link Existing Student</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.modalCloseBtn, { backgroundColor: '#f97316' }]}
                 onPress={() => setIsCreateModalOpen(true)}
               >
@@ -969,11 +977,11 @@ const MyChildrenScreen = ({ navigation, route }) => {
                   </View>
                 </LinearGradient>
 
-                <StudentDashboard 
-                  student={selectedChild} 
-                  theme={theme} 
-                  refreshTrigger={refreshTrigger} 
-                  initialTab={route.params?.activeTab || 'performance'} 
+                <StudentDashboard
+                  student={selectedChild}
+                  theme={theme}
+                  refreshTrigger={refreshTrigger}
+                  initialTab={route.params?.activeTab || 'performance'}
                 />
               </View>
             )}

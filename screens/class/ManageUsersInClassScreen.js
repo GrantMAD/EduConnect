@@ -90,7 +90,7 @@ const ManageUsersInClassScreen = ({ navigation }) => {
   const { schoolId } = useSchool();
   const { showToast } = useToast();
   const { theme } = useTheme();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
   const insets = useSafeAreaInsets();
@@ -528,33 +528,40 @@ const ManageUsersInClassScreen = ({ navigation }) => {
     setSelectedStudent(null);
   }, []);
 
-  const renderSchedule = useCallback(({ item }) => (
-    <TouchableOpacity
-      style={[styles.sessionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-      activeOpacity={0.7}
-      onPress={() => setSelectedScheduleDate(getDateString(item.start_time))}
-    >
-      <View style={styles.sessionLeft}>
-        <View style={[styles.sessionIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
-          <FontAwesomeIcon icon={faClock} size={16} color={theme.colors.primary} />
+  const renderSchedule = useCallback(({ item }) => {
+    const canManage = profile?.role === 'teacher' || profile?.role === 'admin';
+
+    return (
+      <TouchableOpacity
+        style={[styles.sessionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+        activeOpacity={canManage ? 0.7 : 1}
+        disabled={!canManage}
+        onPress={() => setSelectedScheduleDate(getDateString(item.start_time))}
+      >
+        <View style={styles.sessionLeft}>
+          <View style={[styles.sessionIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+            <FontAwesomeIcon icon={faClock} size={16} color={theme.colors.primary} />
+          </View>
+          <View style={{ marginLeft: 12 }}>
+            <Text style={[styles.sessionDate, { color: theme.colors.text }]}>{new Date(item.start_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
+            <Text style={[styles.sessionTime, { color: theme.colors.placeholder }]}>
+              {formatTime(item.start_time)} - {formatTime(item.end_time)}
+            </Text>
+          </View>
         </View>
-        <View style={{ marginLeft: 12 }}>
-          <Text style={[styles.sessionDate, { color: theme.colors.text }]}>{new Date(item.start_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
-          <Text style={[styles.sessionTime, { color: theme.colors.placeholder }]}>
-            {formatTime(item.start_time)} - {formatTime(item.end_time)}
-          </Text>
-        </View>
-      </View>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <TouchableOpacity onPress={() => handleEditSchedule(item)} style={styles.sessionEditBtn}>
-          <FontAwesomeIcon icon={faEdit} size={16} color={theme.colors.placeholder} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => handleDeleteSchedule(item.id)} style={styles.sessionEditBtn}>
-          <FontAwesomeIcon icon={faTrash} size={16} color="#ef4444" />
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  ), [theme, formatTime, handleEditSchedule, handleDeleteSchedule]);
+        {(profile?.role === 'teacher' || profile?.role === 'admin') && (
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity onPress={() => handleEditSchedule(item)} style={styles.sessionEditBtn}>
+              <FontAwesomeIcon icon={faEdit} size={16} color={theme.colors.placeholder} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => handleDeleteSchedule(item.id)} style={styles.sessionEditBtn}>
+              <FontAwesomeIcon icon={faTrash} size={16} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  }, [theme, formatTime, handleEditSchedule, handleDeleteSchedule, profile]);
 
   const renderStudent = useCallback(({ item }) => {
     const student = item.users;
@@ -663,10 +670,12 @@ const ManageUsersInClassScreen = ({ navigation }) => {
                   Management portal for {className}. Select a session to proceed.
                 </Text>
               </View>
-              <TouchableOpacity onPress={openAddScheduleModal} style={styles.heroActionBtn}>
-                <FontAwesomeIcon icon={faPlus} size={14} color="#4f46e5" />
-                <Text style={styles.heroActionText}>New</Text>
-              </TouchableOpacity>
+              {(profile?.role === 'teacher' || profile?.role === 'admin') && (
+                <TouchableOpacity onPress={openAddScheduleModal} style={styles.heroActionBtn}>
+                  <FontAwesomeIcon icon={faPlus} size={14} color="#4f46e5" />
+                  <Text style={styles.heroActionText}>New</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </LinearGradient>
 
@@ -678,13 +687,15 @@ const ManageUsersInClassScreen = ({ navigation }) => {
               <FontAwesomeIcon icon={faGraduationCap} size={14} color="#fff" />
               <Text style={styles.mainActionText}>ACADEMIC GRADES</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleDeleteClass}
-              style={[styles.mainActionBtn, { backgroundColor: '#fee2e2' }]}
-            >
-              <FontAwesomeIcon icon={faTrash} size={14} color="#ef4444" />
-              <Text style={[styles.mainActionText, { color: '#ef4444' }]}>DELETE CLASS</Text>
-            </TouchableOpacity>
+            {(profile?.role === 'teacher' || profile?.role === 'admin') && (
+              <TouchableOpacity
+                onPress={handleDeleteClass}
+                style={[styles.mainActionBtn, { backgroundColor: '#fee2e2' }]}
+              >
+                <FontAwesomeIcon icon={faTrash} size={14} color="#ef4444" />
+                <Text style={[styles.mainActionText, { color: '#ef4444' }]}>DELETE CLASS</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={{ padding: 20 }}>

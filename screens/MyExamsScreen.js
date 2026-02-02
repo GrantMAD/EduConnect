@@ -1,15 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { fetchStudentExamSchedule } from '../services/examService';
-import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import LinearGradient from 'react-native-linear-gradient';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import {
+  faArrowLeft,
+  faCalendarAlt,
+  faClock,
+  faMapMarkerAlt,
+  faChair,
+  faBookOpen,
+  faGraduationCap,
+  faInfoCircle
+} from '@fortawesome/free-solid-svg-icons';
 
 export default function MyExamsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { user, profile } = useAuth();
-  const { theme } = useTheme();
+  const { theme, isDarkTheme } = useTheme();
   const [schedule, setSchedule] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -29,6 +40,7 @@ export default function MyExamsScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error('Error fetching exam schedule:', error);
+      Alert.alert('Error', 'Failed to load exam schedule');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -45,7 +57,7 @@ export default function MyExamsScreen({ navigation, route }) {
   };
 
   const upcomingExams = schedule.filter(exam => new Date(exam.date) >= new Date().setHours(0, 0, 0, 0));
-  
+
   // Group exams by date for better display
   const groupedExams = upcomingExams.reduce((groups, exam) => {
     const date = exam.date;
@@ -57,38 +69,48 @@ export default function MyExamsScreen({ navigation, route }) {
   }, {});
 
   const renderExamItem = ({ item }) => (
-    <View style={[styles.examCard, { backgroundColor: theme.cardBackground }]}>
-      <View style={styles.examHeader}>
-        <View style={styles.subjectContainer}>
-          <Text style={[styles.paperCode, { color: theme.primary }]}>{item.paper_code}</Text>
-          <Text style={[styles.subjectName, { color: theme.text }]} numberOfLines={1}>{item.subject_name}</Text>
-        </View>
-        <View style={styles.timeContainer}>
-            <Ionicons name="time-outline" size={14} color={theme.textSecondary} />
-            <Text style={[styles.timeText, { color: theme.textSecondary }]}>
-                {item.start_time.slice(0, 5)} ({item.duration_minutes}m)
-            </Text>
-        </View>
+    <View style={[
+      styles.examCard,
+      {
+        backgroundColor: theme.colors.card, // Use theme.colors.card (assuming context provides it, or fallback)
+        borderColor: theme.colors?.cardBorder || theme.border,
+        borderWidth: 1
+      }
+    ]}>
+      {/* Left Side: Date Box / Icon */}
+      <View style={[styles.cardIconBox, { backgroundColor: '#f59e0b15' }]}>
+        <FontAwesomeIcon icon={faBookOpen} size={20} color="#f59e0b" />
       </View>
-      
-      <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
-      <View style={styles.examDetails}>
-        <View style={styles.detailItem}>
-          <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>VENUE</Text>
-          <View style={styles.detailValueContainer}>
-            <Ionicons name="location-outline" size={16} color={theme.primary} />
-            <Text style={[styles.detailValue, { color: theme.text }]}>{item.venue_name || 'TBA'}</Text>
+      {/* Right Side: Content */}
+      <View style={styles.cardContent}>
+        {/* Header */}
+        <View style={styles.cardHeader}>
+          <View>
+            <Text style={[styles.subjectName, { color: theme.text }]}>{item.subject_name}</Text>
+            <Text style={[styles.paperCode, { color: theme.textSecondary }]}>
+              {item.paper_code} • {item.duration_minutes} min
+            </Text>
+          </View>
+          {/* Status Badge (Optional - added for completeness) */}
+          <View style={[styles.statusBadge, { backgroundColor: '#ecfdf5' }]}>
+            <Text style={[styles.statusText, { color: '#059669' }]}>Upcoming</Text>
           </View>
         </View>
 
-        <View style={[styles.verticalDivider, { backgroundColor: theme.border }]} />
-
-        <View style={styles.detailItem}>
-          <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>SEAT NO</Text>
-          <View style={styles.detailValueContainer}>
-            <Ionicons name="tablet-landscape-outline" size={16} color={theme.primary} />
-            <Text style={[styles.detailValue, { color: theme.text, fontSize: 18 }]}>{item.seat_label || 'TBA'}</Text>
+        {/* Footer Grid */}
+        <View style={[styles.cardFooter, { borderTopColor: theme.border }]}>
+          <View style={styles.footerItem}>
+            <FontAwesomeIcon icon={faClock} size={12} color="#6366f1" />
+            <Text style={[styles.footerText, { color: theme.textSecondary }]}>{item.start_time.slice(0, 5)}</Text>
+          </View>
+          <View style={styles.footerItem}>
+            <FontAwesomeIcon icon={faMapMarkerAlt} size={12} color="#e11d48" />
+            <Text style={[styles.footerText, { color: theme.textSecondary }]}>{item.venue_name || 'TBA'}</Text>
+          </View>
+          <View style={styles.footerItem}>
+            <FontAwesomeIcon icon={faChair} size={12} color="#059669" />
+            <Text style={[styles.footerText, { color: theme.textSecondary }]}>Seat: {item.seat_label || '--'}</Text>
           </View>
         </View>
       </View>
@@ -97,22 +119,12 @@ export default function MyExamsScreen({ navigation, route }) {
 
   const renderDateGroup = ({ item: date }) => (
     <View style={styles.dateGroup}>
-      <View style={styles.dateHeader}>
-        <Text style={[styles.dateDay, { color: theme.text }]}>
-          {new Date(date).getDate()}
-        </Text>
-        <View>
-            <Text style={[styles.dateMonth, { color: theme.textSecondary }]}>
-            {new Date(date).toLocaleString('default', { month: 'short' }).toUpperCase()}
-            </Text>
-            <Text style={[styles.dateWeekday, { color: theme.textSecondary }]}>
-            {new Date(date).toLocaleString('default', { weekday: 'long' })}
-            </Text>
-        </View>
-      </View>
+      <Text style={[styles.groupDateTitle, { color: theme.textSecondary }]}>
+        {new Date(date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+      </Text>
       {groupedExams[date].map((exam, index) => (
         <View key={index} style={styles.examItemWrapper}>
-            {renderExamItem({ item: exam })}
+          {renderExamItem({ item: exam })}
         </View>
       ))}
     </View>
@@ -127,37 +139,54 @@ export default function MyExamsScreen({ navigation, route }) {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: theme.border }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={theme.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>My Exams</Text>
-        <View style={{ width: 24 }} />
-      </View>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Hero Section */}
+      <LinearGradient
+        colors={['#4f46e5', '#4338ca']}
+        style={[styles.heroContainer, { paddingTop: insets.top + 16 }]}
+      >
+        <View style={styles.heroContent}>
+          <View style={styles.heroTopRow}>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={styles.backButton}
+              hitSlop={10}
+            >
+              <FontAwesomeIcon icon={faArrowLeft} size={20} color="#fff" />
+            </TouchableOpacity>
+            {profile?.number ? (
+              <View style={styles.candBadge}>
+                <FontAwesomeIcon icon={faGraduationCap} size={12} color="#fff" />
+                <Text style={styles.candText}>NO: {profile.number}</Text>
+              </View>
+            ) : <View />}
+          </View>
 
-      <View style={[styles.profileCard, { backgroundColor: theme.cardBackground }]}>
-          <View>
-            <Text style={[styles.profileName, { color: theme.text }]}>{profile?.full_name}</Text>
-            <Text style={[styles.profileInfo, { color: theme.textSecondary }]}>Candidate No: {profile?.number || 'N/A'}</Text>
+          <View style={styles.heroTitleContainer}>
+            <Text style={styles.heroTitle}>My Exams</Text>
+            <Text style={styles.heroSubtitle}>Your examination schedule and seat allocations.</Text>
           </View>
-          <View style={[styles.countBadge, { backgroundColor: theme.primary + '20' }]}>
-              <Text style={[styles.countText, { color: theme.primary }]}>{upcomingExams.length} Upcoming</Text>
-          </View>
-      </View>
+        </View>
+      </LinearGradient>
 
       <FlatList
         data={Object.keys(groupedExams).sort((a, b) => new Date(a) - new Date(b))}
         renderItem={renderDateGroup}
         keyExtractor={item => item}
         contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="calendar-outline" size={64} color={theme.textSecondary} />
-            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No upcoming exams scheduled.</Text>
+            <View style={[styles.emptyIconCircle, { backgroundColor: theme.border }]}>
+              <FontAwesomeIcon icon={faBookOpen} size={40} color={theme.textSecondary} />
+            </View>
+            <Text style={[styles.emptyText, { color: theme.text }]}>No upcoming exams</Text>
+            <Text style={[styles.emptySubText, { color: theme.textSecondary }]}>
+              You don't have any exams scheduled at the moment.
+            </Text>
           </View>
         }
       />
@@ -174,154 +203,157 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
+  heroContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    elevation: 4, // Keep shadow for hero
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  heroContent: {
+    width: '100%',
   },
-  profileCard: {
+  heroTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    margin: 16,
-    padding: 16,
+    marginBottom: 20,
+  },
+  backButton: {
+    padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  profileName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  profileInfo: {
-    fontSize: 14,
-  },
-  countBadge: {
+  candBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+    gap: 6,
   },
-  countText: {
+  candText: {
+    color: '#fff',
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  heroTitleContainer: {
+    marginBottom: 10,
+  },
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: -0.5,
+    marginBottom: 4,
+  },
+  heroSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '500',
   },
   listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 24,
+    padding: 20,
+    paddingTop: 24,
+    paddingBottom: 40,
   },
   dateGroup: {
     marginBottom: 24,
   },
-  dateHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  groupDateTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
     marginBottom: 12,
-  },
-  dateDay: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginRight: 12,
-  },
-  dateMonth: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    lineHeight: 14,
-  },
-  dateWeekday: {
-    fontSize: 14,
-    lineHeight: 18,
+    marginLeft: 4,
+    opacity: 0.8,
   },
   examItemWrapper: {
     marginBottom: 12,
   },
   examCard: {
-    borderRadius: 12,
+    flexDirection: 'row',
+    borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    alignItems: 'flex-start',
   },
-  examHeader: {
+  cardIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  cardContent: {
+    flex: 1,
+  },
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 12,
   },
-  subjectContainer: {
-    flex: 1,
-    marginRight: 12,
+  subjectName: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
   },
   paperCode: {
     fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    opacity: 0.8,
-  },
-  subjectName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  timeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  timeText: {
-    fontSize: 12,
     fontWeight: '500',
-    marginLeft: 4,
   },
-  divider: {
-    height: 1,
-    width: '100%',
-    marginBottom: 12,
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
-  examDetails: {
+  statusText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderTopWidth: 1,
+    paddingTop: 12,
+    gap: 16,
   },
-  detailItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  detailLabel: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    letterSpacing: 1,
-  },
-  detailValueContainer: {
+  footerItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  verticalDivider: {
-    width: 1,
-    height: 30,
+  footerText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 60,
   },
+  emptyIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    opacity: 0.3,
+  },
   emptyText: {
-    marginTop: 16,
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  emptySubText: {
+    fontSize: 14,
+    textAlign: 'center',
+    maxWidth: '70%',
+    lineHeight: 20,
   },
 });
