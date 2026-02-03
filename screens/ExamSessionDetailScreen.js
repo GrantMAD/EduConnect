@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ScrollView, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 import { fetchExamPapers, deleteExamPaper, autoAllocateSession, fetchExamVenues, notifySessionStudents, clearSessionAllocations, fetchExamSession } from '../services/examService';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTrash, faArrowLeft, faFileAlt, faClock, faCalendarAlt, faChair, faBullhorn, faPlus, faCheckCircle, faList, faRedo, faBan, faUserShield } from '@fortawesome/free-solid-svg-icons';
@@ -15,6 +16,7 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
     const insets = useSafeAreaInsets();
     const { profile } = useAuth();
     const { theme } = useTheme();
+    const { showToast } = useToast();
 
     const [session, setSession] = useState(null);
     const [papers, setPapers] = useState([]);
@@ -86,9 +88,9 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
                         try {
                             const result = await notifySessionStudents(sessionId, sessionName);
                             if (result.message) {
-                                Alert.alert("Info", result.message);
+                                showToast(result.message, 'info');
                             } else {
-                                Alert.alert("Success", `Sent notifications to ${result.count} students.`);
+                                showToast(`Sent notifications to ${result.count} students.`, 'success');
                             }
                             loadData();
                         } catch (error) {
@@ -111,7 +113,7 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
         setAllocating(true);
         try {
             const count = await autoAllocateSession(sessionId, selectedVenue, profile.school_id, session?.target_grade);
-            Alert.alert("Success", `Allocated ${count} seats successfully.`);
+            showToast(`Allocated ${count} seats successfully.`, 'success');
             setShowAllocateModal(false);
             loadData(); // Refresh counts
         } catch (error) {
@@ -135,7 +137,7 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
                         try {
                             await clearSessionAllocations(sessionId);
                             loadData();
-                            Alert.alert("Success", "All allocations cleared.");
+                            showToast("All allocations cleared.", 'success');
                         } catch (error) {
                             Alert.alert("Error", error.message);
                         } finally {
@@ -284,7 +286,7 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
                     <View style={[styles.actionIcon, { backgroundColor: '#10b98115' }]}>
                         <FontAwesomeIcon icon={faPlus} size={14} color="#10b981" />
                     </View>
-                    <Text style={[styles.actionText, { color: theme.text }]}>Add</Text>
+                    <Text style={[styles.actionText, { color: theme.text }]}>Add Paper</Text>
                 </TouchableOpacity>
             </View>
 

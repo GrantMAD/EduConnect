@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 import { fetchExamPapers, fetchSeatAllocations, fetchVenue, fetchExamVenues, autoAllocatePaper, clearPaperAllocations, fetchExamSession, allocateSeat } from '../services/examService';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -17,6 +18,7 @@ export default function ExamAllocationsScreen({ route, navigation }) {
     const insets = useSafeAreaInsets();
     const { profile } = useAuth();
     const { theme } = useTheme();
+    const { showToast } = useToast();
 
     const [allocations, setAllocations] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -121,10 +123,10 @@ export default function ExamAllocationsScreen({ route, navigation }) {
 
             let msg = `Allocated ${count} seats.`;
             if (skipped > 0) {
-                msg += `\n\n${skipped} students were skipped due to exam clashes.`;
+                msg += ` ${skipped} skipped due to clashes.`;
             }
 
-            Alert.alert("Allocation Complete", msg);
+            showToast(msg, 'success');
             setShowAllocateModal(false);
             loadAllocations(selectedPaperId);
         } catch (error) {
@@ -148,7 +150,7 @@ export default function ExamAllocationsScreen({ route, navigation }) {
                         try {
                             await clearPaperAllocations(selectedPaperId);
                             loadAllocations(selectedPaperId);
-                            Alert.alert("Success", "All allocations for this paper cleared.");
+                            showToast("All allocations for this paper cleared.", 'success');
                         } catch (error) {
                             Alert.alert("Error", error.message);
                             setLoading(false);
@@ -246,7 +248,7 @@ export default function ExamAllocationsScreen({ route, navigation }) {
 
             setShowStudentPicker(false);
             loadAllocations(selectedPaperId);
-            // Optional: Toast or small feedback
+            showToast(`Seat ${selectedSeat.label} assigned to ${student.full_name}`, 'success');
         } catch (error) {
             Alert.alert("Allocation Failed", error.message);
         }

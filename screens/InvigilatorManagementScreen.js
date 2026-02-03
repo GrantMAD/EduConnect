@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 import { fetchExamPapers, fetchInvigilators, assignInvigilator, removeInvigilator, fetchExamVenues } from '../services/examService';
 import { fetchUsersBySchool } from '../services/userService';
 import { supabase } from '../lib/supabase';
@@ -17,6 +18,7 @@ export default function InvigilatorManagementScreen({ route, navigation }) {
     const insets = useSafeAreaInsets();
     const { profile } = useAuth();
     const { theme } = useTheme();
+    const { showToast } = useToast();
 
     const [papers, setPapers] = useState([]);
     const [venues, setVenues] = useState([]);
@@ -111,7 +113,7 @@ export default function InvigilatorManagementScreen({ route, navigation }) {
             setPapers(papersUpdated);
 
             setIsChief(false);
-            Alert.alert("Success", "Invigilator assigned successfully.");
+            showToast("Invigilator assigned successfully.", 'success');
         } catch (error) {
             Alert.alert('Error', error.message);
         } finally {
@@ -358,10 +360,10 @@ export default function InvigilatorManagementScreen({ route, navigation }) {
                                     </View>
 
                                     <View style={styles.staffGrid}>
-                                        {filteredStaff.slice(0, 6).map(s => (
+                                        {filteredStaff.map(s => (
                                             <TouchableOpacity 
                                                 key={s.id} 
-                                                style={[styles.staffRow, { borderBottomColor: theme.border }]}
+                                                style={[styles.staffCard, { backgroundColor: theme.colors.inputBackground }]}
                                                 onPress={() => handleAssign(s)}
                                                 disabled={assigning}
                                             >
@@ -371,9 +373,16 @@ export default function InvigilatorManagementScreen({ route, navigation }) {
                                                 />
                                                 <View style={{ flex: 1, marginLeft: 12 }}>
                                                     <Text style={[styles.staffName, { color: theme.text }]} numberOfLines={1}>{s.full_name}</Text>
-                                                    <Text style={[styles.staffRole, { color: theme.textSecondary }]}>{s.role.toUpperCase()}</Text>
+                                                    <View style={styles.staffMetaRow}>
+                                                        <View style={[styles.miniRoleBadge, { backgroundColor: theme.dark ? 'rgba(13, 148, 136, 0.2)' : '#f0fdfa' }]}>
+                                                            <Text style={[styles.miniRoleText, { color: '#0d9488' }]}>{s.role.toUpperCase()}</Text>
+                                                        </View>
+                                                        {s.number && (
+                                                            <Text style={[styles.staffEmail, { color: theme.textSecondary }]} numberOfLines={1}>• {s.number}</Text>
+                                                        )}
+                                                    </View>
                                                 </View>
-                                                <View style={[styles.quickAddBtn, { backgroundColor: '#0d9488' }]}>
+                                                <View style={[styles.assignIconBtn, { backgroundColor: '#0d9488' }]}>
                                                     <FontAwesomeIcon icon={faPlus} size={10} color="#fff" />
                                                 </View>
                                             </TouchableOpacity>
@@ -653,33 +662,48 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     staffGrid: {
-        paddingHorizontal: 16,
-        paddingBottom: 8,
+        padding: 16,
+        gap: 8,
     },
-    staffRow: {
+    staffCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
+        padding: 12,
+        borderRadius: 16,
+        marginBottom: 8,
     },
     miniAvatar: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
     },
     staffName: {
         fontSize: 14,
         fontWeight: '700',
     },
-    staffRole: {
-        fontSize: 9,
-        fontWeight: '800',
-        marginTop: 1,
+    staffMetaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 2,
+        gap: 6,
     },
-    quickAddBtn: {
+    miniRoleBadge: {
+        paddingHorizontal: 6,
+        paddingVertical: 1,
+        borderRadius: 4,
+    },
+    miniRoleText: {
+        fontSize: 8,
+        fontWeight: '900',
+    },
+    staffEmail: {
+        fontSize: 10,
+        fontWeight: '500',
+    },
+    assignIconBtn: {
         width: 24,
         height: 24,
-        borderRadius: 12,
+        borderRadius: 8,
         justifyContent: 'center',
         alignItems: 'center',
     },

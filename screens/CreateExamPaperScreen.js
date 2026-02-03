@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, Alert, TouchableOpacity, Modal, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, Alert, TouchableOpacity, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import RNModal from 'react-native-modal';
 import { useTheme } from '../context/ThemeContext';
 import { fetchExamPaper, createExamPaper, fetchExamSession } from '../services/examService';
 import { fetchAllClasses } from '../services/classService';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faArrowLeft, faBook, faBarcode, faCalendarAlt, faClock, faHourglassHalf, faChalkboardTeacher, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faBook, faBarcode, faCalendarAlt, faClock, faHourglassHalf, faChalkboardTeacher, faChevronRight, faSearch, faTimes, faCheck } from '@fortawesome/free-solid-svg-icons';
 import Button from '../components/Button';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import LinearGradient from 'react-native-linear-gradient';
@@ -32,6 +33,7 @@ export default function CreateExamPaperScreen({ route, navigation }) {
   const [showClassPicker, setShowClassPicker] = useState(false);
   const [session, setSession] = useState(null);
   const [showAllClasses, setShowAllClasses] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Date picker state
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -45,6 +47,11 @@ export default function CreateExamPaperScreen({ route, navigation }) {
       ]);
       setSession(sessionData);
       setClasses(classesData || []);
+      
+      // Set initial date to session start date if available
+      if (sessionData?.start_date) {
+        setDate(new Date(sessionData.start_date));
+      }
     } catch (error) {
       console.error('Error loading paper creation data:', error);
     }
@@ -55,13 +62,28 @@ export default function CreateExamPaperScreen({ route, navigation }) {
   }, [loadData]);
 
   const filteredClasses = useMemo(() => {
-    if (showAllClasses || !session?.target_grade) return classes;
-    const target = session.target_grade.toLowerCase().trim();
-    return classes.filter(c => {
-      const classGrade = c.grade?.toString().toLowerCase().trim() || "";
-      return classGrade === target;
-    });
-  }, [classes, session, showAllClasses]);
+    let result = classes;
+    
+    // Filter by grade if needed
+    if (!showAllClasses && session?.target_grade) {
+        const target = session.target_grade.toLowerCase().trim();
+        result = result.filter(c => {
+            const classGrade = c.grade?.toString().toLowerCase().trim() || "";
+            return classGrade === target;
+        });
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        result = result.filter(c => 
+            c.name?.toLowerCase().includes(query) || 
+            c.subject?.toLowerCase().includes(query)
+        );
+    }
+
+    return result;
+  }, [classes, session, showAllClasses, searchQuery]);
 
   const handleSave = async () => {
     if (!subjectName || !paperCode || !date || !startTime || !duration) {
@@ -202,6 +224,11 @@ export default function CreateExamPaperScreen({ route, navigation }) {
                     >
                         <Text style={{ color: theme.text }}>{date.toLocaleDateString()}</Text>
                     </TouchableOpacity>
+                    {session?.start_date && session?.end_date && (
+                        <Text style={{ fontSize: 9, color: theme.textSecondary, marginTop: 4 }}>
+                            Range: {new Date(session.start_date).toLocaleDateString()} - {new Date(session.end_date).toLocaleDateString()}
+                        </Text>
+                    )}
                 </View>
                 <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
                     <View style={styles.labelContainer}>
@@ -218,7 +245,14 @@ export default function CreateExamPaperScreen({ route, navigation }) {
             </View>
 
             {showDatePicker && (
-                <DateTimePicker value={date} mode="date" display="default" onChange={onDateChange} />
+                <DateTimePicker 
+                    value={date} 
+                    mode="date" 
+                    display="default" 
+                    onChange={onDateChange}
+                    minimumDate={session?.start_date ? new Date(session.start_date) : undefined}
+                    maximumDate={session?.end_date ? new Date(session.end_date) : undefined}
+                />
             )}
             {showTimePicker && (
                 <DateTimePicker value={startTime} mode="time" display="default" onChange={onTimeChange} />
@@ -246,65 +280,111 @@ export default function CreateExamPaperScreen({ route, navigation }) {
       </ScrollView>
 
       {/* Class Picker Modal */}
-      <Modal visible={showClassPicker} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface || '#ffffff' }]}>
-                <View style={styles.modalHeader}>
-                    <Text style={[styles.modalTitle, { color: theme.text }]}>Select Class</Text>
-                    {session?.target_grade && (
-                        <TouchableOpacity 
-                            style={{ flexDirection: 'row', alignItems: 'center' }}
-                            onPress={() => setShowAllClasses(!showAllClasses)}
-                        >
-                            <View style={[styles.miniCheckbox, { backgroundColor: showAllClasses ? '#0d9488' : 'transparent', borderColor: '#0d9488' }]} />
-                            <Text style={{ fontSize: 10, fontWeight: 'bold', color: theme.textSecondary }}>SHOW ALL</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
-
-                <FlatList
-                    data={filteredClasses}
-                    keyExtractor={item => item.id}
-                    style={{ maxHeight: 300, marginVertical: 16 }}
-                    renderItem={({ item }) => (
-                        <TouchableOpacity 
-                            style={[styles.classItem, { borderColor: theme.border }]}
-                            onPress={() => {
-                                setSelectedClassId(item.id);
-                                setSelectedClassName(item.name);
-                                setShowClassPicker(false);
-                            }}
-                        >
-                            <Text style={[styles.className, { color: theme.text }]}>{item.name}</Text>
-                            <Text style={{ color: theme.textSecondary, fontSize: 12 }}>{item.subject}</Text>
-                        </TouchableOpacity>
-                    )}
-                    ListEmptyComponent={
-                        <Text style={{ textAlign: 'center', color: theme.textSecondary, marginVertical: 20 }}>
-                            No matching classes found.
-                        </Text>
-                    }
-                />
-
-                <TouchableOpacity 
-                    style={[styles.closeBtn, { backgroundColor: theme.colors.background }]}
-                    onPress={() => {
-                        setSelectedClassId(null);
-                        setSelectedClassName('');
-                        setShowClassPicker(false);
-                    }}
-                >
-                    <Text style={{ color: theme.text, fontWeight: 'bold' }}>Clear Selection</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                    style={{ marginTop: 12, alignItems: 'center' }}
-                    onPress={() => setShowClassPicker(false)}
-                >
-                    <Text style={{ color: theme.textSecondary }}>Cancel</Text>
+      <RNModal 
+        isVisible={showClassPicker}
+        onBackdropPress={() => setShowClassPicker(false)}
+        onSwipeComplete={() => setShowClassPicker(false)}
+        swipeDirection={['down']}
+        style={{ justifyContent: 'flex-end', margin: 0 }}
+        propagateSwipe
+      >
+        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface || '#ffffff', paddingBottom: insets.bottom + 20 }]}>
+            <View style={styles.modalDragIndicator} />
+            
+            <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: theme.text }]}>Select Class</Text>
+                <TouchableOpacity onPress={() => setShowClassPicker(false)} style={styles.closeIconBtn}>
+                    <FontAwesomeIcon icon={faTimes} size={20} color={theme.textSecondary} />
                 </TouchableOpacity>
             </View>
+
+            {/* Search Bar */}
+            <View style={[styles.searchContainer, { backgroundColor: theme.colors.background, borderColor: theme.border }]}>
+                <FontAwesomeIcon icon={faSearch} size={16} color={theme.textSecondary} />
+                <TextInput
+                    style={[styles.searchInput, { color: theme.text }]}
+                    placeholder="Search classes..."
+                    placeholderTextColor={theme.textSecondary}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                />
+                {searchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchQuery('')}>
+                         <FontAwesomeIcon icon={faTimes} size={14} color={theme.textSecondary} />
+                    </TouchableOpacity>
+                )}
+            </View>
+
+            {/* Filter Toggle */}
+            {session?.target_grade && (
+                <TouchableOpacity 
+                    style={styles.filterToggle}
+                    onPress={() => setShowAllClasses(!showAllClasses)}
+                >
+                    <View style={[styles.checkbox, { backgroundColor: showAllClasses ? '#0d9488' : 'transparent', borderColor: '#0d9488' }]}>
+                        {showAllClasses && <FontAwesomeIcon icon={faCheck} size={10} color="white" />}
+                    </View>
+                    <Text style={{ fontSize: 13, color: theme.textSecondary, marginLeft: 8 }}>
+                        Show all classes (Ignore {session.target_grade} filter)
+                    </Text>
+                </TouchableOpacity>
+            )}
+
+            <FlatList
+                data={filteredClasses}
+                keyExtractor={item => item.id.toString()}
+                style={{ maxHeight: 400, marginVertical: 12 }}
+                contentContainerStyle={{ paddingBottom: 20 }}
+                renderItem={({ item }) => (
+                    <TouchableOpacity 
+                        style={[
+                            styles.classItem, 
+                            { 
+                                borderColor: theme.border, 
+                                backgroundColor: selectedClassId === item.id ? (theme.dark ? '#134e4a' : '#f0fdfa') : theme.cardBackground,
+                                borderColor: selectedClassId === item.id ? '#0d9488' : theme.border 
+                            }
+                        ]}
+                        onPress={() => {
+                            setSelectedClassId(item.id);
+                            setSelectedClassName(item.name);
+                            setShowClassPicker(false);
+                        }}
+                    >
+                        <View style={[styles.classIcon, { backgroundColor: selectedClassId === item.id ? '#0d9488' : (theme.dark ? '#333' : '#e2e8f0') }]}>
+                             <FontAwesomeIcon icon={faBook} size={16} color={selectedClassId === item.id ? 'white' : theme.textSecondary} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={[styles.className, { color: theme.text }]}>{item.name}</Text>
+                            <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 2 }}>{item.subject || 'No Subject'}</Text>
+                        </View>
+                        {selectedClassId === item.id && (
+                             <FontAwesomeIcon icon={faCheck} size={16} color="#0d9488" />
+                        )}
+                    </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                    <View style={{ alignItems: 'center', padding: 30 }}>
+                        <FontAwesomeIcon icon={faSearch} size={40} color={theme.border} />
+                        <Text style={{ textAlign: 'center', color: theme.textSecondary, marginTop: 12 }}>
+                            No matching classes found.
+                        </Text>
+                    </View>
+                }
+            />
+
+            <TouchableOpacity 
+                style={[styles.clearBtn, { borderColor: theme.border }]}
+                onPress={() => {
+                    setSelectedClassId(null);
+                    setSelectedClassName('');
+                    setShowClassPicker(false);
+                }}
+            >
+                <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>Clear Selection</Text>
+            </TouchableOpacity>
         </View>
-      </Modal>
+      </RNModal>
     </View>
   );
 }
@@ -411,51 +491,86 @@ const styles = StyleSheet.create({
       marginTop: 24,
       marginBottom: 40
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 24,
   },
-  modalContent: {
-    borderRadius: 24,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
+  modalDragIndicator: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 20,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '900',
   },
+  closeIconBtn: {
+      padding: 4,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 48,
+    marginBottom: 16,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 15,
+  },
+  filterToggle: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 16,
+      paddingVertical: 4,
+  },
+  checkbox: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   classItem: {
-    padding: 16,
+    padding: 12,
     borderRadius: 16,
     borderWidth: 1,
     marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  classIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
   },
   className: {
     fontWeight: '700',
     fontSize: 15,
   },
-  miniCheckbox: {
-    width: 12,
-    height: 12,
-    borderRadius: 3,
-    borderWidth: 1,
-    marginRight: 6,
-  },
-  closeBtn: {
+  clearBtn: {
     padding: 16,
     borderRadius: 16,
     alignItems: 'center',
+    marginTop: 8,
+    borderWidth: 1,
+    borderStyle: 'dashed',
   }
 });

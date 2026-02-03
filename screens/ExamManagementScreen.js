@@ -6,13 +6,20 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
+  Modal,
+  TextInput,
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import RNModal from 'react-native-modal';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 import {
   fetchExamSessions,
   deleteExamSession,
+  createExamVenue,
 } from '../services/examService';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
@@ -26,9 +33,12 @@ import {
   faExclamationTriangle,
   faInfoCircle,
   faCheckCircle,
+  faMapMarkerAlt,
+  faTimes,
 } from '@fortawesome/free-solid-svg-icons';
 import LinearGradient from 'react-native-linear-gradient';
 import ExamManagementScreenSkeleton from '../components/skeletons/ExamManagementScreenSkeleton';
+import Button from '../components/Button';
 
 const FAB = ({ onPress }) => (
   <TouchableOpacity
@@ -44,9 +54,18 @@ export default function ExamManagementScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const { theme } = useTheme();
+  const { showToast } = useToast();
 
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Venue state
+  const [showVenueModal, setShowVenueModal] = useState(false);
+  const [venueName, setVenueName] = useState('');
+  const [venueCapacity, setVenueCapacity] = useState('');
+  const [venueRows, setVenueRows] = useState('10');
+  const [venueCols, setVenueCols] = useState('10');
+  const [creatingVenue, setCreatingVenue] = useState(false);
 
   const loadSessions = async () => {
     try {
@@ -57,6 +76,32 @@ export default function ExamManagementScreen({ navigation }) {
       Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateVenue = async () => {
+    if (!venueName || !venueCapacity) {
+      Alert.alert('Error', 'Please fill in name and capacity.');
+      return;
+    }
+
+    setCreatingVenue(true);
+    try {
+      await createExamVenue({
+        school_id: profile.school_id,
+        name: venueName,
+        capacity: parseInt(venueCapacity),
+        rows: parseInt(venueRows),
+        columns: parseInt(venueCols),
+      });
+      setShowVenueModal(false);
+      setVenueName('');
+      setVenueCapacity('');
+      showToast('Venue created successfully', 'success');
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setCreatingVenue(false);
     }
   };
 
@@ -320,7 +365,22 @@ export default function ExamManagementScreen({ navigation }) {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
-            <Text style={styles.sectionTitle}>EXAM SESSIONS</Text>
+            <View>
+              <TouchableOpacity 
+                style={[styles.venueButton, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                onPress={() => setShowVenueModal(true)}
+              >
+                <View style={[styles.venueIconBox, { backgroundColor: '#8b5cf6' }]}>
+                  <FontAwesomeIcon icon={faMapMarkerAlt} color="white" size={14} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.venueBtnTitle, { color: theme.text }]}>Manage Venues</Text>
+                  <Text style={[styles.venueBtnSub, { color: theme.textSecondary }]}>Add halls or classrooms for exams</Text>
+                </View>
+                <FontAwesomeIcon icon={faPlus} color={theme.textSecondary} size={12} />
+              </TouchableOpacity>
+              <Text style={styles.sectionTitle}>EXAM SESSIONS</Text>
+            </View>
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
@@ -335,6 +395,81 @@ export default function ExamManagementScreen({ navigation }) {
       <FAB
         onPress={() => navigation.navigate('CreateExamSession')}
       />
+
+      {/* Create Venue Modal */}
+      <RNModal
+        isVisible={showVenueModal}
+        onBackdropPress={() => setShowVenueModal(false)}
+        onSwipeComplete={() => setShowVenueModal(false)}
+        swipeDirection={['down']}
+        style={{ justifyContent: 'flex-end', margin: 0 }}
+        propagateSwipe
+      >
+        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface || '#ffffff', paddingBottom: insets.bottom + 20 }]}>
+          <View style={styles.modalDragIndicator} />
+          
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Add Exam Venue</Text>
+            <TouchableOpacity onPress={() => setShowVenueModal(false)} style={styles.closeIconBtn}>
+              <FontAwesomeIcon icon={faTimes} size={20} color={theme.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView>
+            <View style={styles.formGroup}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>VENUE NAME *</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.colors.background, color: theme.text, borderColor: theme.border }]}
+                placeholder="e.g. Main Hall"
+                placeholderTextColor={theme.textSecondary}
+                value={venueName}
+                onChangeText={setVenueName}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>TOTAL CAPACITY *</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.colors.background, color: theme.text, borderColor: theme.border }]}
+                placeholder="e.g. 200"
+                placeholderTextColor={theme.textSecondary}
+                value={venueCapacity}
+                onChangeText={setVenueCapacity}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.row}>
+              <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
+                <Text style={[styles.label, { color: theme.textSecondary }]}>ROWS</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: theme.colors.background, color: theme.text, borderColor: theme.border }]}
+                  placeholder="10"
+                  placeholderTextColor={theme.textSecondary}
+                  value={venueRows}
+                  onChangeText={setVenueRows}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
+                <Text style={[styles.label, { color: theme.textSecondary }]}>COLUMNS</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: theme.colors.background, color: theme.text, borderColor: theme.border }]}
+                  placeholder="10"
+                  placeholderTextColor={theme.textSecondary}
+                  value={venueCols}
+                  onChangeText={setVenueCols}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+
+            <View style={{ marginTop: 24 }}>
+              <Button title="Create Venue" onPress={handleCreateVenue} loading={creatingVenue} />
+            </View>
+          </ScrollView>
+        </View>
+      </RNModal>
     </View>
   );
 }
@@ -559,5 +694,73 @@ const styles = StyleSheet.create({
   emptySubText: {
     fontSize: 14,
     marginTop: 8,
+  },
+  venueButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 8,
+    gap: 16,
+  },
+  venueIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  venueBtnTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  venueBtnSub: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+  },
+  modalDragIndicator: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  closeIconBtn: {
+    padding: 4,
+  },
+  formGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 10,
+    fontWeight: '900',
+    marginBottom: 8,
+    letterSpacing: 1,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 15,
+  },
+  row: {
+    flexDirection: 'row',
   },
 });
