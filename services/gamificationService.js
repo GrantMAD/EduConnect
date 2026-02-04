@@ -100,7 +100,7 @@ export const fetchStreaks = async (userId) => {
         .eq('user_id', userId)
         .maybeSingle();
     
-    if (error && error.code !== 'PGRST116') throw error;
+    if (error) throw error;
     return data;
 };
 
@@ -127,7 +127,7 @@ export const updateStreak = async (userId, streakData) => {
         .update(streakData)
         .eq('user_id', userId)
         .select()
-        .single();
+        .maybeSingle();
     
     if (error) throw error;
     return data;

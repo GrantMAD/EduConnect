@@ -349,7 +349,7 @@ const MeetingsScreen = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await cancelPTMBooking(booking.id);
+              await cancelPTMBooking(booking.id, booking.slot_id);
 
               const notifyUserId = isTeacher ? booking.parent_id : booking.slot.teacher_id;
               await sendNotification({

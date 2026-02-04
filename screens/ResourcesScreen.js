@@ -128,6 +128,7 @@ const ResourcesScreen = () => {
         schoolId,
         activeTab,
         userId: user.id
+        // We don't pass category here because we want to see folders
       });
 
       setResources(resourcesWithVotes);
@@ -189,8 +190,12 @@ const ResourcesScreen = () => {
   }, [resources, searchTerm, showBookmarkedOnly, bookmarkedIds, currentFolder, sortBy]);
 
   const categories = useMemo(() => {
-    const cats = new Set(resources.map(r => r.category || 'General'));
-    return Array.from(cats).sort();
+    // We need all resources to show folders, even if we are filtered by folder
+    // But actually, when we are in a folder, the folders aren't shown anyway.
+    // The web app fetches ALL resources for the tab and then filters client-side.
+    // Our fetchResources now filters server-side by category if currentFolder is set.
+    // This might break the folder list if we don't have all categories.
+    return Array.from(new Set(resources.map(r => r.category || 'General'))).sort();
   }, [resources]);
 
   const renderResourceItem = useCallback((item) => (

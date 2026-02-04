@@ -5,7 +5,7 @@ export const getUserProfile = async (userId) => {
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
     if (error) throw error;
     return data;
@@ -296,7 +296,7 @@ export const fetchThemePreference = async (userId) => {
         .from('users')
         .select('theme_preference')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
     if (error) throw error;
     return data?.theme_preference;
@@ -327,7 +327,7 @@ export const fetchNotificationPreferences = async (userId) => {
         .from('users')
         .select('notification_preferences')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
     if (error) throw error;
     return data?.notification_preferences;

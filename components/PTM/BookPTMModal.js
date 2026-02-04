@@ -25,7 +25,7 @@ import StandardBottomModal from '../StandardBottomModal';
 
 // Import services
 import { getCurrentUser } from '../../services/authService';
-import { fetchParentChildren } from '../../services/userService';
+import { fetchParentChildrenDetails } from '../../services/userService';
 import { fetchAvailableTeacherSlots, bookPTMSlot } from '../../services/ptmService';
 import { sendNotification } from '../../services/notificationService';
 

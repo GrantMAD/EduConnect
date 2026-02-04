@@ -163,7 +163,7 @@ const ManageMarketDataScreen = ({ navigation }) => {
         renderItem={renderItem}
         ListEmptyComponent={EmptyComponent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
-        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
+        contentContainerStyle={{ paddingBottom: 100 + insets.bottom, flexGrow: 1 }}
       />
       
       <TouchableOpacity 

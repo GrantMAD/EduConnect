@@ -12,7 +12,7 @@ import { useTheme } from '../../context/ThemeContext';
 
 // Import services
 import { fetchUserGamification } from '../../services/gamificationService';
-import { fetchStudentCompletionCount, fetchStudentMarks } from '../../services/userService';
+import { fetchStudentCompletionCount, fetchStudentMarksSimple } from '../../services/userService';
 
 const MeetingAgendaBrief = React.memo(({ studentId, isTeacher }) => {
     const { theme } = useTheme();

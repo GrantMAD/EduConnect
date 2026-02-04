@@ -55,22 +55,38 @@ export const fetchPTMBookings = async (userId, role) => {
 };
 
 export const bookPTMSlot = async (bookingData) => {
+    // 1. Create booking
     const { data, error } = await supabase
         .from('ptm_bookings')
         .insert([bookingData])
         .select();
     
     if (error) throw error;
+
+    // 2. Mark slot as booked
+    await supabase
+        .from('ptm_slots')
+        .update({ is_booked: true })
+        .eq('id', bookingData.slot_id);
+
     return data[0];
 };
 
-export const cancelPTMBooking = async (bookingId) => {
+export const cancelPTMBooking = async (bookingId, slotId) => {
     const { error } = await supabase
         .from('ptm_bookings')
         .delete()
         .eq('id', bookingId);
     
     if (error) throw error;
+
+    if (slotId) {
+        await supabase
+            .from('ptm_slots')
+            .update({ is_booked: false })
+            .eq('id', slotId);
+    }
+    
     return true;
 };
 

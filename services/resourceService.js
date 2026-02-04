@@ -177,70 +177,42 @@ export const removeBookmark = async (userId, resourceId) => {
 
 
 
-export const fetchResourcesWithVotes = async ({ schoolId, activeTab, userId }) => {
-
+export const fetchResourcesWithVotes = async ({ schoolId, activeTab, userId, category }) => {
     let query = supabase
-
         .from('resources')
-
         .select(`
-
             *,
-
             users (full_name, email)
-
         `);
 
-
-
     if (activeTab === 'personal') {
-
         query = query.eq('is_personal', true).eq('uploaded_by', userId);
-
     } else {
-
         query = query.eq('school_id', schoolId).eq('is_personal', false);
-
     }
 
-
+    if (category && category !== 'All') {
+        query = query.eq('category', category);
+    }
 
     const { data, error } = await query.order('created_at', { ascending: false });
-
     if (error) throw error;
 
-
-
     const resourcesWithVotes = await Promise.all(
-
         data.map(async (resource) => {
-
             const { data: votes } = await supabase
-
                 .from('resource_votes')
-
                 .select('vote')
-
                 .eq('resource_id', resource.id);
 
-
-
             const upvotes = votes?.filter(v => v.vote === 1).length || 0;
-
             const downvotes = votes?.filter(v => v.vote === -1).length || 0;
 
-
-
             return { ...resource, upvotes, downvotes };
-
         })
-
     );
 
-
-
     return resourcesWithVotes;
-
 };
 
 

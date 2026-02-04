@@ -56,10 +56,28 @@ const CreateMarketplaceItemScreen = ({ route, navigation }) => {
   const [category, setCategory] = useState(existingItem?.category || 'Books');
   const [image, setImage] = useState(existingItem ? { uri: existingItem.image_url } : null);
   const [uploading, setUploading] = useState(false);
+  const [userRole, setUserRole] = useState('');
 
   const { showToast } = useToast();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+
+  const fetchUserRole = useCallback(async () => {
+    try {
+      const authUser = await getCurrentUser();
+      if (!authUser) return;
+      const data = await getUserProfile(authUser.id);
+      setUserRole(data?.role || '');
+    } catch (e) {
+      console.error('Error fetching user role:', e);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchUserRole();
+  }, [fetchUserRole]);
+
+  const isAdmin = userRole === 'admin';
 
   const pickImage = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -161,14 +179,16 @@ const CreateMarketplaceItemScreen = ({ route, navigation }) => {
             </TouchableOpacity>
 
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={styles.heroTitle}>{existingItem ? 'Edit Listing' : 'List Item'}</Text>
+              <Text style={styles.heroTitle}>
+                {existingItem ? 'Update Item' : (isAdmin ? 'Add Store Item' : 'New Listing')}
+              </Text>
             </View>
             <Text style={styles.heroDescription}>
-              Sell items within your trusted school community.
+              {isAdmin ? 'OFFICIAL SCHOOL STORE' : 'COMMUNITY MARKETPLACE'}
             </Text>
           </View>
           <View style={styles.iconBoxHero}>
-            <FontAwesomeIcon icon={faStore} size={24} color="rgba(255,255,255,0.7)" />
+            <FontAwesomeIcon icon={isAdmin ? faStore : faTags} size={24} color="rgba(255,255,255,0.7)" />
           </View>
         </View>
       </LinearGradient>
@@ -201,7 +221,7 @@ const CreateMarketplaceItemScreen = ({ route, navigation }) => {
             <Text style={styles.inputLabel}>TITLE</Text>
             <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
               <TextInput
-                style={[styles.input, { color: theme.colors.text }]}
+                style={[styles.input, { color: theme.colors.text, flex: 1 }]}
                 placeholder="What are you selling?"
                 placeholderTextColor={theme.colors.placeholder}
                 value={title}
@@ -212,9 +232,9 @@ const CreateMarketplaceItemScreen = ({ route, navigation }) => {
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>DESCRIPTION</Text>
-            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, height: 100, alignItems: 'flex-start', paddingTop: 12 }]}>
+            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, height: 120, alignItems: 'flex-start', paddingTop: 12 }]}>
               <TextInput
-                style={[styles.input, { color: theme.colors.text, height: 80 }]}
+                style={[styles.input, { color: theme.colors.text, flex: 1, width: '100%' }]}
                 placeholder="Provide details about the item..."
                 placeholderTextColor={theme.colors.placeholder}
                 value={description}
@@ -230,7 +250,7 @@ const CreateMarketplaceItemScreen = ({ route, navigation }) => {
               <Text style={styles.inputLabel}>PRICE (R)</Text>
               <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                 <TextInput
-                  style={[styles.input, { color: theme.colors.text }]}
+                  style={[styles.input, { color: theme.colors.text, flex: 1 }]}
                   placeholder="0.00"
                   placeholderTextColor={theme.colors.placeholder}
                   value={price}
@@ -272,7 +292,7 @@ const CreateMarketplaceItemScreen = ({ route, navigation }) => {
             ) : (
               <>
                 <FontAwesomeIcon icon={existingItem ? faCheckCircle : faPlusCircle} size={18} color="#fff" style={{ marginRight: 10 }} />
-                <Text style={styles.createBtnText}>{existingItem ? 'Update Listing' : 'Publish Listing'}</Text>
+                <Text style={styles.createBtnText}>{existingItem ? 'Save Changes' : 'Post Listing'}</Text>
               </>
             )}
           </LinearGradient>

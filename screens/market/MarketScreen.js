@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   FlatList,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import MarketScreenSkeleton, { SkeletonPiece, MarketplaceItemCardSkeleton } from '../../components/skeletons/MarketScreenSkeleton';
@@ -28,7 +29,8 @@ import {
   faThLarge,
   faList,
   faSortAmountDown,
-  faSortAmountUp
+  faSortAmountUp,
+  faTag
 } from '@fortawesome/free-solid-svg-icons';
 
 import MarketplaceItemCard from '../../components/MarketplaceItemCard';
@@ -69,6 +71,18 @@ const CategoryChip = React.memo(({ item, selected, onPress, theme }) => (
     </TouchableOpacity>
 ));
 
+const EmptyMarketState = React.memo(({ theme }) => (
+    <View style={styles.emptyContainer}>
+        <View style={[styles.emptyIconContainer, { backgroundColor: theme.colors.cardBackground }]}>
+            <FontAwesomeIcon icon={faStore} size={40} color={theme.colors.placeholder} />
+        </View>
+        <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>No Items for Sale</Text>
+        <Text style={[styles.emptyDescription, { color: theme.colors.placeholder }]}>
+            Be the first to list something in your school marketplace!
+        </Text>
+    </View>
+));
+
 const MarketScreen = ({ navigation }) => {
   const [allItems, setAllItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +94,7 @@ const MarketScreen = ({ navigation }) => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [userRole, setUserRole] = useState('');
 
+  const [activeTab, setActiveTab] = useState('browse'); // 'browse' | 'store' | 'selling'
   const [viewMode, setViewMode] = useState('horizontal');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState('newest');
@@ -92,14 +107,20 @@ const MarketScreen = ({ navigation }) => {
   const fetchItems = useCallback(async () => {
     try {
       if (!schoolId) return;
-      const data = await fetchMarketplaceItems(schoolId);
+      const data = await fetchMarketplaceItems(schoolId, {
+        category: selectedCategory,
+        search: searchQuery,
+        sortBy: sortBy,
+        activeTab: activeTab,
+        sellerId: user?.id
+      });
       setAllItems(data || []);
     } catch (error) {
       console.error('Error fetching marketplace items:', error);
     } finally {
       setLoading(false);
     }
-  }, [schoolId]);
+  }, [schoolId, selectedCategory, searchQuery, sortBy, activeTab, user?.id]);
 
   const fetchUserRole = useCallback(async () => {
     try {
@@ -111,6 +132,10 @@ const MarketScreen = ({ navigation }) => {
       console.error('Error fetching user role:', e);
     }
   }, []);
+
+  useEffect(() => {
+    fetchItems();
+  }, [fetchItems]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -134,25 +159,6 @@ const MarketScreen = ({ navigation }) => {
   const processedData = useMemo(() => {
     let result = [...allItems];
 
-    if (searchQuery) {
-      result = result.filter(item =>
-        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.description?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    if (selectedCategory !== 'All') {
-      result = result.filter(item => item.category === selectedCategory);
-    }
-
-    if (sortBy === 'newest') {
-      result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    } else if (sortBy === 'price_asc') {
-      result.sort((a, b) => a.price - b.price);
-    } else if (sortBy === 'price_desc') {
-      result.sort((a, b) => b.price - a.price);
-    }
-
     if (viewMode === 'grid') {
       return { filteredItems: result, sections: [] };
     } else {
@@ -172,14 +178,14 @@ const MarketScreen = ({ navigation }) => {
 
       return { filteredItems: [], sections };
     }
-  }, [allItems, searchQuery, selectedCategory, sortBy, viewMode]);
+  }, [allItems, viewMode]);
 
   const { filteredItems, sections } = processedData;
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchItems().then(() => setRefreshing(false));
-  }, [fetchItems]);
+    Promise.all([fetchItems(), fetchUserRole()]).then(() => setRefreshing(false));
+  }, [fetchItems, fetchUserRole]);
 
   const toggleSort = useCallback(() => {
     setSortBy(prev => {
@@ -229,6 +235,35 @@ const MarketScreen = ({ navigation }) => {
     setItemDetailModalVisible(true);
   }, []);
 
+  const handleEdit = useCallback((item) => {
+    setItemDetailModalVisible(false);
+    navigation.navigate('CreateMarketplaceItem', { item });
+  }, [navigation]);
+
+  const handleDelete = useCallback(async (itemId) => {
+    Alert.alert(
+      'Delete Item',
+      'Are you sure you want to delete this listing?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteMarketplaceItem(itemId);
+              showToast('Item deleted', 'success');
+              fetchItems();
+              setItemDetailModalVisible(false);
+            } catch (error) {
+              showToast('Failed to delete item', 'error');
+            }
+          }
+        }
+      ]
+    );
+  }, [fetchItems, showToast]);
+
   const handleViewSeller = useCallback((seller) => {
     setSelectedSeller(seller);
     setModalVisible(true);
@@ -263,6 +298,43 @@ const MarketScreen = ({ navigation }) => {
         {!loading && userRole === 'admin' && (
             <MarketplaceAnalytics items={allItems} />
         )}
+
+        <View style={styles.tabsContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <TouchableOpacity
+              onPress={() => setActiveTab('browse')}
+              style={[
+                styles.tabButton,
+                activeTab === 'browse' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }
+              ]}
+            >
+              <FontAwesomeIcon icon={faSearch} size={14} color={activeTab === 'browse' ? theme.colors.primary : theme.colors.placeholder} style={{ marginRight: 8 }} />
+              <Text style={[styles.tabText, { color: activeTab === 'browse' ? theme.colors.primary : theme.colors.placeholder }]}>Student Listings</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setActiveTab('store')}
+              style={[
+                styles.tabButton,
+                activeTab === 'store' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }
+              ]}
+            >
+              <FontAwesomeIcon icon={faStore} size={14} color={activeTab === 'store' ? theme.colors.primary : theme.colors.placeholder} style={{ marginRight: 8 }} />
+              <Text style={[styles.tabText, { color: activeTab === 'store' ? theme.colors.primary : theme.colors.placeholder }]}>School Store</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setActiveTab('selling')}
+              style={[
+                styles.tabButton,
+                activeTab === 'selling' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }
+              ]}
+            >
+              <FontAwesomeIcon icon={faTag} size={14} color={activeTab === 'selling' ? theme.colors.primary : theme.colors.placeholder} style={{ marginRight: 8 }} />
+              <Text style={[styles.tabText, { color: activeTab === 'selling' ? theme.colors.primary : theme.colors.placeholder }]}>My Listings</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
 
         <View style={styles.searchContainerWrapper}>
             <View style={[styles.searchContainer, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
@@ -394,11 +466,12 @@ const MarketScreen = ({ navigation }) => {
       ) : viewMode === 'grid' ? (
         <FlatList
           ListHeaderComponent={ListHeader}
+          ListEmptyComponent={<EmptyMarketState theme={theme} />}
           data={filteredItems}
           keyExtractor={(item) => item.id.toString()}
           numColumns={2}
           renderItem={renderGridItem}
-          contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 80 }}
+          contentContainerStyle={[styles.listContent, { paddingHorizontal: 8 }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           removeClippedSubviews={true}
           initialNumToRender={8}
@@ -408,9 +481,10 @@ const MarketScreen = ({ navigation }) => {
       ) : (
         <SectionList
           ListHeaderComponent={ListHeader}
+          ListEmptyComponent={<EmptyMarketState theme={theme} />}
           sections={sections}
           keyExtractor={(item, index) => index.toString()}
-          contentContainerStyle={{ paddingBottom: 80 }}
+          contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           renderSectionHeader={renderSectionHeader}
           renderItem={renderSectionItem}
@@ -423,6 +497,8 @@ const MarketScreen = ({ navigation }) => {
         onViewSeller={handleViewSeller}
         onMessageSeller={handleMessageSeller}
         onClose={() => setItemDetailModalVisible(false)}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
       />
 
       <SellerProfileModal
@@ -497,6 +573,9 @@ const styles = StyleSheet.create({
   },
 
   mainHeaderIcon: { marginRight: 16 },
+  tabsContainer: { borderBottomWidth: 1, borderBottomColor: '#eee', marginBottom: 16 },
+  tabButton: { paddingVertical: 12, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center' },
+  tabText: { fontWeight: 'bold', fontSize: 13 },
   searchContainerWrapper: {
     marginBottom: 12,
   },
@@ -548,4 +627,35 @@ const styles = StyleSheet.create({
   sectionHeaderIcon: { marginRight: 10 },
   sectionHeader: { fontSize: 20, fontWeight: 'bold' },
   sectionDescription: { fontSize: 12 },
+
+  listContent: {
+    paddingBottom: 80,
+    flexGrow: 1,
+  },
+
+  emptyContainer: {
+    padding: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  emptyDescription: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 20,
+  },
 });
