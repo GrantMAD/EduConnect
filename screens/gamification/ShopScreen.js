@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndi
 import { useTheme } from '../../context/ThemeContext';
 import { useGamification } from '../../context/GamificationContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faCoins, faLock, faCheck, faTimes, faArrowLeft, faStore, faIdCard, faUserCircle, faPalette, faAward, faComments, faChevronRight, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
+import { faCoins, faLock, faCheck, faTimes, faArrowLeft, faStore, faIdCard, faUserCircle, faPalette, faAward, faComments, faChevronRight, faInfoCircle, faArchive } from '@fortawesome/free-solid-svg-icons';
 import { BORDER_STYLES, BANNER_STYLES, NAME_COLOR_STYLES, TITLE_STYLES, BUBBLE_STYLES, STICKER_PACKS } from '../../constants/GamificationStyles';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { SkeletonPiece } from '../../components/skeletons/DashboardScreenSkeleton';
@@ -49,6 +49,15 @@ const ShopScreen = ({ navigation }) => {
     const [avatarUrl, setAvatarUrl] = useState(null);
     const [activeTab, setActiveTab] = useState('all');
     const [fullName, setFullName] = useState('Student');
+    const [showScrollHint, setShowScrollHint] = useState(true);
+
+    const handleTabScroll = (event) => {
+        const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+        const isCloseToBottom = layoutMeasurement.width + contentOffset.x >= contentSize.width - 20;
+        if (isCloseToBottom && showScrollHint) {
+            setShowScrollHint(false);
+        }
+    };
 
       const fetchShopData = useCallback(async () => {
         setLoading(true);
@@ -216,15 +225,17 @@ const ShopScreen = ({ navigation }) => {
 
     const filteredItems = useMemo(() => {
         return items.filter(item => {
+            if (activeTab === 'owned') return inventory.includes(item.id);
             if (activeTab === 'all') return true;
             const cat = item.category;
             if (activeTab === 'border') return cat === 'avatar_border' || cat === 'border' || !cat;
             return cat === activeTab;
         });
-    }, [items, activeTab]);
+    }, [items, activeTab, inventory]);
 
     const tabs = useMemo(() => [
         { id: 'all', label: 'All', icon: faStore },
+        { id: 'owned', label: 'Owned', icon: faArchive },
         { id: 'border', label: 'Borders', icon: faUserCircle },
         { id: 'banner', label: 'Banners', icon: faIdCard },
         { id: 'name_color', label: 'Colors', icon: faPalette },
@@ -236,6 +247,7 @@ const ShopScreen = ({ navigation }) => {
     const renderItem = useCallback(({ item }) => {
         const details = getActionDetails(item);
         const isEquipped = details.label === 'Equipped' || details.label === 'Unlocked';
+        const isLocked = item.min_level > current_level;
 
         return (
             <TouchableOpacity
@@ -245,26 +257,42 @@ const ShopScreen = ({ navigation }) => {
                     borderWidth: isEquipped ? 2 : 1,
                 }]}
                 onPress={() => setSelectedItem(item)}
-                disabled={item.min_level > current_level}
+                activeOpacity={0.7}
             >
                 <View style={styles.previewContainer}>
                     <ItemPreview item={item} size={70} />
+                    {isLocked && (
+                        <View style={styles.lockedOverlay}>
+                            <FontAwesomeIcon icon={faLock} size={24} color="rgba(255,255,255,0.9)" />
+                            <View style={styles.levelBadge}>
+                                <Text style={styles.levelBadgeText}>Lvl {item.min_level}</Text>
+                            </View>
+                        </View>
+                    )}
                 </View>
 
                 <View style={styles.itemInfo}>
                     <Text style={[styles.itemName, { color: theme.colors.text }]} numberOfLines={1}>{item.name}</Text>
                     
-                    <View style={[styles.badge, { 
-                        backgroundColor: isEquipped ? theme.colors.primary : (details.disabled ? '#8E8E93' : theme.colors.cardBackground || '#F5F5F5'),
-                        borderColor: details.disabled ? 'transparent' : theme.colors.cardBorder || '#DDD',
-                        borderWidth: details.disabled ? 0 : 1
-                    }]}>
-                        {isEquipped && <FontAwesomeIcon icon={faCheck} size={10} color="#fff" style={{ marginRight: 4 }} />}
-                        {!isEquipped && !details.disabled && <FontAwesomeIcon icon={faCoins} size={10} color="#FFD700" style={{ marginRight: 4 }} />}
-                        <Text style={[styles.badgeText, { color: isEquipped ? '#fff' : (details.disabled ? '#fff' : theme.colors.text) }]}>
-                            {details.label.includes('Buy for') ? item.cost : details.label}
-                        </Text>
-                    </View>
+                    {isEquipped ? (
+                        <View style={[styles.badge, { backgroundColor: theme.colors.primary, borderColor: 'transparent' }]}>
+                            <FontAwesomeIcon icon={faCheck} size={10} color="#fff" style={{ marginRight: 4 }} />
+                            <Text style={[styles.badgeText, { color: '#fff' }]}>Equipped</Text>
+                        </View>
+                    ) : isLocked ? (
+                        <View style={[styles.badge, { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' }]}>
+                            <Text style={[styles.badgeText, { color: '#9CA3AF' }]}>Locked</Text>
+                        </View>
+                    ) : details.label === 'Equip' ? (
+                        <View style={[styles.badge, { backgroundColor: theme.colors.primary + '15', borderColor: theme.colors.primary + '30' }]}>
+                            <Text style={[styles.badgeText, { color: theme.colors.primary }]}>Owned</Text>
+                        </View>
+                    ) : (
+                        <View style={[styles.badge, { backgroundColor: '#FFFBEB', borderColor: '#FEF3C7' }]}>
+                            <FontAwesomeIcon icon={faCoins} size={10} color="#F59E0B" style={{ marginRight: 4 }} />
+                            <Text style={[styles.badgeText, { color: '#92400E' }]}>{item.cost}</Text>
+                        </View>
+                    )}
                 </View>
             </TouchableOpacity>
         );
@@ -349,7 +377,16 @@ const ShopScreen = ({ navigation }) => {
                     contentContainerStyle={styles.categoryScroll}
                     keyExtractor={(item) => item.id}
                     renderItem={renderTabItem}
+                    onScroll={handleTabScroll}
+                    scrollEventThrottle={16}
                 />
+                {showScrollHint && (
+                    <View style={styles.hintContainer}>
+                        <Text style={[styles.hintText, { color: theme.colors.placeholder }]}>
+                            Scroll right to see more categories →
+                        </Text>
+                    </View>
+                )}
             </View>
 
             <FlatList
@@ -378,24 +415,44 @@ const ShopScreen = ({ navigation }) => {
                         {selectedItem && (
                             <>
                                 <View style={styles.modalHeader}>
-                                    <Text style={[styles.modalTitle, { color: theme.colors.text }]}>{selectedItem.name}</Text>
-                                    <TouchableOpacity onPress={() => setSelectedItem(null)}>
-                                        <FontAwesomeIcon icon={faTimes} size={20} color={theme.colors.placeholder} />
+                                    <View>
+                                        <Text style={[styles.modalTitle, { color: theme.colors.text }]}>{selectedItem.name}</Text>
+                                        <View style={[styles.modalCategoryBadge, { backgroundColor: theme.colors.primary + '15' }]}>
+                                            <Text style={[styles.modalCategoryText, { color: theme.colors.primary }]}>
+                                                {(selectedItem.category || 'Border').toUpperCase().replace('_', ' ')}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    <TouchableOpacity 
+                                        onPress={() => setSelectedItem(null)}
+                                        style={[styles.closeButton, { backgroundColor: theme.colors.cardBackground || '#F3F4F6' }]}
+                                    >
+                                        <FontAwesomeIcon icon={faTimes} size={16} color={theme.colors.placeholder} />
                                     </TouchableOpacity>
                                 </View>
 
-                                <View style={styles.modalPreview}>
-                                    <ItemPreview item={selectedItem} size={120} />
+                                <View style={[styles.modalPreviewContainer, { backgroundColor: theme.colors.cardBackground || '#F9FAFB' }]}>
+                                    <ItemPreview item={selectedItem} size={140} />
                                 </View>
 
-                                <Text style={[styles.modalDescription, { color: theme.colors.textSecondary }]}>
-                                    {selectedItem.description}
-                                </Text>
+                                <View style={styles.modalInfoSection}>
+                                    <Text style={[styles.modalDescription, { color: theme.colors.textSecondary }]}>
+                                        {selectedItem.description || `Enhance your profile with this exclusive ${selectedItem.category || 'item'}!`}
+                                    </Text>
+                                    
+                                    {selectedItem.min_level > current_level && (
+                                        <View style={styles.requirementRow}>
+                                            <FontAwesomeIcon icon={faLock} size={14} color="#EF4444" />
+                                            <Text style={styles.requirementText}>Requires Level {selectedItem.min_level}</Text>
+                                        </View>
+                                    )}
+                                </View>
 
                                 <TouchableOpacity
                                     style={[styles.actionButton, { 
                                         backgroundColor: modalActionDetails.disabled ? '#E5E7EB' : theme.colors.primary,
-                                        opacity: modalActionDetails.disabled && !modalActionDetails.label.includes('Equipped') ? 0.5 : 1
+                                        shadowColor: theme.colors.primary,
+                                        elevation: modalActionDetails.disabled ? 0 : 4,
                                     }]}
                                     onPress={modalActionDetails.action}
                                     disabled={modalActionDetails.disabled || purchasing}
@@ -404,8 +461,13 @@ const ShopScreen = ({ navigation }) => {
                                         <ActivityIndicator color="#fff" />
                                     ) : (
                                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                            <Text style={styles.actionButtonText}>{modalActionDetails.label}</Text>
-                                            {modalActionDetails.label.includes('Buy') && <FontAwesomeIcon icon={faCoins} size={16} color="#FFD700" style={{ marginLeft: 8 }} />}
+                                            <Text style={styles.actionButtonText}>{modalActionDetails.label.replace('Buy for ', '')}</Text>
+                                            {modalActionDetails.label.includes('Buy') && (
+                                                <View style={styles.buttonCoinRow}>
+                                                    <Text style={styles.buttonCoinText}>{selectedItem.cost}</Text>
+                                                    <FontAwesomeIcon icon={faCoins} size={16} color="#FBBF24" style={{ marginLeft: 6 }} />
+                                                </View>
+                                            )}
                                         </View>
                                     )}
                                 </TouchableOpacity>
@@ -477,8 +539,19 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: 'bold',
     },
-    filterContainer: { marginBottom: 16, marginTop: 12 },
+    filterContainer: { marginBottom: 8, marginTop: 12 },
     categoryScroll: { paddingHorizontal: 16 },
+    hintContainer: { 
+        paddingHorizontal: 20, 
+        marginTop: 6,
+        alignItems: 'flex-end',
+    },
+    hintText: {
+        fontSize: 10,
+        fontWeight: '600',
+        fontStyle: 'italic',
+        opacity: 0.8,
+    },
     categoryChip: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -490,12 +563,60 @@ const styles = StyleSheet.create({
     categoryChipText: { fontSize: 12, fontWeight: '700' },
     listContent: { padding: 12, paddingBottom: 40 },
     columnWrapper: { justifyContent: 'space-between' },
-    itemCard: { width: '48%', marginBottom: 16, borderRadius: 20, padding: 15, alignItems: 'center' },
-    previewContainer: { height: 90, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+    itemCard: { 
+        width: '48%', 
+        marginBottom: 16, 
+        borderRadius: 24, 
+        padding: 12, 
+        alignItems: 'center',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+    },
+    previewContainer: { 
+        height: 100, 
+        width: '100%',
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        marginBottom: 12,
+        borderRadius: 16,
+        backgroundColor: 'rgba(0,0,0,0.02)',
+        overflow: 'hidden',
+    },
+    lockedOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    levelBadge: {
+        position: 'absolute',
+        bottom: 8,
+        backgroundColor: '#4f46e5',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 10,
+    },
+    levelBadgeText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: '900',
+    },
     itemInfo: { width: '100%', alignItems: 'center' },
-    itemName: { fontSize: 14, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' },
-    badge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
-    badgeText: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
+    itemName: { fontSize: 13, fontWeight: '800', marginBottom: 8, textAlign: 'center', letterSpacing: -0.2 },
+    badge: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        paddingHorizontal: 12, 
+        paddingVertical: 6, 
+        borderRadius: 20,
+        borderWidth: 1,
+        minWidth: 60,
+        justifyContent: 'center'
+    },
+    badgeText: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
     bannerPreview: { borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
     previewLabel: { color: '#fff', fontSize: 8, fontWeight: 'bold', opacity: 0.5 },
     previewBox: { width: 70, height: 70, borderRadius: 15, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#EEE', borderStyle: 'dashed' },
@@ -503,14 +624,97 @@ const styles = StyleSheet.create({
     titleTag: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
     titleTagText: { fontSize: 10, fontWeight: 'bold' },
     bubblePreview: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 },
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    modalContent: { borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, alignItems: 'center' },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 20 },
-    modalTitle: { fontSize: 24, fontWeight: '900' },
-    modalPreview: { marginBottom: 30 },
-    modalDescription: { fontSize: 16, textAlign: 'center', marginBottom: 30, lineHeight: 24 },
-    actionButton: { width: '100%', paddingVertical: 16, borderRadius: 15, alignItems: 'center' },
-    actionButtonText: { color: '#fff', fontSize: 18, fontWeight: '900' },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+    modalContent: { 
+        borderTopLeftRadius: 32, 
+        borderTopRightRadius: 32, 
+        padding: 24, 
+        paddingTop: 20,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 20,
+    },
+    modalHeader: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        alignItems: 'flex-start',
+        width: '100%', 
+        marginBottom: 24 
+    },
+    modalTitle: { fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
+    modalCategoryBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        marginTop: 4,
+        alignSelf: 'flex-start'
+    },
+    modalCategoryText: {
+        fontSize: 10,
+        fontWeight: '900',
+    },
+    closeButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalPreviewContainer: { 
+        width: '100%',
+        height: 200,
+        borderRadius: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    modalInfoSection: {
+        width: '100%',
+        alignItems: 'center',
+        marginBottom: 32,
+    },
+    modalDescription: { 
+        fontSize: 15, 
+        textAlign: 'center', 
+        lineHeight: 22,
+        fontWeight: '500',
+    },
+    requirementRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 12,
+        gap: 6,
+    },
+    requirementText: {
+        color: '#EF4444',
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    actionButton: { 
+        width: '100%', 
+        paddingVertical: 18, 
+        borderRadius: 20, 
+        alignItems: 'center',
+        flexDirection: 'row',
+        justifyContent: 'center',
+    },
+    actionButtonText: { color: '#fff', fontSize: 17, fontWeight: '900' },
+    buttonCoinRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginLeft: 12,
+        paddingLeft: 12,
+        borderLeftWidth: 1,
+        borderLeftColor: 'rgba(255,255,255,0.2)',
+    },
+    buttonCoinText: {
+        color: '#fff',
+        fontSize: 17,
+        fontWeight: '900',
+    },
     emptyContainer: { flex: 1, alignItems: 'center', marginTop: 50 },
     emptyText: { fontSize: 16, fontStyle: 'italic' }
 });

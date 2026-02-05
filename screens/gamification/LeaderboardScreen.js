@@ -256,12 +256,13 @@ const LeaderboardScreen = ({ navigation }) => {
                 end={{ x: 1, y: 1 }}
                 style={styles.heroContainer}
             >
+                {/* Back Button */}
                 <TouchableOpacity 
                     onPress={() => navigation.goBack()} 
-                    style={styles.backButton}
-                    activeOpacity={0.7}
+                    style={[styles.backButtonContainer, { marginBottom: 16, paddingHorizontal: 0 }]}
                 >
-                    <FontAwesomeIcon icon={faArrowLeft} size={20} color="#fff" />
+                    <FontAwesomeIcon icon={faArrowLeft} size={14} color="#fff" />
+                    <Text style={[styles.backButtonText, { color: "#fff" }]}>Back to Profile</Text>
                 </TouchableOpacity>
 
                 <View style={styles.heroContent}>
@@ -386,14 +387,15 @@ const styles = StyleSheet.create({
         borderBottomLeftRadius: 24,
         borderBottomRightRadius: 24,
     },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        justifyContent: 'center',
+    backButtonContainer: {
+        flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 16,
+        paddingHorizontal: 16,
+        gap: 6,
+    },
+    backButtonText: {
+        fontSize: 12,
+        fontWeight: 'bold',
     },
     heroContent: {
         flexDirection: 'row',
