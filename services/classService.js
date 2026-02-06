@@ -302,7 +302,8 @@ export const addMemberToClass = async (memberData) => {
     return data[0];
 };
 
-export const updateAttendance = async (memberId, attendance) => {
+export const updateAttendance = async ({ memberId, studentId, classId, date, status, attendance, userId }) => {
+    // 1. Update legacy monolithic field
     const { data, error } = await supabase
         .from('class_members')
         .update({ attendance })
@@ -310,7 +311,44 @@ export const updateAttendance = async (memberId, attendance) => {
         .select();
 
     if (error) throw error;
+
+    // 2. Manage historical record
+    if (status && status !== 'unmarked') {
+        // Upsert record
+        const { error: histError } = await supabase
+            .from('attendance_records')
+            .upsert({
+                class_id: classId,
+                student_id: studentId,
+                date: date,
+                status: status,
+                marked_by: userId
+            }, { onConflict: 'class_id, student_id, date' });
+        
+        if (histError) throw histError;
+    } else {
+        // Delete record if unmarked
+        await supabase
+            .from('attendance_records')
+            .delete()
+            .eq('class_id', classId)
+            .eq('student_id', studentId)
+            .eq('date', date);
+    }
+
     return data[0];
+};
+
+export const fetchAttendanceHistory = async (studentId, classId) => {
+    const { data, error } = await supabase
+        .from('attendance_records')
+        .select('*')
+        .eq('student_id', studentId)
+        .eq('class_id', classId)
+        .order('date', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
 };
 
 export const updateClassSchedule = async (scheduleId, scheduleData) => {

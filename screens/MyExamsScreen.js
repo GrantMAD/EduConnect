@@ -28,7 +28,10 @@ export default function MyExamsScreen({ navigation, route }) {
   // Redirect parents to My Children page as that's where their child's exams are now
   useEffect(() => {
     if (profile?.role === 'parent') {
-      navigation.replace('MyChildren', route.params);
+      navigation.replace('MyChildren', { 
+        ...route.params, 
+        activeTab: 'exams' 
+      });
     }
   }, [profile?.role, navigation, route.params]);
 

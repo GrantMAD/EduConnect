@@ -13,12 +13,14 @@ import {
     faUserGraduate,
     faClock,
     faMapMarkerAlt,
-    faEllipsisH
+    faEllipsisH,
+    faCheckCircle,
+    faTimesCircle
 } from '@fortawesome/free-solid-svg-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { fetchClassInfo, fetchClassMembers, fetchClassSchedules } from '../../services/classService';
+import { fetchClassInfo, fetchClassMembers, fetchClassSchedules, fetchAttendanceHistory } from '../../services/classService';
 import { fetchStudentMarks, fetchParentChildren, fetchClassMembersIds } from '../../services/userService';
 
 // Placeholder services - ensure these exist or mock them
@@ -42,6 +44,7 @@ const StudentClassDashboardScreen = () => {
     const [homework, setHomework] = useState([]); // Placeholder
     const [assignments, setAssignments] = useState([]); // Placeholder
     const [marks, setMarks] = useState([]);
+    const [attendance, setAttendance] = useState([]);
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -66,16 +69,18 @@ const StudentClassDashboardScreen = () => {
                 console.log(`Loading dashboard as ${profile?.role} ${user.id}`);
             }
 
-            const [info, scheds, myMarks] = await Promise.all([
+            const [info, scheds, myMarks, myAttendance] = await Promise.all([
                 fetchClassInfo(classId),
                 fetchClassSchedules([classId]),
-                fetchStudentMarks(targetStudentId, [classId])
+                fetchStudentMarks(targetStudentId, [classId]),
+                fetchAttendanceHistory(targetStudentId, classId)
             ]);
 
-            console.log(`Fetched ${myMarks?.length || 0} marks for student ${targetStudentId}`);
+            console.log(`Fetched ${myMarks?.length || 0} marks and ${myAttendance?.length || 0} attendance records for student ${targetStudentId}`);
             setClassData(info);
             setSchedules(scheds || []);
             setMarks(myMarks || []);
+            setAttendance(myAttendance || []);
 
             // TODO: Fetch real announcements/homework/assignments once services exist
             // For now we will just show empty states or mocks if needed
@@ -95,6 +100,7 @@ const StudentClassDashboardScreen = () => {
         { id: 'homework', label: 'Homework', icon: faBook, count: homework.length },
         { id: 'assignments', label: 'Assignments', icon: faClipboardList, count: assignments.length },
         { id: 'schedule', label: 'Schedule', icon: faCalendarAlt, count: schedules.length },
+        { id: 'attendance', label: 'Attendance', icon: faCheckCircle, count: attendance.length },
         { id: 'grades', label: 'Grades', icon: faGraduationCap, count: marks.length },
     ];
 
@@ -232,6 +238,46 @@ const StudentClassDashboardScreen = () => {
                                             {new Date(schedule.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(schedule.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </Text>
                                         {schedule.class_info && <Text style={[styles.cardBody, { color: theme.colors.textSecondary }]}>{schedule.class_info}</Text>}
+                                    </View>
+                                </View>
+                            ))
+                        )}
+                    </View>
+                );
+            case 'attendance':
+                const attendanceRate = attendance.length > 0 
+                    ? Math.round((attendance.filter(a => a.status === 'present').length / attendance.length) * 100) 
+                    : 0;
+                return (
+                    <View style={styles.contentContainer}>
+                        {attendance.length > 0 && (
+                            <View style={[styles.rateCard, { backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '20' }]}>
+                                <Text style={[styles.rateLabel, { color: theme.colors.primary }]}>OVERALL ATTENDANCE RATE</Text>
+                                <Text style={[styles.rateValue, { color: theme.colors.primary }]}>{attendanceRate}%</Text>
+                            </View>
+                        )}
+                        {attendance.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <FontAwesomeIcon icon={faCheckCircle} size={40} color={theme.colors.placeholder + '40'} />
+                                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No attendance records yet.</Text>
+                            </View>
+                        ) : (
+                            attendance.map((record, index) => (
+                                <View key={index} style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                                    <View style={[styles.iconBox, { backgroundColor: record.status === 'present' ? '#ecfdf5' : '#fff1f2' }]}>
+                                        <FontAwesomeIcon 
+                                            icon={record.status === 'present' ? faCheckCircle : faTimesCircle} 
+                                            size={16} 
+                                            color={record.status === 'present' ? '#10b981' : '#e11d48'} 
+                                        />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
+                                            {new Date(record.date).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+                                        </Text>
+                                        <Text style={[styles.cardSubtitle, { color: record.status === 'present' ? '#10b981' : '#e11d48', fontWeight: '900', textTransform: 'uppercase' }]}>
+                                            {record.status}
+                                        </Text>
                                     </View>
                                 </View>
                             ))
@@ -429,6 +475,23 @@ const styles = StyleSheet.create({
     },
     gradeText: {
         fontSize: 14,
+        fontWeight: '900',
+    },
+    rateCard: {
+        padding: 20,
+        borderRadius: 20,
+        marginBottom: 20,
+        borderWidth: 1,
+        alignItems: 'center',
+    },
+    rateLabel: {
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 1.5,
+        marginBottom: 8,
+    },
+    rateValue: {
+        fontSize: 32,
         fontWeight: '900',
     },
 });

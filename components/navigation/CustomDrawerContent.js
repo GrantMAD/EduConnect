@@ -364,15 +364,29 @@ const CustomDrawerContent = React.memo((props) => {
                     color="#f59e0b"
                 />
 
-                {userRole !== 'parent' && (
+                {userRole === 'student' && (
                     <DrawerItem
                         icon={faFileSignature}
-                        label={['admin', 'teacher'].includes(userRole) ? "Exams" : "My Exams"}
-                        description={['admin', 'teacher'].includes(userRole) ? "Schedule & Staff" : "Hall ticket"}
+                        label="My Exams"
+                        description="Hall ticket"
                         theme={theme}
-                        active={activeMainStackRouteName === (['admin', 'teacher'].includes(userRole) ? 'ExamManagement' : 'MyExams')}
+                        active={activeMainStackRouteName === 'MyExams'}
                         onPress={() =>
-                            props.navigation.navigate('MainStack', { screen: (['admin', 'teacher'].includes(userRole) ? 'ExamManagement' : 'MyExams') })
+                            props.navigation.navigate('MainStack', { screen: 'MyExams' })
+                        }
+                        color="#0d9488"
+                    />
+                )}
+
+                {['admin', 'teacher'].includes(userRole) && (
+                    <DrawerItem
+                        icon={faFileSignature}
+                        label="Exams"
+                        description="Schedule & Staff"
+                        theme={theme}
+                        active={activeMainStackRouteName === 'ExamManagement'}
+                        onPress={() =>
+                            props.navigation.navigate('MainStack', { screen: 'ExamManagement' })
                         }
                         color="#0d9488"
                     />

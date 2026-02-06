@@ -46,7 +46,8 @@ import {
   faExclamationCircle,
   faMapMarkerAlt,
   faChair,
-  faTimes
+  faTimes,
+  faIdCard
 } from '@fortawesome/free-solid-svg-icons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -419,7 +420,31 @@ const ClassCard = React.memo(({ classInfo, theme, onPress }) => {
   );
 });
 
-const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTab = 'performance' }) => {
+const CandidateInfoCard = React.memo(({ profile, examCount, theme }) => (
+  <View style={[styles.candidateInfoCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+    <View style={styles.candidateInfoLeft}>
+      <View style={[styles.candidateAvatarBox, { borderColor: theme.colors.cardBorder }]}>
+        <Image 
+          source={profile?.avatar_url ? { uri: profile.avatar_url } : defaultUserImage} 
+          style={styles.candidateAvatar} 
+        />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.candidateName, { color: theme.colors.text }]} numberOfLines={1}>{profile?.full_name}</Text>
+        <View style={styles.candidateDataRow}>
+          <Text style={[styles.candidateLabel, { color: theme.colors.placeholder }]}>NO: <Text style={{ color: theme.colors.primary, fontWeight: '900' }}>{profile?.number || 'N/A'}</Text></Text>
+          <Text style={[styles.candidateLabel, { color: theme.colors.placeholder, marginLeft: 12 }]}>GRADE: <Text style={{ color: theme.colors.text, fontWeight: '900' }}>{profile?.grade || 'N/A'}</Text></Text>
+        </View>
+      </View>
+    </View>
+    <View style={[styles.examCountBadge, { backgroundColor: theme.colors.primary + '15' }]}>
+      <Text style={[styles.examCountLabel, { color: theme.colors.primary }]}>EXAMS</Text>
+      <Text style={[styles.examCountValue, { color: theme.colors.primary }]}>{examCount}</Text>
+    </View>
+  </View>
+));
+
+const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTab = 'performance', onTabChange }) => {
   const navigation = useNavigation();
   const [classes, setClasses] = useState([]);
   const [exams, setExams] = useState([]);
@@ -431,6 +456,11 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
 
   useEffect(() => {
     const fetchClassData = async () => {
@@ -517,13 +547,13 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
       {/* Tab Switcher */}
       <View style={[styles.tabContainer, { borderBottomColor: theme.colors.cardBorder }]}>
         <TouchableOpacity
-          onPress={() => setActiveTab('performance')}
+          onPress={() => handleTabChange('performance')}
           style={[styles.tabBtn, activeTab === 'performance' && { borderBottomColor: theme.colors.primary }]}
         >
           <Text style={[styles.tabText, { color: activeTab === 'performance' ? theme.colors.primary : theme.colors.placeholder }]}>PERFORMANCE</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => setActiveTab('exams')}
+          onPress={() => handleTabChange('exams')}
           style={[styles.tabBtn, activeTab === 'exams' && { borderBottomColor: theme.colors.primary }]}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -589,6 +619,7 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
         )
       ) : (
         <View style={styles.examContainer}>
+          <CandidateInfoCard profile={student} examCount={exams.length} theme={theme} />
           {exams.length === 0 ? (
             <View style={[styles.emptyState, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, borderStyle: 'dashed' }]}>
               <FontAwesomeIcon icon={faCalendarAlt} size={48} color={theme.colors.placeholder} style={{ opacity: 0.3 }} />
@@ -719,6 +750,7 @@ const MyChildrenScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const [children, setChildren] = useState([]);
   const [selectedChildId, setSelectedChildId] = useState(route.params?.studentId || null);
+  const [activeTab, setActiveTab] = useState(route.params?.activeTab || 'performance');
   const [parents, setParents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -973,7 +1005,16 @@ const MyChildrenScreen = ({ navigation, route }) => {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.heroName}>{selectedChild.full_name || 'Unknown Student'}</Text>
                     <Text style={styles.heroEmail}>{selectedChild.email || 'No email provided'}</Text>
-                    <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>Student</Text></View>
+                    <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                      <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>Student</Text></View>
+                      <TouchableOpacity 
+                        onPress={() => setActiveTab('exams')}
+                        style={styles.hallTicketBtn}
+                      >
+                        <FontAwesomeIcon icon={faIdCard} size={10} color="#4F46E5" />
+                        <Text style={styles.hallTicketBtnText}>View Hall Ticket</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </LinearGradient>
 
@@ -981,7 +1022,8 @@ const MyChildrenScreen = ({ navigation, route }) => {
                   student={selectedChild}
                   theme={theme}
                   refreshTrigger={refreshTrigger}
-                  initialTab={route.params?.activeTab || 'performance'}
+                  initialTab={activeTab}
+                  onTabChange={setActiveTab}
                 />
               </View>
             )}
@@ -1332,6 +1374,77 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     textTransform: 'uppercase',
+  },
+  hallTicketBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    gap: 6,
+  },
+  hallTicketBtnText: {
+    color: '#4F46E5',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  candidateInfoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 24,
+    marginBottom: 20,
+    justifyContent: 'space-between',
+  },
+  candidateInfoLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  candidateAvatarBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    marginRight: 12,
+    overflow: 'hidden',
+  },
+  candidateAvatar: {
+    width: '100%',
+    height: '100%',
+  },
+  candidateName: {
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    marginBottom: 2,
+  },
+  candidateDataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  candidateLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  examCountBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    minWidth: 70,
+  },
+  examCountLabel: {
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  examCountValue: {
+    fontSize: 18,
+    fontWeight: '900',
   }
 });
 

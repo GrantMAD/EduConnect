@@ -254,7 +254,15 @@ const ManageUsersInClassScreen = ({ navigation }) => {
 
     const newAttendance = { ...attendance, [selectedScheduleDate]: status };
     try {
-      await updateAttendance(memberId, newAttendance);
+      await updateAttendance({
+        memberId,
+        studentId: student.id,
+        classId: classId,
+        date: selectedScheduleDate,
+        status: status === true ? 'present' : (status === false ? 'absent' : 'unmarked'),
+        attendance: newAttendance,
+        userId: user.id
+      });
 
       if (status === false) {
         try {
@@ -490,7 +498,15 @@ const ManageUsersInClassScreen = ({ navigation }) => {
       setClassMembers(updates);
 
       const promises = updates.map(member =>
-        updateAttendance(member.id, member.attendance)
+        updateAttendance({
+          memberId: member.id,
+          studentId: member.users.id,
+          classId: classId,
+          date: selectedScheduleDate,
+          status: 'present',
+          attendance: member.attendance,
+          userId: user.id
+        })
       );
 
       await Promise.all(promises);
