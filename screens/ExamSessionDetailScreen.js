@@ -6,10 +6,11 @@ import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 import { fetchExamPapers, deleteExamPaper, autoAllocateSession, fetchExamVenues, notifySessionStudents, clearSessionAllocations, fetchExamSession } from '../services/examService';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTrash, faArrowLeft, faFileAlt, faClock, faCalendarAlt, faChair, faBullhorn, faPlus, faCheckCircle, faList, faRedo, faBan, faUserShield } from '@fortawesome/free-solid-svg-icons';
+import { faTrash, faArrowLeft, faFileAlt, faClock, faCalendarAlt, faChair, faBullhorn, faPlus, faCheckCircle, faList, faRedo, faBan, faUserShield, faStar } from '@fortawesome/free-solid-svg-icons';
 import Button from '../components/Button';
 import LinearGradient from 'react-native-linear-gradient';
 import ExamSessionDetailScreenSkeleton from '../components/skeletons/ExamSessionDetailScreenSkeleton';
+import EnterExamResultsModal from '../components/EnterExamResultsModal';
 
 export default function ExamSessionDetailScreen({ route, navigation }) {
     const { sessionId, sessionName } = route.params;
@@ -23,6 +24,10 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
     const [loading, setLoading] = useState(true);
     const [allocating, setAllocating] = useState(false);
     const [notifying, setNotifying] = useState(false);
+
+    // Results Modal State
+    const [showResultsModal, setShowResultsModal] = useState(false);
+    const [selectedResultPaper, setSelectedResultPaper] = useState(null);
 
     // Allocate Modal State
     const [showAllocateModal, setShowAllocateModal] = useState(false);
@@ -209,13 +214,26 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
                     </View>
                 </View>
 
-                <TouchableOpacity
-                    onPress={() => handleDeletePaper(item.id)}
-                    style={styles.deleteGhost}
-                    hitSlop={10}
-                >
-                    <FontAwesomeIcon icon={faTrash} size={12} color="#ef4444" />
-                </TouchableOpacity>
+                <View style={styles.actionButtons}>
+                    <TouchableOpacity
+                        onPress={() => {
+                            setSelectedResultPaper(item);
+                            setShowResultsModal(true);
+                        }}
+                        style={styles.actionGhost}
+                        hitSlop={10}
+                    >
+                        <FontAwesomeIcon icon={faStar} size={14} color="#10b981" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        onPress={() => handleDeletePaper(item.id)}
+                        style={styles.deleteGhost}
+                        hitSlop={10}
+                    >
+                        <FontAwesomeIcon icon={faTrash} size={12} color="#ef4444" />
+                    </TouchableOpacity>
+                </View>
             </TouchableOpacity>
         </View>
     );
@@ -308,6 +326,15 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
                     }
                 />
             )}
+
+            <EnterExamResultsModal
+                visible={showResultsModal}
+                onClose={() => {
+                    setShowResultsModal(false);
+                    setSelectedResultPaper(null);
+                }}
+                paper={selectedResultPaper}
+            />
 
             {/* Allocation Modal */}
             <Modal visible={showAllocateModal} animationType="fade" transparent>
@@ -492,9 +519,20 @@ const styles = StyleSheet.create({
     dotSeparator: {
         fontSize: 10,
     },
-    deleteGhost: {
-        padding: 6,
+    actionButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    actionGhost: {
+        padding: 8,
+        backgroundColor: 'rgba(16, 185, 129, 0.08)',
+        borderRadius: 10,
         marginLeft: 8,
+    },
+    deleteGhost: {
+        padding: 8,
+        marginLeft: 4,
     },
     glowWrapper: {
         marginHorizontal: 16,

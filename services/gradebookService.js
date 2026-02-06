@@ -55,6 +55,16 @@ export const fetchGradebookData = async (classId) => {
     return data || [];
 };
 
+export const saveStudentMarks = async (marksData) => {
+    const { data, error } = await supabase
+        .from('student_marks')
+        .upsert(marksData)
+        .select();
+
+    if (error) throw error;
+    return data;
+};
+
 export const calculateWeightedGrade = (studentMarks, categories) => {
     if (!categories || categories.length === 0) return null;
 

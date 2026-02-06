@@ -5,7 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import CalendarScreenSkeleton, { SkeletonPiece } from '../components/skeletons/CalendarScreenSkeleton';
-import { faTimes, faCalendarAlt, faClock, faChevronDown, faChevronUp, faBook, faHandshake, faChevronRight, faChevronLeft, faFootballBall } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faCalendarAlt, faClock, faChevronDown, faChevronUp, faBook, faHandshake, faChevronRight, faChevronLeft, faFootballBall, faFileAlt, faEdit, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
 import StandardBottomModal from '../components/StandardBottomModal';
@@ -14,14 +14,45 @@ import LinearGradient from 'react-native-linear-gradient';
 // Import services
 import { getCurrentUser } from '../services/authService';
 import { getUserProfile } from '../services/userService';
-import { fetchClassIds, fetchClassSchedules } from '../services/classService';
-import { fetchPTMBookings } from '../services/ptmService';
+import { fetchCalendarEvents } from '../services/calendarService';
 
 const EventCard = React.memo(({ item, theme, onPress }) => {
     const isMeeting = item.eventType === 'meeting';
+    const isHomework = item.eventType === 'homework';
+    const isAssignment = item.eventType === 'assignment';
+    const isExam = item.eventType === 'exam';
     const isClub = item.class?.subject === 'Extracurricular';
+    
     const start = new Date(item.start_time);
-    const eventColor = isMeeting ? theme.colors.warning : isClub ? '#AF52DE' : theme.colors.primary;
+    
+    const getEventColor = () => {
+        if (isMeeting) return theme.colors.warning;
+        if (isHomework) return '#6366f1'; // Indigo
+        if (isAssignment) return '#3b82f6'; // Blue
+        if (isExam) return '#f43f5e'; // Rose
+        if (isClub) return '#AF52DE';
+        return theme.colors.primary;
+    };
+
+    const eventColor = getEventColor();
+
+    const getIcon = () => {
+        if (isMeeting) return faHandshake;
+        if (isHomework) return faEdit;
+        if (isAssignment) return faFileAlt;
+        if (isExam) return faGraduationCap;
+        if (isClub) return faFootballBall;
+        return faBook;
+    };
+
+    const getBadgeText = () => {
+        if (isMeeting) return 'PTM';
+        if (isHomework) return 'Homework';
+        if (isAssignment) return 'Assignment';
+        if (isExam) return 'Exam';
+        if (isClub) return 'Club';
+        return 'Class';
+    };
 
     return (
       <TouchableOpacity
@@ -29,7 +60,7 @@ const EventCard = React.memo(({ item, theme, onPress }) => {
         style={[
           styles.eventCard,
           { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder },
-          (isMeeting || isClub) && { borderLeftColor: eventColor, borderLeftWidth: 4 }
+          (isMeeting || isClub || isHomework || isAssignment || isExam) && { borderLeftColor: eventColor, borderLeftWidth: 4 }
         ]}
       >
         <View style={styles.eventCardLeft}>
@@ -43,24 +74,24 @@ const EventCard = React.memo(({ item, theme, onPress }) => {
         <View style={styles.eventCardContent}>
           <View style={styles.eventHeaderRow}>
             <Text style={[styles.eventTitle, { color: theme.colors.text }]} numberOfLines={1}>
-              {isMeeting ? item.title : (item.class?.name || item.title || 'Untitled Class')}
+              {item.title || 'Untitled'}
             </Text>
             <View style={[styles.eventBadge, { backgroundColor: eventColor + '20' }]}>
               <Text style={[styles.eventBadgeText, { color: eventColor }]}>
-                {isMeeting ? 'PTM' : isClub ? 'Club' : 'Class'}
+                {getBadgeText()}
               </Text>
             </View>
           </View>
 
           <View style={styles.eventDetailsRow}>
             <FontAwesomeIcon
-              icon={isMeeting ? faHandshake : isClub ? faFootballBall : faBook}
+              icon={getIcon()}
               size={12}
               color={theme.colors.placeholder}
               style={{ marginRight: 6 }}
             />
             <Text style={[styles.eventDescription, { color: theme.colors.placeholder }]} numberOfLines={1}>
-              {item.description || item.class_info || 'No details provided'}
+              {item.description || 'No details provided'}
             </Text>
           </View>
         </View>
@@ -94,33 +125,7 @@ const CalendarScreen = ({ navigation, route }) => {
       const userData = await getUserProfile(user.id);
       if (!userData) return;
 
-      const userRole = userData.role;
-      const userSchoolId = userData.school_id;
-      
-      const classIds = await fetchClassIds(user.id, userRole, userSchoolId);
-
-      const allEvents = [];
-
-      if (classIds.length > 0) {
-        const classSchedules = await fetchClassSchedules(classIds);
-        allEvents.push(...classSchedules.map(s => ({ ...s, eventType: 'class' })));
-      }
-
-      const isParent = userRole === 'parent';
-      const ptmData = await fetchPTMBookings(user.id, userRole);
-
-      if (ptmData) {
-        allEvents.push(...ptmData.map(b => ({
-          id: b.id,
-          start_time: b.slot.start_time,
-          end_time: b.slot.end_time,
-          title: `PTM: ${isParent ? b.slot.teacher.full_name : b.parent.full_name}`,
-          description: `Meeting regarding ${b.student.full_name}`,
-          eventType: 'meeting',
-          originalData: b,
-          class_id: b.slot.id
-        })));
-      }
+      const allEvents = await fetchCalendarEvents(user, userData);
 
       const classColorMap = {};
       const uniqueIds = [...new Set(allEvents.map(e => e.class_id || e.id))];
@@ -132,7 +137,14 @@ const CalendarScreen = ({ navigation, route }) => {
       allEvents.forEach(event => {
         const date = event.start_time.split('T')[0];
         const isClub = event.class?.subject === 'Extracurricular';
-        const color = event.eventType === 'meeting' ? theme.colors.warning : isClub ? '#AF52DE' : classColorMap[event.class_id || event.id];
+        
+        let color = classColorMap[event.class_id || event.id];
+        if (event.eventType === 'meeting') color = theme.colors.warning;
+        else if (isClub) color = '#AF52DE';
+        else if (event.eventType === 'homework') color = '#6366f1';
+        else if (event.eventType === 'assignment') color = '#3b82f6';
+        else if (event.eventType === 'exam') color = '#f43f5e';
+
         if (!formattedMarkedDates[date]) formattedMarkedDates[date] = { periods: [] };
 
         const existingPeriod = formattedMarkedDates[date].periods.find(p => p.color === color);
@@ -147,13 +159,17 @@ const CalendarScreen = ({ navigation, route }) => {
 
       const coloredSchedules = allEvents.map(e => {
         const isClub = e.class?.subject === 'Extracurricular';
-        const color = e.eventType === 'meeting' ? theme.colors.warning : isClub ? '#AF52DE' : (classColorMap[e.class_id || e.id] || theme.colors.primary);
+        let color = classColorMap[e.class_id || e.id] || theme.colors.primary;
+        if (e.eventType === 'meeting') color = theme.colors.warning;
+        else if (isClub) color = '#AF52DE';
+        else if (e.eventType === 'homework') color = '#6366f1';
+        else if (e.eventType === 'assignment') color = '#3b82f6';
+        else if (e.eventType === 'exam') color = '#f43f5e';
+
         return {
           ...e,
           color: color,
           badgeColor: color,
-          description: e.description || '',
-          class_info: e.class_info || '',
         };
       });
 
@@ -190,19 +206,24 @@ const CalendarScreen = ({ navigation, route }) => {
     fetchSchedules(true);
   }, [fetchSchedules]);
 
-  const upcomingClasses = useMemo(() => schedules.filter(s => s.eventType === 'class' && new Date(s.start_time) >= new Date()), [schedules]);
-  const pastEvents = useMemo(() => schedules.filter(s => new Date(s.start_time) < new Date()), [schedules]);
-  const upcomingMeetings = useMemo(() => schedules.filter(s => s.eventType === 'meeting' && new Date(s.start_time) >= new Date()), [schedules]);
+  const sortedEvents = useMemo(() => {
+    return [...schedules].sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+  }, [schedules]);
 
-  const toggleDropdown = useCallback((title) => {
-    setDropdowns(prev => ({ ...prev, [title]: !prev[title] }));
-  }, []);
+  const upcomingEvents = useMemo(() => sortedEvents.filter(s => new Date(s.start_time) >= new Date().setHours(0,0,0,0)), [sortedEvents]);
+  const pastEvents = useMemo(() => sortedEvents.filter(s => new Date(s.start_time) < new Date().setHours(0,0,0,0)), [sortedEvents]);
 
   const openScheduleModal = useCallback((schedule) => {
     if (schedule.eventType === 'meeting') {
       navigation.navigate('Meetings');
     } else if (schedule.class?.subject === 'Extracurricular') {
       navigation.navigate('ClubDetail', { clubId: schedule.class_id });
+    } else if (schedule.eventType === 'homework') {
+      navigation.navigate('Homework', { initialHomeworkId: schedule.id });
+    } else if (schedule.eventType === 'assignment') {
+      navigation.navigate('Assignments', { initialAssignmentId: schedule.id });
+    } else if (schedule.eventType === 'exam') {
+      navigation.navigate('MyExams');
     } else {
       setSelectedSchedule(schedule);
       setModalVisible(true);
@@ -221,6 +242,15 @@ const CalendarScreen = ({ navigation, route }) => {
     return <EventCard key={item.id} item={item} theme={theme} onPress={openScheduleModal} />;
   }, [theme, openScheduleModal]);
 
+  const getModalIcon = (eventType, subject) => {
+      if (eventType === 'meeting') return faHandshake;
+      if (subject === 'Extracurricular') return faFootballBall;
+      if (eventType === 'homework') return faEdit;
+      if (eventType === 'assignment') return faFileAlt;
+      if (eventType === 'exam') return faGraduationCap;
+      return faBook;
+  };
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -237,9 +267,9 @@ const CalendarScreen = ({ navigation, route }) => {
         style={styles.heroContainer}
       >
         <View style={styles.heroContent}>
-            <Text style={styles.heroTitle}>Class Calendar</Text>
+            <Text style={styles.heroTitle}>Academic Calendar</Text>
             <Text style={styles.heroDescription}>
-                Stay updated with your daily schedule and upcoming school activities.
+                Unified view of classes, exams, homework, and meetings.
             </Text>
         </View>
       </LinearGradient>
@@ -316,40 +346,28 @@ const CalendarScreen = ({ navigation, route }) => {
             />
           </View>
 
-          {upcomingMeetings.length > 0 && (
-            <View style={styles.section}>
-              <View style={styles.headerRow}>
-                <Text style={[styles.listHeader, { color: theme.colors.text, marginBottom: 0 }]}>Meetings</Text>
-                <View style={[styles.countBadge, { backgroundColor: theme.colors.warning + '15' }]}>
-                  <Text style={[styles.countText, { color: theme.colors.warning }]}>{upcomingMeetings.length} PENDING</Text>
-                </View>
-              </View>
-              {upcomingMeetings.slice(0, 5).map(renderEventCard)}
-            </View>
-          )}
-
           <View style={styles.section}>
             <View style={styles.headerRow}>
-              <Text style={[styles.listHeader, { color: theme.colors.text, marginBottom: 0 }]}>Schedule</Text>
-              {upcomingClasses.length > 0 && (
+              <Text style={[styles.listHeader, { color: theme.colors.text, marginBottom: 0 }]}>Upcoming Events</Text>
+              {upcomingEvents.length > 0 && (
                 <View style={[styles.countBadge, { backgroundColor: theme.colors.primary + '15' }]}>
-                  <Text style={[styles.countText, { color: theme.colors.primary }]}>{upcomingClasses.length} TOTAL</Text>
+                  <Text style={[styles.countText, { color: theme.colors.primary }]}>{upcomingEvents.length} TOTAL</Text>
                 </View>
               )}
             </View>
-            {upcomingClasses.length === 0 ? (
+            {upcomingEvents.length === 0 ? (
               <View style={[styles.emptyState, { backgroundColor: theme.colors.cardBackground }]}>
                 <FontAwesomeIcon icon={faCalendarAlt} size={32} color={theme.colors.cardBorder} />
-                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No classes scheduled for the coming days.</Text>
+                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No activities scheduled for the coming days.</Text>
               </View>
-            ) : upcomingClasses.slice(0, 5).map(renderEventCard)}
+            ) : upcomingEvents.slice(0, 10).map(renderEventCard)}
           </View>
 
           <View style={styles.section}>
             <Text style={[styles.listHeader, { color: theme.colors.text }]}>Past Events</Text>
             {pastEvents.length === 0 ? (
               <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No past events yet.</Text>
-            ) : pastEvents.slice(0, 5).map(renderEventCard)}
+            ) : pastEvents.reverse().slice(0, 5).map(renderEventCard)}
           </View>
         </View>
       )}
@@ -358,8 +376,8 @@ const CalendarScreen = ({ navigation, route }) => {
       <StandardBottomModal
         visible={isModalVisible}
         onClose={() => setModalVisible(false)}
-        title={selectedSchedule?.title || 'Class Details'}
-        icon={faBook}
+        title={selectedSchedule?.title || 'Event Details'}
+        icon={selectedSchedule ? getModalIcon(selectedSchedule.eventType, selectedSchedule.class?.subject) : faBook}
         hideHeader={true}
       >
         {selectedSchedule && (
@@ -368,18 +386,18 @@ const CalendarScreen = ({ navigation, route }) => {
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
               <View style={[styles.modalIconBox, { backgroundColor: selectedSchedule.color + '20' }]}>
                 <FontAwesomeIcon
-                  icon={selectedSchedule.eventType === 'meeting' ? faHandshake : selectedSchedule.class?.subject === 'Extracurricular' ? faFootballBall : faBook}
+                  icon={getModalIcon(selectedSchedule.eventType, selectedSchedule.class?.subject)}
                   size={24}
                   color={selectedSchedule.color}
                 />
               </View>
               <View style={{ flex: 1, marginLeft: 16 }}>
                 <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
-                  {selectedSchedule.class?.name || selectedSchedule.title || 'Untitled Event'}
+                  {selectedSchedule.title || 'Untitled Event'}
                 </Text>
                 <View style={[styles.modalBadge, { backgroundColor: selectedSchedule.color + '20', alignSelf: 'flex-start', marginTop: 6 }]}>
                   <Text style={[styles.modalBadgeText, { color: selectedSchedule.color }]}>
-                    {selectedSchedule.eventType === 'meeting' ? 'Meeting' : selectedSchedule.class?.subject === 'Extracurricular' ? 'Club' : 'Class'}
+                    {selectedSchedule.eventType}
                   </Text>
                 </View>
               </View>
@@ -410,7 +428,7 @@ const CalendarScreen = ({ navigation, route }) => {
             <View style={[styles.descriptionBox, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
               <Text style={[styles.boxLabel, { color: theme.colors.placeholder }]}>TOPIC / DESCRIPTION</Text>
               <Text style={[styles.boxText, { color: theme.colors.text }]}>
-                {selectedSchedule.description || selectedSchedule.class_info || 'No detailed description provided for this session.'}
+                {selectedSchedule.description || 'No detailed description provided for this event.'}
               </Text>
             </View>
           </View>
