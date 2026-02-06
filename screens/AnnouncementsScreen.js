@@ -42,76 +42,76 @@ const timeSince = (date) => {
 };
 
 const AnnouncementItem = React.memo(({ item, theme, onPress, isNew }) => (
-    <TouchableOpacity 
-        onPress={() => onPress(item)} 
-        style={[styles.cardContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
-        activeOpacity={0.9}
-      >
-        <LinearGradient
-          colors={['#4f46e5', '#7c3aed']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.leftAccent}
-        />
-        
-        <View style={styles.cardContent}>
-          <View style={styles.cardHeader}>
-            <View style={[styles.datePill, { backgroundColor: theme.colors.background }]}>
-              <FontAwesomeIcon icon={faCalendarAlt} size={10} color={theme.colors.primary} style={{ marginRight: 6 }} />
-              <Text style={[styles.datePillText, { color: theme.colors.text }]}>
-                {new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-              </Text>
-            </View>
-            {isNew && (
-              <LinearGradient
-                colors={['#ef4444', '#f97316']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.newBadge}
-              >
-                <Text style={styles.newBadgeText}>NEW</Text>
-              </LinearGradient>
-            )}
-          </View>
+  <TouchableOpacity
+    onPress={() => onPress(item)}
+    style={[styles.cardContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
+    activeOpacity={0.9}
+  >
+    <LinearGradient
+      colors={['#4f46e5', '#7c3aed']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={styles.leftAccent}
+    />
 
-          <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={2}>{item.title}</Text>
-          
-          <View style={styles.cardBottomRow}>
-            {item.class?.name ? (
-              <View style={[styles.classBadgeNew, { backgroundColor: theme.colors.primary + '10' }]}>
-                <Text style={[styles.classBadgeTextNew, { color: theme.colors.primary }]}>
-                  {item.class.name}
-                </Text>
-              </View>
-            ) : (
-              <View style={[styles.classBadgeNew, { backgroundColor: '#64748b10' }]}>
-                <Text style={[styles.classBadgeTextNew, { color: '#64748b' }]}>General</Text>
-              </View>
-            )}
-            
-            <View style={styles.authorBadge}>
-              <View style={[styles.authorAvatarSmall, { backgroundColor: theme.colors.primary }]}>
-                <Text style={styles.authorInitial}>{item.author?.full_name?.charAt(0) || 'A'}</Text>
-              </View>
-              <Text style={[styles.authorNameSmall, { color: theme.colors.placeholder }]} numberOfLines={1}>
-                {item.author?.full_name || 'Admin'}
-              </Text>
-            </View>
-          </View>
+    <View style={styles.cardContent}>
+      <View style={styles.cardHeader}>
+        <View style={[styles.datePill, { backgroundColor: theme.colors.background }]}>
+          <FontAwesomeIcon icon={faCalendarAlt} size={10} color={theme.colors.primary} style={{ marginRight: 6 }} />
+          <Text style={[styles.datePillText, { color: theme.colors.text }]}>
+            {new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+          </Text>
         </View>
-      </TouchableOpacity>
+        {isNew && (
+          <LinearGradient
+            colors={['#ef4444', '#f97316']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.newBadge}
+          >
+            <Text style={styles.newBadgeText}>NEW</Text>
+          </LinearGradient>
+        )}
+      </View>
+
+      <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={2}>{item.title}</Text>
+
+      <View style={styles.cardBottomRow}>
+        {item.class?.name ? (
+          <View style={[styles.classBadgeNew, { backgroundColor: theme.colors.primary + '10' }]}>
+            <Text style={[styles.classBadgeTextNew, { color: theme.colors.primary }]}>
+              {item.class.name}
+            </Text>
+          </View>
+        ) : (
+          <View style={[styles.classBadgeNew, { backgroundColor: '#64748b10' }]}>
+            <Text style={[styles.classBadgeTextNew, { color: '#64748b' }]}>General</Text>
+          </View>
+        )}
+
+        <View style={styles.authorBadge}>
+          <View style={[styles.authorAvatarSmall, { backgroundColor: theme.colors.primary }]}>
+            <Text style={styles.authorInitial}>{item.author?.full_name?.charAt(0) || 'A'}</Text>
+          </View>
+          <Text style={[styles.authorNameSmall, { color: theme.colors.placeholder }]} numberOfLines={1}>
+            {item.author?.full_name || 'Admin'}
+          </Text>
+        </View>
+      </View>
+    </View>
+  </TouchableOpacity>
 ));
 
-const AnnouncementsScreen = ({ navigation }) => {
+const AnnouncementsScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
-  const [userClasses, setUserClasses] = useState([]); 
+  const [userClasses, setUserClasses] = useState([]);
   const [allClasses, setAllClasses] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
 
   const { schoolId, loadingSchool, schoolData } = useSchool();
-  const { theme } = useTheme(); 
+  const { theme } = useTheme();
 
   const fetchAnnouncementsQuery = useCallback(({ from, to }) => {
     if (!schoolId) return Promise.resolve({ data: [], error: null });
@@ -125,17 +125,17 @@ const AnnouncementsScreen = ({ navigation }) => {
     });
   }, [schoolId, userRole, userClasses]);
 
-  const { 
-    data: announcementsData, 
-    loading: announcementsLoading, 
+  const {
+    data: announcementsData,
+    loading: announcementsLoading,
     loadingMore,
-    refreshing: announcementsRefreshing, 
-    isOffline, 
+    refreshing: announcementsRefreshing,
+    isOffline,
     hasMore,
     refetch,
     loadMore
   } = useSupabaseInfiniteQuery(
-    `announcements_${schoolId}_${userRole}`, 
+    `announcements_${schoolId}_${userRole}`,
     fetchAnnouncementsQuery,
     {
       pageSize: 15,
@@ -145,6 +145,23 @@ const AnnouncementsScreen = ({ navigation }) => {
 
   const announcements = announcementsData || [];
   const isLoading = loading || loadingSchool || announcementsLoading;
+
+  // Handle auto-opening an announcement from params
+  useEffect(() => {
+    if (route.params?.openAnnouncementId && announcements.length > 0) {
+      const target = announcements.find(a => a.id === route.params.openAnnouncementId);
+      if (target) {
+        setSelectedAnnouncement(target);
+        setShowModal(true);
+        // Clear param to prevent re-opening
+        navigation.setParams({ openAnnouncementId: null });
+      } else if (!hasMore) {
+        // ID not found and no more to load
+        console.log("Announcement ID not found in current list");
+        navigation.setParams({ openAnnouncementId: null });
+      }
+    }
+  }, [route.params?.openAnnouncementId, announcements, hasMore, navigation]);
 
   const fetchUserClassesData = useCallback(async () => {
     try {
@@ -175,7 +192,7 @@ const AnnouncementsScreen = ({ navigation }) => {
 
   useEffect(() => {
     const initializeUserAndClasses = async () => {
-      if (loadingSchool) return; 
+      if (loadingSchool) return;
 
       setLoading(true);
       try {
@@ -227,11 +244,11 @@ const AnnouncementsScreen = ({ navigation }) => {
     const isNew = (new Date() - new Date(item.created_at)) / (1000 * 60 * 60 * 24) < 3;
 
     return (
-      <AnnouncementItem 
-        item={item} 
-        theme={theme} 
-        onPress={handleCardPress} 
-        isNew={isNew} 
+      <AnnouncementItem
+        item={item}
+        theme={theme}
+        onPress={handleCardPress}
+        isNew={isNew}
       />
     );
   }, [isLoading, theme, handleCardPress]);
@@ -272,47 +289,47 @@ const AnnouncementsScreen = ({ navigation }) => {
         contentContainerStyle={{ paddingBottom: 20 }}
         ListHeaderComponent={() => (
           <View style={styles.headerContainer}>
-             <LinearGradient
-                colors={['#4f46e5', '#1d4ed8']} // Indigo-600 to Blue-700
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.heroContainer}
-              >
-                <View style={styles.heroContent}>
-                  <View style={styles.heroTextContainer}>
-                    <Text style={styles.heroTitle}>School Announcements</Text>
-                    <Text style={styles.heroDescription}>
-                      Stay informed about the latest news and updates.
-                    </Text>
-                  </View>
-                  {(userRole === 'admin' || userRole === 'teacher') && (
-                    <TouchableOpacity
-                      style={styles.createButton}
-                      onPress={() => navigation.navigate('CreateAnnouncement')}
-                    >
-                      <FontAwesomeIcon icon={faPlus} size={14} color="#4f46e5" />
-                      <Text style={styles.createButtonText}>New</Text>
-                    </TouchableOpacity>
-                  )}
+            <LinearGradient
+              colors={['#4f46e5', '#1d4ed8']} // Indigo-600 to Blue-700
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.heroContainer}
+            >
+              <View style={styles.heroContent}>
+                <View style={styles.heroTextContainer}>
+                  <Text style={styles.heroTitle}>School Announcements</Text>
+                  <Text style={styles.heroDescription}>
+                    Stay informed about the latest news and updates.
+                  </Text>
                 </View>
-              </LinearGradient>
-              
+                {(userRole === 'admin' || userRole === 'teacher') && (
+                  <TouchableOpacity
+                    style={styles.createButton}
+                    onPress={() => navigation.navigate('CreateAnnouncement')}
+                  >
+                    <FontAwesomeIcon icon={faPlus} size={14} color="#4f46e5" />
+                    <Text style={styles.createButtonText}>New</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </LinearGradient>
+
             <View style={styles.statsRow}>
-               <Text style={[styles.statsText, { color: theme.colors.placeholder }]}>
-                 {isLoading ? '--' : announcements.length} Published
-               </Text>
+              <Text style={[styles.statsText, { color: theme.colors.placeholder }]}>
+                {isLoading ? '--' : announcements.length} Published
+              </Text>
             </View>
           </View>
         )}
         renderItem={renderAnnouncementItem}
         ListEmptyComponent={!isLoading && (
-            <View style={styles.emptyContainer}>
-                <View style={[styles.emptyIconContainer, { backgroundColor: theme.colors.cardBackground }]}>
-                    <FontAwesomeIcon icon={faBullhorn} size={30} color={theme.colors.placeholder} />
-                </View>
-                <Text style={[styles.emptyText, { color: theme.colors.text }]}>No announcements found</Text>
-                <Text style={[styles.emptySubtext, { color: theme.colors.placeholder }]}>Check back later for updates.</Text>
+          <View style={styles.emptyContainer}>
+            <View style={[styles.emptyIconContainer, { backgroundColor: theme.colors.cardBackground }]}>
+              <FontAwesomeIcon icon={faBullhorn} size={30} color={theme.colors.placeholder} />
             </View>
+            <Text style={[styles.emptyText, { color: theme.colors.text }]}>No announcements found</Text>
+            <Text style={[styles.emptySubtext, { color: theme.colors.placeholder }]}>Check back later for updates.</Text>
+          </View>
         )}
       />
 
@@ -498,24 +515,24 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   emptyContainer: {
-      alignItems: 'center',
-      padding: 40,
+    alignItems: 'center',
+    padding: 40,
   },
   emptyIconContainer: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 16,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
   emptyText: {
-      fontSize: 16,
-      fontWeight: '600',
-      marginBottom: 4,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   emptySubtext: {
-      fontSize: 14,
+    fontSize: 14,
   }
 });
 

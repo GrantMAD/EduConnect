@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch, ActivityIndicator, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faBullhorn, faArrowLeft, faPaperPlane, faUsers, faChevronLeft } from '@fortawesome/free-solid-svg-icons';
+import { faBullhorn, faArrowLeft, faPaperPlane, faUsers, faChevronLeft, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
 import { useSchool } from '../context/SchoolContext';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
@@ -29,6 +29,8 @@ import { sendBatchNotifications } from '../services/notificationService';
 
 const { width } = Dimensions.get('window');
 
+import DateTimePicker from '@react-native-community/datetimepicker';
+
 const CreateAnnouncementScreen = ({ route }) => {
   const { fromDashboard, classId: initialClassId } = route.params || {};
   const [title, setTitle] = useState('');
@@ -42,6 +44,15 @@ const CreateAnnouncementScreen = ({ route }) => {
     student: true,
     parent: true,
   });
+
+  // Calendar Integration State
+  const [addToCalendar, setAddToCalendar] = useState(false);
+  const [eventDate, setEventDate] = useState(new Date());
+  const [eventStartTime, setEventStartTime] = useState(new Date());
+  const [eventEndTime, setEventEndTime] = useState(new Date(new Date().getTime() + 60 * 60 * 1000));
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
   const navigation = useNavigation();
   const { schoolId } = useSchool();
@@ -83,14 +94,23 @@ const CreateAnnouncementScreen = ({ route }) => {
 
       const announcementType = isClassSpecific ? 'class' : 'general';
 
-      const newAnnouncement = await createAnnouncementService({
+      const announcementPayload = {
         school_id: schoolId,
         title,
         message,
         type: announcementType,
         class_id: isClassSpecific ? selectedClass : null,
         posted_by: user.id,
-      });
+      };
+
+      if (addToCalendar) {
+        announcementPayload.add_to_calendar = true;
+        announcementPayload.event_date = eventDate.toISOString().split('T')[0];
+        announcementPayload.event_start_time = eventStartTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        announcementPayload.event_end_time = eventEndTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      const newAnnouncement = await createAnnouncementService(announcementPayload);
 
       if (!isClassSpecific) {
         const users = await fetchUsersBySchoolWithPreferences(schoolId);
@@ -165,7 +185,7 @@ const CreateAnnouncementScreen = ({ route }) => {
     } finally {
       setLoading(false);
     }
-  }, [title, message, isClassSpecific, selectedClass, schoolId, targetRoles, showToast, navigation]);
+  }, [title, message, isClassSpecific, selectedClass, schoolId, targetRoles, showToast, navigation, addToCalendar, eventDate, eventStartTime, eventEndTime]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -219,15 +239,15 @@ const CreateAnnouncementScreen = ({ route }) => {
               <Text style={styles.inputLabel}>MESSAGE CONTENT</Text>
               <Text style={styles.charCount}>{message.length}/1000</Text>
             </View>
-            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, minHeight: 150, paddingHorizontal: 0, paddingTop: 0 }]}>
+            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, height: 'auto', minHeight: 150, paddingHorizontal: 0, paddingVertical: 0 }]}>
               <TextInput
-                style={[styles.input, { color: theme.colors.text, minHeight: 130, width: '100%', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, includeFontPadding: false }]}
+                style={[styles.input, { color: theme.colors.text, minHeight: 130, width: '100%', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, textAlignVertical: 'top' }]}
                 placeholder="Write your announcement message here..."
                 placeholderTextColor={theme.colors.placeholder}
                 value={message}
                 onChangeText={setMessage}
                 multiline
-                textAlignVertical="top"
+                numberOfLines={6}
                 autoCorrect={false}
                 underlineColorAndroid="transparent"
                 blurOnSubmit={false}
@@ -296,6 +316,99 @@ const CreateAnnouncementScreen = ({ route }) => {
                   </TouchableOpacity>
                 ))}
               </View>
+            </View>
+          )}
+        </View>
+
+        {/* Calendar Integration Section */}
+        <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 20 }]}>
+          <Text style={styles.cardSectionLabel}>CALENDAR INTEGRATION</Text>
+
+          <View style={styles.switchRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={[styles.smallIconBox, { backgroundColor: '#f0fdf4' }]}>
+                <FontAwesomeIcon icon={faCalendarAlt} size={14} color="#10b981" />
+              </View>
+              <Text style={[styles.switchLabel, { color: theme.colors.text }]}>Add to Calendar</Text>
+            </View>
+            <Switch
+              value={addToCalendar}
+              onValueChange={setAddToCalendar}
+              trackColor={{ false: "#e2e8f0", true: theme.colors.primary }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          {addToCalendar && (
+            <View style={{ marginTop: 20 }}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>EVENT DATE</Text>
+                <TouchableOpacity
+                  onPress={() => setShowDatePicker(true)}
+                  style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 8 }]}
+                >
+                  <Text style={{ color: theme.colors.text, fontWeight: '600' }}>
+                    {eventDate.toLocaleDateString()}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 15 }}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={styles.inputLabel}>START TIME</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowStartTimePicker(true)}
+                    style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 8 }]}
+                  >
+                    <Text style={{ color: theme.colors.text, fontWeight: '600' }}>
+                      {eventStartTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={styles.inputLabel}>END TIME</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowEndTimePicker(true)}
+                    style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, marginTop: 8 }]}
+                  >
+                    <Text style={{ color: theme.colors.text, fontWeight: '600' }}>
+                      {eventEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {showDatePicker && (
+                <DateTimePicker
+                  value={eventDate}
+                  mode="date"
+                  onChange={(e, date) => {
+                    setShowDatePicker(false);
+                    if (date) setEventDate(date);
+                  }}
+                />
+              )}
+              {showStartTimePicker && (
+                <DateTimePicker
+                  value={eventStartTime}
+                  mode="time"
+                  onChange={(e, date) => {
+                    setShowStartTimePicker(false);
+                    if (date) setEventStartTime(date);
+                  }}
+                />
+              )}
+              {showEndTimePicker && (
+                <DateTimePicker
+                  value={eventEndTime}
+                  mode="time"
+                  onChange={(e, date) => {
+                    setShowEndTimePicker(false);
+                    if (date) setEventEndTime(date);
+                  }}
+                />
+              )}
             </View>
           )}
         </View>
@@ -405,7 +518,7 @@ const styles = StyleSheet.create({
   inputWrapper: {
     borderRadius: 16,
     paddingHorizontal: 16,
-    height: 56,
+    minHeight: 56,
     justifyContent: 'center',
   },
   input: {

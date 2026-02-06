@@ -57,8 +57,8 @@ export const fetchCalendarEvents = async (user, profile) => {
             .in('class_id', classIds);
 
         if (!classError && classSchedules) {
-            allEvents.push(...classSchedules.map(s => ({ 
-                ...s, 
+            allEvents.push(...classSchedules.map(s => ({
+                ...s,
                 eventType: 'class',
                 title: s.class?.name || 'Class',
                 description: s.description || s.class_info
@@ -139,14 +139,14 @@ export const fetchCalendarEvents = async (user, profile) => {
     } else if (profile?.role === 'teacher') {
         const [invigilatingRes, teachingRes] = await Promise.all([
             supabase.from('exam_invigilators').select('paper:exam_papers(*)').eq('teacher_id', user.id),
-            classIds.length > 0 
+            classIds.length > 0
                 ? supabase.from('exam_papers').select('*').in('class_id', classIds)
                 : Promise.resolve({ data: [] })
         ]);
-        
+
         const invigilatingPapers = invigilatingRes.data?.map(d => d.paper).filter(Boolean) || [];
         const teachingPapers = teachingRes.data || [];
-        
+
         const paperMap = new Map();
         invigilatingPapers.forEach(p => paperMap.set(p.id, p))
         teachingPapers.forEach(p => paperMap.set(p.id, p))
@@ -191,6 +191,28 @@ export const fetchCalendarEvents = async (user, profile) => {
                 originalData: p
             };
         }));
+    }
+
+    // 5. Fetch Generic Events
+    const { data: genericEvents, error: eventsError } = await supabase
+        .from('events')
+        .select(`
+            *,
+            class:classes(id, name, subject)
+        `)
+        .eq('school_id', profile.school_id);
+
+    if (!eventsError && genericEvents) {
+        allEvents.push(...genericEvents.map(e => ({
+            ...e,
+            start_time: `${e.date}T${e.start_time}`,
+            end_time: `${e.date}T${e.end_time}`,
+            eventType: 'event',
+            title: e.title,
+            description: e.description,
+            announcement_id: e.announcement_id,
+            originalData: e
+        })));
     }
 
     return allEvents;

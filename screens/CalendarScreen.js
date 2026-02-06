@@ -17,88 +17,88 @@ import { getUserProfile } from '../services/userService';
 import { fetchCalendarEvents } from '../services/calendarService';
 
 const EventCard = React.memo(({ item, theme, onPress }) => {
-    const isMeeting = item.eventType === 'meeting';
-    const isHomework = item.eventType === 'homework';
-    const isAssignment = item.eventType === 'assignment';
-    const isExam = item.eventType === 'exam';
-    const isClub = item.class?.subject === 'Extracurricular';
-    
-    const start = new Date(item.start_time);
-    
-    const getEventColor = () => {
-        if (isMeeting) return theme.colors.warning;
-        if (isHomework) return '#6366f1'; // Indigo
-        if (isAssignment) return '#3b82f6'; // Blue
-        if (isExam) return '#f43f5e'; // Rose
-        if (isClub) return '#AF52DE';
-        return theme.colors.primary;
-    };
+  const isMeeting = item.eventType === 'meeting';
+  const isHomework = item.eventType === 'homework';
+  const isAssignment = item.eventType === 'assignment';
+  const isExam = item.eventType === 'exam';
+  const isClub = item.class?.subject === 'Extracurricular';
 
-    const eventColor = getEventColor();
+  const start = new Date(item.start_time);
 
-    const getIcon = () => {
-        if (isMeeting) return faHandshake;
-        if (isHomework) return faEdit;
-        if (isAssignment) return faFileAlt;
-        if (isExam) return faGraduationCap;
-        if (isClub) return faFootballBall;
-        return faBook;
-    };
+  const getEventColor = () => {
+    if (isMeeting) return theme.colors.warning;
+    if (isHomework) return '#6366f1'; // Indigo
+    if (isAssignment) return '#3b82f6'; // Blue
+    if (isExam) return '#f43f5e'; // Rose
+    if (isClub) return '#AF52DE';
+    return theme.colors.primary;
+  };
 
-    const getBadgeText = () => {
-        if (isMeeting) return 'PTM';
-        if (isHomework) return 'Homework';
-        if (isAssignment) return 'Assignment';
-        if (isExam) return 'Exam';
-        if (isClub) return 'Club';
-        return 'Class';
-    };
+  const eventColor = getEventColor();
 
-    return (
-      <TouchableOpacity
-        onPress={() => onPress(item)}
-        style={[
-          styles.eventCard,
-          { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder },
-          (isMeeting || isClub || isHomework || isAssignment || isExam) && { borderLeftColor: eventColor, borderLeftWidth: 4 }
-        ]}
-      >
-        <View style={styles.eventCardLeft}>
-          <View style={[styles.timeBox, { backgroundColor: eventColor + '15' }]}>
-            <Text style={[styles.timeText, { color: eventColor }]}>
-              {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+  const getIcon = () => {
+    if (isMeeting) return faHandshake;
+    if (isHomework) return faEdit;
+    if (isAssignment) return faFileAlt;
+    if (isExam) return faGraduationCap;
+    if (isClub) return faFootballBall;
+    return faBook;
+  };
+
+  const getBadgeText = () => {
+    if (isMeeting) return 'PTM';
+    if (isHomework) return 'Homework';
+    if (isAssignment) return 'Assignment';
+    if (isExam) return 'Exam';
+    if (isClub) return 'Club';
+    return 'Class';
+  };
+
+  return (
+    <TouchableOpacity
+      onPress={() => onPress(item)}
+      style={[
+        styles.eventCard,
+        { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder },
+        (isMeeting || isClub || isHomework || isAssignment || isExam) && { borderLeftColor: eventColor, borderLeftWidth: 4 }
+      ]}
+    >
+      <View style={styles.eventCardLeft}>
+        <View style={[styles.timeBox, { backgroundColor: eventColor + '15' }]}>
+          <Text style={[styles.timeText, { color: eventColor }]}>
+            {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.eventCardContent}>
+        <View style={styles.eventHeaderRow}>
+          <Text style={[styles.eventTitle, { color: theme.colors.text }]} numberOfLines={1}>
+            {item.title || 'Untitled'}
+          </Text>
+          <View style={[styles.eventBadge, { backgroundColor: eventColor + '20' }]}>
+            <Text style={[styles.eventBadgeText, { color: eventColor }]}>
+              {getBadgeText()}
             </Text>
           </View>
         </View>
 
-        <View style={styles.eventCardContent}>
-          <View style={styles.eventHeaderRow}>
-            <Text style={[styles.eventTitle, { color: theme.colors.text }]} numberOfLines={1}>
-              {item.title || 'Untitled'}
-            </Text>
-            <View style={[styles.eventBadge, { backgroundColor: eventColor + '20' }]}>
-              <Text style={[styles.eventBadgeText, { color: eventColor }]}>
-                {getBadgeText()}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.eventDetailsRow}>
-            <FontAwesomeIcon
-              icon={getIcon()}
-              size={12}
-              color={theme.colors.placeholder}
-              style={{ marginRight: 6 }}
-            />
-            <Text style={[styles.eventDescription, { color: theme.colors.placeholder }]} numberOfLines={1}>
-              {item.description || 'No details provided'}
-            </Text>
-          </View>
+        <View style={styles.eventDetailsRow}>
+          <FontAwesomeIcon
+            icon={getIcon()}
+            size={12}
+            color={theme.colors.placeholder}
+            style={{ marginRight: 6 }}
+          />
+          <Text style={[styles.eventDescription, { color: theme.colors.placeholder }]} numberOfLines={1}>
+            {item.description || 'No details provided'}
+          </Text>
         </View>
+      </View>
 
-        <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.cardBorder} />
-      </TouchableOpacity>
-    );
+      <FontAwesomeIcon icon={faChevronRight} size={14} color={theme.colors.cardBorder} />
+    </TouchableOpacity>
+  );
 });
 
 const CalendarScreen = ({ navigation, route }) => {
@@ -137,7 +137,7 @@ const CalendarScreen = ({ navigation, route }) => {
       allEvents.forEach(event => {
         const date = event.start_time.split('T')[0];
         const isClub = event.class?.subject === 'Extracurricular';
-        
+
         let color = classColorMap[event.class_id || event.id];
         if (event.eventType === 'meeting') color = theme.colors.warning;
         else if (isClub) color = '#AF52DE';
@@ -210,8 +210,8 @@ const CalendarScreen = ({ navigation, route }) => {
     return [...schedules].sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
   }, [schedules]);
 
-  const upcomingEvents = useMemo(() => sortedEvents.filter(s => new Date(s.start_time) >= new Date().setHours(0,0,0,0)), [sortedEvents]);
-  const pastEvents = useMemo(() => sortedEvents.filter(s => new Date(s.start_time) < new Date().setHours(0,0,0,0)), [sortedEvents]);
+  const upcomingEvents = useMemo(() => sortedEvents.filter(s => new Date(s.start_time) >= new Date().setHours(0, 0, 0, 0)), [sortedEvents]);
+  const pastEvents = useMemo(() => sortedEvents.filter(s => new Date(s.start_time) < new Date().setHours(0, 0, 0, 0)), [sortedEvents]);
 
   const openScheduleModal = useCallback((schedule) => {
     if (schedule.eventType === 'meeting') {
@@ -224,6 +224,8 @@ const CalendarScreen = ({ navigation, route }) => {
       navigation.navigate('Assignments', { initialAssignmentId: schedule.id });
     } else if (schedule.eventType === 'exam') {
       navigation.navigate('MyExams');
+    } else if (schedule.eventType === 'event' && schedule.announcement_id) {
+      navigation.navigate('Announcements', { openAnnouncementId: schedule.announcement_id });
     } else {
       setSelectedSchedule(schedule);
       setModalVisible(true);
@@ -243,12 +245,12 @@ const CalendarScreen = ({ navigation, route }) => {
   }, [theme, openScheduleModal]);
 
   const getModalIcon = (eventType, subject) => {
-      if (eventType === 'meeting') return faHandshake;
-      if (subject === 'Extracurricular') return faFootballBall;
-      if (eventType === 'homework') return faEdit;
-      if (eventType === 'assignment') return faFileAlt;
-      if (eventType === 'exam') return faGraduationCap;
-      return faBook;
+    if (eventType === 'meeting') return faHandshake;
+    if (subject === 'Extracurricular') return faFootballBall;
+    if (eventType === 'homework') return faEdit;
+    if (eventType === 'assignment') return faFileAlt;
+    if (eventType === 'exam') return faGraduationCap;
+    return faBook;
   };
 
   return (
@@ -261,16 +263,16 @@ const CalendarScreen = ({ navigation, route }) => {
       }
     >
       <LinearGradient
-        colors={['#4f46e5', '#4338ca']} 
+        colors={['#4f46e5', '#4338ca']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.heroContainer}
       >
         <View style={styles.heroContent}>
-            <Text style={styles.heroTitle}>Academic Calendar</Text>
-            <Text style={styles.heroDescription}>
-                Unified view of classes, exams, homework, and meetings.
-            </Text>
+          <Text style={styles.heroTitle}>Academic Calendar</Text>
+          <Text style={styles.heroDescription}>
+            Unified view of classes, exams, homework, and meetings.
+          </Text>
         </View>
       </LinearGradient>
 
@@ -290,10 +292,10 @@ const CalendarScreen = ({ navigation, route }) => {
               hideExtraDays={true}
               renderArrow={(direction) => (
                 <View style={[styles.arrowBox, { backgroundColor: theme.colors.primary + '10' }]}>
-                  <FontAwesomeIcon 
-                    icon={direction === 'left' ? faChevronLeft : faChevronRight} 
-                    size={14} 
-                    color={theme.colors.primary} 
+                  <FontAwesomeIcon
+                    icon={direction === 'left' ? faChevronLeft : faChevronRight}
+                    size={14}
+                    color={theme.colors.primary}
                   />
                 </View>
               )}
@@ -456,7 +458,7 @@ export default React.memo(CalendarScreen);
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { padding: 0, paddingBottom: 40 }, // padding 0 for hero to touch edges
-  
+
   heroContainer: {
     padding: 24,
     paddingTop: 40,
@@ -466,20 +468,20 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 32,
   },
   heroContent: {
-      marginBottom: 0,
+    marginBottom: 0,
   },
   heroTitle: {
-      color: '#fff',
-      fontSize: 28,
-      fontWeight: '900',
-      marginBottom: 8,
-      letterSpacing: -1,
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '900',
+    marginBottom: 8,
+    letterSpacing: -1,
   },
   heroDescription: {
-      color: '#e0e7ff',
-      fontSize: 14,
-      fontWeight: '500',
-      lineHeight: 20,
+    color: '#e0e7ff',
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
   },
   calendarCard: {
     borderRadius: 32,
@@ -497,9 +499,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  section: { 
+  section: {
     marginTop: 24,
-    paddingHorizontal: 0, 
+    paddingHorizontal: 0,
   },
   headerRow: {
     flexDirection: 'row',
@@ -508,9 +510,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingHorizontal: 4,
   },
-  listHeader: { 
-    fontSize: 10, 
-    fontWeight: '900', 
+  listHeader: {
+    fontSize: 10,
+    fontWeight: '900',
     letterSpacing: 1.5,
     textTransform: 'uppercase',
     color: '#94a3b8',
@@ -533,10 +535,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.02)',
   },
-  emptyText: { 
-    textAlign: 'center', 
-    marginTop: 12, 
-    fontSize: 13, 
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 12,
+    fontSize: 13,
     fontWeight: '600',
     lineHeight: 20,
   },
