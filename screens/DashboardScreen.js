@@ -15,11 +15,11 @@ import GamificationHub from '../components/dashboard/GamificationHub';
 import RecommendedResources from '../components/dashboard/RecommendedResources';
 import { useTheme } from '../context/ThemeContext';
 import { useSchool } from '../context/SchoolContext';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useGamification } from '../context/GamificationContext';
 import UserListModal from '../components/UserListModal';
 import FamilyLinksModal from '../components/FamilyLinksModal';
-import DashboardSkeleton, { StatCardSkeleton, SkeletonPiece } from '../components/skeletons/DashboardScreenSkeleton';
 import ChildProgressSnapshot from '../components/ChildProgressSnapshot';
 import LinearGradient from 'react-native-linear-gradient';
 import WelcomeModal from '../components/WelcomeModal';
@@ -32,21 +32,24 @@ import { fetchAssignments as fetchAssignmentsService } from '../services/assignm
 import { fetchTodaySchedules, fetchClassIds } from '../services/classService';
 import { fetchTodayPTMBookings } from '../services/ptmService';
 import { fetchUpcomingLessons } from '../services/lessonService';
-import { getDashboardStats, dailyCheckIn, fetchParentChildLinkCount, fetchClubsCount, fetchTotalClassesCount } from '../services/dashboardService';
+import { getDashboardStats, dailyCheckIn, fetchParentChildLinkCount, fetchClubsCount, fetchTotalClassesCount, fetchMissingAttendance } from '../services/dashboardService';
 import { markWelcomeModalAsSeen } from '../services/userService';
+import MissingAttendanceAlerts from '../components/dashboard/MissingAttendanceAlerts';
+import DashboardSkeleton, { StatCardSkeleton, SkeletonPiece, MissingAttendanceSkeleton } from '../components/skeletons/DashboardScreenSkeleton';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 const DashboardScreen = ({ navigation }) => {
     const { theme, isDarkTheme } = useTheme();
     const { schoolId, schoolData } = useSchool();
+    const { user, profile } = useAuth(); // Get profile from context
     const { showToast } = useToast();
     const { awardXP } = useGamification();
 
     const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
-    const [userRole, setUserRole] = useState('');
-    const [userProfile, setUserProfile] = useState(null);
+    const [userRole, setUserRole] = useState(profile?.role || ''); // Initialize with context role
+    const [userProfile, setUserProfile] = useState(profile || null); // Initialize with context profile
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [upcomingTasks, setUpcomingTasks] = useState([]);
@@ -64,6 +67,8 @@ const DashboardScreen = ({ navigation }) => {
         clubCount: 0,
         parentChildLinkCount: 0
     });
+
+    const [missingAttendance, setMissingAttendance] = useState([]);
 
     // Modal state for user lists
     const [showUserModal, setShowUserModal] = useState(false);
@@ -184,7 +189,18 @@ const DashboardScreen = ({ navigation }) => {
             await Promise.all([
                 fetchUpcomingTasks(user.id, profile?.role),
                 fetchTodaySessions(user.id, profile?.role),
-                fetchDashboardLessons(user.id, profile?.role)
+                fetchDashboardLessons(user.id, profile?.role),
+                // Fetch missing attendance for teachers/admins
+                (async () => {
+                    if (['teacher', 'admin'].includes(profile?.role?.toLowerCase())) {
+                        const alerts = await fetchMissingAttendance({
+                            userId: user.id,
+                            role: profile.role,
+                            schoolId
+                        });
+                        setMissingAttendance(alerts);
+                    }
+                })()
             ]);
 
         } catch (error) {
@@ -336,6 +352,20 @@ const DashboardScreen = ({ navigation }) => {
                     </View>
                 </View>
 
+                {/* Missing Attendance Alerts */}
+                {['teacher', 'admin'].includes(userRole || profile?.role) && (
+                    loading ? (
+                        <MissingAttendanceSkeleton />
+                    ) : (
+                        missingAttendance.length > 0 && (
+                            <MissingAttendanceAlerts
+                                alerts={missingAttendance}
+                                navigation={navigation}
+                            />
+                        )
+                    )
+                )}
+
                 {/* Gamification Hub */}
                 <GamificationHub id="dashboard-gamification" />
 
@@ -381,6 +411,7 @@ const DashboardScreen = ({ navigation }) => {
                     todaySessions={todaySessions}
                     navigation={navigation}
                 />
+
 
                 {/* Admin/Teacher Stats */}
                 {/* Admin/Teacher Stats */}

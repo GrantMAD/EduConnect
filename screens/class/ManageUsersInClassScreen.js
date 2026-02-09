@@ -85,7 +85,7 @@ const getDateString = (date) => {
 
 const ManageUsersInClassScreen = ({ navigation }) => {
   const route = useRoute();
-  const { classId, className } = route.params;
+  const { classId, className, selectedDate } = route.params;
 
   const { schoolId } = useSchool();
   const { showToast } = useToast();
@@ -102,7 +102,7 @@ const ManageUsersInClassScreen = ({ navigation }) => {
   const [fetchingStudents, setFetchingStudents] = useState(false);
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedScheduleDate, setSelectedScheduleDate] = useState(null);
+  const [selectedScheduleDate, setSelectedScheduleDate] = useState(selectedDate ? getDateString(selectedDate) : null);
   const [isMarksModalVisible, setMarksModalVisible] = useState(false);
   const [expandedStudents, setExpandedStudents] = useState({});
   const [studentMarks, setStudentMarks] = useState({});

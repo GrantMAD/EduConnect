@@ -36,7 +36,34 @@ export const ActionButtonSkeleton = React.memo(() => {
     );
 });
 
-const DashboardScreenSkeleton = React.memo(() => {
+export const MissingAttendanceSkeleton = React.memo(() => {
+    const { theme } = useTheme();
+    return (
+        <View style={{ marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <SkeletonBase style={{ width: 8, height: 8, borderRadius: 4, marginRight: 8 }} />
+                <SkeletonBase style={{ width: 140, height: 18, borderRadius: 4 }} />
+            </View>
+            <View
+                style={[
+                    styles.itemPlaceholder,
+                    { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }
+                ]}
+            >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <SkeletonBase style={{ width: 36, height: 36, borderRadius: 12, marginRight: 12 }} />
+                    <View>
+                        <SkeletonBase style={{ width: 100, height: 14, borderRadius: 4, marginBottom: 6 }} />
+                        <SkeletonBase style={{ width: 140, height: 10, borderRadius: 4 }} />
+                    </View>
+                </View>
+                <SkeletonBase style={{ width: 50, height: 24, borderRadius: 12 }} />
+            </View>
+        </View>
+    );
+});
+
+const DashboardScreenSkeleton = React.memo(({ showActionRequired = false }) => {
     const { theme } = useTheme();
 
     return (
@@ -51,6 +78,9 @@ const DashboardScreenSkeleton = React.memo(() => {
 
             {/* School Image */}
             <SkeletonBase style={styles.schoolImagePlaceholder} />
+
+            {/* Action Required Skeleton (Optional/Configurable) */}
+            {showActionRequired && <MissingAttendanceSkeleton />}
 
             {/* Gamification Hub */}
             <View style={[styles.gamificationCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
