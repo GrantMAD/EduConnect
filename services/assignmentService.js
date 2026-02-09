@@ -4,7 +4,7 @@ export const fetchAssignments = async ({ userId, userRole, schoolId, childIds = 
     try {
         let selectStr = '*, assigned_by_user:users!assigned_by(full_name, email)';
         if (userRole === 'student' || userRole === 'parent') {
-            selectStr += ', student_completions(id, student_id)';
+            selectStr += ', student_completions(id, student_id, score, total_possible)';
         }
 
         let query = supabase.from('assignments').select(selectStr);
@@ -46,7 +46,7 @@ export const fetchAssignments = async ({ userId, userRole, schoolId, childIds = 
 export const fetchAssignmentsByClass = async (classId) => {
     const { data, error } = await supabase
         .from('assignments')
-        .select('*, assigned_by_user:users!assigned_by(full_name, email)')
+        .select('*, assigned_by_user:users!assigned_by(full_name, email), student_completions(id, student_id, score, total_possible)')
         .eq('class_id', classId)
         .order('due_date', { ascending: false });
 

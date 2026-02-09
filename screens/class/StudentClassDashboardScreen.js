@@ -22,9 +22,16 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { fetchClassInfo, fetchClassMembers, fetchClassSchedules, fetchAttendanceHistory } from '../../services/classService';
 import { fetchStudentMarks, fetchParentChildren, fetchClassMembersIds } from '../../services/userService';
+import { fetchAnnouncements } from '../../services/announcementService';
+import { fetchHomework } from '../../services/homeworkService';
+import { fetchAssignmentsByClass } from '../../services/assignmentService';
 
-// Placeholder services - ensure these exist or mock them
-// import { fetchAnnouncements, fetchHomework, fetchAssignments } from '../../services/classService'; // You might need to add these
+// Import components
+import HomeworkCard from '../../components/HomeworkCard';
+import AssignmentCard from '../../components/AssignmentCard';
+import AnnouncementCard from '../../components/AnnouncementCard';
+import ManageCompletionsModal from '../../components/ManageCompletionsModal';
+import AnnouncementDetailModal from '../../components/AnnouncementDetailModal';
 
 const { width } = Dimensions.get('window');
 
@@ -45,6 +52,12 @@ const StudentClassDashboardScreen = () => {
     const [assignments, setAssignments] = useState([]); // Placeholder
     const [marks, setMarks] = useState([]);
     const [attendance, setAttendance] = useState([]);
+
+    // Modal state
+    const [selectedItem, setSelectedItem] = useState(null);
+    const [isAnnouncementModalVisible, setIsAnnouncementModalVisible] = useState(false);
+    const [isManageModalVisible, setIsManageModalVisible] = useState(false);
+    const [manageType, setManageType] = useState('homework');
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -69,21 +82,24 @@ const StudentClassDashboardScreen = () => {
                 console.log(`Loading dashboard as ${profile?.role} ${user.id}`);
             }
 
-            const [info, scheds, myMarks, myAttendance] = await Promise.all([
+            const [info, scheds, myMarks, myAttendance, classAnnouncements, classHomework, classAssignments] = await Promise.all([
                 fetchClassInfo(classId),
                 fetchClassSchedules([classId]),
                 fetchStudentMarks(targetStudentId, [classId]),
-                fetchAttendanceHistory(targetStudentId, classId)
+                fetchAttendanceHistory(targetStudentId, classId),
+                fetchAnnouncements(classId),
+                fetchHomework(profile?.school_id, targetStudentId, profile?.role, { class_id: classId }),
+                fetchAssignmentsByClass(classId)
             ]);
 
-            console.log(`Fetched ${myMarks?.length || 0} marks and ${myAttendance?.length || 0} attendance records for student ${targetStudentId}`);
+            console.log(`Fetched ${myMarks?.length || 0} marks, ${classAnnouncements?.length || 0} news, ${classHomework?.length || 0} hw, and ${classAssignments?.length || 0} asgns`);
             setClassData(info);
             setSchedules(scheds || []);
             setMarks(myMarks || []);
             setAttendance(myAttendance || []);
-
-            // TODO: Fetch real announcements/homework/assignments once services exist
-            // For now we will just show empty states or mocks if needed
+            setAnnouncements(classAnnouncements || []);
+            setHomework(classHomework || []);
+            setAssignments(classAssignments || []);
         } catch (e) {
             console.error(e);
         } finally {
@@ -186,7 +202,16 @@ const StudentClassDashboardScreen = () => {
                                 <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No announcements posted yet.</Text>
                             </View>
                         ) : (
-                            <Text>List of announcements</Text>
+                            announcements.map((ann, index) => (
+                                <AnnouncementCard
+                                    key={ann.id}
+                                    announcement={ann}
+                                    onPress={() => {
+                                        setSelectedItem(ann);
+                                        setIsAnnouncementModalVisible(true);
+                                    }}
+                                />
+                            ))
                         )}
                     </View>
                 );
@@ -199,7 +224,19 @@ const StudentClassDashboardScreen = () => {
                                 <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No homework assigned.</Text>
                             </View>
                         ) : (
-                            <Text>List of homework</Text>
+                            homework.map((hw, index) => (
+                                <HomeworkCard
+                                    key={hw.id}
+                                    homework={hw}
+                                    userId={user.id}
+                                    onPress={() => { }} // Could link to a detail view if needed
+                                    onTrackPress={() => {
+                                        setSelectedItem(hw);
+                                        setManageType('homework');
+                                        setIsManageModalVisible(true);
+                                    }}
+                                />
+                            ))
                         )}
                     </View>
                 );
@@ -212,7 +249,19 @@ const StudentClassDashboardScreen = () => {
                                 <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No assignments pending.</Text>
                             </View>
                         ) : (
-                            <Text>List of assignments</Text>
+                            assignments.map((asgn, index) => (
+                                <AssignmentCard
+                                    key={asgn.id}
+                                    assignment={asgn}
+                                    userId={user.id}
+                                    onPress={() => { }} // Could link to a detail view if needed
+                                    onTrackPress={() => {
+                                        setSelectedItem(asgn);
+                                        setManageType('assignment');
+                                        setIsManageModalVisible(true);
+                                    }}
+                                />
+                            ))
                         )}
                     </View>
                 );
@@ -245,8 +294,8 @@ const StudentClassDashboardScreen = () => {
                     </View>
                 );
             case 'attendance':
-                const attendanceRate = attendance.length > 0 
-                    ? Math.round((attendance.filter(a => a.status === 'present').length / attendance.length) * 100) 
+                const attendanceRate = attendance.length > 0
+                    ? Math.round((attendance.filter(a => a.status === 'present').length / attendance.length) * 100)
                     : 0;
                 return (
                     <View style={styles.contentContainer}>
@@ -265,10 +314,10 @@ const StudentClassDashboardScreen = () => {
                             attendance.map((record, index) => (
                                 <View key={index} style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                                     <View style={[styles.iconBox, { backgroundColor: record.status === 'present' ? '#ecfdf5' : '#fff1f2' }]}>
-                                        <FontAwesomeIcon 
-                                            icon={record.status === 'present' ? faCheckCircle : faTimesCircle} 
-                                            size={16} 
-                                            color={record.status === 'present' ? '#10b981' : '#e11d48'} 
+                                        <FontAwesomeIcon
+                                            icon={record.status === 'present' ? faCheckCircle : faTimesCircle}
+                                            size={16}
+                                            color={record.status === 'present' ? '#10b981' : '#e11d48'}
                                         />
                                     </View>
                                     <View style={{ flex: 1 }}>
@@ -285,6 +334,23 @@ const StudentClassDashboardScreen = () => {
                     </View>
                 );
             case 'grades':
+                const examMarks = marks.filter(m => !m.is_completion_mark);
+                const courseworkMarks = marks.filter(m => m.is_completion_mark);
+
+                const renderMarkCard = (mark, index) => (
+                    <View key={index} style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>{mark.assessment_name}</Text>
+                            <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]}>{new Date(mark.created_at || mark.assessment_date).toLocaleDateString()}</Text>
+                        </View>
+                        <View style={[styles.gradeBadge, { backgroundColor: theme.colors.primary + '15' }]}>
+                            <Text style={[styles.gradeText, { color: theme.colors.primary }]}>
+                                {mark.score !== undefined && mark.total_possible !== undefined ? `${((mark.score / mark.total_possible) * 100).toFixed(1)}%` : mark.mark}
+                            </Text>
+                        </View>
+                    </View>
+                );
+
                 return (
                     <View style={styles.contentContainer}>
                         {marks.length === 0 ? (
@@ -293,17 +359,21 @@ const StudentClassDashboardScreen = () => {
                                 <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No marks recorded.</Text>
                             </View>
                         ) : (
-                            marks.map((mark, index) => (
-                                <View key={index} style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={[styles.cardTitle, { color: theme.colors.text }]}>{mark.assessment_name}</Text>
-                                        <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]}>{new Date(mark.created_at).toLocaleDateString()}</Text>
-                                    </View>
-                                    <View style={[styles.gradeBadge, { backgroundColor: theme.colors.primary + '15' }]}>
-                                        <Text style={[styles.gradeText, { color: theme.colors.primary }]}>{mark.mark}</Text>
-                                    </View>
-                                </View>
-                            ))
+                            <>
+                                {examMarks.length > 0 && (
+                                    <>
+                                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>EXAMS & TESTS</Text>
+                                        {examMarks.map((mark, index) => renderMarkCard(mark, `exam-${index}`))}
+                                    </>
+                                )}
+
+                                {courseworkMarks.length > 0 && (
+                                    <>
+                                        <Text style={[styles.sectionTitle, { color: theme.colors.text, marginTop: examMarks.length > 0 ? 24 : 0 }]}>COURSEWORK (HW & ASGN)</Text>
+                                        {courseworkMarks.map((mark, index) => renderMarkCard(mark, `cw-${index}`))}
+                                    </>
+                                )}
+                            </>
                         )}
                     </View>
                 );
@@ -321,6 +391,19 @@ const StudentClassDashboardScreen = () => {
             >
                 {renderContent()}
             </ScrollView>
+
+            <AnnouncementDetailModal
+                visible={isAnnouncementModalVisible}
+                onClose={() => setIsAnnouncementModalVisible(false)}
+                announcement={selectedItem}
+            />
+
+            <ManageCompletionsModal
+                visible={isManageModalVisible}
+                onClose={() => setIsManageModalVisible(false)}
+                item={selectedItem}
+                type={manageType}
+            />
         </View>
     );
 };
@@ -493,6 +576,13 @@ const styles = StyleSheet.create({
     rateValue: {
         fontSize: 32,
         fontWeight: '900',
+    },
+    sectionTitle: {
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 1,
+        marginBottom: 16,
+        opacity: 0.8,
     },
 });
 

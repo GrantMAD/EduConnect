@@ -41,6 +41,7 @@ import {
   uploadAssignmentFile,
   getAssignmentFileUrl
 } from '../services/assignmentService';
+import { fetchGradingCategories } from '../services/gradebookService';
 import { sendBatchNotifications } from '../services/notificationService';
 
 const { width } = Dimensions.get('window');
@@ -80,24 +81,48 @@ const ClassSelection = React.memo(({
   classes,
   selectedClass,
   setSelectedClass,
+  gradingCategories,
+  selectedCategory,
+  setSelectedCategory,
   theme
 }) => (
-  <View style={styles.inputGroup}>
-    <Text style={styles.inputLabel}>SELECT CLASS</Text>
-    <View style={[styles.pickerWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-      <Picker
-        selectedValue={selectedClass}
-        onValueChange={(itemValue) => setSelectedClass(itemValue)}
-        style={{ color: theme.colors.text }}
-        dropdownIconColor={theme.colors.placeholder}
-      >
-        <Picker.Item label="Choose a class..." value={null} />
-        {classes.map((c) => (
-          <Picker.Item key={c.id} label={c.name} value={c.id} />
-        ))}
-      </Picker>
+  <>
+    <View style={styles.inputGroup}>
+      <Text style={styles.inputLabel}>SELECT CLASS</Text>
+      <View style={[styles.pickerWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+        <Picker
+          selectedValue={selectedClass}
+          onValueChange={(itemValue) => setSelectedClass(itemValue)}
+          style={{ color: theme.colors.text }}
+          dropdownIconColor={theme.colors.placeholder}
+        >
+          <Picker.Item label="Choose a class..." value={null} />
+          {classes.map((c) => (
+            <Picker.Item key={c.id} label={c.name} value={c.id} />
+          ))}
+        </Picker>
+      </View>
     </View>
-  </View>
+
+    {selectedClass && gradingCategories.length > 0 && (
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>GRADING CATEGORY (OPTIONAL)</Text>
+        <View style={[styles.pickerWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+          <Picker
+            selectedValue={selectedCategory}
+            onValueChange={(itemValue) => setSelectedCategory(itemValue)}
+            style={{ color: theme.colors.text }}
+            dropdownIconColor={theme.colors.placeholder}
+          >
+            <Picker.Item label="-- None (Ungraded) --" value={null} />
+            {gradingCategories.map((cat) => (
+              <Picker.Item key={cat.id} label={`${cat.name} (${cat.weight}%)`} value={cat.id} />
+            ))}
+          </Picker>
+        </View>
+      </View>
+    )}
+  </>
 ));
 
 const CalendarSection = React.memo(({
@@ -166,6 +191,8 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
   const [templates, setTemplates] = useState([]);
   const [isTemplatesModalVisible, setIsTemplatesModalVisible] = useState(false);
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [gradingCategories, setGradingCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   const fetchTemplates = useCallback(async () => {
     try {
@@ -238,6 +265,24 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
     showToast('Template applied!', 'success');
   }, [showToast]);
 
+  useEffect(() => {
+    if (selectedClass) {
+      const fetchCategories = async () => {
+        try {
+          const data = await fetchGradingCategories(selectedClass);
+          setGradingCategories(data || []);
+        } catch (error) {
+          showToast('Could not fetch grading categories.', 'error');
+          console.error(error);
+        }
+      };
+      fetchCategories();
+    } else {
+      setGradingCategories([]);
+      setSelectedCategory(null);
+    }
+  }, [selectedClass, showToast]);
+
   const deleteTemplate = useCallback(async (templateId) => {
     try {
       await deleteTemplateService(templateId);
@@ -279,6 +324,7 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
         class_id: selectedClass,
         assigned_by: authUser.id,
         file_url,
+        grading_category_id: selectedCategory || null,
       });
 
       try {
@@ -369,6 +415,9 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
             classes={classes}
             selectedClass={selectedClass}
             setSelectedClass={setSelectedClass}
+            gradingCategories={gradingCategories}
+            selectedCategory={selectedCategory}
+            setSelectedCategory={setSelectedCategory}
             theme={theme}
           />
 

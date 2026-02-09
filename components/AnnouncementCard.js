@@ -1,14 +1,18 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faBullhorn } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
-const AnnouncementCard = React.memo(({ announcement }) => {
+const AnnouncementCard = React.memo(({ announcement, onPress }) => {
   const { theme } = useTheme();
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.7}
+      style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+    >
       <View style={styles.header}>
         <View style={[styles.iconBox, { backgroundColor: '#4f46e5' + '15' }]}>
           <FontAwesomeIcon icon={faBullhorn} size={14} color="#4f46e5" />
@@ -23,7 +27,7 @@ const AnnouncementCard = React.memo(({ announcement }) => {
           {new Date(announcement.created_at).toLocaleDateString()}
         </Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 });
 

@@ -269,15 +269,50 @@ export const fetchAllParentsWithChildren = async () => {
 };
 
 export const fetchStudentMarks = async (studentId, classIds) => {
-    const { data, error } = await supabase
+    // 1. Fetch standard student_marks
+    const { data: standardMarks, error: marksError } = await supabase
         .from('student_marks')
         .select('*, category:grading_categories(id, name, weight)')
         .eq('student_id', studentId)
         .in('class_id', classIds)
         .order('assessment_date', { ascending: false });
 
-    if (error) throw error;
-    return data || [];
+    if (marksError) throw marksError;
+
+    // 2. Fetch graded student_completions
+    const { data: completions, error: compError } = await supabase
+        .from('student_completions')
+        .select(`
+            id, score, total_possible, 
+            homework:homework!homework_id (subject, grading_category_id, created_at),
+            assignment:assignments!assignment_id (title, grading_category_id, created_at)
+        `)
+        .eq('student_id', studentId)
+        .or('homework_id.not.is.null,assignment_id.not.is.null')
+        .filter('score', 'not.is.null');
+
+    if (compError) throw compError;
+
+    // Filter and transform completions
+    const mappedCompletions = completions
+        .filter(c => (c.homework && c.homework.grading_category_id) || (c.assignment && c.assignment.grading_category_id))
+        .map(c => {
+            const source = c.homework || c.assignment;
+            return {
+                id: c.id,
+                student_id: studentId,
+                category_id: source.grading_category_id,
+                score: c.score,
+                total_possible: c.total_possible,
+                assessment_name: source.subject || source.title,
+                assessment_date: source.created_at,
+                is_completion_mark: true
+            };
+        });
+
+    return [...standardMarks, ...mappedCompletions].sort((a, b) =>
+        new Date(b.assessment_date || b.created_at) - new Date(a.assessment_date || a.created_at)
+    );
 };
 
 export const updateSchoolId = async (userId, schoolId) => {

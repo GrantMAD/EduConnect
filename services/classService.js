@@ -324,7 +324,7 @@ export const updateAttendance = async ({ memberId, studentId, classId, date, sta
                 status: status,
                 marked_by: userId
             }, { onConflict: 'class_id, student_id, date' });
-        
+
         if (histError) throw histError;
     } else {
         // Delete record if unmarked
@@ -346,7 +346,7 @@ export const fetchAttendanceHistory = async (studentId, classId) => {
         .eq('student_id', studentId)
         .eq('class_id', classId)
         .order('date', { ascending: false });
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -365,11 +365,11 @@ export const updateClassSchedule = async (scheduleId, scheduleData) => {
 export const fetchStudentCompletions = async (idField, itemId) => {
     const { data, error } = await supabase
         .from('student_completions')
-        .select('student_id')
+        .select('id, student_id, score, total_possible')
         .eq(idField, itemId);
 
     if (error) throw error;
-    return data?.map(c => c.student_id) || [];
+    return data || [];
 };
 
 export const deleteStudentCompletion = async (studentId, idField, itemId) => {
@@ -383,17 +383,31 @@ export const deleteStudentCompletion = async (studentId, idField, itemId) => {
     return true;
 };
 
-export const addStudentCompletion = async (studentId, idField, itemId) => {
+export const addStudentCompletion = async (studentId, idField, itemId, score = null, total = null) => {
     const { data, error } = await supabase
         .from('student_completions')
         .insert({
             student_id: studentId,
-            [idField]: itemId
+            [idField]: itemId,
+            score: score,
+            total_possible: total
         })
         .select();
 
     if (error) throw error;
     return data[0];
+};
+
+export const saveCompletionMark = async (completionId, markData) => {
+    const { data, error } = await supabase
+        .from('student_completions')
+        .update(markData)
+        .eq('id', completionId)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
 };
 
 export const fetchTeachersOfStudents = async (studentIds) => {

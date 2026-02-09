@@ -4,7 +4,7 @@ export const fetchHomework = async ({ userId, userRole, schoolId, childIds = [] 
     try {
         let selectStr = '*, created_by_user:users!created_by(full_name, email)';
         if (userRole === 'student' || userRole === 'parent') {
-            selectStr += ', student_completions(id, student_id)';
+            selectStr += ', student_completions(id, student_id, score, total_possible)';
         }
 
         let query = supabase.from('homework').select(selectStr);

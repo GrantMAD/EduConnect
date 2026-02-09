@@ -28,6 +28,7 @@ import {
   createHomework as createHomeworkService,
   fetchHomeworkSchedules
 } from '../services/homeworkService';
+import { fetchGradingCategories } from '../services/gradebookService';
 import { sendBatchNotifications } from '../services/notificationService';
 
 const { width } = Dimensions.get('window');
@@ -71,6 +72,9 @@ const ClassSelection = React.memo(({
   selectedSchedule,
   setSelectedSchedule,
   setDueDate,
+  gradingCategories,
+  selectedCategory,
+  setSelectedCategory,
   theme
 }) => (
   <>
@@ -116,6 +120,25 @@ const ClassSelection = React.memo(({
                 label={`${s.title} - ${new Date(s.start_time).toLocaleString()}`}
                 value={s.id}
               />
+            ))}
+          </Picker>
+        </View>
+      </View>
+    )}
+
+    {selectedClass && gradingCategories.length > 0 && (
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>GRADING CATEGORY (OPTIONAL)</Text>
+        <View style={[styles.pickerWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+          <Picker
+            selectedValue={selectedCategory}
+            onValueChange={(itemValue) => setSelectedCategory(itemValue)}
+            style={{ color: theme.colors.text }}
+            dropdownIconColor={theme.colors.placeholder}
+          >
+            <Picker.Item label="-- None (Ungraded) --" value={null} />
+            {gradingCategories.map((cat) => (
+              <Picker.Item key={cat.id} label={`${cat.name} (${cat.weight}%)`} value={cat.id} />
             ))}
           </Picker>
         </View>
@@ -170,6 +193,8 @@ const CreateHomeworkScreen = ({ route }) => {
   const [templates, setTemplates] = useState([]);
   const [isTemplatesModalVisible, setIsTemplatesModalVisible] = useState(false);
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [gradingCategories, setGradingCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   const navigation = useNavigation();
   const { schoolId } = useSchool();
@@ -265,14 +290,21 @@ const CreateHomeworkScreen = ({ route }) => {
     if (selectedClass) {
       const fetchSchedulesData = async () => {
         try {
-          const data = await fetchHomeworkSchedules(selectedClass);
-          setSchedules(data || []);
+          const [schedulesData, categoriesData] = await Promise.all([
+            fetchHomeworkSchedules(selectedClass),
+            fetchGradingCategories(selectedClass)
+          ]);
+          setSchedules(schedulesData || []);
+          setGradingCategories(categoriesData || []);
         } catch (error) {
-          showToast('Could not fetch class schedules.', 'error');
+          showToast('Could not fetch class data.', 'error');
           console.error(error);
         }
       };
       fetchSchedulesData();
+    } else {
+      setGradingCategories([]);
+      setSelectedCategory(null);
     }
   }, [selectedClass, showToast]);
 
@@ -294,6 +326,7 @@ const CreateHomeworkScreen = ({ route }) => {
         description,
         due_date: dueDate,
         created_by: authUser.id,
+        grading_category_id: selectedCategory || null,
       });
 
       try {
@@ -370,6 +403,9 @@ const CreateHomeworkScreen = ({ route }) => {
             selectedSchedule={selectedSchedule}
             setSelectedSchedule={setSelectedSchedule}
             setDueDate={setDueDate}
+            gradingCategories={gradingCategories}
+            selectedCategory={selectedCategory}
+            setSelectedCategory={setSelectedCategory}
             theme={theme}
           />
 

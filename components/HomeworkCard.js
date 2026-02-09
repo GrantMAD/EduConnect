@@ -5,7 +5,7 @@ import {
   faBookOpen,
   faCalendarAlt,
   faCheckCircle,
-  faUsers
+  faClipboardCheck
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
@@ -53,7 +53,7 @@ const HomeworkCard = React.memo(({ homework, onPress, onTrackPress, userId }) =>
             style={[styles.trackButton, { backgroundColor: theme.colors.primary }]}
             onPress={onTrackPress}
           >
-            <FontAwesomeIcon icon={faUsers} size={12} color="#fff" />
+            <FontAwesomeIcon icon={faClipboardCheck} size={12} color="#fff" />
             <Text style={styles.trackButtonText}>TRACK STUDENTS</Text>
           </TouchableOpacity>
         ) : (
