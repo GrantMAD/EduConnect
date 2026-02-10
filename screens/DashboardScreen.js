@@ -209,7 +209,13 @@ const DashboardScreen = ({ navigation }) => {
                         const combinedActions = [
                             ...(attendanceAlerts || []).map(a => ({ ...a, type: 'attendance' })),
                             ...(ungradedAlerts || [])
-                        ];
+                        ].filter(item => {
+                            // If user is admin, hide attendance alerts
+                            if (profile?.role?.toLowerCase() === 'admin' && item.type === 'attendance') {
+                                return false;
+                            }
+                            return true;
+                        });
                         setActionItems(combinedActions);
                     }
                 })()
