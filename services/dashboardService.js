@@ -191,3 +191,75 @@ export const fetchMissingAttendance = async ({ userId, role, schoolId }) => {
         return [];
     }
 };
+
+export const fetchUngradedSubmissions = async ({ userId, role, schoolId }) => {
+    try {
+        if (!userId || !role || !schoolId) return [];
+
+        const normalizedRole = role.toLowerCase();
+        if (normalizedRole !== 'teacher') return [];
+
+        // Fetch ungraded completions for teacher's homework and assignments
+        const [homeworkCompletions, assignmentCompletions] = await Promise.all([
+            supabase
+                .from('student_completions')
+                .select(`
+                    id,
+                    completed_at,
+                    homework:homework!inner(
+                        id, 
+                        subject, 
+                        created_by,
+                        class_id
+                    ),
+                    student:users!student_id(full_name)
+                `)
+                .eq('homework.created_by', userId)
+                .is('score', null),
+            supabase
+                .from('student_completions')
+                .select(`
+                    id,
+                    completed_at,
+                    assignment:assignments!inner(
+                        id, 
+                        title, 
+                        assigned_by,
+                        class_id
+                    ),
+                    student:users!student_id(full_name)
+                `)
+                .eq('assignment.assigned_by', userId)
+                .is('score', null)
+        ]);
+
+        if (homeworkCompletions.error) console.error("Homework Query Error:", homeworkCompletions.error);
+        if (assignmentCompletions.error) console.error("Assignment Query Error:", assignmentCompletions.error);
+
+        const allUngraded = [
+            ...(homeworkCompletions.data || []).map(c => ({
+                id: c.id,
+                type: 'ungraded_homework',
+                itemId: c.homework.id,
+                classId: c.homework.class_id,
+                title: c.homework.subject,
+                studentName: c.student?.full_name,
+                createdAt: c.completed_at
+            })),
+            ...(assignmentCompletions.data || []).map(c => ({
+                id: c.id,
+                type: 'ungraded_assignment',
+                itemId: c.assignment.id,
+                classId: c.assignment.class_id,
+                title: c.assignment.title,
+                studentName: c.student?.full_name,
+                createdAt: c.completed_at
+            }))
+        ];
+
+        return allUngraded.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    } catch (error) {
+        console.error('Error fetching ungraded submissions:', error);
+        return [];
+    }
+};

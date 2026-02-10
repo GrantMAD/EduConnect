@@ -32,9 +32,9 @@ import { fetchAssignments as fetchAssignmentsService } from '../services/assignm
 import { fetchTodaySchedules, fetchClassIds } from '../services/classService';
 import { fetchTodayPTMBookings } from '../services/ptmService';
 import { fetchUpcomingLessons } from '../services/lessonService';
-import { getDashboardStats, dailyCheckIn, fetchParentChildLinkCount, fetchClubsCount, fetchTotalClassesCount, fetchMissingAttendance } from '../services/dashboardService';
+import { getDashboardStats, dailyCheckIn, fetchParentChildLinkCount, fetchClubsCount, fetchTotalClassesCount, fetchMissingAttendance, fetchUngradedSubmissions } from '../services/dashboardService';
 import { markWelcomeModalAsSeen } from '../services/userService';
-import MissingAttendanceAlerts from '../components/dashboard/MissingAttendanceAlerts';
+import ActionRequiredList from '../components/dashboard/ActionRequiredList';
 import DashboardSkeleton, { StatCardSkeleton, SkeletonPiece, MissingAttendanceSkeleton } from '../components/skeletons/DashboardScreenSkeleton';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -68,7 +68,7 @@ const DashboardScreen = ({ navigation }) => {
         parentChildLinkCount: 0
     });
 
-    const [missingAttendance, setMissingAttendance] = useState([]);
+    const [actionItems, setActionItems] = useState([]);
 
     // Modal state for user lists
     const [showUserModal, setShowUserModal] = useState(false);
@@ -190,15 +190,27 @@ const DashboardScreen = ({ navigation }) => {
                 fetchUpcomingTasks(user.id, profile?.role),
                 fetchTodaySessions(user.id, profile?.role),
                 fetchDashboardLessons(user.id, profile?.role),
-                // Fetch missing attendance for teachers/admins
+                // Fetch missing attendance and ungraded submissions
                 (async () => {
                     if (['teacher', 'admin'].includes(profile?.role?.toLowerCase())) {
-                        const alerts = await fetchMissingAttendance({
-                            userId: user.id,
-                            role: profile.role,
-                            schoolId
-                        });
-                        setMissingAttendance(alerts);
+                        const [attendanceAlerts, ungradedAlerts] = await Promise.all([
+                            fetchMissingAttendance({
+                                userId: user.id,
+                                role: profile.role,
+                                schoolId
+                            }),
+                            fetchUngradedSubmissions({
+                                userId: user.id,
+                                role: profile.role,
+                                schoolId
+                            })
+                        ]);
+
+                        const combinedActions = [
+                            ...(attendanceAlerts || []).map(a => ({ ...a, type: 'attendance' })),
+                            ...(ungradedAlerts || [])
+                        ];
+                        setActionItems(combinedActions);
                     }
                 })()
             ]);
@@ -352,14 +364,14 @@ const DashboardScreen = ({ navigation }) => {
                     </View>
                 </View>
 
-                {/* Missing Attendance Alerts */}
+                {/* Action Required List (Merged Missing Attendance & Ungraded) */}
                 {['teacher', 'admin'].includes(userRole || profile?.role) && (
                     loading ? (
                         <MissingAttendanceSkeleton />
                     ) : (
-                        missingAttendance.length > 0 && (
-                            <MissingAttendanceAlerts
-                                alerts={missingAttendance}
+                        actionItems.length > 0 && (
+                            <ActionRequiredList
+                                actions={actionItems}
                                 navigation={navigation}
                             />
                         )

@@ -59,6 +59,35 @@ const StudentClassDashboardScreen = () => {
     const [isManageModalVisible, setIsManageModalVisible] = useState(false);
     const [manageType, setManageType] = useState('homework');
 
+    // Effect to handle deep linking for grading
+    useEffect(() => {
+        if (!loading && route.params?.manageItem) {
+            const itemId = route.params.manageItem;
+            
+            // Try to find in homework first
+            const hwItem = homework.find(h => h.id === itemId);
+            if (hwItem) {
+                setSelectedItem(hwItem);
+                setManageType('homework');
+                setActiveTab('homework'); // Switch to homework tab
+                setIsManageModalVisible(true);
+                // Clear the param so it doesn't reopen on refresh/focus if we could update params, 
+                // but react-navigation params persist. We just check !loading so it only runs once data is ready.
+                // To prevent infinite loop if we close and it re-renders:
+                // We rely on isManageModalVisible being false initially.
+            } else {
+                // Try assignments
+                const asgItem = assignments.find(a => a.id === itemId);
+                if (asgItem) {
+                    setSelectedItem(asgItem);
+                    setManageType('assignment');
+                    setActiveTab('assignments'); // Switch to assignments tab
+                    setIsManageModalVisible(true);
+                }
+            }
+        }
+    }, [loading, route.params?.manageItem, homework, assignments]);
+
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
