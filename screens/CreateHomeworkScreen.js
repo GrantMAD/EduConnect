@@ -28,6 +28,7 @@ import {
   createHomework as createHomeworkService,
   fetchHomeworkSchedules
 } from '../services/homeworkService';
+import { fetchLessonPlans } from '../services/lessonService';
 import { fetchGradingCategories } from '../services/gradebookService';
 import { sendBatchNotifications } from '../services/notificationService';
 
@@ -75,6 +76,9 @@ const ClassSelection = React.memo(({
   gradingCategories,
   selectedCategory,
   setSelectedCategory,
+  lessonPlans,
+  selectedLessonPlan,
+  setSelectedLessonPlan,
   theme
 }) => (
   <>
@@ -144,6 +148,29 @@ const ClassSelection = React.memo(({
         </View>
       </View>
     )}
+
+    {selectedClass && lessonPlans.length > 0 && (
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>LINK TO LESSON PLAN (OPTIONAL)</Text>
+        <View style={[styles.pickerWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+          <Picker
+            selectedValue={selectedLessonPlan}
+            onValueChange={(itemValue) => setSelectedLessonPlan(itemValue)}
+            style={{ color: theme.colors.text }}
+            dropdownIconColor={theme.colors.placeholder}
+          >
+            <Picker.Item label="-- No Linked Lesson --" value={null} />
+            {lessonPlans.map((lp) => (
+              <Picker.Item 
+                key={lp.id} 
+                label={`${lp.title} (${new Date(lp.scheduled_date).toLocaleDateString()})`} 
+                value={lp.id} 
+              />
+            ))}
+          </Picker>
+        </View>
+      </View>
+    )}
   </>
 ));
 
@@ -195,6 +222,8 @@ const CreateHomeworkScreen = ({ route }) => {
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [gradingCategories, setGradingCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [lessonPlans, setLessonPlans] = useState([]);
+  const [selectedLessonPlan, setSelectedLessonPlan] = useState(null);
 
   const navigation = useNavigation();
   const { schoolId } = useSchool();
@@ -288,23 +317,27 @@ const CreateHomeworkScreen = ({ route }) => {
 
   useEffect(() => {
     if (selectedClass) {
-      const fetchSchedulesData = async () => {
+      const fetchClassData = async () => {
         try {
-          const [schedulesData, categoriesData] = await Promise.all([
+          const [schedulesData, categoriesData, lessonsData] = await Promise.all([
             fetchHomeworkSchedules(selectedClass),
-            fetchGradingCategories(selectedClass)
+            fetchGradingCategories(selectedClass),
+            fetchLessonPlans(selectedClass, 'teacher')
           ]);
           setSchedules(schedulesData || []);
           setGradingCategories(categoriesData || []);
+          setLessonPlans(lessonsData || []);
         } catch (error) {
           showToast('Could not fetch class data.', 'error');
           console.error(error);
         }
       };
-      fetchSchedulesData();
+      fetchClassData();
     } else {
       setGradingCategories([]);
       setSelectedCategory(null);
+      setLessonPlans([]);
+      setSelectedLessonPlan(null);
     }
   }, [selectedClass, showToast]);
 
@@ -327,6 +360,7 @@ const CreateHomeworkScreen = ({ route }) => {
         due_date: dueDate,
         created_by: authUser.id,
         grading_category_id: selectedCategory || null,
+        lesson_plan_id: selectedLessonPlan || null,
       });
 
       try {
@@ -406,6 +440,9 @@ const CreateHomeworkScreen = ({ route }) => {
             gradingCategories={gradingCategories}
             selectedCategory={selectedCategory}
             setSelectedCategory={setSelectedCategory}
+            lessonPlans={lessonPlans}
+            selectedLessonPlan={selectedLessonPlan}
+            setSelectedLessonPlan={setSelectedLessonPlan}
             theme={theme}
           />
 

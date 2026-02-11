@@ -22,6 +22,7 @@ import {
   faPen,
   faTrash,
   faUser,
+  faChalkboardTeacher,
 } from '@fortawesome/free-solid-svg-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
@@ -263,6 +264,26 @@ const HomeworkList = React.memo(() => {
                         <View>
                           <Text style={[styles.metaLabel, { color: theme.colors.placeholder }]}>ASSIGNED BY</Text>
                           <Text style={[styles.metaValue, { color: theme.colors.text }]}>{selectedHomework.created_by_user.full_name}</Text>
+                        </View>
+                      </View>
+                    </>
+                  )}
+
+                  {selectedHomework.lesson_plans && (
+                    <>
+                      <View style={[styles.metaDivider, { backgroundColor: theme.colors.cardBorder }]} />
+                      <View style={styles.metaRow}>
+                        <View style={[styles.metaIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                          <FontAwesomeIcon icon={faChalkboardTeacher} size={12} color={theme.colors.primary} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.metaLabel, { color: theme.colors.placeholder }]}>RELATED LESSON</Text>
+                          <Text style={[styles.metaValue, { color: theme.colors.text }]}>{selectedHomework.lesson_plans.title}</Text>
+                          {selectedHomework.lesson_plans.objectives?.length > 0 && (
+                            <Text style={{ fontSize: 11, color: theme.colors.placeholder, marginTop: 4 }}>
+                              Focus: {selectedHomework.lesson_plans.objectives[0]}
+                            </Text>
+                          )}
                         </View>
                       </View>
                     </>
@@ -549,6 +570,26 @@ const AssignmentsList = React.memo(() => {
                         <View>
                           <Text style={[styles.metaLabel, { color: theme.colors.placeholder }]}>ASSIGNED BY</Text>
                           <Text style={[styles.metaValue, { color: theme.colors.text }]}>{selectedAssignment.assigned_by_user.full_name}</Text>
+                        </View>
+                      </View>
+                    </>
+                  )}
+
+                  {selectedAssignment.lesson_plans && (
+                    <>
+                      <View style={[styles.metaDivider, { backgroundColor: theme.colors.cardBorder }]} />
+                      <View style={styles.metaRow}>
+                        <View style={[styles.metaIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                          <FontAwesomeIcon icon={faChalkboardTeacher} size={12} color={theme.colors.primary} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.metaLabel, { color: theme.colors.placeholder }]}>RELATED LESSON</Text>
+                          <Text style={[styles.metaValue, { color: theme.colors.text }]}>{selectedAssignment.lesson_plans.title}</Text>
+                          {selectedAssignment.lesson_plans.objectives?.length > 0 && (
+                            <Text style={{ fontSize: 11, color: theme.colors.placeholder, marginTop: 4 }}>
+                              Focus: {selectedAssignment.lesson_plans.objectives[0]}
+                            </Text>
+                          )}
                         </View>
                       </View>
                     </>

@@ -74,11 +74,7 @@ const ManageClassesScreen = ({ navigation }) => {
         style={[styles.classCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
         activeOpacity={0.7}
         onPress={() => {
-          if (userRole === 'teacher' || userRole === 'admin') {
-            navigation.navigate('ManageUsersInClass', { classId: item.id, className: item.name });
-          } else {
-            navigation.navigate('StudentClassDashboard', { classId: item.id, className: item.name });
-          }
+          navigation.navigate('StudentClassDashboard', { classId: item.id, className: item.name });
         }}
       >
         <View style={styles.cardContent}>

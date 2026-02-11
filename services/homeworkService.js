@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 
 export const fetchHomework = async ({ userId, userRole, schoolId, childIds = [] }) => {
     try {
-        let selectStr = '*, created_by_user:users!created_by(full_name, email)';
+        let selectStr = '*, created_by_user:users!created_by(full_name, email), lesson_plans(id, title, objectives)';
         if (userRole === 'student' || userRole === 'parent') {
             selectStr += ', student_completions(id, student_id, score, total_possible)';
         }

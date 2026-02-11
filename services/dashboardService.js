@@ -263,3 +263,46 @@ export const fetchUngradedSubmissions = async ({ userId, role, schoolId }) => {
         return [];
     }
 };
+
+export const fetchClassesWithoutLessons = async ({ userId, role }) => {
+    try {
+        if (!userId) return [];
+        if (role?.toLowerCase() !== 'teacher') return [];
+
+        // 1. Fetch teacher's academic classes (exclude extracurricular)
+        const { data: myClasses, error: classError } = await supabase
+            .from('classes')
+            .select('id, name, subject')
+            .eq('teacher_id', userId)
+            .neq('subject', 'Extracurricular');
+
+        if (classError) throw classError;
+        if (!myClasses || myClasses.length === 0) return [];
+
+        const classIds = myClasses.map(c => c.id);
+
+        // 2. Check for existence of lesson plans for these classes
+        const { data: lessonPlans, error: lessonError } = await supabase
+            .from('lesson_plans')
+            .select('class_id')
+            .in('class_id', classIds);
+
+        if (lessonError) throw lessonError;
+
+        const classesWithLessons = new Set(lessonPlans?.map(lp => lp.class_id) || []);
+
+        // 3. Filter classes that have 0 lessons
+        const missing = myClasses.filter(c => !classesWithLessons.has(c.id));
+
+        return missing.map(c => ({
+            id: c.id,
+            type: 'missing_lesson_plan',
+            className: c.name,
+            classId: c.id,
+            subject: c.subject
+        }));
+    } catch (error) {
+        console.error("fetchClassesWithoutLessons Exception:", error);
+        return [];
+    }
+}

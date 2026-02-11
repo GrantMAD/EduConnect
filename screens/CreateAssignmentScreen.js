@@ -41,6 +41,7 @@ import {
   uploadAssignmentFile,
   getAssignmentFileUrl
 } from '../services/assignmentService';
+import { fetchLessonPlans } from '../services/lessonService';
 import { fetchGradingCategories } from '../services/gradebookService';
 import { sendBatchNotifications } from '../services/notificationService';
 
@@ -84,6 +85,9 @@ const ClassSelection = React.memo(({
   gradingCategories,
   selectedCategory,
   setSelectedCategory,
+  lessonPlans,
+  selectedLessonPlan,
+  setSelectedLessonPlan,
   theme
 }) => (
   <>
@@ -117,6 +121,29 @@ const ClassSelection = React.memo(({
             <Picker.Item label="-- None (Ungraded) --" value={null} />
             {gradingCategories.map((cat) => (
               <Picker.Item key={cat.id} label={`${cat.name} (${cat.weight}%)`} value={cat.id} />
+            ))}
+          </Picker>
+        </View>
+      </View>
+    )}
+
+    {selectedClass && lessonPlans.length > 0 && (
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>LINK TO LESSON PLAN (OPTIONAL)</Text>
+        <View style={[styles.pickerWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+          <Picker
+            selectedValue={selectedLessonPlan}
+            onValueChange={(itemValue) => setSelectedLessonPlan(itemValue)}
+            style={{ color: theme.colors.text }}
+            dropdownIconColor={theme.colors.placeholder}
+          >
+            <Picker.Item label="-- No Linked Lesson --" value={null} />
+            {lessonPlans.map((lp) => (
+              <Picker.Item 
+                key={lp.id} 
+                label={`${lp.title} (${new Date(lp.scheduled_date).toLocaleDateString()})`} 
+                value={lp.id} 
+              />
             ))}
           </Picker>
         </View>
@@ -193,6 +220,8 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [gradingCategories, setGradingCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [lessonPlans, setLessonPlans] = useState([]);
+  const [selectedLessonPlan, setSelectedLessonPlan] = useState(null);
 
   const fetchTemplates = useCallback(async () => {
     try {
@@ -267,19 +296,25 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
 
   useEffect(() => {
     if (selectedClass) {
-      const fetchCategories = async () => {
+      const fetchClassData = async () => {
         try {
-          const data = await fetchGradingCategories(selectedClass);
-          setGradingCategories(data || []);
+          const [categoriesData, lessonsData] = await Promise.all([
+            fetchGradingCategories(selectedClass),
+            fetchLessonPlans(selectedClass, 'teacher')
+          ]);
+          setGradingCategories(categoriesData || []);
+          setLessonPlans(lessonsData || []);
         } catch (error) {
-          showToast('Could not fetch grading categories.', 'error');
+          showToast('Could not fetch class data.', 'error');
           console.error(error);
         }
       };
-      fetchCategories();
+      fetchClassData();
     } else {
       setGradingCategories([]);
       setSelectedCategory(null);
+      setLessonPlans([]);
+      setSelectedLessonPlan(null);
     }
   }, [selectedClass, showToast]);
 
@@ -325,6 +360,7 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
         assigned_by: authUser.id,
         file_url,
         grading_category_id: selectedCategory || null,
+        lesson_plan_id: selectedLessonPlan || null,
       });
 
       try {
@@ -418,6 +454,9 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
             gradingCategories={gradingCategories}
             selectedCategory={selectedCategory}
             setSelectedCategory={setSelectedCategory}
+            lessonPlans={lessonPlans}
+            selectedLessonPlan={selectedLessonPlan}
+            setSelectedLessonPlan={setSelectedLessonPlan}
             theme={theme}
           />
 

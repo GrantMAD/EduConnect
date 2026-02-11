@@ -32,7 +32,7 @@ import { fetchAssignments as fetchAssignmentsService } from '../services/assignm
 import { fetchTodaySchedules, fetchClassIds } from '../services/classService';
 import { fetchTodayPTMBookings } from '../services/ptmService';
 import { fetchUpcomingLessons } from '../services/lessonService';
-import { getDashboardStats, dailyCheckIn, fetchParentChildLinkCount, fetchClubsCount, fetchTotalClassesCount, fetchMissingAttendance, fetchUngradedSubmissions } from '../services/dashboardService';
+import { getDashboardStats, dailyCheckIn, fetchParentChildLinkCount, fetchClubsCount, fetchTotalClassesCount, fetchMissingAttendance, fetchUngradedSubmissions, fetchClassesWithoutLessons } from '../services/dashboardService';
 import { markWelcomeModalAsSeen } from '../services/userService';
 import ActionRequiredList from '../components/dashboard/ActionRequiredList';
 import DashboardSkeleton, { StatCardSkeleton, SkeletonPiece, MissingAttendanceSkeleton } from '../components/skeletons/DashboardScreenSkeleton';
@@ -193,7 +193,7 @@ const DashboardScreen = ({ navigation }) => {
                 // Fetch missing attendance and ungraded submissions
                 (async () => {
                     if (['teacher', 'admin'].includes(profile?.role?.toLowerCase())) {
-                        const [attendanceAlerts, ungradedAlerts] = await Promise.all([
+                        const [attendanceAlerts, ungradedAlerts, lessonAlerts] = await Promise.all([
                             fetchMissingAttendance({
                                 userId: user.id,
                                 role: profile.role,
@@ -203,15 +203,22 @@ const DashboardScreen = ({ navigation }) => {
                                 userId: user.id,
                                 role: profile.role,
                                 schoolId
+                            }),
+                            fetchClassesWithoutLessons({
+                                userId: user.id,
+                                role: profile.role
                             })
                         ]);
 
                         const combinedActions = [
                             ...(attendanceAlerts || []).map(a => ({ ...a, type: 'attendance' })),
-                            ...(ungradedAlerts || [])
+                            ...(ungradedAlerts || []),
+                            ...(lessonAlerts || [])
                         ].filter(item => {
-                            // If user is admin, hide attendance alerts
-                            if (profile?.role?.toLowerCase() === 'admin' && item.type === 'attendance') {
+                            // If user is admin, hide attendance and lesson alerts (unless they teach)
+                            // In this system, admin role usually implies management, 
+                            // but teachers see their own specific tasks.
+                            if (profile?.role?.toLowerCase() === 'admin' && (item.type === 'attendance' || item.type === 'missing_lesson_plan')) {
                                 return false;
                             }
                             return true;

@@ -1,12 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Dimensions, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import {
+import { 
     faBullhorn,
     faBook,
+    faBookOpen,
+    faChevronRight,
     faClipboardList,
+    faPlus,
     faCalendarAlt,
     faGraduationCap,
     faChevronLeft,
@@ -15,16 +18,46 @@ import {
     faMapMarkerAlt,
     faEllipsisH,
     faCheckCircle,
-    faTimesCircle
+    faTimesCircle,
+    faPlusCircle, 
+    faMinusCircle, 
+    faUserPlus, 
+    faTrash, 
+    faSearch, 
+    faInfoCircle, 
+    faEdit, 
+    faLayerGroup,
+    faUsers,
+    faArrowLeft
 } from '@fortawesome/free-solid-svg-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { fetchClassInfo, fetchClassMembers, fetchClassSchedules, fetchAttendanceHistory } from '../../services/classService';
-import { fetchStudentMarks, fetchParentChildren, fetchClassMembersIds } from '../../services/userService';
+import { 
+    fetchClassInfo, 
+    fetchClassMembers, 
+    fetchClassSchedules, 
+    fetchAttendanceHistory,
+    addMemberToClass,
+    removeMemberFromClass,
+    updateAttendance,
+    updateClassSchedule,
+    createClassSchedules,
+    deleteClassScheduleById
+} from '../../services/classService';
+import { 
+    fetchStudentMarks, 
+    fetchParentChildren, 
+    fetchClassMembersIds,
+    fetchUsersBySchool,
+    fetchParentsOfStudentsRpc
+} from '../../services/userService';
 import { fetchAnnouncements } from '../../services/announcementService';
 import { fetchHomework } from '../../services/homeworkService';
 import { fetchAssignmentsByClass } from '../../services/assignmentService';
+import { fetchLessonPlans } from '../../services/lessonService';
+import { sendBatchNotifications } from '../../services/notificationService';
+import { Calendar } from "react-native-calendars";
 
 // Import components
 import HomeworkCard from '../../components/HomeworkCard';
@@ -32,8 +65,23 @@ import AssignmentCard from '../../components/AssignmentCard';
 import AnnouncementCard from '../../components/AnnouncementCard';
 import ManageCompletionsModal from '../../components/ManageCompletionsModal';
 import AnnouncementDetailModal from '../../components/AnnouncementDetailModal';
+import MarksModal from '../../components/MarksModal';
+import ManageMarksModal from '../../components/ManageMarksModal';
+import { Alert, TextInput, Modal, Pressable } from 'react-native';
+import { useGamification } from '../../context/GamificationContext';
+import { useToast } from '../../context/ToastContext';
+import { useSchool } from '../../context/SchoolContext';
 
 const { width } = Dimensions.get('window');
+const defaultUserImage = require("../../assets/user.png");
+
+const getDateString = (date) => {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const StudentClassDashboardScreen = () => {
     const navigation = useNavigation();
@@ -41,23 +89,321 @@ const StudentClassDashboardScreen = () => {
     const { classId, className } = route.params || {};
     const { theme } = useTheme();
     const { user, profile } = useAuth();
+    const { schoolId } = useSchool();
+    const { showToast } = useToast();
+    const { awardXP = () => { } } = useGamification() || {};
     const insets = useSafeAreaInsets();
 
-    const [activeTab, setActiveTab] = useState('announcements');
+    const [activeTab, setActiveTab] = useState(route.params?.initialTab || 'announcements');
     const [loading, setLoading] = useState(true);
     const [classData, setClassData] = useState(null);
     const [schedules, setSchedules] = useState([]);
-    const [announcements, setAnnouncements] = useState([]); // Placeholder
-    const [homework, setHomework] = useState([]); // Placeholder
-    const [assignments, setAssignments] = useState([]); // Placeholder
+    const [announcements, setAnnouncements] = useState([]); 
+    const [homework, setHomework] = useState([]); 
+    const [assignments, setAssignments] = useState([]); 
+    const [lessons, setLessons] = useState([]);
     const [marks, setMarks] = useState([]);
     const [attendance, setAttendance] = useState([]);
+    const [classMembers, setClassMembers] = useState([]);
+    
+    // Management State
+    const [allStudents, setAllStudents] = useState([]);
+    const [fetchingStudents, setFetchingStudents] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [selectedScheduleDate, setSelectedScheduleDate] = useState(route.params?.date ? getDateString(route.params.date) : null);
+    const [isMarksModalVisible, setMarksModalVisible] = useState(false);
+    const [expandedStudents, setExpandedStudents] = useState({});
+    const [studentMarksState, setStudentMarksState] = useState({});
+    const [isManageMarksModalVisible, setManageMarksModalVisible] = useState(false);
+    const [selectedStudent, setSelectedStudent] = useState(null);
+
+    const [isEditModalVisible, setEditModalVisible] = useState(false);
+    const [selectedSchedule, setSelectedSchedule] = useState(null);
+    const [tempStartTime, setTempStartTime] = useState("");
+    const [tempEndTime, setTempEndTime] = useState("");
+    const [tempClassInfo, setTempClassInfo] = useState("");
+
+    const [isAddModalVisible, setAddModalVisible] = useState(false);
+    const [newScheduleDate, setNewScheduleDate] = useState(null);
+    const [newStartTime, setNewStartTime] = useState('');
+    const [newEndTime, setNewEndTime] = useState('');
+    const [newClassInfo, setNewClassInfo] = useState('');
 
     // Modal state
     const [selectedItem, setSelectedItem] = useState(null);
     const [isAnnouncementModalVisible, setIsAnnouncementModalVisible] = useState(false);
     const [isManageModalVisible, setIsManageModalVisible] = useState(false);
     const [manageType, setManageType] = useState('homework');
+
+    const isTeacher = profile?.role === 'teacher' || profile?.role === 'admin';
+
+    const availableStudents = useMemo(() => {
+        const classStudentIds = classMembers.map((member) => member.users?.id);
+        return allStudents.filter(
+          (student) => !classStudentIds.includes(student.id)
+        );
+    }, [allStudents, classMembers]);
+
+    const fetchAllStudents = useCallback(async () => {
+        if (!schoolId) return;
+        setFetchingStudents(true);
+        try {
+            const data = await fetchUsersBySchool(schoolId, { role: 'student' });
+            let filtered = data || [];
+            if (searchQuery) {
+                filtered = filtered.filter(s => s.full_name?.toLowerCase().includes(searchQuery.toLowerCase()));
+            }
+            setAllStudents(filtered);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setFetchingStudents(false);
+        }
+    }, [schoolId, searchQuery]);
+
+    const addStudentToClass = useCallback(async (studentId) => {
+        setSaving(true);
+        try {
+            await addMemberToClass({
+                class_id: classId,
+                user_id: studentId,
+                school_id: schoolId,
+                role: "student",
+            });
+            const data = await fetchClassMembers(classId);
+            setClassMembers(data.filter(m => m.role === 'student') || []);
+            showToast("Student added to class.", 'success');
+        } catch (error) {
+            console.error(error);
+            showToast("Failed to add student.", 'error');
+        } finally {
+            setSaving(false);
+        }
+    }, [classId, schoolId, showToast]);
+
+    const removeStudentFromClass = useCallback(async (studentId) => {
+        setSaving(true);
+        try {
+            await removeMemberFromClass(classId, studentId);
+            const data = await fetchClassMembers(classId);
+            setClassMembers(data.filter(m => m.role === 'student') || []);
+            showToast("Student removed from class.", 'success');
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setSaving(false);
+        }
+    }, [classId]);
+
+    const handleAttendanceChange = useCallback(async (member, status) => {
+        if (!selectedScheduleDate) return;
+        const { id: memberId, attendance: currentAtt, users: student } = member;
+
+        const updatedMembers = classMembers.map((m) =>
+            m.id === memberId
+                ? {
+                    ...m,
+                    attendance: {
+                        ...m.attendance,
+                        [selectedScheduleDate]: status,
+                    },
+                }
+                : m
+        );
+        setClassMembers(updatedMembers);
+
+        const newAttendance = { ...currentAtt, [selectedScheduleDate]: status };
+        try {
+            await updateAttendance({
+                memberId,
+                studentId: student.id,
+                classId: classId,
+                date: selectedScheduleDate,
+                status: status === true ? 'present' : (status === false ? 'absent' : 'unmarked'),
+                attendance: newAttendance,
+                userId: user.id
+            });
+
+            if (status === false) {
+                try {
+                    const studentName = student?.full_name || 'Your child';
+                    const parents = await fetchParentsOfStudentsRpc([student.id]);
+                    const parentIds = parents ? parents.map(rp => rp.parent_id) : [];
+
+                    if (parentIds.length > 0) {
+                        const notifications = parentIds.map(pid => ({
+                            user_id: pid,
+                            type: 'student_absence',
+                            title: 'Attendance Alert',
+                            message: `${studentName} was marked absent from ${className} today (${selectedScheduleDate}).`,
+                            data: { student_id: student.id, class_id: classId, date: selectedScheduleDate },
+                            related_user_id: user.id,
+                            created_by: user.id,
+                            is_read: false
+                        }));
+                        await sendBatchNotifications(notifications);
+                    }
+                } catch (e) { }
+            }
+        } catch (error) {
+            console.error("Error updating attendance:", error);
+            showToast("Failed to save attendance.", 'error');
+        }
+    }, [selectedScheduleDate, classMembers, classId, className, user, showToast]);
+
+    const markAllPresent = useCallback(async () => {
+        if (!selectedScheduleDate) return;
+        setSaving(true);
+        try {
+            const updates = classMembers.map(member => {
+                const currentAttendance = member.attendance || {};
+                return {
+                    ...member,
+                    attendance: {
+                        ...currentAttendance,
+                        [selectedScheduleDate]: true
+                    }
+                };
+            });
+
+            setClassMembers(updates);
+
+            const promises = updates.map(member =>
+                updateAttendance({
+                    memberId: member.id,
+                    studentId: member.users.id,
+                    classId: classId,
+                    date: selectedScheduleDate,
+                    status: 'present',
+                    attendance: member.attendance,
+                    userId: user.id
+                })
+            );
+
+            await Promise.all(promises);
+            awardXP('attendance_submission', 15);
+            showToast('All students marked present. +15 XP', 'success');
+        } catch (error) {
+            console.error(error);
+            showToast('Failed to update attendance.', 'error');
+        } finally {
+            setSaving(false);
+        }
+    }, [selectedScheduleDate, classMembers, classId, user, awardXP, showToast]);
+
+    const handleAddSchedule = useCallback(async () => {
+        if (!newScheduleDate || !newStartTime || !newEndTime) {
+            return showToast("Please select a date and enter start/end times.", 'error');
+        }
+
+        const [startHours, startMinutes] = newStartTime.split(":").map(Number);
+        const [endHours, endMinutes] = newEndTime.split(":").map(Number);
+
+        if ([startHours, startMinutes, endHours, endMinutes].some(isNaN)) {
+            return showToast("Enter a valid time in HH:MM format.", 'error');
+        }
+
+        const startTime = new Date(newScheduleDate);
+        startTime.setHours(startHours, startMinutes);
+        const endTime = new Date(newScheduleDate);
+        endTime.setHours(endHours, endMinutes);
+
+        if (startTime >= endTime) {
+            return showToast("End time must be after start time.", 'error');
+        }
+
+        setSaving(true);
+        try {
+            await createClassSchedules([{
+                class_id: classId,
+                start_time: startTime.toISOString(),
+                end_time: endTime.toISOString(),
+                title: className,
+                description: classData?.subject || '',
+                class_info: newClassInfo,
+                school_id: schoolId,
+                created_by: user.id,
+            }]);
+
+            const scheds = await fetchClassSchedules([classId]);
+            setSchedules(scheds || []);
+            setAddModalVisible(false);
+            showToast("New session added successfully.", 'success');
+        } catch (error) {
+            console.error(error);
+            showToast("Failed to add new session.", 'error');
+        } finally {
+            setSaving(false);
+        }
+    }, [newScheduleDate, newStartTime, newEndTime, classId, className, classData, newClassInfo, schoolId, user, showToast]);
+
+    const handleUpdateSchedule = useCallback(async () => {
+        if (!selectedSchedule) return;
+
+        const [startHours, startMinutes] = tempStartTime.split(":").map(Number);
+        const [endHours, endMinutes] = tempEndTime.split(":").map(Number);
+        if ([startHours, startMinutes, endHours, endMinutes].some(isNaN)) {
+            return showToast("Enter a valid time in HH:MM format.", 'error');
+        }
+
+        const startTime = new Date(selectedSchedule.start_time);
+        startTime.setHours(startHours, startMinutes);
+        const endTime = new Date(selectedSchedule.end_time);
+        endTime.setHours(endHours, endMinutes);
+
+        if (startTime >= endTime) return showToast("End time must be after start time.", 'error');
+
+        setSaving(true);
+        try {
+            await updateClassSchedule(selectedSchedule.id, {
+                start_time: startTime.toISOString(),
+                end_time: endTime.toISOString(),
+                class_info: tempClassInfo
+            });
+
+            const scheds = await fetchClassSchedules([classId]);
+            setSchedules(scheds || []);
+            setEditModalVisible(false);
+            showToast("Schedule updated successfully.", 'success');
+        } catch (error) {
+            console.error(error);
+            showToast("Failed to update schedule.", 'error');
+        } finally {
+            setSaving(false);
+        }
+    }, [selectedSchedule, tempStartTime, tempEndTime, tempClassInfo, classId, showToast]);
+
+    const handleDeleteSchedule = useCallback(async (scheduleId) => {
+        Alert.alert('Delete Session', 'Are you sure?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                    setSaving(true);
+                    try {
+                        await deleteClassScheduleById(scheduleId);
+                        const scheds = await fetchClassSchedules([classId]);
+                        setSchedules(scheds || []);
+                        showToast('Session deleted', 'success');
+                    } catch (error) {
+                        console.error(error);
+                        showToast('Failed to delete session', 'error');
+                    } finally {
+                        setSaving(false);
+                    }
+                }
+            }
+        ]);
+    }, [classId, showToast]);
+
+    const formatTime = useCallback((date) => {
+        const d = new Date(date);
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        return `${hours}:${minutes}`;
+    }, []);
 
     // Effect to handle deep linking for grading
     useEffect(() => {
@@ -111,17 +457,18 @@ const StudentClassDashboardScreen = () => {
                 console.log(`Loading dashboard as ${profile?.role} ${user.id}`);
             }
 
-            const [info, scheds, myMarks, myAttendance, classAnnouncements, classHomework, classAssignments] = await Promise.all([
+            const [info, scheds, myMarks, myAttendance, classAnnouncements, classHomework, classAssignments, classLessons, members] = await Promise.all([
                 fetchClassInfo(classId),
                 fetchClassSchedules([classId]),
                 fetchStudentMarks(targetStudentId, [classId]),
                 fetchAttendanceHistory(targetStudentId, classId),
                 fetchAnnouncements(classId),
                 fetchHomework(profile?.school_id, targetStudentId, profile?.role, { class_id: classId }),
-                fetchAssignmentsByClass(classId)
+                fetchAssignmentsByClass(classId),
+                fetchLessonPlans(classId, profile?.role),
+                fetchClassMembers(classId)
             ]);
 
-            console.log(`Fetched ${myMarks?.length || 0} marks, ${classAnnouncements?.length || 0} news, ${classHomework?.length || 0} hw, and ${classAssignments?.length || 0} asgns`);
             setClassData(info);
             setSchedules(scheds || []);
             setMarks(myMarks || []);
@@ -129,6 +476,8 @@ const StudentClassDashboardScreen = () => {
             setAnnouncements(classAnnouncements || []);
             setHomework(classHomework || []);
             setAssignments(classAssignments || []);
+            setLessons(classLessons || []);
+            setClassMembers(members.filter(m => m.role === 'student') || []);
         } catch (e) {
             console.error(e);
         } finally {
@@ -141,12 +490,13 @@ const StudentClassDashboardScreen = () => {
     }, [loadData]);
 
     const tabs = [
-        { id: 'announcements', label: 'Announcements', icon: faBullhorn, count: announcements.length },
+        { id: 'announcements', label: 'News', icon: faBullhorn, count: announcements.length },
         { id: 'homework', label: 'Homework', icon: faBook, count: homework.length },
+        { id: 'lessons', label: 'Lessons', icon: faBookOpen, count: lessons.length },
         { id: 'assignments', label: 'Assignments', icon: faClipboardList, count: assignments.length },
+        { id: 'classmates', label: 'Classmates', icon: faUserGraduate, count: classMembers.length },
         { id: 'schedule', label: 'Schedule', icon: faCalendarAlt, count: schedules.length },
-        { id: 'attendance', label: 'Attendance', icon: faCheckCircle, count: attendance.length },
-        { id: 'grades', label: 'Grades', icon: faGraduationCap, count: marks.length },
+        { id: 'grades', label: isTeacher ? 'Gradebook' : 'Grades', icon: faGraduationCap, count: marks.length },
     ];
 
     const renderHeader = () => (
@@ -204,7 +554,7 @@ const StudentClassDashboardScreen = () => {
                             ]}
                             numberOfLines={1}
                         >
-                            {tab.label === 'Announcements' ? 'News' : tab.label}
+                            {tab.label}
                         </Text>
                     </TouchableOpacity>
                 ))}
@@ -294,9 +644,74 @@ const StudentClassDashboardScreen = () => {
                         )}
                     </View>
                 );
+            case 'lessons':
+                const getStatusColor = (status) => {
+                    switch (status) {
+                        case 'completed': return '#10b981';
+                        case 'published': return '#3b82f6';
+                        default: return '#94a3b8';
+                    }
+                };
+                return (
+                    <View style={styles.contentContainer}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text, marginBottom: 0 }]}>CLASS CURRICULUM</Text>
+                            {(profile?.role === 'teacher' || profile?.role === 'admin') && (
+                                <View style={{ flexDirection: 'row', gap: 8 }}>
+                                    <TouchableOpacity 
+                                        onPress={() => navigation.navigate('LessonPlans', { classId, className, role: profile?.role })}
+                                        style={{ backgroundColor: theme.colors.primary + '15', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 }}
+                                    >
+                                        <Text style={{ color: theme.colors.primary, fontSize: 11, fontWeight: '900' }}>MANAGE ALL</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        onPress={() => navigation.navigate('LessonPlans', { classId, className, role: profile?.role })}
+                                        style={{ backgroundColor: theme.colors.primary, width: 28, height: 28, borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}
+                                    >
+                                        <FontAwesomeIcon icon={faPlus} size={12} color="#fff" />
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+                        </View>
+                        {lessons.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <FontAwesomeIcon icon={faBookOpen} size={40} color={theme.colors.placeholder + '40'} />
+                                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No lesson plans available.</Text>
+                            </View>
+                        ) : (
+                            lessons.map((lesson, index) => (
+                                <TouchableOpacity 
+                                    key={lesson.id} 
+                                    style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                                    onPress={() => navigation.navigate('LessonPlans', { classId, className, role: profile?.role })}
+                                >
+                                    <View style={[styles.iconBox, { backgroundColor: getStatusColor(lesson.status) + '15' }]}>
+                                        <FontAwesomeIcon icon={faBookOpen} size={16} color={getStatusColor(lesson.status)} />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[styles.cardTitle, { color: theme.colors.text }]} numberOfLines={1}>{lesson.title}</Text>
+                                        <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]}>
+                                            {new Date(lesson.scheduled_date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                                        </Text>
+                                    </View>
+                                    <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
+                                </TouchableOpacity>
+                            ))
+                        )}
+                    </View>
+                );
             case 'schedule':
                 return (
                     <View style={styles.contentContainer}>
+                        {(profile?.role === 'teacher' || profile?.role === 'admin') && (
+                            <TouchableOpacity 
+                                onPress={() => openAddScheduleModal()}
+                                style={[styles.mainActionBtn, { backgroundColor: theme.colors.primary, marginBottom: 20, width: '100%', h: 56 }]}
+                            >
+                                <FontAwesomeIcon icon={faPlus} size={14} color="#fff" />
+                                <Text style={styles.mainActionText}>NEW SESSION</Text>
+                            </TouchableOpacity>
+                        )}
                         {schedules.length === 0 ? (
                             <View style={styles.emptyState}>
                                 <FontAwesomeIcon icon={faCalendarAlt} size={40} color={theme.colors.placeholder + '40'} />
@@ -304,7 +719,16 @@ const StudentClassDashboardScreen = () => {
                             </View>
                         ) : (
                             schedules.map((schedule, index) => (
-                                <View key={index} style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                                <TouchableOpacity 
+                                    key={index} 
+                                    style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                                    onPress={() => {
+                                        if (isTeacher) {
+                                            setSelectedScheduleDate(getDateString(schedule.start_time));
+                                            setActiveTab('classmates');
+                                        }
+                                    }}
+                                >
                                     <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
                                         <FontAwesomeIcon icon={faClock} size={16} color={theme.colors.primary} />
                                     </View>
@@ -313,13 +737,161 @@ const StudentClassDashboardScreen = () => {
                                             {new Date(schedule.start_time).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
                                         </Text>
                                         <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]}>
-                                            {new Date(schedule.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(schedule.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {formatTime(schedule.start_time)} - {formatTime(schedule.end_time)}
                                         </Text>
                                         {schedule.class_info && <Text style={[styles.cardBody, { color: theme.colors.textSecondary }]}>{schedule.class_info}</Text>}
                                     </View>
-                                </View>
+                                    {isTeacher && (
+                                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                                            <TouchableOpacity onPress={() => {
+                                                setSelectedSchedule(schedule);
+                                                setTempStartTime(formatTime(schedule.start_time));
+                                                setTempEndTime(formatTime(schedule.end_time));
+                                                setTempClassInfo(schedule.class_info || "");
+                                                setEditModalVisible(true);
+                                            }}>
+                                                <FontAwesomeIcon icon={faEdit} size={16} color={theme.colors.placeholder} />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity onPress={() => handleDeleteSchedule(schedule.id)}>
+                                                <FontAwesomeIcon icon={faTrash} size={16} color="#ef4444" />
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
                             ))
                         )}
+                    </View>
+                );
+            case 'classmates':
+                if (isTeacher) {
+                    return (
+                        <View style={styles.contentContainer}>
+                            {selectedScheduleDate ? (
+                                <>
+                                    <View style={[styles.instructionCard, { backgroundColor: theme.colors.primary + '08', borderColor: theme.colors.primary + '20', marginBottom: 20 }]}>
+                                        <TouchableOpacity onPress={() => setSelectedScheduleDate(null)} style={{ marginRight: 12 }}>
+                                            <FontAwesomeIcon icon={faArrowLeft} size={16} color={theme.colors.primary} />
+                                        </TouchableOpacity>
+                                        <Text style={[styles.instructionText, { color: theme.colors.textSecondary }]}>
+                                            Marking Register for {new Date(selectedScheduleDate).toLocaleDateString()}.
+                                        </Text>
+                                    </View>
+
+                                    <View style={[styles.actionBar, { marginBottom: 24 }]}>
+                                        <TouchableOpacity style={[styles.mainActionBtn, { backgroundColor: '#10b981', flex: 1 }]} onPress={markAllPresent}>
+                                            <FontAwesomeIcon icon={faCheckCircle} size={14} color="#fff" />
+                                            <Text style={styles.mainActionText}>MARK ALL PRESENT</Text>
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <Text style={styles.sectionTitle}>STUDENT ROSTER</Text>
+                                    {classMembers.map((member) => {
+                                        const student = member.users;
+                                        const attendanceStatus = member.attendance?.[selectedScheduleDate] ?? null;
+                                        return (
+                                            <View key={member.id} style={[styles.studentCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, padding: 16, borderRadius: 20, marginBottom: 12 }]}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                    <Image source={student.avatar_url ? { uri: student.avatar_url } : defaultUserImage} style={{ width: 40, height: 40, borderRadius: 12 }} />
+                                                    <View style={{ flex: 1, marginLeft: 12 }}>
+                                                        <Text style={[styles.cardTitle, { color: theme.colors.text, marginBottom: 2 }]}>{student.full_name}</Text>
+                                                        <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]}>{student.email}</Text>
+                                                    </View>
+                                                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                                                        <TouchableOpacity
+                                                            onPress={() => handleAttendanceChange(member, true)}
+                                                            style={[styles.attBtn, attendanceStatus === true && { backgroundColor: '#10b981' }]}
+                                                        >
+                                                            <FontAwesomeIcon icon={faCheckCircle} size={14} color={attendanceStatus === true ? '#fff' : '#10b981'} />
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity
+                                                            onPress={() => handleAttendanceChange(member, false)}
+                                                            style={[styles.attBtn, attendanceStatus === false && { backgroundColor: '#ef4444' }]}
+                                                        >
+                                                            <FontAwesomeIcon icon={faTimesCircle} size={14} color={attendanceStatus === false ? '#fff' : '#ef4444'} />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
+                                            </View>
+                                        );
+                                    })}
+                                </>
+                            ) : (
+                                <>
+                                    <View style={[styles.actionBar, { marginBottom: 24 }]}>
+                                        <TouchableOpacity style={[styles.mainActionBtn, { backgroundColor: theme.colors.primary, flex: 1 }]} onPress={() => setMarksModalVisible(true)}>
+                                            <FontAwesomeIcon icon={faPlusCircle} size={14} color="#fff" />
+                                            <Text style={styles.mainActionText}>ENTER MARKS</Text>
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <Text style={styles.sectionTitle}>ENROLLED STUDENTS</Text>
+                                    {classMembers.length === 0 ? (
+                                        <View style={styles.emptyState}>
+                                            <FontAwesomeIcon icon={faUserGraduate} size={40} color={theme.colors.placeholder + '40'} />
+                                            <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No students enrolled.</Text>
+                                        </View>
+                                    ) : (
+                                        classMembers.map((member) => (
+                                            <View key={member.id} style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                                                <Image source={member.users?.avatar_url ? { uri: member.users.avatar_url } : defaultUserImage} style={{ width: 36, height: 36, borderRadius: 10 }} />
+                                                <View style={{ flex: 1, marginLeft: 12 }}>
+                                                    <Text style={[styles.cardTitle, { color: theme.colors.text }]}>{member.users?.full_name}</Text>
+                                                    <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]}>{member.users?.email}</Text>
+                                                </View>
+                                                <TouchableOpacity onPress={() => removeStudentFromClass(member.users?.id)} style={{ padding: 8 }}>
+                                                    <FontAwesomeIcon icon={faTrash} size={14} color="#ef4444" />
+                                                </TouchableOpacity>
+                                            </View>
+                                        ))
+                                    )}
+
+                                    <View style={{ marginTop: 32 }}>
+                                        <Text style={styles.sectionTitle}>ENROLL NEW STUDENTS</Text>
+                                        <View style={[styles.searchBox, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 50, borderRadius: 16, marginBottom: 16 }]}>
+                                            <FontAwesomeIcon icon={faSearch} size={14} color={theme.colors.placeholder} />
+                                            <TextInput
+                                                style={{ flex: 1, marginLeft: 12, fontSize: 14, color: theme.colors.text }}
+                                                value={searchQuery}
+                                                onChangeText={(t) => { setSearchQuery(t); fetchAllStudents(); }}
+                                                placeholder="Search students..."
+                                                placeholderTextColor={theme.colors.placeholder}
+                                            />
+                                        </View>
+                                        {availableStudents.map((item) => (
+                                            <View key={item.id} style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                                                <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={{ width: 36, height: 36, borderRadius: 10 }} />
+                                                <View style={{ flex: 1, marginLeft: 12 }}>
+                                                    <Text style={[styles.cardTitle, { color: theme.colors.text }]}>{item.full_name}</Text>
+                                                    <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]}>{item.email}</Text>
+                                                </View>
+                                                <TouchableOpacity 
+                                                    onPress={() => addStudentToClass(item.id)} 
+                                                    style={{ backgroundColor: theme.colors.primary + '15', width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}
+                                                >
+                                                    <FontAwesomeIcon icon={faPlus} size={12} color={theme.colors.primary} />
+                                                </TouchableOpacity>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </>
+                            )}
+                        </View>
+                    );
+                }
+                
+                // Student View for classmates
+                return (
+                    <View style={styles.contentContainer}>
+                        <Text style={styles.sectionTitle}>MY CLASSMATES</Text>
+                        {classMembers.map((member) => (
+                            <View key={member.id} style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                                <Image source={member.users?.avatar_url ? { uri: member.users.avatar_url } : defaultUserImage} style={{ width: 36, height: 36, borderRadius: 10 }} />
+                                <View style={{ flex: 1, marginLeft: 12 }}>
+                                    <Text style={[styles.cardTitle, { color: theme.colors.text }]}>{member.users?.full_name}</Text>
+                                    <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]}>{member.users?.email}</Text>
+                                </View>
+                            </View>
+                        ))}
                     </View>
                 );
             case 'attendance':
@@ -433,6 +1005,107 @@ const StudentClassDashboardScreen = () => {
                 item={selectedItem}
                 type={manageType}
             />
+
+            <MarksModal
+                visible={isMarksModalVisible}
+                onClose={() => setMarksModalVisible(false)}
+                classId={classId}
+                classMembers={classMembers}
+            />
+
+            <ManageMarksModal
+                visible={isManageMarksModalVisible}
+                onClose={() => {
+                    setManageMarksModalVisible(false);
+                    setSelectedStudent(null);
+                }}
+                student={selectedStudent}
+                classId={classId}
+            />
+
+            {/* Edit Schedule Modal */}
+            <Modal visible={isEditModalVisible} transparent animationType="fade" onRequestClose={() => setEditModalVisible(false)}>
+                <Pressable style={styles.modalOverlay} onPress={() => setEditModalVisible(false)}>
+                    <View style={[styles.modalBox, { backgroundColor: theme.colors.surface }]}>
+                        <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Edit Session</Text>
+                        <View style={styles.timePickerRow}>
+                            <View style={styles.timeCol}>
+                                <Text style={styles.timeLabel}>START</Text>
+                                <TextInput style={[styles.timeInp, { color: theme.colors.text, backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]} value={tempStartTime} onChangeText={(t) => {
+                                    const cleaned = t.replace(/[^0-9]/g, '');
+                                    let nt = cleaned;
+                                    if (cleaned.length > 2) nt = cleaned.slice(0, 2) + ':' + cleaned.slice(2, 4);
+                                    setTempStartTime(nt);
+                                }} />
+                            </View>
+                            <View style={styles.timeCol}>
+                                <Text style={styles.timeLabel}>END</Text>
+                                <TextInput style={[styles.timeInp, { color: theme.colors.text, backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]} value={tempEndTime} onChangeText={(t) => {
+                                    const cleaned = t.replace(/[^0-9]/g, '');
+                                    let nt = cleaned;
+                                    if (cleaned.length > 2) nt = cleaned.slice(0, 2) + ':' + cleaned.slice(2, 4);
+                                    setTempEndTime(nt);
+                                }} />
+                            </View>
+                        </View>
+                        <TextInput
+                            style={[styles.modalInfoInp, { backgroundColor: theme.colors.background, color: theme.colors.text, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                            multiline placeholder="Session details..." value={tempClassInfo} onChangeText={setTempClassInfo}
+                        />
+                        <View style={styles.modalBtns}>
+                            <TouchableOpacity style={styles.modalCancel} onPress={() => setEditModalVisible(false)}><Text style={styles.modalCancelText}>CANCEL</Text></TouchableOpacity>
+                            <TouchableOpacity style={[styles.modalSave, { backgroundColor: theme.colors.primary }]} onPress={handleUpdateSchedule}><Text style={styles.modalSaveText}>SAVE</Text></TouchableOpacity>
+                        </View>
+                    </View>
+                </Pressable>
+            </Modal>
+
+            {/* Add Schedule Modal */}
+            <Modal visible={isAddModalVisible} transparent animationType="fade" onRequestClose={() => setAddModalVisible(false)}>
+                <Pressable style={styles.modalOverlay} onPress={() => setAddModalVisible(false)}>
+                    <View style={[styles.modalBoxLarge, { backgroundColor: theme.colors.surface }]}>
+                        <Text style={[styles.modalTitle, { color: theme.colors.text }]}>New Session</Text>
+                        <Calendar
+                            onDayPress={(day) => setNewScheduleDate(day.dateString)}
+                            hideExtraDays={true}
+                            markedDates={{ [newScheduleDate]: { selected: true, selectedColor: theme.colors.primary } }}
+                            theme={{ calendarBackground: theme.colors.surface, dayTextColor: theme.colors.text, monthTextColor: theme.colors.text }}
+                        />
+                        {newScheduleDate && (
+                            <View style={{ marginTop: 20 }}>
+                                <View style={styles.timePickerRow}>
+                                    <View style={styles.timeCol}>
+                                        <Text style={styles.timeLabel}>START</Text>
+                                        <TextInput style={[styles.timeInp, { color: theme.colors.text, backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]} value={newStartTime} onChangeText={(t) => {
+                                            const cleaned = t.replace(/[^0-9]/g, '');
+                                            let nt = cleaned;
+                                            if (cleaned.length > 2) nt = cleaned.slice(0, 2) + ':' + cleaned.slice(2, 4);
+                                            setNewStartTime(nt);
+                                        }} />
+                                    </View>
+                                    <View style={styles.timeCol}>
+                                        <Text style={styles.timeLabel}>END</Text>
+                                        <TextInput style={[styles.timeInp, { color: theme.colors.text, backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]} value={newEndTime} onChangeText={(t) => {
+                                            const cleaned = t.replace(/[^0-9]/g, '');
+                                            let nt = cleaned;
+                                            if (cleaned.length > 2) nt = cleaned.slice(0, 2) + ':' + cleaned.slice(2, 4);
+                                            setNewEndTime(nt);
+                                        }} />
+                                    </View>
+                                </View>
+                                <TextInput
+                                    style={[styles.modalInfoInp, { backgroundColor: theme.colors.background, color: theme.colors.text, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                                    multiline placeholder="Additional info..." value={newClassInfo} onChangeText={setNewClassInfo}
+                                />
+                            </View>
+                        )}
+                        <View style={styles.modalBtns}>
+                            <TouchableOpacity style={styles.modalCancel} onPress={() => setAddModalVisible(false)}><Text style={styles.modalCancelText}>CANCEL</Text></TouchableOpacity>
+                            <TouchableOpacity style={[styles.modalSave, { backgroundColor: theme.colors.primary }]} onPress={handleAddSchedule}><Text style={styles.modalSaveText}>CREATE</Text></TouchableOpacity>
+                        </View>
+                    </View>
+                </Pressable>
+            </Modal>
         </View>
     );
 };
@@ -613,6 +1286,40 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         opacity: 0.8,
     },
+    attBtn: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.03)' },
+    instructionCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 20,
+        borderWidth: 1,
+        gap: 12,
+    },
+    instructionText: {
+        flex: 1,
+        fontSize: 13,
+        fontWeight: '600',
+        lineHeight: 18,
+    },
+    actionBar: { flexDirection: 'row', gap: 12 },
+    mainActionBtn: { flex: 1, height: 50, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    mainActionText: { color: '#fff', fontSize: 11, fontWeight: '900' },
+    studentCard: { borderRadius: 24, padding: 16, marginBottom: 12 },
+    searchBox: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 50, borderRadius: 16, marginBottom: 16 },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+    modalBox: { width: '85%', padding: 24, borderRadius: 32 },
+    modalBoxLarge: { width: '90%', padding: 24, borderRadius: 32 },
+    modalTitle: { fontSize: 20, fontWeight: '900', textAlign: 'center', marginBottom: 24 },
+    timePickerRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+    timeCol: { flex: 1 },
+    timeLabel: { fontSize: 9, fontWeight: '900', color: '#94a3b8', marginBottom: 8, textAlign: 'center' },
+    timeInp: { height: 50, borderRadius: 14, textAlign: 'center', fontSize: 16, fontWeight: '800' },
+    modalInfoInp: { height: 80, borderRadius: 16, padding: 12, textAlignVertical: 'top', fontSize: 14 },
+    modalBtns: { flexDirection: 'row', gap: 12, marginTop: 24 },
+    modalCancel: { flex: 1, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.05)' },
+    modalCancelText: { fontSize: 12, fontWeight: '900', color: '#94a3b8' },
+    modalSave: { flex: 1, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    modalSaveText: { fontSize: 12, fontWeight: '900', color: '#fff' },
 });
 
 export default React.memo(StudentClassDashboardScreen);

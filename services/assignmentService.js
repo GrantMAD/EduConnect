@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 
 export const fetchAssignments = async ({ userId, userRole, schoolId, childIds = [] }) => {
     try {
-        let selectStr = '*, assigned_by_user:users!assigned_by(full_name, email)';
+        let selectStr = '*, assigned_by_user:users!assigned_by(full_name, email), lesson_plans(id, title, objectives)';
         if (userRole === 'student' || userRole === 'parent') {
             selectStr += ', student_completions(id, student_id, score, total_possible)';
         }

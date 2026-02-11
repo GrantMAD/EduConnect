@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faExclamationTriangle, faCalendarCheck, faChevronRight, faClipboardCheck, faUserClock } from '@fortawesome/free-solid-svg-icons';
+import { faExclamationTriangle, faCalendarCheck, faChevronRight, faClipboardCheck, faUserClock, faBookOpen, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../../context/ThemeContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -32,9 +32,48 @@ const ActionRequiredList = ({ actions = [], navigation }) => {
                         return <AttendanceCard key={`att-${index}`} action={action} navigation={navigation} theme={theme} isDarkTheme={isDarkTheme} />;
                     } else if (action.type === 'ungraded_homework' || action.type === 'ungraded_assignment') {
                         return <UngradedCard key={`ung-${index}`} action={action} navigation={navigation} theme={theme} isDarkTheme={isDarkTheme} />;
+                    } else if (action.type === 'missing_lesson_plan') {
+                        return <MissingLessonPlanCard key={`mlp-${index}`} action={action} navigation={navigation} theme={theme} isDarkTheme={isDarkTheme} />;
                     }
                     return null;
                 })}
+            </View>
+        </View>
+    );
+};
+
+const MissingLessonPlanCard = ({ action, navigation, theme, isDarkTheme }) => {
+    return (
+        <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: isDarkTheme ? 'rgba(245, 158, 11, 0.3)' : '#fef3c7' }]}>
+            <View style={[styles.cardLeftBorder, { backgroundColor: '#f59e0b' }]} />
+            
+            <View style={styles.cardContent}>
+                <View style={styles.cardHeader}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={[styles.cardTitle, { color: theme.colors.text }]} numberOfLines={1}>
+                            {action.className}
+                        </Text>
+                        <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]}>
+                            CURRICULUM MISSING
+                        </Text>
+                        <Text style={[styles.itemTitle, { color: theme.colors.text }]} numberOfLines={1}>
+                            No lesson plans for {action.subject}
+                        </Text>
+                    </View>
+                    <View style={[styles.iconBadge, { backgroundColor: isDarkTheme ? 'rgba(245, 158, 11, 0.1)' : '#fffbeb', borderColor: isDarkTheme ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7' }]}>
+                        <FontAwesomeIcon icon={faBookOpen} size={16} color={isDarkTheme ? '#fbbf24' : '#d97706'} />
+                    </View>
+                </View>
+
+                <TouchableOpacity
+                    onPress={() => navigation.navigate('StudentClassDashboard', { classId: action.classId, initialTab: 'lessons' })}
+                    style={[styles.actionButton, { backgroundColor: '#f59e0b' }]}
+                    activeOpacity={0.8}
+                >
+                    <FontAwesomeIcon icon={faPlus} size={12} color="#fff" style={{ marginRight: 8 }} />
+                    <Text style={styles.actionButtonText}>Start Planning</Text>
+                    <FontAwesomeIcon icon={faChevronRight} size={10} color="rgba(255,255,255,0.7)" style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
             </View>
         </View>
     );
@@ -174,11 +213,11 @@ const styles = StyleSheet.create({
         gap: 16,
     },
     card: {
-        borderRadius: 16,
+        borderRadius: 12,
         borderWidth: 2,
         overflow: 'hidden',
         position: 'relative',
-        marginBottom: 16,
+        marginBottom: 12,
     },
     cardLeftBorder: {
         position: 'absolute',
@@ -188,59 +227,59 @@ const styles = StyleSheet.create({
         width: 6,
     },
     cardContent: {
-        padding: 16,
-        paddingLeft: 22, // Account for left border
+        padding: 12,
+        paddingLeft: 18, // Account for left border
     },
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 16,
+        marginBottom: 10,
     },
     cardTitle: {
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: '900',
-        marginBottom: 4,
+        marginBottom: 2,
     },
     cardSubtitle: {
-        fontSize: 10,
+        fontSize: 9,
         fontWeight: '800',
         textTransform: 'uppercase',
         letterSpacing: 1,
     },
     itemTitle: {
-        fontSize: 12,
-        marginTop: 4,
+        fontSize: 11,
+        marginTop: 2,
         opacity: 0.8,
     },
     dateBadge: {
-        padding: 8,
-        borderRadius: 12,
+        padding: 6,
+        borderRadius: 10,
         borderWidth: 1,
         alignItems: 'flex-end',
-        minWidth: 60,
+        minWidth: 50,
     },
     dateText: {
-        fontSize: 13,
+        fontSize: 11,
         fontWeight: '900',
     },
     dayText: {
-        fontSize: 9,
+        fontSize: 8,
         fontWeight: '800',
         textTransform: 'uppercase',
     },
     iconBadge: {
-        padding: 10,
-        borderRadius: 12,
+        padding: 8,
+        borderRadius: 10,
         borderWidth: 1,
     },
     actionButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 10,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
@@ -249,7 +288,7 @@ const styles = StyleSheet.create({
     },
     actionButtonText: {
         color: '#fff',
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: '900',
     }
 });
