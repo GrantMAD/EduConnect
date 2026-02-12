@@ -283,19 +283,21 @@ export const fetchStudentMarks = async (studentId, classIds) => {
     const { data: completions, error: compError } = await supabase
         .from('student_completions')
         .select(`
-            id, score, total_possible, 
-            homework:homework!homework_id (subject, grading_category_id, created_at),
-            assignment:assignments!assignment_id (title, grading_category_id, created_at)
+            id, score, total_possible, student_id,
+            homework:homework!homework_id (subject, grading_category_id, created_at, class_id),
+            assignment:assignments!assignment_id (title, grading_category_id, created_at, class_id)
         `)
         .eq('student_id', studentId)
-        .or('homework_id.not.is.null,assignment_id.not.is.null')
         .filter('score', 'not.is.null');
 
     if (compError) throw compError;
 
     // Filter and transform completions
     const mappedCompletions = completions
-        .filter(c => (c.homework && c.homework.grading_category_id) || (c.assignment && c.assignment.grading_category_id))
+        .filter(c => {
+            const item = c.homework || c.assignment;
+            return item && item.grading_category_id && classIds.includes(item.class_id);
+        })
         .map(c => {
             const source = c.homework || c.assignment;
             return {
@@ -306,7 +308,8 @@ export const fetchStudentMarks = async (studentId, classIds) => {
                 total_possible: c.total_possible,
                 assessment_name: source.subject || source.title,
                 assessment_date: source.created_at,
-                is_completion_mark: true
+                is_completion_mark: true,
+                mark: `${Math.round((c.score / c.total_possible) * 100)}%`
             };
         });
 

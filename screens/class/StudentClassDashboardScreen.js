@@ -56,6 +56,7 @@ import { fetchAnnouncements } from '../../services/announcementService';
 import { fetchHomework } from '../../services/homeworkService';
 import { fetchAssignmentsByClass } from '../../services/assignmentService';
 import { fetchLessonPlans } from '../../services/lessonService';
+import { fetchResources } from '../../services/resourceService';
 import { sendBatchNotifications } from '../../services/notificationService';
 import { Calendar } from "react-native-calendars";
 
@@ -102,6 +103,7 @@ const StudentClassDashboardScreen = () => {
     const [homework, setHomework] = useState([]); 
     const [assignments, setAssignments] = useState([]); 
     const [lessons, setLessons] = useState([]);
+    const [resources, setResources] = useState([]);
     const [marks, setMarks] = useState([]);
     const [attendance, setAttendance] = useState([]);
     const [classMembers, setClassMembers] = useState([]);
@@ -457,7 +459,7 @@ const StudentClassDashboardScreen = () => {
                 console.log(`Loading dashboard as ${profile?.role} ${user.id}`);
             }
 
-            const [info, scheds, myMarks, myAttendance, classAnnouncements, classHomework, classAssignments, classLessons, members] = await Promise.all([
+            const [info, scheds, myMarks, myAttendance, classAnnouncements, classHomework, classAssignments, classLessons, members, classResources] = await Promise.all([
                 fetchClassInfo(classId),
                 fetchClassSchedules([classId]),
                 fetchStudentMarks(targetStudentId, [classId]),
@@ -466,7 +468,8 @@ const StudentClassDashboardScreen = () => {
                 fetchHomework(profile?.school_id, targetStudentId, profile?.role, { class_id: classId }),
                 fetchAssignmentsByClass(classId),
                 fetchLessonPlans(classId, profile?.role),
-                fetchClassMembers(classId)
+                fetchClassMembers(classId),
+                fetchResources(schoolId, [classId], true)
             ]);
 
             setClassData(info);
@@ -477,6 +480,7 @@ const StudentClassDashboardScreen = () => {
             setHomework(classHomework || []);
             setAssignments(classAssignments || []);
             setLessons(classLessons || []);
+            setResources(classResources || []);
             setClassMembers(members.filter(m => m.role === 'student') || []);
         } catch (e) {
             console.error(e);
@@ -493,6 +497,7 @@ const StudentClassDashboardScreen = () => {
         { id: 'announcements', label: 'News', icon: faBullhorn, count: announcements.length },
         { id: 'homework', label: 'Homework', icon: faBook, count: homework.length },
         { id: 'lessons', label: 'Lessons', icon: faBookOpen, count: lessons.length },
+        { id: 'resources', label: 'Resources', icon: faBook, count: resources.length },
         { id: 'assignments', label: 'Assignments', icon: faClipboardList, count: assignments.length },
         { id: 'classmates', label: 'Classmates', icon: faUserGraduate, count: classMembers.length },
         { id: 'schedule', label: 'Schedule', icon: faCalendarAlt, count: schedules.length },
@@ -640,6 +645,53 @@ const StudentClassDashboardScreen = () => {
                                         setIsManageModalVisible(true);
                                     }}
                                 />
+                            ))
+                        )}
+                    </View>
+                );
+            case 'resources':
+                const getFileIconRes = (fileUrl) => {
+                    if (!fileUrl) return faBook;
+                    const lowerUrl = fileUrl.toLowerCase();
+                    if (lowerUrl.endsWith('.pdf')) return faBookOpen;
+                    return faBook;
+                };
+                return (
+                    <View style={styles.contentContainer}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text, marginBottom: 0 }]}>STUDY MATERIALS</Text>
+                            {isTeacher && (
+                                <TouchableOpacity 
+                                    onPress={() => navigation.navigate('Resources')}
+                                    style={{ backgroundColor: theme.colors.primary, width: 28, height: 28, borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}
+                                >
+                                    <FontAwesomeIcon icon={faPlus} size={12} color="#fff" />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                        {resources.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <FontAwesomeIcon icon={faBook} size={40} color={theme.colors.placeholder + '40'} />
+                                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No resources linked to this class.</Text>
+                            </View>
+                        ) : (
+                            resources.map((item, index) => (
+                                <TouchableOpacity 
+                                    key={item.id} 
+                                    style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                                    onPress={() => navigation.navigate('Resources', { screen: 'Resources' })} // Shortcut to main resources or show detail
+                                >
+                                    <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                                        <FontAwesomeIcon icon={getFileIconRes(item.file_url)} size={16} color={theme.colors.primary} />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[styles.cardTitle, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
+                                        <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]} numberOfLines={1}>
+                                            {item.category || 'General'} • {new Date(item.created_at).toLocaleDateString()}
+                                        </Text>
+                                    </View>
+                                    <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
+                                </TouchableOpacity>
                             ))
                         )}
                     </View>

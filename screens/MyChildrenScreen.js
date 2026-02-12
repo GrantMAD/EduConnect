@@ -47,7 +47,9 @@ import {
   faMapMarkerAlt,
   faChair,
   faTimes,
-  faIdCard
+  faIdCard,
+  faBook,
+  faBookOpen
 } from '@fortawesome/free-solid-svg-icons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -244,7 +246,26 @@ const StudentClassDetailModal = React.memo(({ isOpen, onClose, classInfo, studen
               <View style={[styles.clsIconBox, { width: 32, height: 32, backgroundColor: theme.colors.primary + '15' }]}>
                 <FontAwesomeIcon icon={faChalkboardTeacher} size={14} color={theme.colors.primary} />
               </View>
-              <Text style={{ marginLeft: 12, fontWeight: '700', color: theme.colors.text }}>{classInfo.classes?.teacher?.full_name || 'N/A'}</Text>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={{ fontWeight: '700', color: theme.colors.text }}>{classInfo.classes?.teacher?.full_name || 'N/A'}</Text>
+              </View>
+              {classInfo.classes?.class_resources?.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => {
+                    onClose();
+                    navigation.navigate('StudentClassDashboard', {
+                      classId: classInfo.class_id,
+                      className: classInfo.classes?.name,
+                      studentId: classInfo.user_id,
+                      initialTab: 'resources'
+                    });
+                  }}
+                  style={[styles.smallActionBtn, { backgroundColor: theme.colors.primary }]}
+                >
+                  <FontAwesomeIcon icon={faBookOpen} size={12} color="#fff" />
+                  <Text style={styles.smallActionBtnText}>RESOURCES</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             <Text style={[styles.expandedTitle, { marginBottom: 12 }]}>ACADEMIC HISTORY</Text>
@@ -384,13 +405,23 @@ const ClassCard = React.memo(({ classInfo, theme, onPress }) => {
           )}
         </View>
 
-        <View style={[styles.clsFooter, { borderTopColor: theme.colors.cardBorder, borderTopWidth: 1 }]}>
-          <View style={styles.footerStat}>
-            <FontAwesomeIcon icon={faCalendarCheck} size={12} color={attendanceRate > 85 ? '#10b981' : '#f59e0b'} />
-            <Text style={[styles.footerStatText, { color: theme.colors.placeholder }]}>{attendanceRate}% Attendance</Text>
+          <View style={[styles.clsFooter, { borderTopColor: theme.colors.cardBorder, borderTopWidth: 1 }]}>
+            <View style={{ flexDirection: 'column', gap: 4 }}>
+              <View style={styles.footerStat}>
+                <FontAwesomeIcon icon={faCalendarCheck} size={12} color={attendanceRate > 85 ? '#10b981' : '#f59e0b'} />
+                <Text style={[styles.footerStatText, { color: theme.colors.placeholder }]}>{attendanceRate}% Attendance</Text>
+              </View>
+              <View style={styles.footerStat}>
+                <FontAwesomeIcon icon={faBookOpen} size={12} color={classInfo.classes?.class_resources?.length > 0 ? '#6366f1' : '#94a3b8'} />
+                <Text style={[styles.footerStatText, { color: classInfo.classes?.class_resources?.length > 0 ? '#6366f1' : theme.colors.placeholder, fontWeight: classInfo.classes?.class_resources?.length > 0 ? '700' : '500' }]}>
+                  {classInfo.classes?.class_resources?.length > 0 
+                    ? `${classInfo.classes.class_resources.length} Resource${classInfo.classes.class_resources.length === 1 ? '' : 's'}` 
+                    : 'No resources linked'}
+                </Text>
+              </View>
+            </View>
+            <FontAwesomeIcon icon={expanded ? faChevronUp : faChevronDown} size={14} color={theme.colors.placeholder} />
           </View>
-          <FontAwesomeIcon icon={expanded ? faChevronUp : faChevronDown} size={14} color={theme.colors.placeholder} />
-        </View>
       </TouchableOpacity>
 
       {expanded && (
@@ -452,6 +483,7 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
   const [activeTab, setActiveTab] = useState(initialTab);
   const [selectedClass, setSelectedClass] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [examSubTab, setExamSubTab] = useState('upcoming');
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -518,6 +550,18 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
     fetchClassData();
   }, [student.id, refreshTrigger]);
 
+  const categorizedExams = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    return {
+      upcoming: exams.filter(e => new Date(e.date) >= now).sort((a, b) => new Date(a.date) - new Date(b.date)),
+      past: exams.filter(e => new Date(e.date) < now).sort((a, b) => new Date(b.date) - new Date(a.date))
+    };
+  }, [exams]);
+
+  const displayExams = categorizedExams[examSubTab];
+
   const stats = useMemo(() => {
     if (!classes.length) return { classes: 0, marks: 0, avgAttendance: 0 };
     const totalClasses = classes.length;
@@ -558,9 +602,9 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
         >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={[styles.tabText, { color: activeTab === 'exams' ? theme.colors.primary : theme.colors.placeholder }]}>EXAMS</Text>
-            {exams.length > 0 && (
+            {categorizedExams.upcoming.length > 0 && (
               <View style={[styles.tabCount, { backgroundColor: activeTab === 'exams' ? theme.colors.primary : theme.colors.cardBorder }]}>
-                <Text style={styles.tabCountText}>{exams.length}</Text>
+                <Text style={styles.tabCountText}>{categorizedExams.upcoming.length}</Text>
               </View>
             )}
           </View>
@@ -619,24 +663,41 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
         )
       ) : (
         <View style={styles.examContainer}>
-          <CandidateInfoCard profile={student} examCount={exams.length} theme={theme} />
-          {exams.length === 0 ? (
+          <CandidateInfoCard profile={student} examCount={categorizedExams.upcoming.length} theme={theme} />
+          
+          {/* Sub-Tabs */}
+          <View style={[styles.subTabContainer, { backgroundColor: theme.colors.cardBorder + '30' }]}>
+            <TouchableOpacity
+              onPress={() => setExamSubTab('upcoming')}
+              style={[styles.subTabBtn, examSubTab === 'upcoming' && { backgroundColor: theme.colors.card, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 }]}
+            >
+              <Text style={[styles.subTabText, { color: examSubTab === 'upcoming' ? theme.colors.primary : theme.colors.placeholder }]}>UPCOMING</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setExamSubTab('past')}
+              style={[styles.subTabBtn, examSubTab === 'past' && { backgroundColor: theme.colors.card, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 }]}
+            >
+              <Text style={[styles.subTabText, { color: examSubTab === 'past' ? theme.colors.primary : theme.colors.placeholder }]}>PAST</Text>
+            </TouchableOpacity>
+          </View>
+
+          {displayExams.length === 0 ? (
             <View style={[styles.emptyState, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, borderStyle: 'dashed' }]}>
               <FontAwesomeIcon icon={faCalendarAlt} size={48} color={theme.colors.placeholder} style={{ opacity: 0.3 }} />
-              <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>No Exams Found</Text>
-              <Text style={[styles.emptyStateDesc, { color: theme.colors.placeholder }]}>No examination timetable has been published yet.</Text>
+              <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>No {examSubTab} Exams</Text>
+              <Text style={[styles.emptyStateDesc, { color: theme.colors.placeholder }]}>No {examSubTab} examination timetable has been found.</Text>
             </View>
           ) : (
-            exams.map((exam, idx) => (
-              <View key={idx} style={[styles.examCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+            displayExams.map((exam, idx) => (
+              <View key={idx} style={[styles.examCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, opacity: examSubTab === 'past' ? 0.7 : 1 }]}>
                 <View style={styles.examDateBox}>
                   <Text style={styles.examMonth}>{new Date(exam.date).toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}</Text>
                   <Text style={[styles.examDay, { color: theme.colors.text }]}>{new Date(exam.date).getDate()}</Text>
                 </View>
                 <View style={styles.examMain}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                    <View style={[styles.paperCodeBadge, { backgroundColor: theme.colors.primary + '15' }]}>
-                      <Text style={[styles.paperCodeText, { color: theme.colors.primary }]}>{exam.paper_code}</Text>
+                    <View style={[styles.paperCodeBadge, { backgroundColor: examSubTab === 'upcoming' ? theme.colors.primary + '15' : theme.colors.cardBorder + '50' }]}>
+                      <Text style={[styles.paperCodeText, { color: examSubTab === 'upcoming' ? theme.colors.primary : theme.colors.placeholder }]}>{exam.paper_code}</Text>
                     </View>
                     <Text style={[styles.examTime, { color: theme.colors.placeholder }]}>
                       <FontAwesomeIcon icon={faClock} size={10} color={theme.colors.placeholder} /> {exam.start_time.slice(0, 5)}
@@ -646,12 +707,12 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
 
                   <View style={[styles.examVenueRow, { borderTopColor: theme.colors.cardBorder }]}>
                     <View style={styles.venueStat}>
-                      <FontAwesomeIcon icon={faMapMarkerAlt} size={10} color="#0d9488" />
-                      <Text style={[styles.venueStatText, { color: '#0d9488' }]}>{exam.venue_name || 'TBA'}</Text>
+                      <FontAwesomeIcon icon={faMapMarkerAlt} size={10} color={examSubTab === 'upcoming' ? "#0d9488" : theme.colors.placeholder} />
+                      <Text style={[styles.venueStatText, { color: examSubTab === 'upcoming' ? "#0d9488" : theme.colors.placeholder }]}>{exam.venue_name || 'TBA'}</Text>
                     </View>
                     <View style={styles.venueStat}>
-                      <FontAwesomeIcon icon={faChair} size={10} color="#0d9488" />
-                      <Text style={[styles.venueStatText, { color: '#0d9488' }]}>SEAT: {exam.seat_label || 'TBA'}</Text>
+                      <FontAwesomeIcon icon={faChair} size={10} color={examSubTab === 'upcoming' ? "#0d9488" : theme.colors.placeholder} />
+                      <Text style={[styles.venueStatText, { color: examSubTab === 'upcoming' ? "#0d9488" : theme.colors.placeholder }]}>SEAT: {exam.seat_label || 'TBA'}</Text>
                     </View>
                   </View>
                 </View>
@@ -1177,6 +1238,36 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     lineHeight: 18,
     flex: 1,
+  },
+  subTabContainer: {
+    flexDirection: 'row',
+    padding: 4,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  subTabBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  subTabText: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  smallActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 6,
+  },
+  smallActionBtnText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '900',
   },
   // New Styles
   markRowContainer: {

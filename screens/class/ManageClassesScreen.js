@@ -98,6 +98,14 @@ const ManageClassesScreen = ({ navigation }) => {
                 <Text style={[styles.detailText, { color: theme.colors.placeholder }]}>Subject: {item.subject}</Text>
               </View>
             )}
+            <View style={styles.detailRow}>
+              <FontAwesomeIcon icon={faBookOpen} size={12} color={item.class_resources?.length > 0 ? '#6366f1' : theme.colors.placeholder} style={{ marginRight: 8 }} />
+              <Text style={[styles.detailText, { color: item.class_resources?.length > 0 ? '#6366f1' : theme.colors.placeholder, fontWeight: item.class_resources?.length > 0 ? '700' : '500' }]}>
+                {item.class_resources?.length > 0 
+                  ? `${item.class_resources.length} Resource${item.class_resources.length === 1 ? '' : 's'} linked` 
+                  : 'No resources linked yet'}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.cardFooter}>

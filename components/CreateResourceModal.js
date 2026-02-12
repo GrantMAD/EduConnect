@@ -26,6 +26,8 @@ import {
   updateResource, 
   createResource 
 } from '../services/resourceService';
+import { fetchClassesByTeacher } from '../services/classService';
+import { supabase } from '../lib/supabase';
 
 const CreateResourceModal = React.memo(({ visible, onClose, initialData }) => {
   const { showToast } = useToast();
@@ -40,6 +42,23 @@ const CreateResourceModal = React.memo(({ visible, onClose, initialData }) => {
   const [customCategory, setCustomCategory] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isPersonal, setIsPersonal] = useState(false);
+  const [targetClassId, setTargetClassId] = useState('');
+  const [classes, setClasses] = useState([]);
+
+  useEffect(() => {
+    const loadClasses = async () => {
+      try {
+        const user = await getCurrentUser();
+        if (user) {
+          const data = await fetchClassesByTeacher(user.id);
+          setClasses(data || []);
+        }
+      } catch (err) {
+        console.error('Error loading classes:', err);
+      }
+    };
+    if (visible) loadClasses();
+  }, [visible]);
 
   useEffect(() => {
     if (initialData) {
@@ -47,11 +66,13 @@ const CreateResourceModal = React.memo(({ visible, onClose, initialData }) => {
       setDescription(initialData.description || '');
       setCategory(initialData.category || 'General');
       setIsPersonal(initialData.is_personal || false);
+      setTargetClassId(initialData.class_resources?.[0]?.class_id || '');
     } else {
       setTitle('');
       setDescription('');
       setCategory('General');
       setIsPersonal(false);
+      setTargetClassId('');
     }
   }, [initialData, visible]);
 
@@ -118,10 +139,28 @@ const CreateResourceModal = React.memo(({ visible, onClose, initialData }) => {
       if (initialData) {
         // Update existing
         await updateResource(initialData.id, resourcePayload);
+        
+        // Update class link if changed
+        if (!isPersonal && targetClassId) {
+            await supabase.from('class_resources').upsert({
+                resource_id: initialData.id,
+                class_id: targetClassId
+            }, { onConflict: 'resource_id,class_id' });
+        }
+
         showToast('Resource updated successfully', 'success');
       } else {
         // Save new to table
-        await createResource(resourcePayload);
+        const newResource = await createResource(resourcePayload);
+        
+        // Link to class if selected
+        if (!isPersonal && targetClassId && newResource?.id) {
+            await supabase.from('class_resources').insert({
+                resource_id: newResource.id,
+                class_id: targetClassId
+            });
+        }
+
         awardXP('resource_creation', 20);
         showToast('Resource added successfully', 'success');
       }
@@ -193,6 +232,25 @@ const CreateResourceModal = React.memo(({ visible, onClose, initialData }) => {
             </Picker>
           </View>
         </View>
+
+        {!isPersonal && classes.length > 0 && (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: '#94a3b8' }]}>TARGET CLASS (OPTIONAL)</Text>
+            <View style={[styles.pickerContainer, { borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.card, borderWidth: 1 }]}>
+              <Picker
+                selectedValue={targetClassId}
+                onValueChange={(itemValue) => setTargetClassId(itemValue)}
+                style={[styles.picker, { color: theme.colors.text }]}
+                dropdownIconColor={theme.colors.text}
+              >
+                <Picker.Item label="Entire School" value="" />
+                {classes.map(cls => (
+                  <Picker.Item key={cls.id} label={cls.name} value={cls.id} />
+                ))}
+              </Picker>
+            </View>
+          </View>
+        )}
 
         {category === 'custom' && (
           <View style={styles.inputGroup}>

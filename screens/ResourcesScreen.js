@@ -28,6 +28,7 @@ import {
   removeBookmark,
   fetchResourcesWithVotes
 } from '../services/resourceService';
+import { fetchUserClasses } from '../services/userService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const ResourcesScreen = () => {
@@ -54,6 +55,7 @@ const ResourcesScreen = () => {
   const [editingResource, setEditingResource] = useState(null);
   
   const [currentFolder, setCurrentFolder] = useState(null);
+  const [classIds, setClassIds] = useState([]);
 
   const fetchBookmarks = useCallback(async () => {
     try {
@@ -124,10 +126,16 @@ const ResourcesScreen = () => {
       const user = await getCurrentUser();
       if (!user) return;
 
+      const profileData = await getUserProfile(user.id);
+      const enrolledClassIds = await fetchUserClasses(user.id, profileData.role);
+      setClassIds(enrolledClassIds);
+
       const resourcesWithVotes = await fetchResourcesWithVotes({
         schoolId,
         activeTab,
-        userId: user.id
+        userId: user.id,
+        profile: profileData,
+        classIds: enrolledClassIds
         // We don't pass category here because we want to see folders
       });
 
@@ -209,7 +217,19 @@ const ResourcesScreen = () => {
         <View style={[styles.card, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
           <FontAwesomeIcon icon={getFileIcon(item.file_url)} size={28} color={theme.colors.primary} style={{ marginRight: 15 }} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.title, { color: theme.colors.text }]}>{item.title}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={[styles.title, { color: theme.colors.text, flex: 1 }]}>{item.title}</Text>
+                <View style={{ flexDirection: 'row', gap: 4 }}>
+                    {item.class_resources?.map((cr, idx) => (
+                        <View key={idx} style={styles.classBadge}>
+                            <Text style={styles.classBadgeText}>{cr.classes?.name}</Text>
+                        </View>
+                    ))}
+                    <View style={[styles.categoryBadge, { backgroundColor: theme.colors.primary + '15' }]}>
+                        <Text style={[styles.categoryBadgeText, { color: theme.colors.primary }]}>{item.category || 'General'}</Text>
+                    </View>
+                </View>
+            </View>
             <Text style={[styles.description, { color: theme.colors.textSecondary }]} numberOfLines={2} ellipsizeMode="tail">
               {item.description}
             </Text>
@@ -619,5 +639,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 8,
     fontWeight: '500',
+  },
+  classBadge: {
+    backgroundColor: '#eef2ff',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#e0e7ff',
+  },
+  classBadgeText: {
+    color: '#4f46e5',
+    fontSize: 8,
+    fontFamily: 'System',
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  categoryBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  categoryBadgeText: {
+    fontSize: 8,
+    fontFamily: 'System',
+    fontWeight: '900',
+    textTransform: 'uppercase',
   },
 });

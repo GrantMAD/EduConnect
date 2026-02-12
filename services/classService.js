@@ -187,7 +187,7 @@ export const fetchClubsBySchool = async (schoolId) => {
 export const fetchClassMemberships = async (userId) => {
     const { data, error } = await supabase
         .from('class_members')
-        .select('id, attendance, class_id, classes (id, name, teacher:users(full_name))')
+        .select('id, attendance, class_id, classes (id, name, teacher:users(full_name), class_resources(id))')
         .eq('user_id', userId);
 
     if (error) throw error;
@@ -218,7 +218,7 @@ export const fetchClassesByTeacher = async (teacherId) => {
 export const getClassesBySchoolQuery = ({ schoolId, teacherId = null }) => {
     let query = supabase
         .from('classes')
-        .select('id, name, subject, teacher_id, teacher:users!teacher_id(full_name)')
+        .select('id, name, subject, teacher_id, teacher:users!teacher_id(full_name), class_resources(id)')
         .eq('school_id', schoolId);
 
     if (teacherId) {
