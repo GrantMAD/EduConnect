@@ -31,7 +31,7 @@ import {
 import { fetchUserClasses } from '../services/userService';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const ResourcesScreen = () => {
+const ResourcesScreen = ({ route }) => {
   const { schoolId } = useSchool();
   const { theme } = useTheme();
   const { showToast } = useToast();
@@ -56,6 +56,17 @@ const ResourcesScreen = () => {
   
   const [currentFolder, setCurrentFolder] = useState(null);
   const [classIds, setClassIds] = useState([]);
+
+  // Handle deep linking from Lesson Plans
+  useEffect(() => {
+    if (route.params?.targetResourceId && resources.length > 0) {
+      const target = resources.find(r => r.id === route.params.targetResourceId);
+      if (target) {
+        setSelectedResource(target);
+        setDetailModalVisible(true);
+      }
+    }
+  }, [route.params, resources]);
 
   const fetchBookmarks = useCallback(async () => {
     try {
@@ -198,66 +209,87 @@ const ResourcesScreen = () => {
   }, [resources, searchTerm, showBookmarkedOnly, bookmarkedIds, currentFolder, sortBy]);
 
   const categories = useMemo(() => {
-    // We need all resources to show folders, even if we are filtered by folder
-    // But actually, when we are in a folder, the folders aren't shown anyway.
-    // The web app fetches ALL resources for the tab and then filters client-side.
-    // Our fetchResources now filters server-side by category if currentFolder is set.
-    // This might break the folder list if we don't have all categories.
     return Array.from(new Set(resources.map(r => r.category || 'General'))).sort();
   }, [resources]);
 
-  const renderResourceItem = useCallback((item) => (
-    <View key={item.id.toString()} style={styles.resourceItemContainer}>
-      <TouchableOpacity
-        onPress={() => {
-          setSelectedResource(item);
-          setDetailModalVisible(true);
-        }}
-      >
-        <View style={[styles.card, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
-          <FontAwesomeIcon icon={getFileIcon(item.file_url)} size={28} color={theme.colors.primary} style={{ marginRight: 15 }} />
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={[styles.title, { color: theme.colors.text, flex: 1 }]}>{item.title}</Text>
-                <View style={{ flexDirection: 'row', gap: 4 }}>
-                    {item.class_resources?.map((cr, idx) => (
-                        <View key={idx} style={styles.classBadge}>
-                            <Text style={styles.classBadgeText}>{cr.classes?.name}</Text>
-                        </View>
-                    ))}
-                    <View style={[styles.categoryBadge, { backgroundColor: theme.colors.primary + '15' }]}>
-                        <Text style={[styles.categoryBadgeText, { color: theme.colors.primary }]}>{item.category || 'General'}</Text>
-                    </View>
+  const renderResourceItem = useCallback((item) => {
+    const isLessonLinked = item.class_resources?.some(cr => cr.lesson_plan_id);
+    
+    return (
+      <View key={item.id.toString()} style={styles.resourceItemContainer}>
+        <TouchableOpacity
+          onPress={() => {
+            setSelectedResource(item);
+            setDetailModalVisible(true);
+          }}
+        >
+          <View style={[styles.card, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
+            {/* Accent Bar */}
+            <LinearGradient
+              colors={isLessonLinked ? ['#8b5cf6', '#6366f1'] : ['#3b82f6', '#4f46e5']}
+              style={styles.accentBar}
+            />
+            
+            <FontAwesomeIcon icon={getFileIcon(item.file_url)} size={28} color={theme.colors.primary} style={{ marginRight: 15, marginLeft: 10 }} />
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={[styles.title, { color: theme.colors.text, flex: 1 }]}>{item.title}</Text>
+                  <View style={{ flexDirection: 'row', gap: 4 }}>
+                      {/* Unique Class Badges */}
+                      {Array.from(new Map(item.class_resources?.map(cr => [cr.class_id, cr])).values()).map((cr, idx) => (
+                          <View key={idx} style={styles.classBadge}>
+                              <Text style={styles.classBadgeText}>{cr.classes?.name}</Text>
+                          </View>
+                      ))}
+                      <View style={[styles.categoryBadge, { backgroundColor: theme.colors.primary + '15' }]}>
+                          <Text style={[styles.categoryBadgeText, { color: theme.colors.primary }]}>{item.category || 'General'}</Text>
+                      </View>
+                  </View>
+              </View>
+              <Text style={[styles.description, { color: theme.colors.textSecondary }]} numberOfLines={1} ellipsizeMode="tail">
+                {item.description}
+              </Text>
+              
+              {/* Lesson Links */}
+              {isLessonLinked && (
+                <View style={styles.lessonBadgesContainer}>
+                  {item.class_resources.map((cr, idx) => (
+                    cr.lesson_plans?.title && (
+                      <View key={idx} style={styles.lessonLinkBadge}>
+                        <FontAwesomeIcon icon={faBook} size={8} color="#6366f1" style={{ opacity: 0.7 }} />
+                        <Text style={styles.lessonLinkText}>Linked to lesson: <Text style={{ fontWeight: '900' }}>{cr.lesson_plans.title}</Text></Text>
+                      </View>
+                    )
+                  ))}
                 </View>
-            </View>
-            <Text style={[styles.description, { color: theme.colors.textSecondary }]} numberOfLines={2} ellipsizeMode="tail">
-              {item.description}
-            </Text>
-            <Text style={[styles.uploader, { color: theme.colors.placeholder }]}>
-              Uploaded by: {item.users?.full_name ?? item.users?.email ?? "Unknown"}
-            </Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-      <View style={[styles.voteSummaryContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <FontAwesomeIcon icon={faThumbsUp} size={14} color="#28A745" />
-        <Text style={[styles.voteCount, { color: theme.colors.text }]}>{item.upvotes}</Text>
-        <FontAwesomeIcon icon={faThumbsDown} size={14} color="#FF3B30" style={{ marginLeft: 10 }} />
-        <Text style={[styles.voteCount, { color: theme.colors.text }]}>{item.downvotes}</Text>
-      </View>
+              )}
 
-      <TouchableOpacity
-        style={styles.bookmarkButton}
-        onPress={() => toggleBookmark(item.id)}
-      >
-        <FontAwesomeIcon
-          icon={faBookmark}
-          size={20}
-          color={bookmarkedIds.has(item.id) ? "#FFC107" : "#ccc"}
-        />
-      </TouchableOpacity>
-    </View>
-  ), [theme, getFileIcon, toggleBookmark, bookmarkedIds]);
+              <Text style={[styles.uploader, { color: theme.colors.placeholder }]}>
+                Uploaded by: {item.users?.full_name ?? item.users?.email ?? "Unknown"}
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+        <View style={[styles.voteSummaryContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+          <FontAwesomeIcon icon={faThumbsUp} size={14} color="#28A745" />
+          <Text style={[styles.voteCount, { color: theme.colors.text }]}>{item.upvotes}</Text>
+          <FontAwesomeIcon icon={faThumbsDown} size={14} color="#FF3B30" style={{ marginLeft: 10 }} />
+          <Text style={[styles.voteCount, { color: theme.colors.text }]}>{item.downvotes}</Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.bookmarkButton}
+          onPress={() => toggleBookmark(item.id)}
+        >
+          <FontAwesomeIcon
+            icon={faBookmark}
+            size={20}
+            color={bookmarkedIds.has(item.id) ? "#FFC107" : "#ccc"}
+          />
+        </TouchableOpacity>
+      </View>
+    );
+  }, [theme, getFileIcon, toggleBookmark, bookmarkedIds]);
 
   const openInfoModal = useCallback(() => setInfoModalVisible(true), []);
   const closeInfoModal = useCallback(() => setInfoModalVisible(false), []);
@@ -666,4 +698,30 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     textTransform: 'uppercase',
   },
+  accentBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+  },
+  lessonBadgesContainer: {
+    marginTop: 4,
+    gap: 2,
+  },
+  lessonLinkBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(99, 102, 241, 0.05)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    gap: 4,
+  },
+  lessonLinkText: {
+    fontSize: 9,
+    color: '#6366f1',
+    fontWeight: '600',
+  }
 });

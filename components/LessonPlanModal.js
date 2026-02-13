@@ -12,14 +12,17 @@ import {
     faBullseye,
     faLink,
     faInfoCircle,
-    faPlus
+    faPlus,
+    faPlusCircle,
+    faFileAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
-import { saveLessonPlan } from '../services/lessonService';
+import { saveLessonPlan, unlinkLibraryResource } from '../services/lessonService';
+import ResourcePickerModal from './ResourcePickerModal';
 
 export default function LessonPlanModal({ isOpen, onClose, classId, topics, plan, onRefresh }) {
-    const { theme, isDarkTheme } = useTheme();
+    const { theme } = useTheme();
     const { showToast } = useToast();
     
     const [formData, setFormData] = useState({
@@ -32,18 +35,24 @@ export default function LessonPlanModal({ isOpen, onClose, classId, topics, plan
         status: 'draft',
         class_id: classId
     });
+    const [libraryResources, setLibraryResources] = useState([]);
+    const [isPickerOpen, setIsPickerOpen] = useState(false);
     const [newResource, setNewResource] = useState({ name: '', url: '' });
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
             if (plan) {
-                setFormData({
-                    ...plan,
-                    scheduled_date: plan.scheduled_date ? new Date(plan.scheduled_date).toISOString().split('T')[0] : '',
-                    objectives: plan.objectives?.length > 0 ? plan.objectives : [''],
-                    resources: plan.resources || []
+                setFormData(prev => {
+                    if (prev.id === plan.id) return prev;
+                    return {
+                        ...plan,
+                        scheduled_date: plan.scheduled_date ? new Date(plan.scheduled_date).toISOString().split('T')[0] : '',
+                        objectives: plan.objectives?.length > 0 ? plan.objectives : [''],
+                        resources: plan.resources || []
+                    };
                 });
+                setLibraryResources(plan.library_resources?.map(lr => lr.resource) || []);
             } else {
                 setFormData({
                     title: '',
@@ -55,6 +64,7 @@ export default function LessonPlanModal({ isOpen, onClose, classId, topics, plan
                     status: 'draft',
                     class_id: classId
                 });
+                setLibraryResources([]);
             }
         }
     }, [isOpen, plan, classId]);
@@ -93,6 +103,19 @@ export default function LessonPlanModal({ isOpen, onClose, classId, topics, plan
             ...formData,
             resources: formData.resources.filter((_, i) => i !== index)
         });
+    };
+
+    const handleUnlinkLibraryResource = async (resourceId) => {
+        if (!plan?.id) return;
+        try {
+            await unlinkLibraryResource(resourceId, classId, plan.id);
+            setLibraryResources(prev => prev.filter(r => r.id !== resourceId));
+            showToast('Library resource unlinked', 'success');
+            if (onRefresh) onRefresh();
+        } catch (error) {
+            console.error('Error unlinking resource:', error);
+            showToast('Failed to unlink resource', 'error');
+        }
     };
 
     const handleSave = async () => {
@@ -248,6 +271,80 @@ export default function LessonPlanModal({ isOpen, onClose, classId, topics, plan
                         ))}
                     </View>
 
+                    {/* Library Materials Section */}
+                    <View style={styles.formSection}>
+                        <View style={styles.sectionHeader}>
+                            <View style={styles.labelWithIcon}>
+                                <FontAwesomeIcon icon={faFileAlt} size={10} color="#6366f1" style={{ marginRight: 6 }} />
+                                <Text style={styles.label}>LIBRARY MATERIALS</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => {
+                                if (!plan?.id) {
+                                    showToast('Please save lesson first', 'info');
+                                    return;
+                                }
+                                setIsPickerOpen(true);
+                            }}>
+                                <Text style={{ color: '#6366f1', fontSize: 11, fontWeight: '900' }}>+ LINK FROM LIBRARY</Text>
+                            </TouchableOpacity>
+                        </View>
+                        
+                        {libraryResources.map((res) => (
+                            <View key={res.id} style={[styles.libraryItem, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder }]}>
+                                <FontAwesomeIcon icon={faFileAlt} size={14} color="#6366f1" />
+                                <Text style={[styles.libraryItemText, { color: theme.colors.text }]} numberOfLines={1}>{res.title}</Text>
+                                <TouchableOpacity onPress={() => handleUnlinkLibraryResource(res.id)} style={styles.removeBtn}>
+                                    <FontAwesomeIcon icon={faTrash} size={14} color="#ef4444" />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                        {libraryResources.length === 0 && (
+                            <Text style={styles.emptySmallText}>No library items linked yet.</Text>
+                        )}
+                    </View>
+
+                    {/* External Links Section */}
+                    <View style={styles.formSection}>
+                        <View style={styles.sectionHeader}>
+                            <View style={styles.labelWithIcon}>
+                                <FontAwesomeIcon icon={faLink} size={10} color="#10b981" style={{ marginRight: 6 }} />
+                                <Text style={styles.label}>EXTERNAL LINKS</Text>
+                            </View>
+                        </View>
+                        
+                        <View style={[styles.linkInputContainer, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder }]}>
+                            <TextInput
+                                value={newResource.name}
+                                onChangeText={(t) => setNewResource({ ...newResource, name: t })}
+                                placeholder="Link Name (e.g. Video)"
+                                placeholderTextColor={theme.colors.placeholder}
+                                style={[styles.linkInput, { color: theme.colors.text, borderBottomWidth: 1, borderBottomColor: theme.colors.cardBorder }]}
+                            />
+                            <View style={styles.linkRow}>
+                                <TextInput
+                                    value={newResource.url}
+                                    onChangeText={(t) => setNewResource({ ...newResource, url: t })}
+                                    placeholder="https://..."
+                                    placeholderTextColor={theme.colors.placeholder}
+                                    style={[styles.linkInput, { color: theme.colors.text, flex: 1 }]}
+                                />
+                                <TouchableOpacity onPress={addResource} style={[styles.addLinkBtn, { backgroundColor: theme.colors.primary }]}>
+                                    <Text style={styles.addLinkBtnText}>ADD</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        {formData.resources.map((res, i) => (
+                            <View key={i} style={[styles.libraryItem, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder }]}>
+                                <FontAwesomeIcon icon={faLink} size={14} color="#10b981" />
+                                <Text style={[styles.libraryItemText, { color: theme.colors.text }]} numberOfLines={1}>{res.name}</Text>
+                                <TouchableOpacity onPress={() => removeResource(i)} style={styles.removeBtn}>
+                                    <FontAwesomeIcon icon={faTrash} size={14} color="#ef4444" />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </View>
+
                     <View style={[styles.infoBox, { backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '20' }]}>
                         <FontAwesomeIcon icon={faInfoCircle} size={14} color={theme.colors.primary} />
                         <Text style={[styles.infoText, { color: theme.colors.textSecondary }]}>
@@ -277,6 +374,15 @@ export default function LessonPlanModal({ isOpen, onClose, classId, topics, plan
                         )}
                     </TouchableOpacity>
                 </View>
+
+                <ResourcePickerModal
+                    isOpen={isPickerOpen}
+                    onClose={() => setIsPickerOpen(false)}
+                    classId={classId}
+                    lessonPlanId={plan?.id}
+                    onRefresh={onRefresh}
+                    onSelect={(res) => setLibraryResources(prev => [...prev, res])}
+                />
             </View>
         </Modal>
     );
@@ -295,6 +401,7 @@ const styles = StyleSheet.create({
     scrollContent: { padding: 24, paddingBottom: 40, flexGrow: 1 },
     formSection: { marginBottom: 20 },
     label: { fontSize: 10, fontWeight: '900', color: '#94a3b8', letterSpacing: 1.5, marginBottom: 8, marginLeft: 4 },
+    labelWithIcon: { flexDirection: 'row', alignItems: 'center' },
     input: { height: 50, borderRadius: 16, borderWidth: 1, paddingHorizontal: 16, fontSize: 14, fontWeight: '700' },
     row: { flexDirection: 'row', gap: 12 },
     pickerWrapper: { height: 50, borderRadius: 16, overflow: 'hidden', justifyContent: 'center' },
@@ -305,6 +412,14 @@ const styles = StyleSheet.create({
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
     objectiveRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
     removeBtn: { padding: 8 },
+    libraryItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, borderWidth: 1, marginBottom: 8, gap: 12 },
+    libraryItemText: { flex: 1, fontSize: 13, fontWeight: '700' },
+    emptySmallText: { fontSize: 11, color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', marginVertical: 8 },
+    linkInputContainer: { borderRadius: 16, borderWidth: 1, overflow: 'hidden', marginBottom: 12 },
+    linkInput: { height: 44, paddingHorizontal: 16, fontSize: 13, fontWeight: '600' },
+    linkRow: { flexDirection: 'row', alignItems: 'center' },
+    addLinkBtn: { paddingHorizontal: 16, height: 44, justifyContent: 'center', alignItems: 'center' },
+    addLinkBtnText: { color: '#fff', fontSize: 11, fontWeight: '900' },
     infoBox: { flexDirection: 'row', gap: 12, padding: 16, borderRadius: 16, borderWidth: 1, marginTop: 10 },
     infoText: { flex: 1, fontSize: 12, fontWeight: '500', lineHeight: 18 },
     footer: { flexDirection: 'row', padding: 24, borderTopWidth: 1, gap: 12 },

@@ -28,7 +28,8 @@ import {
     faEdit, 
     faLayerGroup,
     faUsers,
-    faArrowLeft
+    faArrowLeft,
+    faGlobe
 } from '@fortawesome/free-solid-svg-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
@@ -107,9 +108,35 @@ const StudentClassDashboardScreen = () => {
     const [marks, setMarks] = useState([]);
     const [attendance, setAttendance] = useState([]);
     const [classMembers, setClassMembers] = useState([]);
+    const [resourceType, setResourceType] = useState('all'); // 'all', 'general', 'lessons'
     
     // Management State
     const [allStudents, setAllStudents] = useState([]);
+
+    const filteredResources = useMemo(() => {
+        if (!resources) return [];
+        
+        // Deduplicate resources by ID (in case of multiple lesson links)
+        const resourceMap = new Map();
+        resources.forEach(r => {
+            if (!resourceMap.has(r.id)) {
+                resourceMap.set(r.id, r);
+            }
+        });
+        const deduped = Array.from(resourceMap.values());
+
+        if (resourceType === 'all') return deduped;
+        
+        return deduped.filter(item => {
+            if (resourceType === 'general') {
+                return item.class_resources?.some(cr => cr.lesson_plan_id === null);
+            }
+            if (resourceType === 'lessons') {
+                return item.class_resources?.some(cr => cr.lesson_plan_id !== null);
+            }
+            return true;
+        });
+    }, [resources, resourceType]);
     const [fetchingStudents, setFetchingStudents] = useState(false);
     const [saving, setSaving] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -659,7 +686,9 @@ const StudentClassDashboardScreen = () => {
                 return (
                     <View style={styles.contentContainer}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                            <Text style={[styles.sectionTitle, { color: theme.colors.text, marginBottom: 0 }]}>STUDY MATERIALS</Text>
+                            <Text style={[styles.sectionTitle, { color: theme.colors.text, marginBottom: 0 }]}>
+                                {filteredResources.length} {resourceType === 'all' ? 'Total' : resourceType.charAt(0).toUpperCase() + resourceType.slice(1)} Materials
+                            </Text>
                             {isTeacher && (
                                 <TouchableOpacity 
                                     onPress={() => navigation.navigate('Resources')}
@@ -669,26 +698,73 @@ const StudentClassDashboardScreen = () => {
                                 </TouchableOpacity>
                             )}
                         </View>
-                        {resources.length === 0 ? (
+
+                        {/* Resource Type Toggle */}
+                        <View style={styles.resourceTypeContainer}>
+                            <View style={[styles.typeToggleBar, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}>
+                                {[
+                                    { id: 'all', label: 'All', icon: faLayerGroup },
+                                    { id: 'general', label: 'General', icon: faGlobe },
+                                    { id: 'lessons', label: 'Lessons', icon: faBook }
+                                ].map((t) => (
+                                    <TouchableOpacity
+                                        key={t.id}
+                                        onPress={() => setResourceType(t.id)}
+                                        style={[
+                                            styles.typeToggle,
+                                            resourceType === t.id && { backgroundColor: theme.colors.primary + '15' }
+                                        ]}
+                                    >
+                                        <FontAwesomeIcon 
+                                            icon={t.icon} 
+                                            size={10} 
+                                            color={resourceType === t.id ? theme.colors.primary : theme.colors.placeholder} 
+                                        />
+                                        <Text style={[
+                                            styles.typeToggleText, 
+                                            { color: resourceType === t.id ? theme.colors.primary : theme.colors.placeholder }
+                                        ]}>
+                                            {t.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+
+                        {filteredResources.length === 0 ? (
                             <View style={styles.emptyState}>
                                 <FontAwesomeIcon icon={faBook} size={40} color={theme.colors.placeholder + '40'} />
-                                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No resources linked to this class.</Text>
+                                <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No resources found here.</Text>
                             </View>
                         ) : (
-                            resources.map((item, index) => (
+                            filteredResources.map((item, index) => (
                                 <TouchableOpacity 
                                     key={item.id} 
                                     style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-                                    onPress={() => navigation.navigate('Resources', { screen: 'Resources' })} // Shortcut to main resources or show detail
+                                    onPress={() => navigation.navigate('Resources', { targetResourceId: item.id })}
                                 >
                                     <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
                                         <FontAwesomeIcon icon={getFileIconRes(item.file_url)} size={16} color={theme.colors.primary} />
                                     </View>
                                     <View style={{ flex: 1 }}>
                                         <Text style={[styles.cardTitle, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
-                                        <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]} numberOfLines={1}>
-                                            {item.category || 'General'} • {new Date(item.created_at).toLocaleDateString()}
+                                        <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder, marginBottom: 4 }]}>
+                                            {item.category || 'General'}
                                         </Text>
+                                        
+                                        {/* Lesson Badges Row */}
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                                            {item.class_resources?.map((cr, idx) => (
+                                                cr.lesson_plans?.title && (
+                                                    <View key={idx} style={styles.inlineLessonBadge}>
+                                                        <FontAwesomeIcon icon={faBook} size={7} color="#6366f1" style={{ opacity: 0.6 }} />
+                                                        <Text style={styles.inlineLessonText}>
+                                                            Linked to lesson: <Text style={{ fontWeight: '900' }}>{cr.lesson_plans.title}</Text>
+                                                        </Text>
+                                                    </View>
+                                                )
+                                            ))}
+                                        </View>
                                     </View>
                                     <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
                                 </TouchableOpacity>
@@ -1372,6 +1448,45 @@ const styles = StyleSheet.create({
     modalCancelText: { fontSize: 12, fontWeight: '900', color: '#94a3b8' },
     modalSave: { flex: 1, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
     modalSaveText: { fontSize: 12, fontWeight: '900', color: '#fff' },
+    resourceTypeContainer: {
+        marginBottom: 16,
+    },
+    typeToggleBar: {
+        flexDirection: 'row',
+        borderRadius: 12,
+        borderWidth: 1,
+        padding: 4,
+        gap: 4,
+    },
+    typeToggle: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 8,
+        borderRadius: 8,
+        gap: 6,
+    },
+    typeToggleText: {
+        fontSize: 10,
+        fontWeight: '900',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    inlineLessonBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(99, 102, 241, 0.05)',
+        paddingHorizontal: 4,
+        paddingVertical: 1,
+        borderRadius: 4,
+        gap: 3,
+    },
+    inlineLessonText: {
+        fontSize: 9,
+        color: '#6366f1',
+        fontWeight: '700',
+    }
 });
 
 export default React.memo(StudentClassDashboardScreen);

@@ -1,14 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faChevronLeft, faBook, faCalendarAlt, faCheckCircle, faClock, faPlus, faEdit, faFilter, faLayerGroup, faInfoCircle, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { 
+    faChevronLeft, faBook, faCalendarAlt, faCheckCircle, faClock, 
+    faPlus, faEdit, faFilter, faLayerGroup, faInfoCircle, 
+    faTrash, faChevronDown, faFileAlt, faExternalLinkAlt, faBullseye
+} from '@fortawesome/free-solid-svg-icons';
 import LinearGradient from 'react-native-linear-gradient';
 import { fetchLessonPlans, fetchLessonTopics, deleteLessonPlan } from '../../services/lessonService';
 import LessonPlanModal from '../../components/LessonPlanModal';
 import TopicManagerModal from '../../components/TopicManagerModal';
-import { Alert } from 'react-native';
+import ResourceDetailModal from '../../components/ResourceDetailModal';
+import { Alert, Linking } from 'react-native';
 
 const formatDate = (dateString, options = { weekday: 'short', month: 'short', day: 'numeric' }) => {
     try {
@@ -28,11 +33,24 @@ const LessonPlansScreen = ({ route, navigation }) => {
     const [topics, setTopics] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [expandedLessons, setExpandedLessons] = useState(new Set());
 
     // Modal state
     const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
     const [isTopicModalOpen, setIsTopicModalOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState(null);
+    const [detailModalVisible, setDetailModalVisible] = useState(false);
+    const [selectedResource, setSelectedResource] = useState(null);
+
+    const toggleLesson = (id) => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setExpandedLessons(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
 
     const loadData = useCallback(async () => {
         try {
@@ -87,52 +105,149 @@ const LessonPlansScreen = ({ route, navigation }) => {
         ]);
     };
 
-    const renderLessonItem = ({ item, index }) => (
-        <View style={styles.lessonTimelineItem}>
-            <View style={styles.timelineSidebar}>
-                <View style={[styles.timelineDot, { backgroundColor: getStatusColor(item.status) }]} />
-                {index < lessons.length - 1 && <View style={[styles.timelineLine, { backgroundColor: theme.colors.cardBorder }]} />}
-            </View>
-            <TouchableOpacity
-                style={[styles.lessonCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
-                activeOpacity={0.7}
-                onPress={() => {
-                    if (isTeacher) {
-                        setSelectedPlan(item);
-                        setIsPlanModalOpen(true);
-                    }
-                }}
-            >
-                <View style={styles.lessonHeader}>
-                    <Text style={[styles.lessonDate, { color: theme.colors.placeholder }]}>
-                        {formatDate(item.scheduled_date)}
-                    </Text>
-                    <View style={styles.headerRight}>
-                        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
-                            <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>{item.status?.toUpperCase()}</Text>
+    const renderLessonItem = ({ item, index }) => {
+        const isExpanded = expandedLessons.has(item.id);
+        const hasResources = item.resources?.length > 0 || item.library_resources?.length > 0;
+
+        return (
+            <View style={styles.lessonTimelineItem}>
+                <View style={styles.timelineSidebar}>
+                    <View style={[styles.timelineDot, { backgroundColor: getStatusColor(item.status) }]} />
+                    {index < lessons.length - 1 && <View style={[styles.timelineLine, { backgroundColor: theme.colors.cardBorder }]} />}
+                </View>
+                <TouchableOpacity
+                    style={[styles.lessonCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
+                    activeOpacity={0.7}
+                    onPress={() => toggleLesson(item.id)}
+                >
+                    <View style={styles.lessonHeader}>
+                        <Text style={[styles.lessonDate, { color: theme.colors.placeholder }]}>
+                            {formatDate(item.scheduled_date)}
+                        </Text>
+                        <View style={styles.headerRight}>
+                            {hasResources && (
+                                <View style={styles.headerMaterialBadge}>
+                                    <FontAwesomeIcon icon={faFileAlt} size={12} color={theme.colors.primary} />
+                                    <View style={[styles.miniBadge, { backgroundColor: theme.colors.primary }]}>
+                                        <Text style={styles.miniBadgeText}>
+                                            {(item.resources?.length || 0) + (item.library_resources?.length || 0)}
+                                        </Text>
+                                    </View>
+                                </View>
+                            )}
+                            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
+                                <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>{item.status?.toUpperCase()}</Text>
+                            </View>
+                            {isTeacher && (
+                                <TouchableOpacity 
+                                    onPress={() => {
+                                        setSelectedPlan(item);
+                                        setIsPlanModalOpen(true);
+                                    }} 
+                                    style={styles.editBtn}
+                                >
+                                    <FontAwesomeIcon icon={faEdit} size={12} color={theme.colors.primary} />
+                                </TouchableOpacity>
+                            )}
+                            <View style={{ transform: [{ rotate: isExpanded ? '180deg' : '0deg' }] }}>
+                                <FontAwesomeIcon icon={faChevronDown} size={12} color={theme.colors.placeholder} />
+                            </View>
                         </View>
-                        {isTeacher && (
-                            <TouchableOpacity onPress={() => handleDeletePlan(item.id)} style={styles.deleteBtn}>
-                                <FontAwesomeIcon icon={faTrash} size={12} color="#ef4444" />
-                            </TouchableOpacity>
+                    </View>
+                    
+                    <Text style={[styles.lessonTitle, { color: theme.colors.text }]}>{item.title}</Text>
+                    
+                    {item.topic && (
+                        <View style={styles.topicBadge}>
+                            <FontAwesomeIcon icon={faLayerGroup} size={10} color={theme.colors.placeholder} />
+                            <Text style={[styles.topicText, { color: theme.colors.placeholder }]}>{item.topic.name}</Text>
+                        </View>
+                    )}
+
+                    <View style={styles.cardMetaRow}>
+                        {item.objectives?.length > 0 && (
+                            <View style={styles.metaBadge}>
+                                <FontAwesomeIcon icon={faBullseye} size={8} color="#f43f5e" />
+                                <Text style={styles.metaBadgeText}>{item.objectives.length} OBJ</Text>
+                            </View>
+                        )}
+                        {hasResources && (
+                            <View style={[styles.metaBadge, { backgroundColor: '#10b98115' }]}>
+                                <FontAwesomeIcon icon={faFileAlt} size={8} color="#10b981" />
+                                <Text style={[styles.metaBadgeText, { color: '#10b981' }]}>
+                                    {(item.resources?.length || 0) + (item.library_resources?.length || 0)} MAT
+                                </Text>
+                            </View>
                         )}
                     </View>
-                </View>
-                <Text style={[styles.lessonTitle, { color: theme.colors.text }]}>{item.title}</Text>
-                {item.topic && (
-                    <View style={styles.topicBadge}>
-                        <FontAwesomeIcon icon={faLayerGroup} size={10} color={theme.colors.placeholder} />
-                        <Text style={[styles.topicText, { color: theme.colors.placeholder }]}>{item.topic.name}</Text>
-                    </View>
-                )}
-                {item.objectives && item.objectives.length > 0 && (
-                    <Text style={[styles.lessonObjectives, { color: theme.colors.text }]} numberOfLines={2}>
-                        {Array.isArray(item.objectives) ? item.objectives[0] : item.objectives}
-                    </Text>
-                )}
-            </TouchableOpacity>
-        </View>
-    );
+
+                    {isExpanded && (
+                        <View style={[styles.expandedContent, { borderTopColor: theme.colors.cardBorder }]}>
+                            {item.objectives?.length > 0 && (
+                                <View style={styles.expandedSection}>
+                                    <Text style={[styles.sectionLabel, { color: theme.colors.placeholder }]}>LEARNING OBJECTIVES</Text>
+                                    {item.objectives.map((obj, i) => (
+                                        <View key={i} style={styles.objectiveItem}>
+                                            <FontAwesomeIcon icon={faCheckCircle} size={10} color="#10b981" style={{ marginTop: 4 }} />
+                                            <Text style={[styles.objectiveText, { color: theme.colors.textSecondary }]}>{obj}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+
+                            {hasResources && (
+                                <View style={styles.expandedSection}>
+                                    <Text style={[styles.sectionLabel, { color: theme.colors.placeholder }]}>RESOURCES</Text>
+                                    <View style={styles.resourceButtonsContainer}>
+                                        {/* Library Resources - Open Detail Modal Locally */}
+                                        {item.library_resources?.map((lr, i) => (
+                                            <TouchableOpacity 
+                                                key={`lib-${i}`}
+                                                style={[styles.resBtn, { backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '20' }]}
+                                                onPress={() => {
+                                                    setSelectedResource(lr.resource);
+                                                    setDetailModalVisible(true);
+                                                }}
+                                            >
+                                                <FontAwesomeIcon icon={faFileAlt} size={10} color={theme.colors.primary} />
+                                                <Text style={[styles.resBtnText, { color: theme.colors.primary }]} numberOfLines={1}>
+                                                    {lr.resource.title}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+
+                                        {/* External Links */}
+                                        {item.resources?.map((res, i) => (
+                                            <TouchableOpacity 
+                                                key={`ext-${i}`}
+                                                style={[styles.resBtn, { backgroundColor: '#10b98110', borderColor: '#10b98120' }]}
+                                                onPress={() => Linking.openURL(res.url)}
+                                            >
+                                                <FontAwesomeIcon icon={faExternalLinkAlt} size={10} color="#10b981" />
+                                                <Text style={[styles.resBtnText, { color: '#10b981' }]} numberOfLines={1}>
+                                                    {res.name}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                </View>
+                            )}
+
+                            {isTeacher && (
+                                <TouchableOpacity 
+                                    onPress={() => handleDeletePlan(item.id)}
+                                    style={styles.expandedDeleteBtn}
+                                >
+                                    <FontAwesomeIcon icon={faTrash} size={12} color="#ef4444" />
+                                    <Text style={styles.expandedDeleteText}>Delete Lesson Plan</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    )}
+                </TouchableOpacity>
+            </View>
+        );
+    };
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -216,6 +331,22 @@ const LessonPlansScreen = ({ route, navigation }) => {
                 classId={classId}
                 onRefresh={loadData}
             />
+
+            <ResourceDetailModal
+                visible={detailModalVisible}
+                onClose={() => setDetailModalVisible(false)}
+                resource={selectedResource}
+                onVotesChanged={() => {}} // Silent in this view
+                onResourceDeleted={() => {
+                    setDetailModalVisible(false);
+                    loadData();
+                }}
+                onEditPress={(resource) => {
+                    // We don't handle editing from this screen, just viewing
+                    setDetailModalVisible(false);
+                    showToast('To edit this resource, go to the Resources tab', 'info');
+                }}
+            />
         </View>
     );
 };
@@ -252,7 +383,24 @@ const styles = StyleSheet.create({
     emptyContainer: { padding: 40, alignItems: 'center', gap: 16 },
     emptyText: { textAlign: 'center', fontSize: 16, fontWeight: '600' },
     emptyAddBtn: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: 16 },
-    emptyAddBtnText: { color: '#fff', fontSize: 12, fontWeight: '900', letterSpacing: 1 }
+    emptyAddBtnText: { color: '#fff', fontSize: 12, fontWeight: '900', letterSpacing: 1 },
+    editBtn: { padding: 4, marginRight: 4 },
+    cardMetaRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+    metaBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: '#f43f5e15' },
+    metaBadgeText: { fontSize: 8, fontWeight: '900', color: '#f43f5e' },
+    expandedContent: { borderTopWidth: 1, marginTop: 16, paddingTop: 16 },
+    expandedSection: { marginBottom: 16 },
+    sectionLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 1, marginBottom: 8 },
+    objectiveItem: { flexDirection: 'row', gap: 10, marginBottom: 6 },
+    objectiveText: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: '500' },
+    resourceButtonsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    resBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1, maxWidth: '100%' },
+    resBtnText: { fontSize: 11, fontWeight: '800' },
+    expandedDeleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', marginTop: 8 },
+    expandedDeleteText: { color: '#ef4444', fontSize: 12, fontWeight: '800' },
+    headerMaterialBadge: { position: 'relative', marginRight: 8, padding: 4 },
+    miniBadge: { position: 'absolute', top: -2, right: -4, minWidth: 14, height: 14, borderRadius: 7, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 2, borderWidth: 1, borderColor: '#fff' },
+    miniBadgeText: { color: '#fff', fontSize: 8, fontWeight: '900' }
 });
 
 export default LessonPlansScreen;

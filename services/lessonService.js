@@ -36,7 +36,10 @@ export const fetchLessonPlans = async (classId, role = 'student') => {
         .from('lesson_plans')
         .select(`
             *,
-            topic:lesson_topics(id, name)
+            topic:lesson_topics(id, name),
+            library_resources:class_resources(
+                resource:resources(*)
+            )
         `)
         .eq('class_id', classId);
 
@@ -51,9 +54,12 @@ export const fetchLessonPlans = async (classId, role = 'student') => {
 };
 
 export const saveLessonPlan = async (planData) => {
+    // Strip out joined fields that don't exist in the database table
+    const { topic, library_resources, ...cleanData } = planData;
+    
     const { data, error } = await supabase
         .from('lesson_plans')
-        .upsert(planData)
+        .upsert(cleanData)
         .select()
         .single();
 
@@ -66,6 +72,19 @@ export const deleteLessonPlan = async (planId) => {
         .from('lesson_plans')
         .delete()
         .eq('id', planId);
+
+    if (error) throw error;
+};
+
+export const unlinkLibraryResource = async (resourceId, classId, lessonPlanId) => {
+    const { error } = await supabase
+        .from('class_resources')
+        .delete()
+        .match({ 
+            resource_id: resourceId, 
+            class_id: classId, 
+            lesson_plan_id: lessonPlanId 
+        });
 
     if (error) throw error;
 };

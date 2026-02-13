@@ -3,7 +3,15 @@ import { supabase } from '../lib/supabase';
 export const fetchResources = async (schoolId, classIds = [], strict = false) => {
     let query = supabase
         .from('resources')
-        .select('*, author:users(full_name), class_resources(class_id)')
+        .select(`
+            *, 
+            author:users(full_name), 
+            class_resources(
+                class_id,
+                lesson_plan_id,
+                lesson_plans(title)
+            )
+        `)
         .eq('school_id', schoolId)
         .eq('is_personal', false)
         .order('created_at', { ascending: false });
@@ -192,13 +200,28 @@ export const removeBookmark = async (userId, resourceId) => {
 
 
 
+export const linkResourceToClass = async (resourceId, classId, lessonPlanId = null) => {
+    const { error } = await supabase
+        .from('class_resources')
+        .upsert(
+            { resource_id: resourceId, class_id: classId, lesson_plan_id: lessonPlanId }, 
+            { onConflict: 'resource_id,class_id,lesson_plan_id' }
+        )
+    if (error) throw error
+}
+
 export const fetchResourcesWithVotes = async ({ schoolId, activeTab, userId, category, profile, classIds = [] }) => {
     let query = supabase
         .from('resources')
         .select(`
             *,
             users (full_name, email),
-            class_resources(class_id, classes(name))
+            class_resources(
+                class_id, 
+                lesson_plan_id,
+                classes(name),
+                lesson_plans(title)
+            )
         `);
 
     if (activeTab === 'personal') {
@@ -214,21 +237,27 @@ export const fetchResourcesWithVotes = async ({ schoolId, activeTab, userId, cat
     const { data, error } = await query.order('created_at', { ascending: false });
     if (error) throw error;
 
-    let filteredData = data;
-
     // Filter for students/parents: Show Global (no class links) OR resources linked to their classes
+    let filteredData = data;
     if (activeTab !== 'personal' && (profile?.role === 'student' || profile?.role === 'parent')) {
         filteredData = data.filter(resource => {
             const linkedClassIds = resource.class_resources?.map(cr => cr.class_id) || [];
-            // Global = no links in class_resources
             if (linkedClassIds.length === 0) return true;
-            // Targeted = check if any link matches user's classes
             return linkedClassIds.some(cid => classIds.includes(cid));
         });
     }
 
+    // Deduplicate resources that might have multiple class_resources entries (links to different lessons)
+    const resourceMap = new Map();
+    filteredData.forEach(r => {
+        if (!resourceMap.has(r.id)) {
+            resourceMap.set(r.id, { ...r });
+        }
+    });
+    const dedupedData = Array.from(resourceMap.values());
+
     const resourcesWithVotes = await Promise.all(
-        filteredData.map(async (resource) => {
+        dedupedData.map(async (resource) => {
             const { data: votes } = await supabase
                 .from('resource_votes')
                 .select('vote')
