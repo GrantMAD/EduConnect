@@ -141,13 +141,13 @@ const ResourcesScreen = ({ route }) => {
       const enrolledClassIds = await fetchUserClasses(user.id, profileData.role);
       setClassIds(enrolledClassIds);
 
+      // We use the general fetchResources but pass the classIds to get enriched data
       const resourcesWithVotes = await fetchResourcesWithVotes({
         schoolId,
         activeTab,
         userId: user.id,
         profile: profileData,
         classIds: enrolledClassIds
-        // We don't pass category here because we want to see folders
       });
 
       setResources(resourcesWithVotes);
@@ -213,7 +213,13 @@ const ResourcesScreen = ({ route }) => {
   }, [resources]);
 
   const renderResourceItem = useCallback((item) => {
-    const isLessonLinked = item.class_resources?.some(cr => cr.lesson_plan_id);
+    const isStaff = userRole === 'teacher' || userRole === 'admin';
+    // Privacy filter: Only show links for classes the student is in. Staff see all.
+    const visibleLinks = (item.class_resources || []).filter(cr => 
+      isStaff || classIds.includes(cr.class_id)
+    );
+
+    const isLessonLinked = visibleLinks.some(cr => cr.lesson_plan_id);
     
     return (
       <View key={item.id.toString()} style={styles.resourceItemContainer}>
@@ -235,8 +241,8 @@ const ResourcesScreen = ({ route }) => {
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Text style={[styles.title, { color: theme.colors.text, flex: 1 }]}>{item.title}</Text>
                   <View style={{ flexDirection: 'row', gap: 4 }}>
-                      {/* Unique Class Badges */}
-                      {Array.from(new Map(item.class_resources?.map(cr => [cr.class_id, cr])).values()).map((cr, idx) => (
+                      {/* Unique Class Badges (Privacy Filtered) */}
+                      {Array.from(new Map(visibleLinks.map(cr => [cr.class_id, cr])).values()).map((cr, idx) => (
                           <View key={idx} style={styles.classBadge}>
                               <Text style={styles.classBadgeText}>{cr.classes?.name}</Text>
                           </View>
@@ -250,10 +256,10 @@ const ResourcesScreen = ({ route }) => {
                 {item.description}
               </Text>
               
-              {/* Lesson Links */}
+              {/* Lesson Links (Privacy Filtered) */}
               {isLessonLinked && (
                 <View style={styles.lessonBadgesContainer}>
-                  {item.class_resources.map((cr, idx) => (
+                  {visibleLinks.map((cr, idx) => (
                     cr.lesson_plans?.title && (
                       <View key={idx} style={styles.lessonLinkBadge}>
                         <FontAwesomeIcon icon={faBook} size={8} color="#6366f1" style={{ opacity: 0.7 }} />

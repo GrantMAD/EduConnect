@@ -247,11 +247,27 @@ export const fetchResourcesWithVotes = async ({ schoolId, activeTab, userId, cat
         });
     }
 
-    // Deduplicate resources that might have multiple class_resources entries (links to different lessons)
+    // Deduplicate resources by ID and consolidate all class_resources entries
     const resourceMap = new Map();
     filteredData.forEach(r => {
         if (!resourceMap.has(r.id)) {
-            resourceMap.set(r.id, { ...r });
+            resourceMap.set(r.id, { 
+                ...r, 
+                class_resources: r.class_resources ? [...r.class_resources] : [] 
+            });
+        } else {
+            // If the resource is already in the map, add any new class_resources entries
+            const existing = resourceMap.get(r.id);
+            if (r.class_resources) {
+                r.class_resources.forEach(newCr => {
+                    const alreadyHasLink = existing.class_resources.some(oldCr => 
+                        oldCr.class_id === newCr.class_id && oldCr.lesson_plan_id === newCr.lesson_plan_id
+                    );
+                    if (!alreadyHasLink) {
+                        existing.class_resources.push(newCr);
+                    }
+                });
+            }
         }
     });
     const dedupedData = Array.from(resourceMap.values());

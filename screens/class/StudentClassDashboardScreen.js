@@ -737,38 +737,46 @@ const StudentClassDashboardScreen = () => {
                                 <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No resources found here.</Text>
                             </View>
                         ) : (
-                            filteredResources.map((item, index) => (
-                                <TouchableOpacity 
-                                    key={item.id} 
-                                    style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-                                    onPress={() => navigation.navigate('Resources', { targetResourceId: item.id })}
-                                >
-                                    <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
-                                        <FontAwesomeIcon icon={getFileIconRes(item.file_url)} size={16} color={theme.colors.primary} />
-                                    </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={[styles.cardTitle, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
-                                        <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder, marginBottom: 4 }]}>
-                                            {item.category || 'General'}
-                                        </Text>
-                                        
-                                        {/* Lesson Badges Row */}
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                                            {item.class_resources?.map((cr, idx) => (
-                                                cr.lesson_plans?.title && (
-                                                    <View key={idx} style={styles.inlineLessonBadge}>
-                                                        <FontAwesomeIcon icon={faBook} size={7} color="#6366f1" style={{ opacity: 0.6 }} />
-                                                        <Text style={styles.inlineLessonText}>
-                                                            Linked to lesson: <Text style={{ fontWeight: '900' }}>{cr.lesson_plans.title}</Text>
-                                                        </Text>
-                                                    </View>
-                                                )
-                                            ))}
+                            filteredResources.map((item, index) => {
+                                const isStaff = profile?.role === 'teacher' || profile?.role === 'admin';
+                                // Privacy filter: Only show links for the current class for students. Staff see all.
+                                const visibleLinks = (item.class_resources || []).filter(cr => 
+                                    isStaff || cr.class_id === classId
+                                );
+
+                                return (
+                                    <TouchableOpacity 
+                                        key={item.id} 
+                                        style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                                        onPress={() => navigation.navigate('Resources', { targetResourceId: item.id })}
+                                    >
+                                        <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                                            <FontAwesomeIcon icon={getFileIconRes(item.file_url)} size={16} color={theme.colors.primary} />
                                         </View>
-                                    </View>
-                                    <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
-                                </TouchableOpacity>
-                            ))
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[styles.cardTitle, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
+                                            <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder, marginBottom: 4 }]}>
+                                                {item.category || 'General'}
+                                            </Text>
+                                            
+                                            {/* Lesson Badges Row (Privacy Filtered) */}
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                                                {visibleLinks.map((cr, idx) => (
+                                                    cr.lesson_plans?.title && (
+                                                        <View key={idx} style={styles.inlineLessonBadge}>
+                                                            <FontAwesomeIcon icon={faBook} size={7} color="#6366f1" style={{ opacity: 0.6 }} />
+                                                            <Text style={styles.inlineLessonText}>
+                                                                Linked to lesson: <Text style={{ fontWeight: '900' }}>{cr.lesson_plans.title}</Text>
+                                                            </Text>
+                                                        </View>
+                                                    )
+                                                ))}
+                                            </View>
+                                        </View>
+                                        <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
+                                    </TouchableOpacity>
+                                );
+                            })
                         )}
                     </View>
                 );
