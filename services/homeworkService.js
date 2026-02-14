@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 
 export const fetchHomework = async ({ userId, userRole, schoolId, childIds = [] }) => {
     try {
-        let selectStr = '*, created_by_user:users!created_by(full_name, email), lesson_plans(id, title, objectives)';
+        let selectStr = '*, created_by_user:users!created_by(full_name, email), lesson_plans(id, title, objectives), homework_resources(resources(*))';
         if (userRole === 'student' || userRole === 'parent') {
             selectStr += ', student_completions(id, student_id, score, total_possible)';
         }
@@ -36,7 +36,12 @@ export const fetchHomework = async ({ userId, userRole, schoolId, childIds = [] 
 
         const { data, error } = await query.order('due_date', { ascending: true }).limit(50);
         if (error) throw error;
-        return data || [];
+
+        // Format the nested junction data into a flat array of resources
+        return data?.map(item => ({
+            ...item,
+            resources: item.homework_resources?.map(hr => hr.resources).filter(Boolean) || []
+        })) || [];
     } catch (error) {
         console.error('Error in homeworkService.fetchHomework:', error);
         throw error;
@@ -55,13 +60,23 @@ export const fetchHomeworkByClass = async (classId) => {
 };
 
 export const updateHomework = async (id, homeworkData) => {
+    const { resourceIds, ...rest } = homeworkData;
     const { data, error } = await supabase
         .from('homework')
-        .update(homeworkData)
+        .update(rest)
         .eq('id', id)
         .select();
 
     if (error) throw error;
+
+    if (resourceIds) {
+        await supabase.from('homework_resources').delete().eq('homework_id', id);
+        if (resourceIds.length > 0) {
+            const links = resourceIds.map(rid => ({ homework_id: id, resource_id: rid }));
+            await supabase.from('homework_resources').insert(links);
+        }
+    }
+
     return data[0];
 };
 
@@ -72,13 +87,20 @@ export const deleteHomework = async (id) => {
 };
 
 export const createHomework = async (homeworkData) => {
+    const { resourceIds, ...rest } = homeworkData;
     const { data, error } = await supabase
         .from('homework')
-        .insert([homeworkData])
+        .insert([rest])
         .select()
         .single();
 
     if (error) throw error;
+
+    if (resourceIds && resourceIds.length > 0) {
+        const links = resourceIds.map(rid => ({ homework_id: data.id, resource_id: rid }));
+        await supabase.from('homework_resources').insert(links);
+    }
+
     return data;
 };
 

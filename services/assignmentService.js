@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 
 export const fetchAssignments = async ({ userId, userRole, schoolId, childIds = [] }) => {
     try {
-        let selectStr = '*, assigned_by_user:users!assigned_by(full_name, email), lesson_plans(id, title, objectives)';
+        let selectStr = '*, assigned_by_user:users!assigned_by(full_name, email), lesson_plans(id, title, objectives), assignment_resources(resources(*))';
         if (userRole === 'student' || userRole === 'parent') {
             selectStr += ', student_completions(id, student_id, score, total_possible)';
         }
@@ -36,7 +36,12 @@ export const fetchAssignments = async ({ userId, userRole, schoolId, childIds = 
 
         const { data, error } = await query.order('due_date', { ascending: true });
         if (error) throw error;
-        return data || [];
+
+        // Format the nested junction data into a flat array of resources
+        return data?.map(item => ({
+            ...item,
+            resources: item.assignment_resources?.map(ar => ar.resources).filter(Boolean) || []
+        })) || [];
     } catch (error) {
         console.error('Error in assignmentService.fetchAssignments:', error);
         throw error;
@@ -55,13 +60,23 @@ export const fetchAssignmentsByClass = async (classId) => {
 };
 
 export const updateAssignment = async (id, assignmentData) => {
+    const { resourceIds, ...rest } = assignmentData;
     const { data, error } = await supabase
         .from('assignments')
-        .update(assignmentData)
+        .update(rest)
         .eq('id', id)
         .select();
 
     if (error) throw error;
+
+    if (resourceIds) {
+        await supabase.from('assignment_resources').delete().eq('assignment_id', id);
+        if (resourceIds.length > 0) {
+            const links = resourceIds.map(rid => ({ assignment_id: id, resource_id: rid }));
+            await supabase.from('assignment_resources').insert(links);
+        }
+    }
+
     return data[0];
 };
 
@@ -87,13 +102,20 @@ export const fetchUpcomingAssignments = async (classIds, limit = 1) => {
 };
 
 export const createAssignment = async (assignmentData) => {
+    const { resourceIds, ...rest } = assignmentData;
     const { data, error } = await supabase
         .from('assignments')
-        .insert([assignmentData])
+        .insert([rest])
         .select()
         .single();
 
     if (error) throw error;
+
+    if (resourceIds && resourceIds.length > 0) {
+        const links = resourceIds.map(rid => ({ assignment_id: data.id, resource_id: rid }));
+        await supabase.from('assignment_resources').insert(links);
+    }
+
     return data;
 };
 

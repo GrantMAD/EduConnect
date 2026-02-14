@@ -19,7 +19,7 @@ import { useToast } from '../context/ToastContext';
 import { useSchool } from '../context/SchoolContext';
 import { useGamification } from '../context/GamificationContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faArrowLeft, faChevronLeft, faCloudUploadAlt, faFileAlt, faSave, faCalendarAlt, faBook, faAlignLeft, faFolderOpen, faTrash, faTimes, faClipboardList } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faChevronLeft, faCloudUploadAlt, faFileAlt, faSave, faCalendarAlt, faBook, faAlignLeft, faFolderOpen, faTrash, faTimes, faClipboardList, faLink } from '@fortawesome/free-solid-svg-icons';
 import CreateAssignmentScreenSkeleton from '../components/skeletons/CreateAssignmentScreenSkeleton';
 import { useTheme } from '../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,6 +43,7 @@ import {
 } from '../services/assignmentService';
 import { fetchLessonPlans } from '../services/lessonService';
 import { fetchGradingCategories } from '../services/gradebookService';
+import { fetchClassResources } from '../services/resourceService';
 import { sendBatchNotifications } from '../services/notificationService';
 
 const { width } = Dimensions.get('window');
@@ -88,6 +89,9 @@ const ClassSelection = React.memo(({
   lessonPlans,
   selectedLessonPlan,
   setSelectedLessonPlan,
+  classResources,
+  selectedResourceIds,
+  setSelectedResourceIds,
   theme
 }) => (
   <>
@@ -107,6 +111,39 @@ const ClassSelection = React.memo(({
         </Picker>
       </View>
     </View>
+
+    {selectedClass && (
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>ATTACH RESOURCES (OPTIONAL)</Text>
+        <View style={[styles.resourcesContainer, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+          {classResources.length === 0 ? (
+            <Text style={[styles.emptyResourcesText, { color: theme.colors.placeholder }]}>No resources found for this class.</Text>
+          ) : (
+            classResources.map(res => (
+              <TouchableOpacity 
+                key={res.id} 
+                style={styles.resourceCheckboxRow}
+                onPress={() => {
+                  const currentIds = [...selectedResourceIds];
+                  const index = currentIds.indexOf(res.id);
+                  if (index > -1) {
+                    currentIds.splice(index, 1);
+                  } else {
+                    currentIds.push(res.id);
+                  }
+                  setSelectedResourceIds(currentIds);
+                }}
+              >
+                <View style={[styles.checkbox, { borderColor: theme.colors.primary, backgroundColor: selectedResourceIds.includes(res.id) ? theme.colors.primary : 'transparent' }]}>
+                  {selectedResourceIds.includes(res.id) && <View style={styles.checkboxInner} />}
+                </View>
+                <Text style={[styles.resourceName, { color: theme.colors.text }]} numberOfLines={1}>{res.title}</Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+      </View>
+    )}
 
     {selectedClass && gradingCategories.length > 0 && (
       <View style={styles.inputGroup}>
@@ -222,6 +259,8 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [lessonPlans, setLessonPlans] = useState([]);
   const [selectedLessonPlan, setSelectedLessonPlan] = useState(null);
+  const [classResources, setClassResources] = useState([]);
+  const [selectedResourceIds, setSelectedResourceIds] = useState([]);
 
   const fetchTemplates = useCallback(async () => {
     try {
@@ -298,12 +337,14 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
     if (selectedClass) {
       const fetchClassData = async () => {
         try {
-          const [categoriesData, lessonsData] = await Promise.all([
+          const [categoriesData, lessonsData, resourcesData] = await Promise.all([
             fetchGradingCategories(selectedClass),
-            fetchLessonPlans(selectedClass, 'teacher')
+            fetchLessonPlans(selectedClass, 'teacher'),
+            fetchClassResources(selectedClass)
           ]);
           setGradingCategories(categoriesData || []);
           setLessonPlans(lessonsData || []);
+          setClassResources(resourcesData || []);
         } catch (error) {
           showToast('Could not fetch class data.', 'error');
           console.error(error);
@@ -315,6 +356,8 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
       setSelectedCategory(null);
       setLessonPlans([]);
       setSelectedLessonPlan(null);
+      setClassResources([]);
+      setSelectedResourceIds([]);
     }
   }, [selectedClass, showToast]);
 
@@ -361,6 +404,7 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
         file_url,
         grading_category_id: selectedCategory || null,
         lesson_plan_id: selectedLessonPlan || null,
+        resourceIds: selectedResourceIds,
       });
 
       try {
@@ -457,6 +501,9 @@ const CreateAssignmentScreen = ({ navigation, route }) => {
             lessonPlans={lessonPlans}
             selectedLessonPlan={selectedLessonPlan}
             setSelectedLessonPlan={setSelectedLessonPlan}
+            classResources={classResources}
+            selectedResourceIds={selectedResourceIds}
+            setSelectedResourceIds={setSelectedResourceIds}
             theme={theme}
           />
 
@@ -659,6 +706,43 @@ const styles = StyleSheet.create({
   charCount: { fontSize: 10, fontWeight: '700', color: '#cbd5e1' },
   inputWrapper: { borderRadius: 16, paddingHorizontal: 16, height: 56, justifyContent: 'center' },
   input: { fontSize: 15, fontWeight: '600' },
+  resourcesContainer: {
+    borderRadius: 16,
+    padding: 12,
+    maxHeight: 200,
+  },
+  resourceCheckboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    gap: 12,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    backgroundColor: '#fff',
+  },
+  resourceName: {
+    fontSize: 13,
+    fontWeight: '700',
+    flex: 1,
+  },
+  emptyResourcesText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingVertical: 10,
+  },
   pickerWrapper: { borderRadius: 16, overflow: 'hidden' },
   calendar: { borderRadius: 16, overflow: 'hidden' },
   filePicker: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, marginTop: 8 },

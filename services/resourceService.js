@@ -289,6 +289,31 @@ export const fetchResourcesWithVotes = async ({ schoolId, activeTab, userId, cat
     return resourcesWithVotes;
 };
 
+export const fetchClassResources = async (classId) => {
+    const { data, error } = await supabase
+        .from('class_resources')
+        .select(`
+            resource_id,
+            resources:resources(*)
+        `)
+        .eq('class_id', classId);
+    
+    if (error) throw error;
+    
+    // Deduplicate by resource ID to handle resources linked to multiple lessons in the same class
+    const uniqueResources = [];
+    const seenIds = new Set();
+    
+    data?.forEach(item => {
+        if (item.resources && !seenIds.has(item.resources.id)) {
+            seenIds.add(item.resources.id);
+            uniqueResources.push(item.resources);
+        }
+    });
+    
+    return uniqueResources;
+};
+
 
 
 

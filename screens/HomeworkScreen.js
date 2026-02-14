@@ -23,6 +23,7 @@ import {
   faTrash,
   faUser,
   faChalkboardTeacher,
+  faExternalLinkAlt,
 } from '@fortawesome/free-solid-svg-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
@@ -30,6 +31,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import HomeworkCard from '../components/HomeworkCard';
 import AssignmentCard from '../components/AssignmentCard';
 import ManageCompletionsModal from '../components/ManageCompletionsModal';
+import ResourceDetailModal from '../components/ResourceDetailModal';
 import CardSkeleton from '../components/skeletons/CardSkeleton';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
@@ -55,6 +57,8 @@ const HomeworkList = React.memo(() => {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [manageModalVisible, setManageModalVisible] = useState(false);
   const [currentTrackItem, setCurrentTrackItem] = useState(null);
+  const [resourceModalVisible, setResourceModalVisible] = useState(false);
+  const [selectedResource, setSelectedResource] = useState(null);
 
   const isFocused = useIsFocused();
   const { showToast } = useToast();
@@ -290,6 +294,31 @@ const HomeworkList = React.memo(() => {
                   )}
                 </View>
 
+                {selectedHomework.resources?.length > 0 && (
+                  <View style={{ marginTop: 24 }}>
+                    <Text style={[styles.cardSectionLabel, { marginBottom: 12, marginLeft: 4 }]}>ATTACHED MATERIALS ({selectedHomework.resources.length})</Text>
+                    {selectedHomework.resources.map((res) => (
+                      <TouchableOpacity
+                        key={res.id}
+                        style={[styles.resourceItem, { backgroundColor: '#10b981' + '10', borderColor: '#10b981' + '30', borderWidth: 1 }]}
+                        onPress={() => {
+                          setSelectedResource(res);
+                          setResourceModalVisible(true);
+                        }}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.resourceTitle, { color: theme.colors.text }]}>{res.title}</Text>
+                          <Text style={{ fontSize: 10, color: theme.colors.placeholder, fontWeight: '700', textTransform: 'uppercase', marginTop: 2 }}>Library Resource</Text>
+                        </View>
+                        <View style={[styles.resourceAction, { backgroundColor: '#10b981' }]}>
+                          <FontAwesomeIcon icon={faExternalLinkAlt} size={10} color="#fff" />
+                          <Text style={styles.resourceActionText}>OPEN</Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
                 {currentUserId === selectedHomework.created_by && (
                   <View style={[styles.modalButtonContainer, { marginTop: 24 }]}>
                     <TouchableOpacity
@@ -342,6 +371,15 @@ const HomeworkList = React.memo(() => {
         item={currentTrackItem}
         type="homework"
       />
+
+      <ResourceDetailModal
+        visible={resourceModalVisible}
+        onClose={() => {
+          setResourceModalVisible(false);
+          setSelectedResource(null);
+        }}
+        resource={selectedResource}
+      />
     </View>
   );
 });
@@ -359,6 +397,8 @@ const AssignmentsList = React.memo(() => {
   const [manageModalVisible, setManageModalVisible] = useState(false);
   const [currentTrackItem, setCurrentTrackItem] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [resourceModalVisible, setResourceModalVisible] = useState(false);
+  const [selectedResource, setSelectedResource] = useState(null);
 
   const isFocused = useIsFocused();
   const { showToast } = useToast();
@@ -596,6 +636,31 @@ const AssignmentsList = React.memo(() => {
                   )}
                 </View>
 
+                {selectedAssignment.resources?.length > 0 && (
+                  <View style={{ marginTop: 24 }}>
+                    <Text style={[styles.cardSectionLabel, { marginBottom: 12, marginLeft: 4 }]}>ATTACHED MATERIALS ({selectedAssignment.resources.length})</Text>
+                    {selectedAssignment.resources.map((res) => (
+                      <TouchableOpacity
+                        key={res.id}
+                        style={[styles.resourceItem, { backgroundColor: '#10b981' + '10', borderColor: '#10b981' + '30', borderWidth: 1 }]}
+                        onPress={() => {
+                          setSelectedResource(res);
+                          setResourceModalVisible(true);
+                        }}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.resourceTitle, { color: theme.colors.text }]}>{res.title}</Text>
+                          <Text style={{ fontSize: 10, color: theme.colors.placeholder, fontWeight: '700', textTransform: 'uppercase', marginTop: 2 }}>Library Resource</Text>
+                        </View>
+                        <View style={[styles.resourceAction, { backgroundColor: '#10b981' }]}>
+                          <FontAwesomeIcon icon={faExternalLinkAlt} size={10} color="#fff" />
+                          <Text style={styles.resourceActionText}>OPEN</Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
                 {currentUserId === selectedAssignment.assigned_by && (
                   <View style={[styles.modalButtonContainer, { marginTop: 24 }]}>
                     <TouchableOpacity
@@ -647,6 +712,15 @@ const AssignmentsList = React.memo(() => {
         onClose={() => setManageModalVisible(false)}
         item={currentTrackItem}
         type="assignment"
+      />
+
+      <ResourceDetailModal
+        visible={resourceModalVisible}
+        onClose={() => {
+          setResourceModalVisible(false);
+          setSelectedResource(null);
+        }}
+        resource={selectedResource}
       />
     </View>
   );
@@ -882,5 +956,30 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     minHeight: 100,
     textAlignVertical: 'top',
+  },
+  resourceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 20,
+    marginBottom: 12,
+  },
+  resourceTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  resourceAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    gap: 6,
+  },
+  resourceActionText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
 });

@@ -5,7 +5,9 @@ import {
   faClipboardList,
   faCalendarAlt,
   faCheckCircle,
-  faClipboardCheck
+  faClipboardCheck,
+  faLink,
+  faChalkboardTeacher
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 
@@ -20,6 +22,8 @@ const AssignmentCard = React.memo(({ assignment, onPress, onTrackPress, userId }
 
   const isTeacher = userId === assignment.assigned_by;
   const isCompleted = assignment.student_completions?.length > 0;
+  const resourceCount = assignment.resources?.length || 0;
+  const hasLinkedLesson = !!assignment.lesson_plans;
 
   return (
     <TouchableOpacity
@@ -38,6 +42,21 @@ const AssignmentCard = React.memo(({ assignment, onPress, onTrackPress, userId }
           <View style={[styles.badge, { backgroundColor: '#10b981' + '15' }]}>
             <FontAwesomeIcon icon={faCheckCircle} size={10} color="#10b981" />
             <Text style={[styles.badgeText, { color: '#10b981' }]}>Done</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+        {resourceCount > 0 && (
+          <View style={[styles.badge, { backgroundColor: '#10b981' + '15' }]}>
+            <FontAwesomeIcon icon={faLink} size={10} color="#10b981" />
+            <Text style={[styles.badgeText, { color: '#10b981' }]}>{resourceCount === 1 ? '1 Material' : `${resourceCount} Materials`}</Text>
+          </View>
+        )}
+        {hasLinkedLesson && (
+          <View style={[styles.badge, { backgroundColor: '#4f46e5' + '15' }]}>
+            <FontAwesomeIcon icon={faChalkboardTeacher} size={10} color="#4f46e5" />
+            <Text style={[styles.badgeText, { color: '#4f46e5' }]}>Linked Lesson</Text>
           </View>
         )}
       </View>
