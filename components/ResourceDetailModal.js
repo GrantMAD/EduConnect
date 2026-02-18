@@ -61,6 +61,18 @@ const ResourceDetailModal = React.memo(
     const [downvotes, setDownvotes] = useState(0);
     const [isVoting, setIsVoting] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [scrollOffset, setScrollOffset] = useState(0);
+    const scrollViewRef = React.useRef(null);
+
+    const handleOnScroll = (event) => {
+      setScrollOffset(event.nativeEvent.contentOffset.y);
+    };
+
+    const handleScrollTo = (p) => {
+      if (scrollViewRef.current) {
+        scrollViewRef.current.scrollTo(p);
+      }
+    };
 
     useEffect(() => {
       if (!resource) return;
@@ -198,6 +210,10 @@ const ResourceDetailModal = React.memo(
         onBackdropPress={onClose}
         onSwipeComplete={onClose}
         swipeDirection={['down']}
+        scrollTo={handleScrollTo}
+        scrollOffset={scrollOffset}
+        scrollOffsetMax={400}
+        propagateSwipe={true}
         animationIn="slideInUp"
         animationOut="slideOutDown"
         backdropOpacity={0.4}
@@ -220,7 +236,13 @@ const ResourceDetailModal = React.memo(
             </View>
           </View>
 
-          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 24 }}>
+          <ScrollView
+            ref={scrollViewRef}
+            onScroll={handleOnScroll}
+            scrollEventThrottle={16}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingVertical: 24 }}
+          >
             <View style={styles.descriptionWrapper}>
               <Text style={[styles.descriptionText, { color: theme.colors.text }]}>{resource.description}</Text>
             </View>

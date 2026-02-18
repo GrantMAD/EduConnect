@@ -407,18 +407,18 @@ const MarksModal = React.memo(({ visible, onClose, classId, classMembers }) => {
     </View>
   );
 
-  return (
-    <Modal
-      isVisible={visible}
-      onBackdropPress={() => onClose(false)}
-      onSwipeComplete={() => onClose(false)}
-      swipeDirection={['down']}
-      animationIn="slideInUp"
-      animationOut="slideOutDown"
-      backdropOpacity={0.4}
-      style={{ justifyContent: 'flex-end', margin: 0 }}
-    >
-      <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 24) }]}>
+      return (
+        <Modal
+          isVisible={visible}
+          onBackdropPress={() => onClose(false)}
+          onSwipeComplete={() => onClose(false)}
+          swipeDirection={['down']}
+          propagateSwipe={true}
+          animationIn="slideInUp"
+          animationOut="slideOutDown"
+          backdropOpacity={0.4}
+          style={{ justifyContent: 'flex-end', margin: 0 }}
+        >      <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: Math.max(insets.bottom, 24) }]}>
         <View style={styles.swipeIndicator} />
         <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>

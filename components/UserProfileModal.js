@@ -103,6 +103,7 @@ const UserProfileModal = React.memo(({ visible, user, onClose, onMessageUser, eq
             onBackdropPress={onClose}
             onSwipeComplete={onClose}
             swipeDirection={['down']}
+            propagateSwipe={true}
             animationIn="slideInUp"
             animationOut="slideOutDown"
             backdropOpacity={0.4}

@@ -78,6 +78,7 @@ const UserListModal = React.memo(({ visible, users, category, onClose, onUserPre
             onBackdropPress={onClose}
             onSwipeComplete={onClose}
             swipeDirection={['down']}
+            propagateSwipe={true}
             animationIn="slideInUp"
             animationOut="slideOutDown"
             backdropOpacity={0.4}

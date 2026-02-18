@@ -86,6 +86,7 @@ export default function ResourcePickerModal({ isOpen, onClose, classId, lessonPl
             onBackdropPress={onClose}
             onSwipeComplete={onClose}
             swipeDirection={['down']}
+            propagateSwipe={true}
             style={styles.modal}
         >
             <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>

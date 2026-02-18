@@ -29,6 +29,7 @@ const ParticipantsModal = React.memo(({ visible, onClose, participants }) => {
             onBackdropPress={onClose}
             onSwipeComplete={onClose}
             swipeDirection={['down']}
+            propagateSwipe={true}
             animationIn="slideInUp"
             animationOut="slideOutDown"
             backdropOpacity={0.4}

@@ -9,6 +9,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const StandardBottomModal = React.memo(({ visible, onClose, title, icon, description, children, hideHeader }) => {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
+    const [scrollOffset, setScrollOffset] = React.useState(0);
+    const scrollViewRef = React.useRef(null);
+
+    const handleOnScroll = (event) => {
+        setScrollOffset(event.nativeEvent.contentOffset.y);
+    };
+
+    const handleScrollTo = (p) => {
+        if (scrollViewRef.current) {
+            scrollViewRef.current.scrollTo(p);
+        }
+    };
 
     return (
         <Modal
@@ -16,6 +28,10 @@ const StandardBottomModal = React.memo(({ visible, onClose, title, icon, descrip
             onBackdropPress={onClose}
             onSwipeComplete={onClose}
             swipeDirection={['down']}
+            scrollTo={handleScrollTo}
+            scrollOffset={scrollOffset}
+            scrollOffsetMax={400}
+            propagateSwipe={true}
             animationIn="slideInUp"
             animationOut="slideOutDown"
             backdropOpacity={0.4}
@@ -39,7 +55,13 @@ const StandardBottomModal = React.memo(({ visible, onClose, title, icon, descrip
                 {description && (
                     <Text style={[styles.description, { color: theme.colors.placeholder }]}>{description}</Text>
                 )}
-                <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+                <ScrollView
+                    ref={scrollViewRef}
+                    onScroll={handleOnScroll}
+                    scrollEventThrottle={16}
+                    contentContainerStyle={styles.contentContainer}
+                    showsVerticalScrollIndicator={false}
+                >
                     {children}
                 </ScrollView>
             </View>

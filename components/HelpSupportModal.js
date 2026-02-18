@@ -32,6 +32,18 @@ const FAQItem = React.memo(({ question, answer, theme }) => (
 
 const HelpSupportModal = React.memo(({ visible, onClose }) => {
     const { theme } = useTheme();
+    const [scrollOffset, setScrollOffset] = React.useState(0);
+    const scrollViewRef = React.useRef(null);
+
+    const handleOnScroll = (event) => {
+        setScrollOffset(event.nativeEvent.contentOffset.y);
+    };
+
+    const handleScrollTo = (p) => {
+        if (scrollViewRef.current) {
+            scrollViewRef.current.scrollTo(p);
+        }
+    };
 
     const handleEmailSupport = () => {
         Linking.openURL('mailto:EduLink3321@gmail.com?subject=ClassConnect Support Request');
@@ -43,6 +55,10 @@ const HelpSupportModal = React.memo(({ visible, onClose }) => {
             onBackdropPress={onClose}
             onSwipeComplete={onClose}
             swipeDirection={['down']}
+            scrollTo={handleScrollTo}
+            scrollOffset={scrollOffset}
+            scrollOffsetMax={400}
+            propagateSwipe={true}
             animationIn="slideInUp"
             animationOut="slideOutDown"
             backdropOpacity={0.4}
@@ -63,7 +79,13 @@ const HelpSupportModal = React.memo(({ visible, onClose }) => {
                     </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 24 }}>
+                <ScrollView
+                    ref={scrollViewRef}
+                    onScroll={handleOnScroll}
+                    scrollEventThrottle={16}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ paddingVertical: 24 }}
+                >
                     <View style={styles.contentContainer}>
                         <View style={styles.section}>
                             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>DIRECT ASSISTANCE</Text>

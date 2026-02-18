@@ -30,7 +30,20 @@ const AnnouncementDetailModal = React.memo(({ visible, onClose, announcement }) 
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const { showToast } = useToast();
+  const [scrollOffset, setScrollOffset] = React.useState(0);
+  const scrollViewRef = React.useRef(null);
+
   if (!announcement) return null;
+
+  const handleOnScroll = (event) => {
+    setScrollOffset(event.nativeEvent.contentOffset.y);
+  };
+
+  const handleScrollTo = (p) => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo(p);
+    }
+  };
 
   const copyToClipboard = async () => {
     await Clipboard.setStringAsync(announcement.message);
@@ -54,6 +67,9 @@ const AnnouncementDetailModal = React.memo(({ visible, onClose, announcement }) 
       onBackdropPress={onClose}
       onSwipeComplete={onClose}
       swipeDirection={['down']}
+      scrollTo={handleScrollTo}
+      scrollOffset={scrollOffset}
+      scrollOffsetMax={400}
       propagateSwipe={true}
       animationIn="slideInUp"
       animationOut="slideOutDown"
@@ -82,6 +98,9 @@ const AnnouncementDetailModal = React.memo(({ visible, onClose, announcement }) 
         </View>
 
         <ScrollView
+          ref={scrollViewRef}
+          onScroll={handleOnScroll}
+          scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             paddingTop: 24,

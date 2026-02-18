@@ -158,6 +158,8 @@ const EnterExamResultsModal = ({ visible, onClose, paper }) => {
             isVisible={visible}
             onBackdropPress={onClose}
             onBackButtonPress={onClose}
+            onSwipeComplete={onClose}
+            swipeDirection={['down']}
             style={styles.modal}
             propagateSwipe
             avoidKeyboard

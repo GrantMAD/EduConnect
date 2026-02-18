@@ -38,12 +38,13 @@ const EditAnnouncementModal = React.memo(({ visible, announcement, onClose, onSa
             onBackdropPress={onClose}
             onSwipeComplete={onClose}
             swipeDirection={['down']}
+            propagateSwipe={true}
             animationIn="slideInUp"
             animationOut="slideOutDown"
             backdropOpacity={0.4}
             style={{ justifyContent: 'flex-end', margin: 0 }}
         >
-            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: 40 }]}>
+            <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, paddingBottom: 40, maxHeight: '90%' }]}>
                 <View style={styles.swipeIndicator} />
                 <View style={[styles.header, { borderBottomColor: theme.colors.cardBorder }]}>
                     <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
@@ -55,54 +56,56 @@ const EditAnnouncementModal = React.memo(({ visible, announcement, onClose, onSa
                     </TouchableOpacity>
                 </View>
 
-                <View style={styles.contentContainer}>
-                    <View style={styles.inputGroup}>
-                        <Text style={[styles.label, { color: '#94a3b8' }]}>TITLE</Text>
-                        <TextInput
-                            style={[styles.input, {
-                                backgroundColor: theme.colors.card,
-                                color: theme.colors.text,
-                                borderColor: theme.colors.cardBorder,
-                                borderWidth: 1
-                            }]}
-                            value={title}
-                            onChangeText={setTitle}
-                            placeholder="Announcement Title"
-                            placeholderTextColor={theme.colors.placeholder}
-                        />
-                    </View>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                    <View style={styles.contentContainer}>
+                        <View style={styles.inputGroup}>
+                            <Text style={[styles.label, { color: '#94a3b8' }]}>TITLE</Text>
+                            <TextInput
+                                style={[styles.input, {
+                                    backgroundColor: theme.colors.card,
+                                    color: theme.colors.text,
+                                    borderColor: theme.colors.cardBorder,
+                                    borderWidth: 1
+                                }]}
+                                value={title}
+                                onChangeText={setTitle}
+                                placeholder="Announcement Title"
+                                placeholderTextColor={theme.colors.placeholder}
+                            />
+                        </View>
 
-                    <View style={styles.inputGroup}>
-                        <Text style={[styles.label, { color: '#94a3b8' }]}>MESSAGE CONTENT</Text>
-                        <TextInput
-                            style={[styles.input, styles.messageInput, {
-                                backgroundColor: theme.colors.card,
-                                color: theme.colors.text,
-                                borderColor: theme.colors.cardBorder,
-                                borderWidth: 1
-                            }]}
-                            value={message}
-                            onChangeText={setMessage}
-                            placeholder="Type your message here..."
-                            placeholderTextColor={theme.colors.placeholder}
-                            multiline
-                            textAlignVertical="top"
-                        />
-                    </View>
+                        <View style={styles.inputGroup}>
+                            <Text style={[styles.label, { color: '#94a3b8' }]}>MESSAGE CONTENT</Text>
+                            <TextInput
+                                style={[styles.input, styles.messageInput, {
+                                    backgroundColor: theme.colors.card,
+                                    color: theme.colors.text,
+                                    borderColor: theme.colors.cardBorder,
+                                    borderWidth: 1
+                                }]}
+                                value={message}
+                                onChangeText={setMessage}
+                                placeholder="Type your message here..."
+                                placeholderTextColor={theme.colors.placeholder}
+                                multiline
+                                textAlignVertical="top"
+                            />
+                        </View>
 
-                    <TouchableOpacity
-                        style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
-                        onPress={handleSave}
-                        disabled={loading}
-                        activeOpacity={0.8}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="#fff" size="small" />
-                        ) : (
-                            <Text style={styles.saveButtonText}>CONFIRM UPDATES</Text>
-                        )}
-                    </TouchableOpacity>
-                </View>
+                        <TouchableOpacity
+                            style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
+                            onPress={handleSave}
+                            disabled={loading}
+                            activeOpacity={0.8}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color="#fff" size="small" />
+                            ) : (
+                                <Text style={styles.saveButtonText}>CONFIRM UPDATES</Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </ScrollView>
             </View>
         </Modal>
     );

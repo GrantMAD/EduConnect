@@ -59,6 +59,18 @@ const HomeworkList = React.memo(() => {
   const [currentTrackItem, setCurrentTrackItem] = useState(null);
   const [resourceModalVisible, setResourceModalVisible] = useState(false);
   const [selectedResource, setSelectedResource] = useState(null);
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const scrollViewRef = React.useRef(null);
+
+  const handleOnScroll = (event) => {
+    setScrollOffset(event.nativeEvent.contentOffset.y);
+  };
+
+  const handleScrollTo = (p) => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo(p);
+    }
+  };
 
   const isFocused = useIsFocused();
   const { showToast } = useToast();
@@ -183,6 +195,9 @@ const HomeworkList = React.memo(() => {
         onBackdropPress={() => setModalVisible(false)}
         onSwipeComplete={() => setModalVisible(false)}
         swipeDirection={['down']}
+        scrollTo={handleScrollTo}
+        scrollOffset={scrollOffset}
+        scrollOffsetMax={400}
         propagateSwipe={true}
         animationIn="slideInUp"
         animationOut="slideOutDown"
@@ -206,6 +221,9 @@ const HomeworkList = React.memo(() => {
               </View>
 
               <ScrollView
+                ref={scrollViewRef}
+                onScroll={handleOnScroll}
+                scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{
                   paddingTop: 24,
@@ -399,6 +417,18 @@ const AssignmentsList = React.memo(() => {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [resourceModalVisible, setResourceModalVisible] = useState(false);
   const [selectedResource, setSelectedResource] = useState(null);
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const scrollViewRef = React.useRef(null);
+
+  const handleOnScroll = (event) => {
+    setScrollOffset(event.nativeEvent.contentOffset.y);
+  };
+
+  const handleScrollTo = (p) => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo(p);
+    }
+  };
 
   const isFocused = useIsFocused();
   const { showToast } = useToast();
@@ -525,6 +555,9 @@ const AssignmentsList = React.memo(() => {
         onBackdropPress={() => setModalVisible(false)}
         onSwipeComplete={() => setModalVisible(false)}
         swipeDirection={['down']}
+        scrollTo={handleScrollTo}
+        scrollOffset={scrollOffset}
+        scrollOffsetMax={400}
         propagateSwipe={true}
         animationIn="slideInUp"
         animationOut="slideOutDown"
@@ -548,6 +581,9 @@ const AssignmentsList = React.memo(() => {
               </View>
 
               <ScrollView
+                ref={scrollViewRef}
+                onScroll={handleOnScroll}
+                scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{
                   paddingTop: 24,

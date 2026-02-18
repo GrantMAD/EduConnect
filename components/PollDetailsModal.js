@@ -81,6 +81,7 @@ const PollDetailsModal = React.memo(({ visible, poll, onClose }) => {
             onBackdropPress={onClose}
             onSwipeComplete={onClose}
             swipeDirection={['down']}
+            propagateSwipe={true}
             animationIn="slideInUp"
             animationOut="slideOutDown"
             backdropOpacity={0.4}
