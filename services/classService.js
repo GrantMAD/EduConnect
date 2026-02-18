@@ -194,6 +194,17 @@ export const fetchClassMemberships = async (userId) => {
     return data || [];
 };
 
+export const fetchClassMembershipsForUsers = async (userIds) => {
+    if (!userIds || userIds.length === 0) return [];
+    const { data, error } = await supabase
+        .from('class_members')
+        .select('id, user_id, attendance, class_id, classes (id, name, teacher:users(full_name), class_resources(id))')
+        .in('user_id', userIds);
+
+    if (error) throw error;
+    return data || [];
+};
+
 export const fetchClassSchedulesForAttendance = async (classIds) => {
     const { data, error } = await supabase
         .from('class_schedules')

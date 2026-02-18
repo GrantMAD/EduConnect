@@ -101,6 +101,20 @@ export const fetchUpcomingAssignments = async (classIds, limit = 1) => {
     return { data, count };
 };
 
+export const fetchUpcomingAssignmentsBulk = async (classIds) => {
+    if (!classIds || classIds.length === 0) return [];
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+        .from('assignments')
+        .select('id, class_id, due_date')
+        .in('class_id', classIds)
+        .gt('due_date', now)
+        .order('due_date', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+};
+
 export const createAssignment = async (assignmentData) => {
     const { resourceIds, ...rest } = assignmentData;
     const { data, error } = await supabase

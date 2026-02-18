@@ -12,6 +12,17 @@ export const fetchUserGamification = async (userId) => {
     return data;
 };
 
+export const fetchGamificationForUsers = async (userIds) => {
+    if (!userIds || userIds.length === 0) return [];
+    const { data, error } = await supabase
+        .from('user_gamification')
+        .select('*')
+        .in('user_id', userIds);
+
+    if (error) throw error;
+    return data || [];
+};
+
 export const createUserGamification = async (userId, initialData = {}) => {
     if (!userId) return null;
     const { data, error } = await supabase

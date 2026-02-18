@@ -128,3 +128,17 @@ export const fetchUpcomingHomework = async (classIds, limit = 1) => {
     if (error) throw error;
     return { data, count };
 };
+
+export const fetchUpcomingHomeworkBulk = async (classIds) => {
+    if (!classIds || classIds.length === 0) return [];
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+        .from('homework')
+        .select('id, class_id, due_date')
+        .in('class_id', classIds)
+        .gt('due_date', now)
+        .order('due_date', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+};

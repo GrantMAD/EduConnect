@@ -11,6 +11,18 @@ export const fetchGradingCategories = async (classId) => {
     return data || [];
 };
 
+export const fetchGradingCategoriesForClasses = async (classIds) => {
+    if (!classIds || classIds.length === 0) return [];
+    const { data, error } = await supabase
+        .from('grading_categories')
+        .select('*')
+        .in('class_id', classIds)
+        .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+};
+
 export const saveGradingCategory = async (categoryData) => {
     const { data, error } = await supabase
         .from('grading_categories')

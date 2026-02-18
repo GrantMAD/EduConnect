@@ -9,11 +9,11 @@ import WalkthroughTarget from './WalkthroughTarget';
 
 // Import services
 import { getCurrentUser } from '../services/authService';
-import { getUserProfile, fetchParentChildren } from '../services/userService';
-import { fetchUserGamification } from '../services/gamificationService';
-import { fetchUserMemberships } from '../services/classService';
-import { fetchUpcomingHomework } from '../services/homeworkService';
-import { fetchUpcomingAssignments } from '../services/assignmentService';
+import { getUserProfile, fetchParentChildren, fetchUsersByIdsWithPreferences } from '../services/userService';
+import { fetchUserGamification, fetchGamificationForUsers } from '../services/gamificationService';
+import { fetchUserMemberships, fetchClassMembershipsForUsers } from '../services/classService';
+import { fetchUpcomingHomework, fetchUpcomingHomeworkBulk } from '../services/homeworkService';
+import { fetchUpcomingAssignments, fetchUpcomingAssignmentsBulk } from '../services/assignmentService';
 
 const ChildProgressSnapshot = React.memo(({ id, loading }) => {
     const { theme } = useTheme();
@@ -40,56 +40,56 @@ const ChildProgressSnapshot = React.memo(({ id, loading }) => {
                 return;
             }
 
-            // 2. Fetch data for each child
-            const promises = childIds.map(async (childId) => {
-                try {
-                    // Profile
-                    const profile = await getUserProfile(childId);
-                    if (!profile) return null;
+            // 2. Bulk fetch essential data
+            const [profiles, gamificationList, allMemberships] = await Promise.all([
+                fetchUsersByIdsWithPreferences(childIds),
+                fetchGamificationForUsers(childIds),
+                fetchClassMembershipsForUsers(childIds)
+            ]);
 
-                    // Gamification Stats
-                    const gamification = await fetchUserGamification(childId);
+            // 3. Collect unique class IDs to fetch upcoming tasks
+            const allClassIds = [...new Set(allMemberships.map(m => m.class_id))];
+            
+            const [upcomingHw, upcomingAsgn] = await Promise.all([
+                fetchUpcomingHomeworkBulk(allClassIds),
+                fetchUpcomingAssignmentsBulk(allClassIds)
+            ]);
 
-                    // Upcoming Assignments
-                    const members = await fetchUserMemberships(childId);
+            // 4. Map data to each child
+            const results = childIds.map((childId) => {
+                const profile = profiles.find(p => p.id === childId);
+                if (!profile) return null;
 
-                    let upcomingCount = 0;
-                    let nextDue = null;
+                const gamification = gamificationList.find(g => g.user_id === childId);
+                const childMemberships = allMemberships.filter(m => m.user_id === childId);
+                const childClassIds = childMemberships.map(m => m.class_id);
 
-                    if (members && members.length > 0) {
-                        const classIds = members.map(m => m.class_id);
+                const childHw = upcomingHw.filter(h => childClassIds.includes(h.class_id));
+                const childAsgn = upcomingAsgn.filter(a => childClassIds.includes(a.class_id));
 
-                        const hwResult = await fetchUpcomingHomework(classIds);
-                        const asgResult = await fetchUpcomingAssignments(classIds);
+                const upcomingCount = childHw.length + childAsgn.length;
+                
+                const dates = [
+                    ...childHw.map(h => new Date(h.due_date)),
+                    ...childAsgn.map(a => new Date(a.due_date))
+                ].filter(Boolean);
 
-                        upcomingCount = (hwResult.count || 0) + (asgResult.count || 0);
-
-                        const dates = [
-                            hwResult.data?.[0]?.due_date ? new Date(hwResult.data[0].due_date) : null,
-                            asgResult.data?.[0]?.due_date ? new Date(asgResult.data[0].due_date) : null
-                        ].filter(Boolean);
-
-                        if (dates.length > 0) {
-                            nextDue = new Date(Math.min(...dates));
-                        }
-                    }
-
-                    return {
-                        id: childId,
-                        name: profile.full_name,
-                        avatar: profile.avatar_url,
-                        level: gamification?.current_level || 1,
-                        xp: gamification?.current_xp || 0,
-                        upcomingCount,
-                        nextDue
-                    };
-                } catch (e) {
-                    console.error(`Error fetching data for child ${childId}:`, e);
-                    return null;
+                let nextDue = null;
+                if (dates.length > 0) {
+                    nextDue = new Date(Math.min(...dates));
                 }
+
+                return {
+                    id: childId,
+                    name: profile.full_name,
+                    avatar: profile.avatar_url,
+                    level: gamification?.current_level || 1,
+                    xp: gamification?.current_xp || 0,
+                    upcomingCount,
+                    nextDue
+                };
             });
 
-            const results = await Promise.all(promises);
             setChildrenData(results.filter(Boolean));
 
         } catch (error) {

@@ -72,7 +72,7 @@ import {
   fetchClassSchedulesForAttendance,
   fetchClassInfo
 } from '../services/classService';
-import { fetchGradingCategories, calculateWeightedGrade } from '../services/gradebookService';
+import { fetchGradingCategories, fetchGradingCategoriesForClasses, calculateWeightedGrade } from '../services/gradebookService';
 import { fetchStudentExamSchedule } from '../services/examService';
 
 const { width } = Dimensions.get('window');
@@ -514,13 +514,12 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
 
         const allSchedules = await fetchClassSchedulesForAttendance(classIds);
         const allMarks = await fetchStudentMarks(student.id, classIds);
+        const allCategories = await fetchGradingCategoriesForClasses(classIds);
 
-        const processed = await Promise.all(memberships.map(async (member) => {
+        const processed = memberships.map((member) => {
           const classSchedules = (allSchedules || []).filter(s => s.class_id === member.class_id);
           const classMarks = (allMarks || []).filter(m => m.class_id === member.class_id);
-          const categories = await fetchGradingCategories(member.class_id);
-
-
+          const categories = (allCategories || []).filter(c => c.class_id === member.class_id);
 
           const fullAttendance = classSchedules.map(sch => {
             const date = sch.start_time?.split('T')[0] || '';
@@ -537,7 +536,7 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
             marks: classMarks,
             categories
           };
-        }));
+        });
 
         setClasses(processed);
       } catch (err) {
