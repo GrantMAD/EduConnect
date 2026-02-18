@@ -29,7 +29,11 @@ import {
     faLayerGroup,
     faUsers,
     faArrowLeft,
-    faGlobe
+    faGlobe,
+    faPen,
+    faExternalLinkAlt,
+    faChalkboardTeacher,
+    faTimes
 } from '@fortawesome/free-solid-svg-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
@@ -54,12 +58,13 @@ import {
     fetchParentsOfStudentsRpc
 } from '../../services/userService';
 import { fetchAnnouncements } from '../../services/announcementService';
-import { fetchHomework } from '../../services/homeworkService';
-import { fetchAssignmentsByClass } from '../../services/assignmentService';
+import { fetchHomework, updateHomework, deleteHomework } from '../../services/homeworkService';
+import { fetchAssignmentsByClass, updateAssignment, deleteAssignment } from '../../services/assignmentService';
 import { fetchLessonPlans } from '../../services/lessonService';
 import { fetchResources } from '../../services/resourceService';
 import { sendBatchNotifications } from '../../services/notificationService';
 import { Calendar } from "react-native-calendars";
+import RNModal from 'react-native-modal';
 
 // Import components
 import HomeworkCard from '../../components/HomeworkCard';
@@ -67,6 +72,8 @@ import AssignmentCard from '../../components/AssignmentCard';
 import AnnouncementCard from '../../components/AnnouncementCard';
 import ManageCompletionsModal from '../../components/ManageCompletionsModal';
 import AnnouncementDetailModal from '../../components/AnnouncementDetailModal';
+import ResourceDetailModal from '../../components/ResourceDetailModal';
+import CardSkeleton from '../../components/skeletons/CardSkeleton';
 import MarksModal from '../../components/MarksModal';
 import ManageMarksModal from '../../components/ManageMarksModal';
 import { Alert, TextInput, Modal, Pressable } from 'react-native';
@@ -164,8 +171,118 @@ const StudentClassDashboardScreen = () => {
     const [isAnnouncementModalVisible, setIsAnnouncementModalVisible] = useState(false);
     const [isManageModalVisible, setIsManageModalVisible] = useState(false);
     const [manageType, setManageType] = useState('homework');
+    const [isEditing, setIsEditing] = useState(false);
+    const [resourceModalVisible, setResourceModalVisible] = useState(false);
+    const [selectedResource, setSelectedResource] = useState(null);
+    
+    // New detail modal states
+    const [isHomeworkDetailVisible, setIsHomeworkDetailVisible] = useState(false);
+    const [isAssignmentDetailVisible, setIsAssignmentDetailVisible] = useState(false);
+    const [hwScrollOffset, setHwScrollOffset] = useState(0);
+    const [asgnScrollOffset, setAsgnScrollOffset] = useState(0);
+    const hwScrollViewRef = React.useRef(null);
+    const asgnScrollViewRef = React.useRef(null);
 
     const isTeacher = profile?.role === 'teacher' || profile?.role === 'admin';
+
+    const handleHwScroll = (event) => {
+        setHwScrollOffset(event.nativeEvent.contentOffset.y);
+    };
+
+    const handleHwScrollTo = (p) => {
+        if (hwScrollViewRef.current) hwScrollViewRef.current.scrollTo(p);
+    };
+
+    const handleAsgnScroll = (event) => {
+        setAsgnScrollOffset(event.nativeEvent.contentOffset.y);
+    };
+
+    const handleAsgnScrollTo = (p) => {
+        if (asgnScrollViewRef.current) asgnScrollViewRef.current.scrollTo(p);
+    };
+
+    const formatDate = useCallback((date) =>
+        new Date(date).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric',
+        }), []);
+
+    const handleHomeworkUpdate = useCallback(async () => {
+        try {
+            await updateHomework(selectedItem.id, {
+                subject: selectedItem.subject,
+                description: selectedItem.description,
+                due_date: selectedItem.due_date,
+            });
+
+            showToast('Homework updated successfully', 'success');
+            setIsEditing(false);
+            loadData();
+        } catch (error) {
+            console.error('Error updating homework:', error);
+            showToast('Failed to update homework', 'error');
+        }
+    }, [selectedItem, loadData, showToast]);
+
+    const handleHomeworkDelete = useCallback(async () => {
+        Alert.alert('Delete Homework', 'Are you sure?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        await deleteHomework(selectedItem.id);
+                        showToast('Homework deleted', 'success');
+                        setIsHomeworkDetailVisible(false);
+                        loadData();
+                    } catch (error) {
+                        console.error('Error deleting homework:', error);
+                        showToast('Failed to delete homework', 'error');
+                    }
+                },
+            },
+        ]);
+    }, [selectedItem, loadData, showToast]);
+
+    const handleAssignmentUpdate = useCallback(async () => {
+        try {
+            await updateAssignment(selectedItem.id, {
+                title: selectedItem.title,
+                description: selectedItem.description,
+                due_date: selectedItem.due_date,
+            });
+
+            showToast('Assignment updated successfully', 'success');
+            setIsEditing(false);
+            loadData();
+        } catch (error) {
+            console.error('Error updating assignment:', error);
+            showToast('Failed to update assignment', 'error');
+        }
+    }, [selectedItem, loadData, showToast]);
+
+    const handleAssignmentDelete = useCallback(async () => {
+        Alert.alert('Delete Assignment', 'Are you sure?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        await deleteAssignment(selectedItem.id);
+                        showToast('Assignment deleted', 'success');
+                        setIsAssignmentDetailVisible(false);
+                        loadData();
+                    } catch (error) {
+                        console.error('Error deleting assignment:', error);
+                        showToast('Failed to delete assignment', 'error');
+                    }
+                },
+            },
+        ]);
+    }, [selectedItem, loadData, showToast]);
 
     const availableStudents = useMemo(() => {
         const classStudentIds = classMembers.map((member) => member.users?.id);
@@ -640,7 +757,10 @@ const StudentClassDashboardScreen = () => {
                                     key={hw.id}
                                     homework={hw}
                                     userId={user.id}
-                                    onPress={() => { }} // Could link to a detail view if needed
+                                    onPress={() => { 
+                                        setSelectedItem(hw);
+                                        setIsHomeworkDetailVisible(true);
+                                    }}
                                     onTrackPress={() => {
                                         setSelectedItem(hw);
                                         setManageType('homework');
@@ -665,7 +785,10 @@ const StudentClassDashboardScreen = () => {
                                     key={asgn.id}
                                     assignment={asgn}
                                     userId={user.id}
-                                    onPress={() => { }} // Could link to a detail view if needed
+                                    onPress={() => { 
+                                        setSelectedItem(asgn);
+                                        setIsAssignmentDetailVisible(true);
+                                    }}
                                     onTrackPress={() => {
                                         setSelectedItem(asgn);
                                         setManageType('assignment');
@@ -748,7 +871,10 @@ const StudentClassDashboardScreen = () => {
                                     <TouchableOpacity 
                                         key={item.id} 
                                         style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-                                        onPress={() => navigation.navigate('Resources', { targetResourceId: item.id })}
+                                        onPress={() => {
+                                            setSelectedResource(item);
+                                            setResourceModalVisible(true);
+                                        }}
                                     >
                                         <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
                                             <FontAwesomeIcon icon={getFileIconRes(item.file_url)} size={16} color={theme.colors.primary} />
@@ -1159,6 +1285,297 @@ const StudentClassDashboardScreen = () => {
                 classId={classId}
             />
 
+            {/* Homework Detail Modal */}
+            <RNModal
+                isVisible={isHomeworkDetailVisible}
+                onBackdropPress={() => setIsHomeworkDetailVisible(false)}
+                onSwipeComplete={() => setIsHomeworkDetailVisible(false)}
+                swipeDirection={['down']}
+                scrollTo={handleHwScrollTo}
+                scrollOffset={hwScrollOffset}
+                scrollOffsetMax={400}
+                propagateSwipe={true}
+                animationIn="slideInUp"
+                animationOut="slideOutDown"
+                backdropOpacity={0.4}
+                style={{ justifyContent: 'flex-end', margin: 0 }}
+            >
+                <View style={[styles.modalContentAlt, { backgroundColor: theme.colors.surface }]}>
+                    <View style={styles.swipeIndicator} />
+                    {selectedItem && activeTab === 'homework' && (
+                        <>
+                            <View style={[styles.modalHeader, { borderBottomColor: theme.colors.cardBorder }]}>
+                                <View style={[styles.modalIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                                    <FontAwesomeIcon icon={faClipboardList} size={20} color={theme.colors.primary} />
+                                </View>
+                                <Text style={[styles.modalTitleAlt, { color: theme.colors.text }]}>Homework Details</Text>
+                                <View style={styles.modalHeaderActions}>
+                                    <TouchableOpacity onPress={() => setIsHomeworkDetailVisible(false)} style={styles.modalCloseBtn}>
+                                        <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            <ScrollView
+                                ref={hwScrollViewRef}
+                                onScroll={handleHwScroll}
+                                scrollEventThrottle={16}
+                                showsVerticalScrollIndicator={false}
+                                contentContainerStyle={{
+                                    paddingTop: 24,
+                                    paddingBottom: Math.max(insets.bottom, 24)
+                                }}
+                            >
+                                <View style={styles.modalMessageWrapper}>
+                                    {isEditing ? (
+                                        <TextInput
+                                            style={[styles.modalTextInput, { color: theme.colors.text, borderColor: theme.colors.cardBorder }]}
+                                            value={selectedItem.description}
+                                            multiline
+                                            onChangeText={(t) => setSelectedItem({ ...selectedItem, description: t })}
+                                        />
+                                    ) : (
+                                        <Text style={[styles.modalDescriptionText, { color: theme.colors.text }]}>
+                                            {selectedItem.description}
+                                        </Text>
+                                    )}
+                                </View>
+
+                                <View style={[styles.modalMetaCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                                    <View style={styles.modalMetaRow}>
+                                        <View style={[styles.modalMetaIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                                            <FontAwesomeIcon icon={faBook} size={12} color={theme.colors.primary} />
+                                        </View>
+                                        <View>
+                                            <Text style={[styles.modalMetaLabel, { color: theme.colors.placeholder }]}>SUBJECT</Text>
+                                            {isEditing ? (
+                                                <TextInput
+                                                    style={{ color: theme.colors.text, fontWeight: '800', fontSize: 14, padding: 0 }}
+                                                    value={selectedItem.subject}
+                                                    onChangeText={(t) => setSelectedItem({ ...selectedItem, subject: t })}
+                                                />
+                                            ) : (
+                                                <Text style={[styles.modalMetaValue, { color: theme.colors.text }]}>{selectedItem.subject}</Text>
+                                            )}
+                                        </View>
+                                    </View>
+
+                                    <View style={[styles.modalMetaDivider, { backgroundColor: theme.colors.cardBorder }]} />
+
+                                    <View style={styles.modalMetaRow}>
+                                        <View style={[styles.modalMetaIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                                            <FontAwesomeIcon icon={faCalendarAlt} size={12} color={theme.colors.primary} />
+                                        </View>
+                                        <View>
+                                            <Text style={[styles.modalMetaLabel, { color: theme.colors.placeholder }]}>DUE DATE</Text>
+                                            <Text style={[styles.modalMetaValue, { color: theme.colors.text }]}>{formatDate(selectedItem.due_date)}</Text>
+                                        </View>
+                                    </View>
+                                </View>
+
+                                {selectedItem.resources?.length > 0 && (
+                                    <View style={{ marginTop: 24 }}>
+                                        <Text style={[styles.modalSectionLabel, { color: theme.colors.placeholder }]}>ATTACHED MATERIALS ({selectedItem.resources.length})</Text>
+                                        {selectedItem.resources.map((res) => (
+                                            <TouchableOpacity
+                                                key={res.id}
+                                                style={[styles.modalResourceItem, { backgroundColor: '#10b981' + '10', borderColor: '#10b981' + '30', borderWidth: 1 }]}
+                                                onPress={() => {
+                                                    setSelectedResource(res);
+                                                    setResourceModalVisible(true);
+                                                }}
+                                            >
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={[styles.modalResourceTitle, { color: theme.colors.text }]}>{res.title}</Text>
+                                                    <Text style={{ fontSize: 10, color: theme.colors.placeholder, fontWeight: '700', textTransform: 'uppercase', marginTop: 2 }}>Library Resource</Text>
+                                                </View>
+                                                <View style={[styles.modalResourceAction, { backgroundColor: '#10b981' }]}>
+                                                    <FontAwesomeIcon icon={faExternalLinkAlt} size={10} color="#fff" />
+                                                    <Text style={styles.modalResourceActionText}>OPEN</Text>
+                                                </View>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                )}
+
+                                {user.id === selectedItem.created_by && (
+                                    <View style={[styles.modalBtnContainer, { marginTop: 24 }]}>
+                                        <TouchableOpacity
+                                            style={[styles.modalActionBtn, { backgroundColor: theme.colors.primary }]}
+                                            onPress={() => (isEditing ? handleHomeworkUpdate() : setIsEditing(true))}
+                                        >
+                                            <FontAwesomeIcon icon={faPen} size={16} color="#fff" />
+                                            <Text style={styles.modalActionBtnText}>
+                                                {isEditing ? 'Save Changes' : 'Edit Homework'}
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={[styles.modalActionBtn, { backgroundColor: theme.colors.error, marginLeft: 12 }]}
+                                            onPress={handleHomeworkDelete}
+                                            disabled={isEditing}
+                                        >
+                                            <FontAwesomeIcon icon={faTrash} size={16} color="#fff" />
+                                            <Text style={styles.modalActionBtnText}>Delete</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+                            </ScrollView>
+                        </>
+                    )}
+                </View>
+            </RNModal>
+
+            {/* Assignment Detail Modal */}
+            <RNModal
+                isVisible={isAssignmentDetailVisible}
+                onBackdropPress={() => setIsAssignmentDetailVisible(false)}
+                onSwipeComplete={() => setIsAssignmentDetailVisible(false)}
+                swipeDirection={['down']}
+                scrollTo={handleAsgnScrollTo}
+                scrollOffset={asgnScrollOffset}
+                scrollOffsetMax={400}
+                propagateSwipe={true}
+                animationIn="slideInUp"
+                animationOut="slideOutDown"
+                backdropOpacity={0.4}
+                style={{ justifyContent: 'flex-end', margin: 0 }}
+            >
+                <View style={[styles.modalContentAlt, { backgroundColor: theme.colors.surface }]}>
+                    <View style={styles.swipeIndicator} />
+                    {selectedItem && activeTab === 'assignments' && (
+                        <>
+                            <View style={[styles.modalHeader, { borderBottomColor: theme.colors.cardBorder }]}>
+                                <View style={[styles.modalIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                                    <FontAwesomeIcon icon={faClipboardList} size={20} color={theme.colors.primary} />
+                                </View>
+                                <Text style={[styles.modalTitleAlt, { color: theme.colors.text }]}>Assignment Details</Text>
+                                <View style={styles.modalHeaderActions}>
+                                    <TouchableOpacity onPress={() => setIsAssignmentDetailVisible(false)} style={styles.modalCloseBtn}>
+                                        <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.placeholder} />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            <ScrollView
+                                ref={asgnScrollViewRef}
+                                onScroll={handleAsgnScroll}
+                                scrollEventThrottle={16}
+                                showsVerticalScrollIndicator={false}
+                                contentContainerStyle={{
+                                    paddingTop: 24,
+                                    paddingBottom: Math.max(insets.bottom, 24)
+                                }}
+                            >
+                                <View style={styles.modalMessageWrapper}>
+                                    {isEditing ? (
+                                        <TextInput
+                                            style={[styles.modalTextInput, { color: theme.colors.text, borderColor: theme.colors.cardBorder }]}
+                                            value={selectedItem.description}
+                                            multiline
+                                            onChangeText={(t) => setSelectedItem({ ...selectedItem, description: t })}
+                                        />
+                                    ) : (
+                                        <Text style={[styles.modalDescriptionText, { color: theme.colors.text }]}>
+                                            {selectedItem.description}
+                                        </Text>
+                                    )}
+                                </View>
+
+                                <View style={[styles.modalMetaCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                                    <View style={styles.modalMetaRow}>
+                                        <View style={[styles.modalMetaIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                                            <FontAwesomeIcon icon={faBook} size={12} color={theme.colors.primary} />
+                                        </View>
+                                        <View>
+                                            <Text style={[styles.modalMetaLabel, { color: theme.colors.placeholder }]}>TITLE</Text>
+                                            {isEditing ? (
+                                                <TextInput
+                                                    style={{ color: theme.colors.text, fontWeight: '800', fontSize: 14, padding: 0 }}
+                                                    value={selectedItem.title}
+                                                    onChangeText={(t) => setSelectedItem({ ...selectedItem, title: t })}
+                                                />
+                                            ) : (
+                                                <Text style={[styles.modalMetaValue, { color: theme.colors.text }]}>{selectedItem.title}</Text>
+                                            )}
+                                        </View>
+                                    </View>
+
+                                    <View style={[styles.modalMetaDivider, { backgroundColor: theme.colors.cardBorder }]} />
+
+                                    <View style={styles.modalMetaRow}>
+                                        <View style={[styles.modalMetaIcon, { backgroundColor: theme.colors.primary + '10' }]}>
+                                            <FontAwesomeIcon icon={faCalendarAlt} size={12} color={theme.colors.primary} />
+                                        </View>
+                                        <View>
+                                            <Text style={[styles.modalMetaLabel, { color: theme.colors.placeholder }]}>DUE DATE</Text>
+                                            <Text style={[styles.modalMetaValue, { color: theme.colors.text }]}>{formatDate(selectedItem.due_date)}</Text>
+                                        </View>
+                                    </View>
+                                </View>
+
+                                {selectedItem.resources?.length > 0 && (
+                                    <View style={{ marginTop: 24 }}>
+                                        <Text style={[styles.modalSectionLabel, { color: theme.colors.placeholder }]}>ATTACHED MATERIALS ({selectedItem.resources.length})</Text>
+                                        {selectedItem.resources.map((res) => (
+                                            <TouchableOpacity
+                                                key={res.id}
+                                                style={[styles.modalResourceItem, { backgroundColor: '#10b981' + '10', borderColor: '#10b981' + '30', borderWidth: 1 }]}
+                                                onPress={() => {
+                                                    setSelectedResource(res);
+                                                    setResourceModalVisible(true);
+                                                }}
+                                            >
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={[styles.modalResourceTitle, { color: theme.colors.text }]}>{res.title}</Text>
+                                                    <Text style={{ fontSize: 10, color: theme.colors.placeholder, fontWeight: '700', textTransform: 'uppercase', marginTop: 2 }}>Library Resource</Text>
+                                                </View>
+                                                <View style={[styles.modalResourceAction, { backgroundColor: '#10b981' }]}>
+                                                    <FontAwesomeIcon icon={faExternalLinkAlt} size={10} color="#fff" />
+                                                    <Text style={styles.modalResourceActionText}>OPEN</Text>
+                                                </View>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                )}
+
+                                {user.id === selectedItem.assigned_by && (
+                                    <View style={[styles.modalBtnContainer, { marginTop: 24 }]}>
+                                        <TouchableOpacity
+                                            style={[styles.modalActionBtn, { backgroundColor: theme.colors.primary }]}
+                                            onPress={() => (isEditing ? handleAssignmentUpdate() : setIsEditing(true))}
+                                        >
+                                            <FontAwesomeIcon icon={faPen} size={16} color="#fff" />
+                                            <Text style={styles.modalActionBtnText}>
+                                                {isEditing ? 'Save Changes' : 'Edit Assignment'}
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={[styles.modalActionBtn, { backgroundColor: theme.colors.error, marginLeft: 12 }]}
+                                            onPress={handleAssignmentDelete}
+                                            disabled={isEditing}
+                                        >
+                                            <FontAwesomeIcon icon={faTrash} size={16} color="#fff" />
+                                            <Text style={styles.modalActionBtnText}>Delete</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+                            </ScrollView>
+                        </>
+                    )}
+                </View>
+            </RNModal>
+
+            <ResourceDetailModal
+                visible={resourceModalVisible}
+                onClose={() => {
+                    setResourceModalVisible(false);
+                    setSelectedResource(null);
+                }}
+                resource={selectedResource}
+            />
+
             {/* Edit Schedule Modal */}
             <Modal visible={isEditModalVisible} transparent animationType="fade" onRequestClose={() => setEditModalVisible(false)}>
                 <Pressable style={styles.modalOverlay} onPress={() => setEditModalVisible(false)}>
@@ -1494,7 +1911,151 @@ const styles = StyleSheet.create({
         fontSize: 9,
         color: '#6366f1',
         fontWeight: '700',
-    }
+    },
+    // Detail Modal Styles
+    modalContentAlt: {
+        paddingHorizontal: 24,
+        paddingTop: 8,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        maxHeight: '85%',
+    },
+    swipeIndicator: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#cbd5e1',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: 20,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingBottom: 20,
+        borderBottomWidth: 1,
+    },
+    modalIconBox: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    modalTitleAlt: {
+        fontSize: 20,
+        fontWeight: '900',
+        flex: 1,
+        letterSpacing: -0.5,
+    },
+    modalHeaderActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    modalCloseBtn: {
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 8,
+    },
+    modalMessageWrapper: {
+        marginBottom: 32,
+    },
+    modalDescriptionText: {
+        fontSize: 16,
+        lineHeight: 26,
+        fontWeight: '600',
+    },
+    modalMetaCard: {
+        borderRadius: 24,
+        padding: 20,
+    },
+    modalMetaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    modalMetaIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    modalMetaLabel: {
+        fontSize: 9,
+        fontWeight: '900',
+        letterSpacing: 1,
+        marginBottom: 2,
+    },
+    modalMetaValue: {
+        fontSize: 14,
+        fontWeight: '800',
+    },
+    modalMetaDivider: {
+        height: 1,
+        marginVertical: 16,
+        marginLeft: 48,
+    },
+    modalBtnContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    modalActionBtn: {
+        flex: 1,
+        padding: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        flexDirection: 'row',
+        justifyContent: 'center',
+    },
+    modalActionBtnText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        marginLeft: 8,
+    },
+    modalTextInput: {
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: 16,
+        fontSize: 16,
+        lineHeight: 24,
+        minHeight: 100,
+        textAlignVertical: 'top',
+    },
+    modalResourceItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 20,
+        marginBottom: 12,
+    },
+    modalResourceTitle: {
+        fontSize: 14,
+        fontWeight: '800',
+    },
+    modalResourceAction: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+        gap: 6,
+    },
+    modalResourceActionText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 0.5,
+    },
+    modalSectionLabel: {
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 1,
+        marginBottom: 12,
+        marginLeft: 4,
+    },
 });
 
 export default React.memo(StudentClassDashboardScreen);
