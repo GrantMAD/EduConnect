@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase'; // keeping for real-time subscription
 import { AppState } from 'react-native';
-import { useToast } from './ToastContext';
+import { useToastActions } from './ToastContext';
 
 // Import services
 import { getUserProfile } from '../services/userService';
@@ -22,9 +22,33 @@ import {
 } from '../services/chatService';
 import { fetchUsersEquippedItems } from '../services/gamificationService';
 
-const ChatContext = createContext();
+const ChatStateContext = createContext();
+const ChatActionsContext = createContext();
 
-export const useChat = () => useContext(ChatContext);
+export const useChat = () => {
+  const state = useContext(ChatStateContext);
+  const actions = useContext(ChatActionsContext);
+  if (!state || !actions) {
+    throw new Error('useChat must be used within a ChatProvider');
+  }
+  return { ...state, ...actions };
+};
+
+export const useChatState = () => {
+  const context = useContext(ChatStateContext);
+  if (!context) {
+    throw new Error('useChatState must be used within a ChatProvider');
+  }
+  return context;
+};
+
+export const useChatActions = () => {
+  const context = useContext(ChatActionsContext);
+  if (!context) {
+    throw new Error('useChatActions must be used within a ChatProvider');
+  }
+  return context;
+};
 
 export const ChatProvider = ({ children, session }) => {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -33,7 +57,7 @@ export const ChatProvider = ({ children, session }) => {
   const [loading, setLoading] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState({}); // Track loading per channel
   const [userProfile, setUserProfile] = useState(null); // Store user profile
-  const { showToast } = useToast();
+  const { showToast } = useToastActions();
   const subscriptions = useRef({});
 
   const user = session?.user;
@@ -701,13 +725,16 @@ export const ChatProvider = ({ children, session }) => {
     }
   }, [user?.id, showToast]);
 
-  const value = React.useMemo(() => ({
+  const stateValue = React.useMemo(() => ({
     channels,
     messages,
     loading,
     loadingMessages,
     user,
     unreadCount,
+  }), [channels, messages, loading, loadingMessages, user, unreadCount]);
+
+  const actionsValue = React.useMemo(() => ({
     fetchChannels,
     fetchMessages,
     fetchOlderMessages,
@@ -725,7 +752,6 @@ export const ChatProvider = ({ children, session }) => {
     uploadAttachment,
     markAsRead
   }), [
-    channels, messages, loading, loadingMessages, user, unreadCount,
     fetchChannels, fetchMessages, fetchOlderMessages, editMessage,
     deleteMessage, pinMessage, searchMessages, addReaction,
     removeReaction, sendTypingEvent, subscribeToChannel,
@@ -734,8 +760,10 @@ export const ChatProvider = ({ children, session }) => {
   ]);
 
   return (
-    <ChatContext.Provider value={value}>
-      {children}
-    </ChatContext.Provider>
+    <ChatStateContext.Provider value={stateValue}>
+      <ChatActionsContext.Provider value={actionsValue}>
+        {children}
+      </ChatActionsContext.Provider>
+    </ChatStateContext.Provider>
   );
 };

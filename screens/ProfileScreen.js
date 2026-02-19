@@ -4,12 +4,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import ProfileScreenSkeleton, { SkeletonPiece } from '../components/skeletons/ProfileScreenSkeleton';
 import { faGear, faEnvelope, faUser, faBriefcase, faAddressCard, faPhone, faTrophy, faMedal, faFire, faStore, faChartBar, faCoins, faInfoCircle, faArrowRight, faGlobe, faUserFriends, faPencilAlt, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
-import { useToast } from '../context/ToastContext';
+import { useToastActions } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
 import GamificationInfoModal from '../components/GamificationInfoModal';
 import EditProfileModal from '../components/EditProfileModal';
+import { getAvatarUrl } from '../lib/utils';
 import { BORDER_STYLES, BANNER_STYLES, NAME_COLOR_STYLES, TITLE_STYLES } from '../constants/GamificationStyles';
 import AnimatedAvatarBorder from '../components/AnimatedAvatarBorder';
 import { BADGES } from '../constants/Badges';
@@ -36,7 +37,6 @@ const DetailItem = React.memo(({ icon, color, label, value, capitalize, theme })
 ));
 
 const ProfileScreen = ({ navigation }) => {
-  const defaultUserImage = require('../assets/user.png');
   const { refreshProfile } = useAuth();
   const { 
     current_level = 1, current_xp = 0, coins = 0, streak = {}, badges = [], 
@@ -70,7 +70,7 @@ const ProfileScreen = ({ navigation }) => {
   });
   const [loading, setLoading] = useState(true);
   const { theme } = useTheme();
-  const { showToast } = useToast();
+  const { showToast } = useToastActions();
 
   const fetchUserData = useCallback(async () => {
     setLoading(true);
@@ -98,9 +98,9 @@ const ProfileScreen = ({ navigation }) => {
   const bannerStyle = useMemo(() => equippedBanner ? BANNER_STYLES[equippedBanner.image_url] : null, [equippedBanner]);
   const nameColorStyle = useMemo(() => equippedNameColor ? NAME_COLOR_STYLES[equippedNameColor.image_url] : null, [equippedNameColor]);
   const titleStyle = useMemo(() => equippedTitle ? TITLE_STYLES[equippedTitle.image_url] : null, [equippedTitle]);
-
   const borderStyle = useMemo(() => equippedBorder ? BORDER_STYLES[equippedBorder.image_url] : { borderColor: theme.colors.primary, borderWidth: 2 }, [equippedBorder, theme.colors.primary]);
-  const avatarSource = useMemo(() => userData.avatar_url ? { uri: userData.avatar_url } : defaultUserImage, [userData.avatar_url, defaultUserImage]);
+  const avatarSource = useMemo(() => getAvatarUrl(userData.avatar_url, userData.email, userData.id), [userData.avatar_url, userData.email, userData.id]);
+
 
   const toggleGamificationInfo = useCallback(() => setShowGamificationInfo(prev => !prev), []);
   const openEditProfile = useCallback(() => setShowEditProfile(true), []);

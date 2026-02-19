@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, FlatList, RefreshControl, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
-import { useToast } from '../../context/ToastContext';
+import { useToastActions } from '../../context/ToastContext';
+import { getAvatarUrl } from '../../lib/utils';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
     faFootballBall, faUserFriends, faBullhorn, faCalendarAlt,
@@ -32,12 +33,11 @@ import {
 } from '../../services/notificationService';
 
 const { width } = Dimensions.get('window');
-const defaultUserImage = require('../../assets/user.png');
 
 const ClubDetailScreen = ({ route, navigation }) => {
     const { clubId } = route.params;
     const { theme } = useTheme();
-    const { showToast } = useToast();
+    const { showToast } = useToastActions();
     const insets = useSafeAreaInsets();
 
     const [clubData, setClubData] = useState(null);
@@ -233,11 +233,7 @@ const ClubDetailScreen = ({ route, navigation }) => {
 
                 <View style={styles.coordBox}>
                     <View style={styles.coordAvatarBox}>
-                        {clubData?.teacher?.avatar_url ? (
-                            <Image source={{ uri: clubData.teacher.avatar_url }} style={styles.coordAvatar} />
-                        ) : (
-                            <FontAwesomeIcon icon={faUser} size={14} color="#fff" style={{ opacity: 0.5 }} />
-                        )}
+                        <Image source={getAvatarUrl(clubData?.teacher?.avatar_url, clubData?.teacher?.email, clubData?.teacher?.id)} style={styles.coordAvatar} />
                     </View>
                     <View style={{ marginLeft: 10 }}>
                         <Text style={styles.coordLabel}>COORDINATOR</Text>
@@ -321,7 +317,7 @@ const ClubDetailScreen = ({ route, navigation }) => {
                                 <View key={item.id || item.user_id} style={[styles.memberItem, idx === members.length - 1 && { borderBottomWidth: 0 }, { borderBottomColor: theme.colors.cardBorder + '30' }]}>
                                     <View style={[styles.memberAvatarBox, { borderColor: theme.colors.cardBorder }]}>
                                         <Image
-                                            source={item.users?.avatar_url ? { uri: item.users.avatar_url } : defaultUserImage}
+                                            source={getAvatarUrl(item.users?.avatar_url, item.users?.email, item.users?.id)}
                                             style={styles.memberAvatar}
                                         />
                                     </View>
@@ -381,7 +377,7 @@ const ClubDetailScreen = ({ route, navigation }) => {
                                 <View key={req.id} style={[styles.reqCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
                                     <View style={styles.reqTop}>
                                         <View style={[styles.memberAvatarBox, { borderColor: theme.colors.cardBorder }]}>
-                                            <Image source={req.sender?.avatar_url ? { uri: req.sender.avatar_url } : defaultUserImage} style={styles.memberAvatar} />
+                                            <Image source={getAvatarUrl(req.sender?.avatar_url, req.sender?.email, req.sender?.id)} style={styles.memberAvatar} />
                                         </View>
                                         <View style={styles.reqInfo}>
                                             <Text style={[styles.memberName, { color: theme.colors.text }]}>{req.sender?.full_name}</Text>

@@ -3,7 +3,7 @@ import { View, TextInput, StyleSheet, TouchableOpacity, Text, Image, ActivityInd
 import { signUp } from '../../services/authService';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faEye, faEyeSlash, faUser, faEnvelope, faLock, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
-import { useToast } from '../../context/ToastContext';
+import { useToastActions } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
 
@@ -15,7 +15,7 @@ const SignUpScreen = ({ navigation }) => {
   const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { showToast } = useToast();
+  const { showToast } = useToastActions();
   const { theme } = useTheme();
 
   const handleSignUp = useCallback(async () => {

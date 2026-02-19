@@ -18,10 +18,11 @@ import {
   faBook,
   faChevronDown
 } from '@fortawesome/free-solid-svg-icons';
-import { useToast, useToastState } from '../context/ToastContext';
+import { useToastActions, useToastState } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import { useGamification } from '../context/GamificationContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getAvatarUrl } from '../lib/utils';
 import Toast from './Toast';
 
 // Import services
@@ -32,11 +33,9 @@ import { fetchExamPapersByClass } from '../services/examService';
 import { fetchAssignmentsByClass } from '../services/assignmentService';
 import { fetchHomeworkByClass } from '../services/homeworkService';
 
-const defaultUserImage = require("../assets/user.png");
-
 const MarksModal = React.memo(({ visible, onClose, classId, classMembers }) => {
   const { theme } = useTheme();
-  const { showToast } = useToast();
+  const { showToast } = useToastActions();
   const { toast, hideToast } = useToastState();
   const gamificationData = useGamification();
   const { awardXP = () => { } } = gamificationData || {};
@@ -302,7 +301,7 @@ const MarksModal = React.memo(({ visible, onClose, classId, classMembers }) => {
     <View style={[styles.studentContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Image source={student.users.avatar_url ? { uri: student.users.avatar_url } : defaultUserImage} style={styles.avatar} />
+          <Image source={getAvatarUrl(student.users.avatar_url, student.users.email, student.users.id)} style={styles.avatar} />
           <View>
             <Text style={[styles.studentName, { color: theme.colors.text }]}>{student.users.full_name}</Text>
             <Text style={[styles.studentEmail, { color: theme.colors.placeholder }]}>{student.users.email}</Text>

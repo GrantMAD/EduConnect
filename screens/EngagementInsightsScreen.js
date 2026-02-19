@@ -12,10 +12,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import StandardBottomModal from '../components/StandardBottomModal';
 
-// Import services
-import { getTeachersEngagementAudit } from '../services/dashboardService';
+import { getAvatarUrl } from '../lib/utils';
 
-const defaultUserImage = require('../assets/user.png');
+// Import services
 
 const AuditStat = React.memo(({ icon, label, count, color, theme }) => {
     return (
@@ -181,7 +180,7 @@ const EngagementInsightsScreen = ({ navigation }) => {
                                 activeOpacity={0.7}
                             >
                                 <Image 
-                                    source={teacher.avatar_url ? { uri: teacher.avatar_url } : defaultUserImage}
+                                    source={getAvatarUrl(teacher.avatar_url, teacher.email, teacher.id)}
                                     style={styles.avatarSmall}
                                 />
                                 <View style={styles.teacherInfoSmall}>
@@ -210,8 +209,7 @@ const EngagementInsightsScreen = ({ navigation }) => {
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Image 
-                                source={selectedTeacher.avatar_url ? { uri: selectedTeacher.avatar_url } : defaultUserImage}
-                                style={styles.modalAvatar}
+                                                                 source={getAvatarUrl(selectedTeacher.avatar_url, selectedTeacher.email, selectedTeacher.id)}                                style={styles.modalAvatar}
                             />
                             <View style={styles.modalInfo}>
                                 <Text style={[styles.modalName, { color: theme.colors.text }]}>{selectedTeacher.full_name}</Text>

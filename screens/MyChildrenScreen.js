@@ -16,6 +16,7 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
+import { getAvatarUrl } from '../lib/utils';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
   faUser,
@@ -76,7 +77,6 @@ import { fetchGradingCategories, fetchGradingCategoriesForClasses, calculateWeig
 import { fetchStudentExamSchedule } from '../services/examService';
 
 const { width } = Dimensions.get('window');
-const defaultUserImage = require('../assets/user.png');
 
 // --- Helper Components ---
 
@@ -456,7 +456,7 @@ const CandidateInfoCard = React.memo(({ profile, examCount, theme }) => (
     <View style={styles.candidateInfoLeft}>
       <View style={[styles.candidateAvatarBox, { borderColor: theme.colors.cardBorder }]}>
         <Image 
-          source={profile?.avatar_url ? { uri: profile.avatar_url } : defaultUserImage} 
+          source={getAvatarUrl(profile?.avatar_url, profile?.email, profile?.id)} 
           style={styles.candidateAvatar} 
         />
       </View>
@@ -742,7 +742,7 @@ const AdminFamilyCard = React.memo(({ parentData, onClick, theme }) => (
     style={[styles.adminCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
   >
     <LinearGradient colors={['#4F46E5', '#7C3AED']} style={styles.adminCardHeader} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-      <Image source={parentData.parent.avatar_url ? { uri: parentData.parent.avatar_url } : defaultUserImage} style={styles.adminAvatar} />
+      <Image source={getAvatarUrl(parentData.parent.avatar_url, parentData.parent.email, parentData.parent.id)} style={styles.adminAvatar} />
       <View style={{ flex: 1 }}>
         <Text style={styles.adminName} numberOfLines={1}>{parentData.parent.full_name}</Text>
         <Text style={styles.adminEmail} numberOfLines={1}>{parentData.parent.email}</Text>
@@ -753,7 +753,7 @@ const AdminFamilyCard = React.memo(({ parentData, onClick, theme }) => (
       <View style={styles.childPills}>
         {parentData.children.map(child => (
           <View key={child.id} style={[styles.childPill, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-            <Image source={child.avatar_url ? { uri: child.avatar_url } : defaultUserImage} style={styles.tinyAvatar} />
+            <Image source={getAvatarUrl(child.avatar_url, child.email, child.id)} style={styles.tinyAvatar} />
             <Text style={[styles.childPillText, { color: theme.colors.text }]}>{child.full_name?.split(' ')[0] || 'Student'}</Text>
           </View>
         ))}
@@ -771,7 +771,7 @@ const AdminFamilyDetail = React.memo(({ parentData, onBack, theme }) => (
     </TouchableOpacity>
 
     <LinearGradient colors={['#4F46E5', '#7C3AED']} style={styles.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-      <Image source={parentData.parent.avatar_url ? { uri: parentData.parent.avatar_url } : defaultUserImage} style={styles.heroAvatar} />
+      <Image source={getAvatarUrl(parentData.parent.avatar_url, parentData.parent.email, parentData.parent.id)} style={styles.heroAvatar} />
       <View>
         <Text style={styles.heroName}>{parentData.parent.full_name}</Text>
         <Text style={styles.heroEmail}>{parentData.parent.email}</Text>
@@ -791,7 +791,7 @@ const AdminFamilyDetail = React.memo(({ parentData, onBack, theme }) => (
       {parentData.children.map(child => (
         <View key={child.id} style={[styles.adminChildSection, { borderTopColor: theme.colors.cardBorder, borderTopWidth: 1 }]}>
           <View style={styles.adminChildHeader}>
-            <Image source={child.avatar_url ? { uri: child.avatar_url } : defaultUserImage} style={styles.adminChildAvatar} />
+            <Image source={getAvatarUrl(child.avatar_url, child.email, child.id)} style={styles.adminChildAvatar} />
             <View>
               <Text style={[styles.adminChildName, { color: theme.colors.text }]}>{child.full_name}</Text>
               <Text style={[styles.adminChildEmail, { color: theme.colors.placeholder }]}>{child.email}</Text>
@@ -1033,7 +1033,7 @@ const MyChildrenScreen = ({ navigation, route }) => {
                     borderColor: selectedChildId === child.id ? theme.colors.primary : theme.colors.cardBorder
                   }]}
                 >
-                  <Image source={child.avatar_url ? { uri: child.avatar_url } : defaultUserImage} style={[styles.selectorAvatar, { borderColor: selectedChildId === child.id ? '#ffffff50' : theme.colors.cardBorder }]} />
+                  <Image source={getAvatarUrl(child.avatar_url, child.email, child.id)} style={[styles.selectorAvatar, { borderColor: selectedChildId === child.id ? '#ffffff50' : theme.colors.cardBorder }]} />
                   <View>
                     <Text style={[styles.childBtnText, { color: selectedChildId === child.id ? '#FFFFFF' : theme.colors.text }]}>{child.full_name?.split(' ')[0] || 'Student'}</Text>
                     <Text style={{ fontSize: 8, color: selectedChildId === child.id ? '#ffffff80' : theme.colors.placeholder, fontWeight: '800' }}>{child.is_managed ? 'MANAGED' : 'ACCOUNT'}</Text>
@@ -1059,7 +1059,7 @@ const MyChildrenScreen = ({ navigation, route }) => {
               <View style={{ padding: 20 }}>
                 <LinearGradient colors={['#4F46E5', '#7C3AED']} style={styles.childHero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
                   <Image
-                    source={selectedChild.avatar_url ? { uri: selectedChild.avatar_url } : defaultUserImage}
+                    source={getAvatarUrl(selectedChild.avatar_url, selectedChild.email, selectedChild.id)}
                     style={styles.heroAvatar}
                   />
                   <View style={{ flex: 1 }}>

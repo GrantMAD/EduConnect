@@ -14,8 +14,8 @@ import RecommendedResources from '../components/dashboard/RecommendedResources';
 import { useTheme } from '../context/ThemeContext';
 import { useSchool } from '../context/SchoolContext';
 import { useAuth } from '../context/AuthContext';
-import { useToast } from '../context/ToastContext';
-import { useGamification } from '../context/GamificationContext';
+import { useToastActions } from '../context/ToastContext';
+import { useGamificationActions } from '../context/GamificationContext';
 import UserListModal from '../components/UserListModal';
 import FamilyLinksModal from '../components/FamilyLinksModal';
 import ChildProgressSnapshot from '../components/ChildProgressSnapshot';
@@ -41,8 +41,8 @@ const DashboardScreen = ({ navigation }) => {
     const { theme, isDarkTheme } = useTheme();
     const { schoolId, schoolData } = useSchool();
     const { user, profile } = useAuth();
-    const { showToast } = useToast();
-    const { awardXP } = useGamification();
+    const { showToast } = useToastActions();
+    const { awardXP } = useGamificationActions();
 
     const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 

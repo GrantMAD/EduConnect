@@ -78,11 +78,11 @@ import MarksModal from '../../components/MarksModal';
 import ManageMarksModal from '../../components/ManageMarksModal';
 import { Alert, TextInput, Modal, Pressable } from 'react-native';
 import { useGamification } from '../../context/GamificationContext';
-import { useToast } from '../../context/ToastContext';
+import { useToastActions } from '../../context/ToastContext';
 import { useSchool } from '../../context/SchoolContext';
+import { getAvatarUrl } from '../../lib/utils';
 
 const { width } = Dimensions.get('window');
-const defaultUserImage = require("../../assets/user.png");
 
 const getDateString = (date) => {
   const d = new Date(date);
@@ -99,7 +99,7 @@ const StudentClassDashboardScreen = () => {
     const { theme } = useTheme();
     const { user, profile } = useAuth();
     const { schoolId } = useSchool();
-    const { showToast } = useToast();
+    const { showToast } = useToastActions();
     const { awardXP = () => { } } = useGamification() || {};
     const insets = useSafeAreaInsets();
 
@@ -1053,7 +1053,7 @@ const StudentClassDashboardScreen = () => {
                                         return (
                                             <View key={member.id} style={[styles.studentCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, padding: 16, borderRadius: 20, marginBottom: 12 }]}>
                                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                                    <Image source={student.avatar_url ? { uri: student.avatar_url } : defaultUserImage} style={{ width: 40, height: 40, borderRadius: 12 }} />
+                                                    <Image source={getAvatarUrl(student.avatar_url, student.email, student.id)} style={{ width: 40, height: 40, borderRadius: 12 }} />
                                                     <View style={{ flex: 1, marginLeft: 12 }}>
                                                         <Text style={[styles.cardTitle, { color: theme.colors.text, marginBottom: 2 }]}>{student.full_name}</Text>
                                                         <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]}>{student.email}</Text>
@@ -1095,7 +1095,7 @@ const StudentClassDashboardScreen = () => {
                                     ) : (
                                         classMembers.map((member) => (
                                             <View key={member.id} style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                                                <Image source={member.users?.avatar_url ? { uri: member.users.avatar_url } : defaultUserImage} style={{ width: 36, height: 36, borderRadius: 10 }} />
+                                                <Image source={getAvatarUrl(member.users?.avatar_url, member.users?.email, member.users?.id)} style={{ width: 36, height: 36, borderRadius: 10 }} />
                                                 <View style={{ flex: 1, marginLeft: 12 }}>
                                                     <Text style={[styles.cardTitle, { color: theme.colors.text }]}>{member.users?.full_name}</Text>
                                                     <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]}>{member.users?.email}</Text>
@@ -1121,7 +1121,7 @@ const StudentClassDashboardScreen = () => {
                                         </View>
                                         {availableStudents.map((item) => (
                                             <View key={item.id} style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                                                <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={{ width: 36, height: 36, borderRadius: 10 }} />
+                                                <Image source={getAvatarUrl(item.avatar_url, item.email, item.id)} style={{ width: 36, height: 36, borderRadius: 10 }} />
                                                 <View style={{ flex: 1, marginLeft: 12 }}>
                                                     <Text style={[styles.cardTitle, { color: theme.colors.text }]}>{item.full_name}</Text>
                                                     <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]}>{item.email}</Text>
@@ -1147,7 +1147,7 @@ const StudentClassDashboardScreen = () => {
                         <Text style={styles.sectionTitle}>MY CLASSMATES</Text>
                         {classMembers.map((member) => (
                             <View key={member.id} style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                                <Image source={member.users?.avatar_url ? { uri: member.users.avatar_url } : defaultUserImage} style={{ width: 36, height: 36, borderRadius: 10 }} />
+                                <Image source={getAvatarUrl(member.users?.avatar_url, member.users?.email, member.users?.id)} style={{ width: 36, height: 36, borderRadius: 10 }} />
                                 <View style={{ flex: 1, marginLeft: 12 }}>
                                     <Text style={[styles.cardTitle, { color: theme.colors.text }]}>{member.users?.full_name}</Text>
                                     <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]}>{member.users?.email}</Text>

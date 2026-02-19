@@ -2,8 +2,9 @@ import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Modal, Dimensions, ScrollView } from 'react-native';
 import { useChat } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
-import { useToast } from '../../context/ToastContext';
+import { useToastActions } from '../../context/ToastContext';
 import { useGamification } from '../../context/GamificationContext';
+import { getAvatarUrl } from '../../lib/utils';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faPaperPlane, faPaperclip, faImage, faArrowLeft, faUser, faEllipsisV, faArrowDown, faSearch, faThumbtack, faTimes, faPen, faBan, faReply, faSmile, faPlus, faChevronLeft } from '@fortawesome/free-solid-svg-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -22,18 +23,19 @@ import LinearGradient from 'react-native-linear-gradient';
 import { fetchRecipientReadStatus, fetchChannelById, subscribeToMemberStatus, unsubscribeFromMemberStatus } from '../../services/chatService';
 
 const { width } = Dimensions.get('window');
-const defaultUserImage = require('../../assets/user.png');
 
-const MessageBubble = React.memo(({ message, theme, currentUser, recipientLastReadAt, allStickers, onReaction }) => {
+const MessageBubble = React.memo(({ message, theme, currentUser, recipientLastReadAt, allStickers, onReaction, isGroupChat }) => {
     if (message.is_system_message) return null;
 
     const isMe = currentUser?.id === message.sender_id;
+    const showAvatar = !isMe && isGroupChat;
     const isSticker = !message.attachments?.length && allStickers.includes(message.content);
 
     const equipped = message.sender?.equippedItems || {};
     const nameStyle = equipped.nameColor ? NAME_COLOR_STYLES[equipped.nameColor.image_url] : null;
     const titleStyle = equipped.title ? TITLE_STYLES[equipped.title.image_url] : null;
     const bubbleStyle = equipped.bubbleStyle ? BUBBLE_STYLES[equipped.bubbleStyle.image_url] : null;
+    const borderStyle = equipped.border ? BORDER_STYLES[equipped.border.image_url] : {};
 
     const reactions = message.message_reactions || [];
     const reactionCounts = reactions.reduce((acc, curr) => {
@@ -128,59 +130,81 @@ const MessageBubble = React.memo(({ message, theme, currentUser, recipientLastRe
     };
 
     return (
-        <View style={[styles.bubbleContainer, isMe ? { alignSelf: 'flex-end' } : { alignSelf: 'flex-start' }, { marginBottom: Object.keys(reactionCounts).length > 0 ? 24 : 16 }]}>
-            {!isMe && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4, marginLeft: 4 }}>
-                    <Text style={[styles.senderName, { color: theme.colors.placeholder }, nameStyle?.style]}>{message.sender?.full_name || 'Unknown'}</Text>
-                    {titleStyle && (
-                        <View style={[styles.titleTag, { backgroundColor: titleStyle.colors.bg }]}>
-                            <Text style={[styles.titleTagText, { color: titleStyle.colors.text }]}>{titleStyle.label}</Text>
-                        </View>
-                    )}
-                </View>
-            )}
-
-            <View>
-                {renderBubbleContent()}
-
-                {Object.keys(reactionCounts).length > 0 && (
-                    <View style={styles.reactionsRow}>
-                        {Object.entries(reactionCounts).map(([emoji, count]) => {
-                            const iReacted = myReactions.has(emoji);
-                            return (
-                                <TouchableOpacity
-                                    key={emoji}
-                                    onPress={() => onReaction(emoji)}
-                                    style={[styles.reactionBadge, {
-                                        backgroundColor: iReacted ? theme.colors.primary : theme.colors.surface,
-                                        borderColor: theme.colors.cardBorder,
-                                    }]}
-                                >
-                                    <Text style={{ fontSize: 10, color: iReacted ? '#fff' : theme.colors.text }}>
-                                        {emoji} {count > 1 ? count : ''}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
+        <View style={[
+            styles.bubbleWrapper, 
+            isMe ? { alignSelf: 'flex-end' } : { alignSelf: 'flex-start' },
+            { marginBottom: Object.keys(reactionCounts).length > 0 ? 24 : 16 }
+        ]}>
+            <View style={[styles.bubbleRow, isMe && { flexDirection: 'row-reverse' }]}>
+                {showAvatar && (
+                    <View style={styles.bubbleAvatarContainer}>
+                        <AnimatedAvatarBorder
+                            avatarSource={getAvatarUrl(message.sender?.avatar_url, message.sender?.email, message.sender?.id)}
+                            size={32}
+                            borderStyle={borderStyle}
+                            isRainbow={!!borderStyle.rainbow}
+                            isAnimated={!!borderStyle.animated}
+                        />
                     </View>
                 )}
-            </View>
 
-            <View style={{ 
-                flexDirection: 'row', 
-                alignItems: 'center', 
-                alignSelf: 'flex-end', 
-                gap: 6, 
-                marginTop: Object.keys(reactionCounts).length > 0 ? 12 : 4 
-            }}>
-                {isMe && statusText && (
-                    <Text style={{ fontSize: 9, fontWeight: '800', color: statusColor, textTransform: 'uppercase' }}>
-                        {statusText}
-                    </Text>
-                )}
-                <Text style={[styles.timestamp, { color: theme.colors.placeholder, marginTop: 0 }]}>
-                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </Text>
+                <View style={[styles.bubbleContentWrapper, isMe ? { alignItems: 'flex-end' } : { alignItems: 'flex-start' }]}>
+                    {!isMe && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4, marginLeft: 4 }}>
+                            <Text style={[styles.senderName, { color: theme.colors.placeholder }, nameStyle?.style]}>{message.sender?.full_name || 'Unknown'}</Text>
+                            {titleStyle && (
+                                <View style={[styles.titleTag, { backgroundColor: titleStyle.colors.bg }]}>
+                                    <Text style={[styles.titleTagText, { color: titleStyle.colors.text }]}>{titleStyle.label}</Text>
+                                </View>
+                            )}
+                        </View>
+                    )}
+
+                    <View>
+                        {renderBubbleContent()}
+
+                        {Object.keys(reactionCounts).length > 0 && (
+                            <View style={styles.reactionsRow}>
+                                {Object.entries(reactionCounts).map(([emoji, count]) => {
+                                    const iReacted = myReactions.has(emoji);
+                                    return (
+                                        <TouchableOpacity
+                                            key={emoji}
+                                            onPress={() => onReaction(emoji)}
+                                            style={[styles.reactionBadge, {
+                                                backgroundColor: iReacted ? theme.colors.primary : theme.colors.surface,
+                                                borderColor: theme.colors.cardBorder,
+                                            }]}
+                                        >
+                                            <Text style={{ fontSize: 10, color: iReacted ? '#fff' : theme.colors.text }}>
+                                                {emoji} {count > 1 ? count : ''}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        )}
+                    </View>
+
+                    <View style={{ 
+                        flexDirection: 'row', 
+                        alignItems: 'center', 
+                        alignSelf: isMe ? 'flex-end' : 'flex-start', 
+                        gap: 6, 
+                        marginTop: Object.keys(reactionCounts).length > 0 ? 12 : 4,
+                        marginLeft: isMe ? 0 : 4,
+                        marginRight: isMe ? 4 : 0
+                    }}>
+                        {isMe && statusText && (
+                            <Text style={{ fontSize: 9, fontWeight: '800', color: statusColor, textTransform: 'uppercase' }}>
+                                {statusText}
+                            </Text>
+                        )}
+                        <Text style={[styles.timestamp, { color: theme.colors.placeholder, marginTop: 0 }]}>
+                            {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                    </View>
+                </View>
             </View>
         </View>
     );
@@ -191,7 +215,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
     const { messages, user, loadingMessages, fetchMessages, fetchOlderMessages, editMessage, deleteMessage, pinMessage, searchMessages, addReaction, removeReaction, sendTypingEvent, subscribeToChannel, unsubscribeFromChannel, sendMessage, uploadAttachment, markAsRead } = useChat();
     const { ownedStickerPacks } = useGamification();
     const { theme } = useTheme();
-    const { showToast } = useToast();
+    const { showToast } = useToastActions();
     const insets = useSafeAreaInsets();
 
     const [inputText, setInputText] = useState('');
@@ -407,6 +431,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
                         recipientLastReadAt={recipientLastReadAt}
                         allStickers={allStickersList}
                         onReaction={(emoji) => handleReaction(item.id, emoji)}
+                        isGroupChat={channelType !== 'direct'}
                     />
                 </TouchableOpacity>
             </View>
@@ -490,7 +515,7 @@ const ChatRoomScreen = ({ route, navigation }) => {
                         ) : (
                             <>
                                 <AnimatedAvatarBorder
-                                    avatarSource={avatar ? { uri: avatar } : defaultUserImage}
+                                    avatarSource={getAvatarUrl(avatar, null, channelId)}
                                     size={36}
                                     borderStyle={equippedItem ? BORDER_STYLES[equippedItem.image_url] : {}}
                                     isRainbow={equippedItem && BORDER_STYLES[equippedItem.image_url]?.rainbow}
@@ -677,7 +702,10 @@ const styles = StyleSheet.create({
     stickerPickerTitle: { fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
     stickerGrid: { flexDirection: 'row', gap: 16 },
     stickerItem: { padding: 4 },
-    bubbleContainer: { maxWidth: '85%' },
+    bubbleWrapper: { maxWidth: '85%' },
+    bubbleRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+    bubbleAvatarContainer: { marginBottom: 20 },
+    bubbleContentWrapper: { flex: 1 },
     bubble: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, elevation: 0 },
     senderName: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
     timestamp: { fontSize: 9, marginTop: 4, alignSelf: 'flex-end', fontWeight: '600' },

@@ -5,8 +5,8 @@ import { useSchool } from '../../context/SchoolContext';
 import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faPlusCircle, faMinusCircle, faUser, faClock, faArrowLeft, faChevronLeft, faChalkboardTeacher, faBookOpen, faSearch, faSave, faTrash } from '@fortawesome/free-solid-svg-icons';
-import { useToast } from '../../context/ToastContext';
-const defaultUserImage = require('../../assets/user.png');
+import { useToastActions } from '../../context/ToastContext';
+import { getAvatarUrl } from '../../lib/utils';
 import TimetableManager from '../../components/TimetableManager';
 import LinearGradient from 'react-native-linear-gradient';
 
@@ -39,7 +39,7 @@ const CreateClassScreen = ({ navigation, route }) => {
 
   const { schoolId } = useSchool();
   const { theme } = useTheme();
-  const { showToast } = useToast();
+  const { showToast } = useToastActions();
   const insets = useSafeAreaInsets();
 
   const fetchStudents = useCallback(async () => {
@@ -280,7 +280,7 @@ const CreateClassScreen = ({ navigation, route }) => {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
                 {students.filter(s => !selectedStudents.includes(s.id)).map(item => (
                   <TouchableOpacity key={item.id} style={styles.userCircle} onPress={() => toggleStudentSelection(item.id)}>
-                    <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={[styles.userAvatar, { borderColor: theme.colors.cardBorder }]} />
+                    <Image source={getAvatarUrl(item.avatar_url, item.email, item.id)} style={[styles.userAvatar, { borderColor: theme.colors.cardBorder }]} />
                     <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name.split(' ')[0]}</Text>
                     <View style={styles.addBadge}><FontAwesomeIcon icon={faPlusCircle} size={12} color="#10b981" /></View>
                   </TouchableOpacity>
@@ -291,7 +291,7 @@ const CreateClassScreen = ({ navigation, route }) => {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
                 {students.filter(s => selectedStudents.includes(s.id)).map(item => (
                   <TouchableOpacity key={item.id} style={styles.userCircle} onPress={() => toggleStudentSelection(item.id)}>
-                    <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={[styles.userAvatar, { borderColor: theme.colors.primary }]} />
+                    <Image source={getAvatarUrl(item.avatar_url, item.email, item.id)} style={[styles.userAvatar, { borderColor: theme.colors.primary }]} />
                     <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name.split(' ')[0]}</Text>
                     <View style={styles.addBadge}><FontAwesomeIcon icon={faMinusCircle} size={12} color="#ef4444" /></View>
                   </TouchableOpacity>

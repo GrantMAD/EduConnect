@@ -7,6 +7,7 @@ import { faTimes, faEnvelope, faPhone, faUserCircle, faIdBadge, faComment, faSta
 import { useTheme } from '../context/ThemeContext';
 import AnimatedAvatarBorder from './AnimatedAvatarBorder';
 import { BORDER_STYLES } from '../constants/GamificationStyles';
+import { getAvatarUrl } from '../lib/utils';
 
 // Import services
 import { fetchUserGamification, fetchEquippedItems } from '../services/gamificationService';
@@ -71,8 +72,6 @@ const UserProfileModal = React.memo(({ visible, user, onClose, onMessageUser, eq
 
     if (!user) return null;
 
-    const defaultAvatar = require('../assets/user.png');
-
     const handleCall = () => {
         if (user.number) {
             Linking.openURL(`tel:${user.number}`);
@@ -124,7 +123,7 @@ const UserProfileModal = React.memo(({ visible, user, onClose, onMessageUser, eq
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 24 }}>
                     <View style={styles.profileContainer}>
                         <AnimatedAvatarBorder
-                            avatarSource={user.avatar_url ? { uri: user.avatar_url } : defaultAvatar}
+                            avatarSource={getAvatarUrl(user.avatar_url, user.email, user.id)}
                             size={96}
                             borderStyle={equippedItem ? BORDER_STYLES[equippedItem.image_url] : {}}
                             isRainbow={equippedItem && BORDER_STYLES[equippedItem.image_url]?.rainbow}

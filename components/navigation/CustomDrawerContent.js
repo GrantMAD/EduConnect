@@ -28,12 +28,11 @@ import { useGamification } from '../../context/GamificationContext';
 import { usePushNotification } from '../../context/PushNotificationContext';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
 import AnimatedAvatarBorder from '../AnimatedAvatarBorder';
+import { getAvatarUrl } from '../../lib/utils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Import services
 import { signOut as signOutService } from '../../services/authService';
-
-const defaultUserImage = require('../../assets/user.png');
 
 /* ----------------------------- Drawer Item ----------------------------- */
 const DrawerItem = React.memo(
@@ -177,7 +176,7 @@ const CustomDrawerContent = React.memo((props) => {
             >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <AnimatedAvatarBorder
-                        avatarSource={userAvatar ? { uri: userAvatar } : defaultUserImage}
+                        avatarSource={getAvatarUrl(profile?.avatar_url, profile?.email, profile?.id)}
                         size={64}
                         borderStyle={
                             equippedItem

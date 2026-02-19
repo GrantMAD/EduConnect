@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { useToast } from '../context/ToastContext';
+import { useToastActions } from '../context/ToastContext';
+import { getAvatarUrl } from '../lib/utils';
 import { fetchExamPapers, fetchSeatAllocations, fetchVenue, fetchExamVenues, autoAllocatePaper, clearPaperAllocations, fetchExamSession, allocateSeat } from '../services/examService';
 import { supabase } from '../lib/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -11,14 +12,12 @@ import { faArrowLeft, faTrash, faUser, faChair, faSearch, faTh, faList, faMagic,
 import LinearGradient from 'react-native-linear-gradient';
 import Button from '../components/Button';
 
-const DEFAULT_AVATAR = require('../assets/user.png');
-
 export default function ExamAllocationsScreen({ route, navigation }) {
     const { sessionId, sessionName } = route.params;
     const insets = useSafeAreaInsets();
     const { profile } = useAuth();
     const { theme } = useTheme();
-    const { showToast } = useToast();
+    const { showToast } = useToastActions();
 
     const [allocations, setAllocations] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -259,7 +258,7 @@ export default function ExamAllocationsScreen({ route, navigation }) {
             <View style={styles.itemInfo}>
                 <View style={styles.studentRow}>
                     <Image
-                        source={item.student?.avatar_url ? { uri: item.student.avatar_url } : DEFAULT_AVATAR}
+                        source={getAvatarUrl(item.student?.avatar_url, item.student?.email, item.student?.id)}
                         style={styles.avatarList}
                     />
                     <Text style={[styles.studentName, { color: theme.text }]}>{item.student?.full_name || 'Unknown Student'}</Text>
@@ -305,7 +304,8 @@ export default function ExamAllocationsScreen({ route, navigation }) {
                     >
                         {allocation ? (
                             <Image
-                                source={allocation.student?.avatar_url ? { uri: allocation.student.avatar_url } : DEFAULT_AVATAR}
+                                                                 source={getAvatarUrl(allocation.student?.avatar_url, allocation.student?.email, allocation.student?.id)}
+                                
                                 style={{ width: '100%', height: '100%' }}
                                 resizeMode="cover"
                             />
@@ -496,7 +496,8 @@ export default function ExamAllocationsScreen({ route, navigation }) {
                         renderItem={({ item }) => (
                             <TouchableOpacity style={styles.studentPickItem} onPress={() => handleManualAllocate(item)}>
                                 <Image
-                                    source={item.avatar_url ? { uri: item.avatar_url } : DEFAULT_AVATAR}
+                                                                         source={getAvatarUrl(item.avatar_url, item.email, item.id)}
+                                    
                                     style={styles.avatarList}
                                 />
                                 <View>

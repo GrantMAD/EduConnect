@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTrophy, faMedal, faCrown, faArrowUp, faArrowDown, faMinus, faArrowLeft, faInfoCircle, faChevronRight, faStar, faFire, faPoll, faClipboardCheck, faShareAlt, faFilter, faCalendarAlt, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { useSchool } from '../../context/SchoolContext';
 import { useChat } from '../../context/ChatContext';
+import { getAvatarUrl } from '../../lib/utils';
 import { BORDER_STYLES, NAME_COLOR_STYLES, TITLE_STYLES } from '../../constants/GamificationStyles';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import UserProfileModal from '../../components/UserProfileModal';
@@ -18,8 +19,6 @@ import { fetchEnhancedLeaderboard, fetchUsersEquippedItems } from '../../service
 import { fetchAllClasses } from '../../services/classService';
 import { getCurrentUser } from '../../services/authService';
 import { getUserProfile, fetchUsersBySchool } from '../../services/userService';
-
-const defaultUserImage = require('../../assets/user.png');
 
 const LeaderboardScreen = ({ navigation }) => {
     const { theme } = useTheme();
@@ -215,7 +214,7 @@ const LeaderboardScreen = ({ navigation }) => {
 
                 <View style={styles.avatarContainer}>
                     <AnimatedAvatarBorder
-                        avatarSource={item.user.avatar_url ? { uri: item.user.avatar_url } : defaultUserImage}
+                        avatarSource={getAvatarUrl(item.user.avatar_url, item.user.email, item.user.id)}
                         size={44}
                         borderStyle={item.equippedBorder ? BORDER_STYLES[item.equippedBorder.image_url] : {}}
                     />

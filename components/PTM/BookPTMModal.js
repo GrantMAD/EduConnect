@@ -9,8 +9,9 @@ import {
   ActivityIndicator,
   Image
 } from 'react-native';
-import { useToast } from '../../context/ToastContext';
+import { useToastActions } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
+import { getAvatarUrl } from '../../lib/utils';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
   faCalendarAlt,
@@ -29,11 +30,9 @@ import { fetchParentChildrenDetails } from '../../services/userService';
 import { fetchAvailableTeacherSlots, bookPTMSlot } from '../../services/ptmService';
 import { sendNotification } from '../../services/notificationService';
 
-const defaultUserImage = require('../../assets/user.png');
-
 const BookPTMModal = React.memo(({ isOpen, onClose, teacher, onRefresh }) => {
   const [user, setUser] = useState(null);
-  const { showToast } = useToast();
+  const { showToast } = useToastActions();
   const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [fetchingSlots, setFetchingSlots] = useState(false);
@@ -144,7 +143,7 @@ const BookPTMModal = React.memo(({ isOpen, onClose, teacher, onRefresh }) => {
               activeOpacity={0.7}
             >
               <Image
-                source={child.avatar_url ? { uri: child.avatar_url } : defaultUserImage}
+                source={getAvatarUrl(child.avatar_url, child.email, child.id)}
                 style={styles.childAvatar}
               />
               <Text style={[styles.childName, { color: theme.colors.text }]} numberOfLines={1}>{child.full_name}</Text>

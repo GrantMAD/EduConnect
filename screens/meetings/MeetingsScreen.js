@@ -11,8 +11,9 @@ import {
   RefreshControl,
   ActivityIndicator
 } from 'react-native';
-import { useToast } from '../../context/ToastContext';
+import { useToastActions } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
+import { getAvatarUrl } from '../../lib/utils';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
   faCalendarAlt,
@@ -48,8 +49,6 @@ import {
 } from '../../services/ptmService';
 import { fetchTeachersOfStudents } from '../../services/classService';
 import { sendNotification } from '../../services/notificationService';
-
-const defaultUserImage = require('../../assets/user.png');
 
 const EmptyState = React.memo(({ icon, title, description, theme }) => {
   return (
@@ -95,7 +94,7 @@ const UpcomingMeetingsView = React.memo(({ bookings, isTeacher, onCancel, onView
             <View style={styles.cardBody}>
               <View style={styles.personRow}>
                 <Image
-                  source={otherParty?.avatar_url ? { uri: otherParty.avatar_url } : defaultUserImage}
+                  source={getAvatarUrl(otherParty?.avatar_url, otherParty?.email, otherParty?.id)}
                   style={styles.smallAvatar}
                 />
                 <View>
@@ -178,7 +177,7 @@ const ParentBrowseView = React.memo(({ teachers, onSelect, theme }) => {
         >
           <View style={styles.teacherInfoContainer}>
             <Image
-              source={teacher.avatar_url ? { uri: teacher.avatar_url } : defaultUserImage}
+              source={getAvatarUrl(teacher.avatar_url, teacher.email, teacher.id)}
               style={styles.teacherAvatar}
             />
             <Text style={[styles.teacherName, { color: theme.colors.text }]}>{teacher.full_name}</Text>
@@ -196,7 +195,7 @@ const ParentBrowseView = React.memo(({ teachers, onSelect, theme }) => {
 const MeetingsScreen = ({ navigation }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const { showToast } = useToast();
+  const { showToast } = useToastActions();
   const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

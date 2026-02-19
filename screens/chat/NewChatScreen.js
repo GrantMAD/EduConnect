@@ -4,7 +4,8 @@ import { useChat } from '../../context/ChatContext';
 import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faSearch, faUserPlus, faUsers, faCheck, faChevronRight, faChevronLeft, faPlus } from '@fortawesome/free-solid-svg-icons';
-import { useToast } from '../../context/ToastContext';
+import { useToastActions } from '../../context/ToastContext';
+import { getAvatarUrl } from '../../lib/utils';
 import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { BORDER_STYLES } from '../../constants/GamificationStyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,12 +17,11 @@ import { getUserProfile, fetchUsersBySchool } from '../../services/userService';
 import { fetchUsersEquippedItems } from '../../services/gamificationService';
 
 const { width } = Dimensions.get('window');
-const defaultUserImage = require('../../assets/user.png');
 
 const NewChatScreen = ({ navigation }) => {
     const { createChannel } = useChat();
     const { theme } = useTheme();
-    const { showToast } = useToast();
+    const { showToast } = useToastActions();
     const insets = useSafeAreaInsets();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -154,7 +154,7 @@ const NewChatScreen = ({ navigation }) => {
                 activeOpacity={0.7}
             >
                 <AnimatedAvatarBorder
-                    avatarSource={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage}
+                    avatarSource={getAvatarUrl(item.avatar_url, item.email, item.id)}
                     size={48}
                     borderStyle={item.equipped_item ? BORDER_STYLES[item.equipped_item.image_url] : {}}
                     isRainbow={item.equipped_item && BORDER_STYLES[item.equipped_item.image_url]?.rainbow}

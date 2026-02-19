@@ -3,7 +3,8 @@ import { getCurrentUser, onAuthStateChange } from '../services/authService';
 import { getUserProfile } from '../services/userService';
 import { fetchSchoolById } from '../services/schoolService';
 
-const SchoolContext = createContext();
+const SchoolStateContext = createContext();
+const SchoolActionsContext = createContext();
 
 export const SchoolProvider = ({ children, session }) => {
   const [schoolId, setSchoolId] = useState(null);
@@ -40,25 +41,48 @@ export const SchoolProvider = ({ children, session }) => {
     fetchSchoolData();
   }, [fetchSchoolData]);
 
-  const value = React.useMemo(() => ({ 
+  const stateValue = React.useMemo(() => ({ 
     schoolId, 
     schoolData, 
-    loadingSchool, 
-    setSchoolId, 
-    setSchoolData 
+    loadingSchool 
   }), [schoolId, schoolData, loadingSchool]);
 
+  const actionsValue = React.useMemo(() => ({
+    setSchoolId, 
+    setSchoolData,
+    refreshSchoolData: fetchSchoolData
+  }), [setSchoolId, setSchoolData, fetchSchoolData]);
+
   return (
-    <SchoolContext.Provider value={value}>
-      {children}
-    </SchoolContext.Provider>
+    <SchoolStateContext.Provider value={stateValue}>
+      <SchoolActionsContext.Provider value={actionsValue}>
+        {children}
+      </SchoolActionsContext.Provider>
+    </SchoolStateContext.Provider>
   );
 };
 
 export const useSchool = () => {
-  const context = useContext(SchoolContext);
-  if (context === undefined) {
+  const state = useContext(SchoolStateContext);
+  const actions = useContext(SchoolActionsContext);
+  if (!state || !actions) {
     throw new Error('useSchool must be used within a SchoolProvider');
+  }
+  return { ...state, ...actions };
+};
+
+export const useSchoolState = () => {
+  const context = useContext(SchoolStateContext);
+  if (!context) {
+    throw new Error('useSchoolState must be used within a SchoolProvider');
+  }
+  return context;
+};
+
+export const useSchoolActions = () => {
+  const context = useContext(SchoolActionsContext);
+  if (!context) {
+    throw new Error('useSchoolActions must be used within a SchoolProvider');
   }
   return context;
 };

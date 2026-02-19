@@ -4,22 +4,21 @@ import { Picker } from '@react-native-picker/picker';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import UserManagementScreenSkeleton, { UserItemSkeleton } from '../components/skeletons/UserManagementScreenSkeleton';
 import { faTimes, faArrowLeft, faUsers, faChevronLeft, faSearch, faChevronRight, faUserCircle } from '@fortawesome/free-solid-svg-icons';
-import { useToast } from '../context/ToastContext';
+import { useToastActions } from '../context/ToastContext';
 import { useSchool } from '../context/SchoolContext';
 import { useTheme } from '../context/ThemeContext';
 import { useSupabaseInfiniteQuery } from '../hooks/useSupabaseInfiniteQuery';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getAvatarUrl } from '../lib/utils';
 
 // Import services
 import { updateUserRole, getUsersBySchoolQuery } from '../services/userService';
 
-const defaultUserImage = require('../assets/user.png');
-
 const UserManagementScreen = ({ navigation, route }) => {
   const { fromDashboard } = route?.params || {};
   const { schoolId } = useSchool();
-  const { showToast } = useToast();
+  const { showToast } = useToastActions();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
@@ -155,7 +154,7 @@ const UserManagementScreen = ({ navigation, route }) => {
         <View style={styles.itemLeft}>
           <View style={[styles.avatarBox, { borderColor: theme.colors.cardBorder }]}>
               <Image
-                  source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage}
+                  source={getAvatarUrl(item.avatar_url, item.email, item.id)}
                   style={styles.avatar}
               />
           </View>
@@ -214,7 +213,7 @@ const UserManagementScreen = ({ navigation, route }) => {
               
               <View style={[styles.modalAvatarBox, { borderColor: theme.colors.cardBorder }]}>
                 <Image
-                    source={selectedUser.avatar_url ? { uri: selectedUser.avatar_url } : defaultUserImage}
+                    source={getAvatarUrl(selectedUser.avatar_url, selectedUser.email, selectedUser.id)}
                     style={styles.modalAvatar}
                 />
               </View>

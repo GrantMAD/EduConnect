@@ -10,9 +10,7 @@ import { BORDER_STYLES } from '../../constants/GamificationStyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatListItemSkeleton } from '../../components/skeletons/ChatListScreenSkeleton';
 import LinearGradient from 'react-native-linear-gradient';
-
-const defaultUserImage = require('../../assets/user.png');
-
+import { getAvatarUrl } from '../../lib/utils';
 
 const formatTimeAgo = (dateString) => {
     if (!dateString) return '';
@@ -50,7 +48,7 @@ const ChatListScreen = ({ navigation }) => {
             if (otherMember?.users) {
                 return {
                     name: otherMember.users.full_name,
-                    avatar: otherMember.users.avatar_url,
+                    avatar: getAvatarUrl(otherMember.users.avatar_url, otherMember.users.email, otherMember.users.id),
                     icon: faUser, 
                     equippedItem: otherMember.users.equipped_item
                 };
@@ -63,7 +61,7 @@ const ChatListScreen = ({ navigation }) => {
 
         return {
             name: channel.name,
-            avatar: null,
+            avatar: getAvatarUrl(null, null, channel.id),
             icon: icon,
             equippedItem: null
         };
@@ -132,7 +130,7 @@ const ChatListScreen = ({ navigation }) => {
                 <View style={styles.avatarContainer}>
                     {avatar || equippedItem ? (
                         <AnimatedAvatarBorder
-                            avatarSource={avatar ? { uri: avatar } : defaultUserImage}
+                            avatarSource={avatar}
                             size={54}
                             borderStyle={equippedItem ? BORDER_STYLES[equippedItem.image_url] : {}}
                             isRainbow={equippedItem && BORDER_STYLES[equippedItem.image_url]?.rainbow}

@@ -4,7 +4,7 @@ import { signIn } from '../../services/authService';
 import { getUserProfile } from '../../services/userService';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faEye, faEyeSlash, faEnvelope, faLock, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
-import { useToast } from '../../context/ToastContext';
+import { useToastActions } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
 
@@ -15,7 +15,7 @@ const SignInScreen = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { showToast } = useToast();
+  const { showToast } = useToastActions();
   const { theme } = useTheme();
 
   const handleSignIn = useCallback(async () => {

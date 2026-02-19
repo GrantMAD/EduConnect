@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faStar, faBookOpen, faTrophy, faChevronRight, faExclamationCircle } from '@fortawesome/free-solid-svg-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
+import { getAvatarUrl } from '../lib/utils';
 import { SkeletonPiece } from './skeletons/DashboardScreenSkeleton';
 import WalkthroughTarget from './WalkthroughTarget';
 
@@ -83,6 +84,7 @@ const ChildProgressSnapshot = React.memo(({ id, loading }) => {
                     id: childId,
                     name: profile.full_name,
                     avatar: profile.avatar_url,
+                    email: profile.email,
                     level: gamification?.current_level || 1,
                     xp: gamification?.current_xp || 0,
                     upcomingCount,
@@ -139,7 +141,7 @@ const ChildProgressSnapshot = React.memo(({ id, loading }) => {
                         <View style={[styles.cardHeader, { borderBottomColor: theme.colors.cardBorder }]}>
                             <View style={styles.profileInfo}>
                                 <Image
-                                    source={child.avatar ? { uri: child.avatar } : require('../assets/user.png')}
+                                    source={getAvatarUrl(child.avatar, child.email, child.id)}
                                     style={styles.avatar}
                                 />
                                 <View>

@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react';
-import { useToast } from '../context/ToastContext';
+import { useToastActions } from '../context/ToastContext';
 
 export const useApi = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const { showToast } = useToast();
+    const { showToast } = useToastActions();
 
     const execute = useCallback(async (apiCall, options = {}) => {
         const {

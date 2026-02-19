@@ -25,8 +25,7 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import StandardBottomModal from '../StandardBottomModal';
 import MeetingAgendaBrief from './MeetingAgendaBrief';
-
-const defaultUserImage = require('../../assets/user.png');
+import { getAvatarUrl } from '../../lib/utils';
 
 const MeetingDetailModal = React.memo(({ isOpen, onClose, booking, isTeacher }) => {
   const { theme } = useTheme();
@@ -78,7 +77,7 @@ const MeetingDetailModal = React.memo(({ isOpen, onClose, booking, isTeacher }) 
         <Text style={[styles.sectionLabel, { color: '#94a3b8' }]}>CONVERSATION PARTNERS</Text>
         <View style={[styles.personCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
           <Image
-            source={otherParty?.avatar_url ? { uri: otherParty.avatar_url } : defaultUserImage}
+            source={getAvatarUrl(otherParty?.avatar_url, otherParty?.email, otherParty?.id)}
             style={styles.avatar}
           />
           <View style={{ flex: 1, marginLeft: 12 }}>

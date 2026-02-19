@@ -4,6 +4,7 @@ import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faEnvelope, faPhone, faUserCircle } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
+import { getAvatarUrl } from '../lib/utils';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -12,8 +13,6 @@ const SellerProfileModal = React.memo(({ visible, seller, onClose }) => {
   const insets = useSafeAreaInsets();
 
   if (!seller) return null;
-
-  const defaultAvatar = require('../assets/user.png');
 
   const handleCall = () => {
     if (seller.number) {
@@ -53,7 +52,7 @@ const SellerProfileModal = React.memo(({ visible, seller, onClose }) => {
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 24 }}>
             <View style={styles.profileContainer}>
               <Image
-                source={seller.avatar_url ? { uri: seller.avatar_url } : defaultAvatar}
+                source={getAvatarUrl(seller.avatar_url, seller.email, seller.id)}
                 style={[styles.avatar, { borderColor: theme.colors.cardBorder }]}
               />
               <Text style={[styles.sellerName, { color: theme.colors.text }]}>{seller.full_name}</Text>

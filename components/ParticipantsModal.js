@@ -4,6 +4,7 @@ import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faUsers, faUserCircle } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
+import { getAvatarUrl } from '../lib/utils';
 
 const ParticipantsModal = React.memo(({ visible, onClose, participants }) => {
     const { theme } = useTheme();
@@ -11,7 +12,7 @@ const ParticipantsModal = React.memo(({ visible, onClose, participants }) => {
     const renderParticipant = ({ item }) => (
         <View style={[styles.participantItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
             <Image
-                source={item.avatar_url ? { uri: item.avatar_url } : require('../assets/user.png')}
+                source={getAvatarUrl(item.avatar_url, item.email, item.id)}
                 style={styles.avatar}
             />
             <View style={styles.participantInfo}>

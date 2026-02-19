@@ -6,8 +6,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faPlusCircle, faMinusCircle, faUser, faClock, faArrowLeft, faUsersCog, faCalendarAlt, faSearch, faCheckCircle, faFootballBall, faChevronLeft, faSave, faTrash, faUserGraduate, faChalkboardTeacher } from '@fortawesome/free-solid-svg-icons';
 import { Calendar } from 'react-native-calendars';
-import { useToast } from '../../context/ToastContext';
-const defaultUserImage = require('../../assets/user.png');
+import { useToastActions } from '../../context/ToastContext';
+import { getAvatarUrl } from '../../lib/utils';
 import ClassScheduleModal from '../../components/ClassScheduleModal';
 import LinearGradient from 'react-native-linear-gradient';
 
@@ -49,7 +49,7 @@ const CreateClubScreen = ({ navigation, route }) => {
 
   const { schoolId } = useSchool();
   const { theme } = useTheme();
-  const { showToast } = useToast();
+  const { showToast } = useToastActions();
   const insets = useSafeAreaInsets();
 
   const fetchUsers = useCallback(async () => {
@@ -309,7 +309,7 @@ const CreateClubScreen = ({ navigation, route }) => {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
                 {availableUsers.map(item => (
                     <TouchableOpacity key={item.id} style={styles.userCircle} onPress={() => toggleUserSelection(item.id)}>
-                        <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={[styles.userAvatar, { borderColor: theme.colors.cardBorder }]} />
+                        <Image source={getAvatarUrl(item.avatar_url, item.email, item.id)} style={[styles.userAvatar, { borderColor: theme.colors.cardBorder }]} />
                         <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name.split(' ')[0]}</Text>
                         <View style={styles.addBadge}><FontAwesomeIcon icon={faPlusCircle} size={12} color="#10b981" /></View>
                     </TouchableOpacity>
@@ -320,7 +320,7 @@ const CreateClubScreen = ({ navigation, route }) => {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
                 {selectedUsers.map(item => (
                     <TouchableOpacity key={item.id} style={styles.userCircle} onPress={() => toggleUserSelection(item.id)}>
-                        <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={[styles.userAvatar, { borderColor: '#9333ea' }]} />
+                        <Image source={getAvatarUrl(item.avatar_url, item.email, item.id)} style={[styles.userAvatar, { borderColor: '#9333ea' }]} />
                         <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name.split(' ')[0]}</Text>
                         <View style={styles.addBadge}><FontAwesomeIcon icon={faMinusCircle} size={12} color="#ef4444" /></View>
                     </TouchableOpacity>

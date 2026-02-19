@@ -4,8 +4,7 @@ import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faUsers, faEnvelope, faPhone, faUserCircle, faSearch } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
-
-const defaultUserImage = require('../assets/user.png');
+import { getAvatarUrl } from '../lib/utils';
 
 const UserListModal = React.memo(({ visible, users, category, onClose, onUserPress }) => {
     const { theme } = useTheme();
@@ -48,7 +47,7 @@ const UserListModal = React.memo(({ visible, users, category, onClose, onUserPre
             activeOpacity={0.7}
         >
             <Image
-                source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage}
+                source={getAvatarUrl(item.avatar_url, item.email, item.id)}
                 style={[styles.avatar, { borderColor: categoryInfo.color }]}
             />
             <View style={styles.userInfo}>

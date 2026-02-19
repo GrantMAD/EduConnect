@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { supabase } from '../lib/supabase'; // keeping for real-time subscription
-import { useToast } from './ToastContext';
+import { useToastActions } from './ToastContext';
 import { BADGES } from '../constants/Badges';
 
 // Import services
@@ -21,7 +21,8 @@ import {
 import { getUserProfile } from '../services/userService';
 import { useAuth } from './AuthContext';
 
-const GamificationContext = createContext();
+const GamificationStateContext = createContext();
+const GamificationActionsContext = createContext();
 
 export const GamificationProvider = ({ children, session }) => {
     const { profile } = useAuth();
@@ -45,7 +46,7 @@ export const GamificationProvider = ({ children, session }) => {
         nextBadge: null
     });
     const [loading, setLoading] = useState(true);
-    const { showToast } = useToast();
+    const { showToast } = useToastActions();
 
     const fetchGamificationState = useCallback(async () => {
         if (!session?.user) return;
@@ -324,26 +325,48 @@ export const GamificationProvider = ({ children, session }) => {
         }
     }, [session?.user?.id, showToast, fetchGamificationState]);
 
-    const value = React.useMemo(() => ({
+    const stateValue = React.useMemo(() => ({
         ...gamificationState,
+        loading
+    }), [gamificationState, loading]);
+
+    const actionsValue = React.useMemo(() => ({
         awardXP,
         purchaseItem,
         equipItem,
-        loading,
         refreshGamificationState: fetchGamificationState
-    }), [gamificationState, awardXP, purchaseItem, equipItem, loading, fetchGamificationState]);
+    }), [awardXP, purchaseItem, equipItem, fetchGamificationState]);
 
     return (
-        <GamificationContext.Provider value={value}>
-            {children}
-        </GamificationContext.Provider>
+        <GamificationStateContext.Provider value={stateValue}>
+            <GamificationActionsContext.Provider value={actionsValue}>
+                {children}
+            </GamificationActionsContext.Provider>
+        </GamificationStateContext.Provider>
     );
 };
 
 export const useGamification = () => {
-    const context = useContext(GamificationContext);
-    if (!context) {
+    const state = useContext(GamificationStateContext);
+    const actions = useContext(GamificationActionsContext);
+    if (!state || !actions) {
         throw new Error('useGamification must be used within a GamificationProvider');
+    }
+    return { ...state, ...actions };
+};
+
+export const useGamificationState = () => {
+    const context = useContext(GamificationStateContext);
+    if (!context) {
+        throw new Error('useGamificationState must be used within a GamificationProvider');
+    }
+    return context;
+};
+
+export const useGamificationActions = () => {
+    const context = useContext(GamificationActionsContext);
+    if (!context) {
+        throw new Error('useGamificationActions must be used within a GamificationProvider');
     }
     return context;
 };

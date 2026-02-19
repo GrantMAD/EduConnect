@@ -4,6 +4,7 @@ import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faTimes, faChartBar, faUsers, faClock, faUser } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
+import { getAvatarUrl } from '../lib/utils';
 
 // Import services
 import { fetchPollVotes } from '../services/pollService';

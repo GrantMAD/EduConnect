@@ -23,7 +23,8 @@ import {
     faClipboardCheck
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
-import { useToast } from '../context/ToastContext';
+import { useToastActions } from '../context/ToastContext';
+import { getAvatarUrl } from '../lib/utils';
 
 // Import services
 import {
@@ -34,8 +35,6 @@ import {
     saveCompletionMark
 } from '../services/classService';
 
-const defaultUserImage = require('../assets/user.png');
-
 const ManageCompletionsModal = React.memo(({
     visible,
     onClose,
@@ -43,7 +42,7 @@ const ManageCompletionsModal = React.memo(({
     type // 'homework' or 'assignment'
 }) => {
     const { theme } = useTheme();
-    const { showToast } = useToast();
+    const { showToast } = useToastActions();
     const [loading, setLoading] = useState(true);
     const [students, setStudents] = useState([]);
     const [completions, setCompletions] = useState([]); // Array of completion objects
@@ -168,7 +167,7 @@ const ManageCompletionsModal = React.memo(({
                     activeOpacity={0.7}
                 >
                     <Image
-                        source={member.users?.avatar_url ? { uri: member.users.avatar_url } : defaultUserImage}
+                        source={getAvatarUrl(member.users?.avatar_url, member.users?.email, member.users?.id)}
                         style={styles.avatar}
                     />
                     <View style={styles.studentInfo}>

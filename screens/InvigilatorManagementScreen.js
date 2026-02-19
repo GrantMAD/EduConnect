@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { useToast } from '../context/ToastContext';
+import { useToastActions } from '../context/ToastContext';
+import { getAvatarUrl } from '../lib/utils';
 import { fetchExamPapers, fetchInvigilators, assignInvigilator, removeInvigilator, fetchExamVenues } from '../services/examService';
 import { fetchUsersBySchool } from '../services/userService';
 import { supabase } from '../lib/supabase';
@@ -18,7 +19,7 @@ export default function InvigilatorManagementScreen({ route, navigation }) {
     const insets = useSafeAreaInsets();
     const { profile } = useAuth();
     const { theme } = useTheme();
-    const { showToast } = useToast();
+    const { showToast } = useToastActions();
 
     const [papers, setPapers] = useState([]);
     const [venues, setVenues] = useState([]);
@@ -298,7 +299,7 @@ export default function InvigilatorManagementScreen({ route, navigation }) {
                                     <View style={[styles.rosterCard, { backgroundColor: theme.cardBackground }]}>
                                         <View style={styles.avatarWrapper}>
                                             <Image 
-                                                source={inv.teacher?.avatar_url ? { uri: inv.teacher.avatar_url } : require('../assets/user.png')} 
+                                                source={getAvatarUrl(inv.teacher?.avatar_url, inv.teacher?.email, inv.teacher?.id)} 
                                                 style={styles.avatar} 
                                             />
                                             {inv.is_chief_invigilator && (
@@ -368,8 +369,7 @@ export default function InvigilatorManagementScreen({ route, navigation }) {
                                                 disabled={assigning}
                                             >
                                                 <Image 
-                                                    source={s.avatar_url ? { uri: s.avatar_url } : require('../assets/user.png')} 
-                                                    style={styles.miniAvatar} 
+                                                                                                         source={getAvatarUrl(s.avatar_url, s.email, s.id)}                                                    style={styles.miniAvatar} 
                                                 />
                                                 <View style={{ flex: 1, marginLeft: 12 }}>
                                                     <Text style={[styles.staffName, { color: theme.text }]} numberOfLines={1}>{s.full_name}</Text>

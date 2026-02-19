@@ -42,9 +42,10 @@ import {
   faSearch,
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
-import { useToast } from "../../context/ToastContext";
+import { useToastActions } from "../../context/ToastContext";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
+import { getAvatarUrl } from "../../lib/utils";
 import { Calendar } from "react-native-calendars";
 import MarksModal from '../../components/MarksModal';
 import ManageMarksModal from '../../components/ManageMarksModal';
@@ -73,8 +74,6 @@ import {
 import { sendBatchNotifications } from '../../services/notificationService';
 
 const { width } = Dimensions.get('window');
-const defaultUserImage = require("../../assets/user.png");
-
 const getDateString = (date) => {
   const d = new Date(date);
   const year = d.getFullYear();
@@ -88,7 +87,7 @@ const ManageUsersInClassScreen = ({ navigation }) => {
   const { classId, className, selectedDate } = route.params;
 
   const { schoolId } = useSchool();
-  const { showToast } = useToast();
+  const { showToast } = useToastActions();
   const { theme } = useTheme();
   const { user, profile } = useAuth();
   const gamificationData = useGamification();
@@ -594,7 +593,7 @@ const ManageUsersInClassScreen = ({ navigation }) => {
           }
         }}>
           <View style={styles.studentHeader}>
-            <Image source={student.avatar_url ? { uri: student.avatar_url } : defaultUserImage} style={styles.studentAvatar} />
+            <Image source={getAvatarUrl(student.avatar_url, student.email, student.id)} style={styles.studentAvatar} />
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={[styles.studentName, { color: theme.colors.text }]}>{student.full_name}</Text>
               <Text style={[styles.studentEmail, { color: theme.colors.placeholder }]}>{student.email}</Text>
@@ -801,7 +800,7 @@ const ManageUsersInClassScreen = ({ navigation }) => {
               keyExtractor={(item) => item.id.toString()}
               renderItem={({ item }) => (
                 <View style={[styles.enrollCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                  <Image source={item.avatar_url ? { uri: item.avatar_url } : defaultUserImage} style={styles.smallAvatar} />
+                  <Image source={getAvatarUrl(item.avatar_url, item.email, item.id)} style={styles.smallAvatar} />
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={[styles.enrollName, { color: theme.colors.text }]}>{item.full_name}</Text>
                     <Text style={[styles.enrollEmail, { color: theme.colors.placeholder }]}>{item.email}</Text>

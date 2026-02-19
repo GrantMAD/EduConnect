@@ -9,6 +9,7 @@ import AnimatedAvatarBorder from '../../components/AnimatedAvatarBorder';
 import { SkeletonPiece } from '../../components/skeletons/DashboardScreenSkeleton';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getAvatarUrl } from '../../lib/utils';
 
 // Import services
 import { fetchShopItems, fetchUserInventory } from '../../services/gamificationService';
@@ -30,8 +31,6 @@ const ShopItemSkeleton = React.memo(() => {
     );
 });
 
-const defaultUserImage = require('../../assets/user.png');
-
 const ShopScreen = ({ navigation }) => {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
@@ -47,6 +46,8 @@ const ShopScreen = ({ navigation }) => {
     const [purchasing, setPurchasing] = useState(false);
     const [inventory, setInventory] = useState([]);
     const [avatarUrl, setAvatarUrl] = useState(null);
+    const [userEmail, setUserEmail] = useState(null);
+    const [userId, setUserId] = useState(null);
     const [activeTab, setActiveTab] = useState('all');
     const [fullName, setFullName] = useState('Student');
     const [showScrollHint, setShowScrollHint] = useState(true);
@@ -73,6 +74,8 @@ const ShopScreen = ({ navigation }) => {
     
             if (userData) {
               setAvatarUrl(userData.avatar_url);
+              setUserEmail(userData.email);
+              setUserId(userData.id);
               setFullName(userData.full_name || 'Student');
             }
           }
@@ -214,7 +217,7 @@ const ShopScreen = ({ navigation }) => {
         const borderStyle = BORDER_STYLES[item.image_url] || {};
         return (
             <AnimatedAvatarBorder
-                avatarSource={avatarUrl ? { uri: avatarUrl } : defaultUserImage}
+                avatarSource={getAvatarUrl(avatarUrl, userEmail, userId)}
                 size={size}
                 borderStyle={borderStyle}
                 isRainbow={borderStyle.rainbow}

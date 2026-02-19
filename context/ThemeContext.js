@@ -90,7 +90,8 @@ const CustomDarkTheme = {
   },
 };
 
-const ThemeContext = createContext();
+const ThemeStateContext = createContext();
+const ThemeActionsContext = createContext();
 
 export const ThemeProvider = ({ children, session }) => { // Accept session prop
   const colorScheme = useColorScheme(); // 'light' or 'dark'
@@ -162,7 +163,8 @@ export const ThemeProvider = ({ children, session }) => { // Accept session prop
 
   const theme = isDarkTheme ? CustomDarkTheme : CustomDefaultTheme;
 
-  const value = React.useMemo(() => ({ isDarkTheme, toggleTheme, theme }), [isDarkTheme, toggleTheme, theme]);
+  const stateValue = React.useMemo(() => ({ isDarkTheme, theme }), [isDarkTheme, theme]);
+  const actionsValue = React.useMemo(() => ({ toggleTheme }), [toggleTheme]);
 
   // Only render children once theme is loaded to prevent flickering
   if (!isThemeLoaded) {
@@ -170,18 +172,37 @@ export const ThemeProvider = ({ children, session }) => { // Accept session prop
   }
 
   return (
-    <ThemeContext.Provider value={value}>
-      <PaperProvider theme={theme}>
-        {children}
-      </PaperProvider>
-    </ThemeContext.Provider>
+    <ThemeStateContext.Provider value={stateValue}>
+      <ThemeActionsContext.Provider value={actionsValue}>
+        <PaperProvider theme={theme}>
+          {children}
+        </PaperProvider>
+      </ThemeActionsContext.Provider>
+    </ThemeStateContext.Provider>
   );
 };
 
 export const useTheme = () => {
-  const context = useContext(ThemeContext);
-  if (!context) {
+  const state = useContext(ThemeStateContext);
+  const actions = useContext(ThemeActionsContext);
+  if (!state || !actions) {
     throw new Error('useTheme must be used within a ThemeProvider');
+  }
+  return { ...state, ...actions };
+};
+
+export const useThemeState = () => {
+  const context = useContext(ThemeStateContext);
+  if (!context) {
+    throw new Error('useThemeState must be used within a ThemeProvider');
+  }
+  return context;
+};
+
+export const useThemeActions = () => {
+  const context = useContext(ThemeActionsContext);
+  if (!context) {
+    throw new Error('useThemeActions must be used within a ThemeProvider');
   }
   return context;
 };
