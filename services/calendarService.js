@@ -138,14 +138,14 @@ export const fetchCalendarEvents = async (user, profile) => {
         examPapers = data || [];
     } else if (profile?.role === 'teacher') {
         const [invigilatingRes, teachingRes] = await Promise.all([
-            supabase.from('exam_invigilators').select('paper:exam_papers(*)').eq('teacher_id', user.id),
+            supabase.from('exam_invigilators').select('paper:exam_papers(*, session:exam_sessions(is_active))').eq('teacher_id', user.id),
             classIds.length > 0
-                ? supabase.from('exam_papers').select('*').in('class_id', classIds)
+                ? supabase.from('exam_papers').select('*, session:exam_sessions(is_active)').in('class_id', classIds)
                 : Promise.resolve({ data: [] })
         ]);
 
-        const invigilatingPapers = invigilatingRes.data?.map(d => d.paper).filter(Boolean) || [];
-        const teachingPapers = teachingRes.data || [];
+        const invigilatingPapers = invigilatingRes.data?.map(d => d.paper).filter(p => p && p.session?.is_active) || [];
+        const teachingPapers = teachingRes.data?.filter(p => p && p.session?.is_active) || [];
 
         const paperMap = new Map();
         invigilatingPapers.forEach(p => paperMap.set(p.id, p))
@@ -161,8 +161,14 @@ export const fetchCalendarEvents = async (user, profile) => {
 
         const { data } = await supabase
             .from('exam_seat_allocations')
-            .select('paper:exam_papers(*)')
-            .in('student_id', studentIds);
+            .select(`
+                paper:exam_papers!inner (
+                    *,
+                    session:exam_sessions!inner (is_active)
+                )
+            `)
+            .in('student_id', studentIds)
+            .eq('paper.session.is_active', true);
         examPapers = data?.map(d => d.paper).filter(Boolean) || [];
     }
 

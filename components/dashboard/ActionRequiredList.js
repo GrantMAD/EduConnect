@@ -1,8 +1,12 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faExclamationTriangle, faCalendarCheck, faChevronRight, faClipboardCheck, faUserClock, faBookOpen, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { 
+    faExclamationTriangle, faCalendarCheck, faChevronRight, 
+    faClipboardCheck, faUserClock, faBookOpen, faPlus, faGraduationCap 
+} from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -34,9 +38,53 @@ const ActionRequiredList = ({ actions = [], navigation }) => {
                         return <UngradedCard key={`ung-${index}`} action={action} navigation={navigation} theme={theme} isDarkTheme={isDarkTheme} />;
                     } else if (action.type === 'missing_lesson_plan') {
                         return <MissingLessonPlanCard key={`mlp-${index}`} action={action} navigation={navigation} theme={theme} isDarkTheme={isDarkTheme} />;
+                    } else if (action.type === 'inactive_exam_session') {
+                        return <InactiveExamCard key={`iex-${index}`} action={action} navigation={navigation} theme={theme} isDarkTheme={isDarkTheme} />;
                     }
                     return null;
                 })}
+            </View>
+        </View>
+    );
+};
+
+const InactiveExamCard = ({ action, navigation, theme, isDarkTheme }) => {
+    const { profile } = useAuth();
+    const isAdmin = profile?.role === 'admin';
+
+    return (
+        <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: isDarkTheme ? 'rgba(79, 70, 229, 0.3)' : '#e0e7ff' }]}>
+            <View style={[styles.cardLeftBorder, { backgroundColor: '#4f46e5' }]} />
+            
+            <View style={styles.cardContent}>
+                <View style={styles.cardHeader}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={[styles.cardTitle, { color: theme.colors.text }]} numberOfLines={1}>
+                            {action.name}
+                        </Text>
+                        <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]}>
+                            SESSION UNPUBLISHED
+                        </Text>
+                        <Text style={[styles.itemTitle, { color: theme.colors.text }]} numberOfLines={1}>
+                            {action.paperCount} paper{action.paperCount !== 1 ? 's' : ''} hidden from students
+                        </Text>
+                    </View>
+                    <View style={[styles.iconBadge, { backgroundColor: isDarkTheme ? 'rgba(79, 70, 229, 0.1)' : '#eef2ff', borderColor: isDarkTheme ? 'rgba(79, 70, 229, 0.2)' : '#e0e7ff' }]}>
+                        <FontAwesomeIcon icon={faGraduationCap} size={16} color={isDarkTheme ? '#818cf8' : '#4f46e5'} />
+                    </View>
+                </View>
+
+                <TouchableOpacity
+                    onPress={() => navigation.navigate('ExamManagement')}
+                    style={[styles.actionButton, { backgroundColor: isAdmin ? '#4f46e5' : '#4b5563' }]}
+                    activeOpacity={0.8}
+                >
+                    <FontAwesomeIcon icon={faClipboardCheck} size={12} color="#fff" style={{ marginRight: 8 }} />
+                    <Text style={styles.actionButtonText}>
+                        {isAdmin ? 'Activate Session' : 'View Session (Contact Admin)'}
+                    </Text>
+                    <FontAwesomeIcon icon={faChevronRight} size={10} color="rgba(255,255,255,0.7)" style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
             </View>
         </View>
     );

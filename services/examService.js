@@ -111,7 +111,7 @@ export const fetchUnavailableStudentIds = async (paperId, studentIds) => {
 export const fetchExamSessions = async (schoolId) => {
     const { data, error } = await supabase
         .from('exam_sessions')
-        .select('*, exam_papers(id, subject_name, paper_code, date, start_time, notifications_sent, exam_seat_allocations(count), exam_invigilators(count))')
+        .select('*, exam_papers(id, subject_name, paper_code, date, start_time, notifications_sent, created_by, exam_seat_allocations(count), exam_invigilators(count))')
         .eq('school_id', schoolId)
         .order('start_date', { ascending: false });
 
@@ -129,6 +129,41 @@ export const fetchExamSession = async (sessionId) => {
     if (error) throw error;
     return data;
 };
+
+export const fetchInactiveExamSessions = async ({ userId, role, schoolId }) => {
+    const normalizedRole = role?.toLowerCase();
+    if (normalizedRole !== 'teacher' && normalizedRole !== 'admin') return [];
+
+    // 1. Fetch all inactive sessions for the school
+    const { data: sessions, error } = await supabase
+        .from('exam_sessions')
+        .select(`
+            id, name, is_active, start_date, created_by,
+            exam_papers (
+                id, subject_name, class_id, created_by
+            )
+        `)
+        .eq('school_id', schoolId)
+        .eq('is_active', false);
+
+    if (error) throw error;
+
+    // 2. Filter sessions where the user is the creator OR has a paper inside
+    const relevantSessions = (sessions || []).filter(session => {
+        const isSessionCreator = session.created_by === userId;
+        const hasMyPapers = session.exam_papers?.some(paper => paper.created_by === userId);
+        
+        return (isSessionCreator || hasMyPapers) && session.exam_papers.length > 0;
+    });
+
+    return relevantSessions.map(s => ({
+        id: s.id,
+        name: s.name,
+        paperCount: s.exam_papers.length,
+        startDate: s.start_date,
+        type: 'inactive_exam_session'
+    }));
+}
 
 export const createExamSession = async (sessionData) => {
     const { data, error } = await supabase
@@ -223,7 +258,7 @@ export const deleteExamVenue = async (id) => {
 export const fetchExamPapers = async (sessionId) => {
     const { data, error } = await supabase
         .from('exam_papers')
-        .select('*, exam_seat_allocations(count), exam_invigilators(count), notifications_sent')
+        .select('*, exam_seat_allocations(count), exam_invigilators(count), notifications_sent, created_by')
         .eq('session_id', sessionId)
         .order('date', { ascending: true })
         .order('start_time', { ascending: true });
@@ -235,7 +270,7 @@ export const fetchExamPapers = async (sessionId) => {
 export const fetchExamPapersByClass = async (classId) => {
     const { data, error } = await supabase
         .from('exam_papers')
-        .select('*, exam_seat_allocations(count), exam_invigilators(count), notifications_sent')
+        .select('*, exam_seat_allocations(count), exam_invigilators(count), notifications_sent, created_by')
         .eq('class_id', classId)
         .order('date', { ascending: false });
 

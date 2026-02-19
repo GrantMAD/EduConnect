@@ -41,7 +41,8 @@ export default function CreateExamSessionScreen({ navigation }) {
         start_date: startDate.toISOString().split('T')[0],
         end_date: endDate.toISOString().split('T')[0],
         target_grade: targetGrade,
-        is_active: isActive
+        is_active: isActive,
+        created_by: profile.id
       });
       navigation.goBack();
     } catch (error) {

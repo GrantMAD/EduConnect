@@ -10,6 +10,7 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RNModal from 'react-native-modal';
@@ -35,10 +36,14 @@ import {
   faCheckCircle,
   faMapMarkerAlt,
   faTimes,
+  faEdit,
 } from '@fortawesome/free-solid-svg-icons';
 import LinearGradient from 'react-native-linear-gradient';
 import ExamManagementScreenSkeleton from '../components/skeletons/ExamManagementScreenSkeleton';
 import Button from '../components/Button';
+import { Picker } from '@react-native-picker/picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { updateExamSession } from '../services/examService';
 
 const FAB = ({ onPress }) => (
   <TouchableOpacity
@@ -66,6 +71,18 @@ export default function ExamManagementScreen({ navigation }) {
   const [venueRows, setVenueRows] = useState('10');
   const [venueCols, setVenueCols] = useState('10');
   const [creatingVenue, setCreatingVenue] = useState(false);
+
+  // Edit Session state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingSession, setEditingSession] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editStartDate, setEditStartDate] = useState(new Date());
+  const [editEndDate, setEditEndDate] = useState(new Date());
+  const [editTargetGrade, setEditTargetGrade] = useState('');
+  const [editIsActive, setEditIsActive] = useState(false);
+  const [updatingSession, setUpdatingSession] = useState(false);
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
 
   const loadSessions = async () => {
     try {
@@ -102,6 +119,41 @@ export default function ExamManagementScreen({ navigation }) {
       Alert.alert('Error', error.message);
     } finally {
       setCreatingVenue(false);
+    }
+  };
+
+  const handleEditSession = (session) => {
+    setEditingSession(session);
+    setEditName(session.name);
+    setEditStartDate(new Date(session.start_date));
+    setEditEndDate(new Date(session.end_date));
+    setEditTargetGrade(session.target_grade || '');
+    setEditIsActive(session.is_active);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateSession = async () => {
+    if (!editName) {
+      Alert.alert('Error', 'Please enter a session name.');
+      return;
+    }
+
+    setUpdatingSession(true);
+    try {
+      await updateExamSession(editingSession.id, {
+        name: editName,
+        start_date: editStartDate.toISOString().split('T')[0],
+        end_date: editEndDate.toISOString().split('T')[0],
+        target_grade: editTargetGrade,
+        is_active: editIsActive,
+      });
+      setShowEditModal(false);
+      showToast('Session updated successfully', 'success');
+      loadSessions();
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setUpdatingSession(false);
     }
   };
 
@@ -148,6 +200,8 @@ export default function ExamManagementScreen({ navigation }) {
 
     const unsentPapers = item.exam_papers?.filter(p => !p.notifications_sent) || [];
     const unsentCount = unsentPapers.length;
+
+    const isAdmin = profile?.role === 'admin';
 
     return (
       <View style={styles.glowWrapper}>
@@ -287,13 +341,22 @@ export default function ExamManagementScreen({ navigation }) {
                 </Text>
               </View>
 
-              <TouchableOpacity
-                onPress={() => handleDelete(item.id)}
-                hitSlop={10}
-                style={styles.deleteGhost}
-              >
-                <FontAwesomeIcon icon={faTrash} size={12} color="#ef4444" />
-              </TouchableOpacity>
+              {isAdmin && (
+                <View style={{ flexDirection: 'row', marginLeft: 'auto', gap: 12 }}>
+                  <TouchableOpacity
+                    onPress={() => handleEditSession(item)}
+                    hitSlop={10}
+                  >
+                    <FontAwesomeIcon icon={faEdit} size={12} color="#3b82f6" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleDelete(item.id)}
+                    hitSlop={10}
+                  >
+                    <FontAwesomeIcon icon={faTrash} size={12} color="#ef4444" />
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </View>
 
@@ -366,19 +429,21 @@ export default function ExamManagementScreen({ navigation }) {
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
             <View>
-              <TouchableOpacity 
-                style={[styles.venueButton, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
-                onPress={() => setShowVenueModal(true)}
-              >
-                <View style={[styles.venueIconBox, { backgroundColor: '#8b5cf6' }]}>
-                  <FontAwesomeIcon icon={faMapMarkerAlt} color="white" size={14} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.venueBtnTitle, { color: theme.text }]}>Manage Venues</Text>
-                  <Text style={[styles.venueBtnSub, { color: theme.textSecondary }]}>Add halls or classrooms for exams</Text>
-                </View>
-                <FontAwesomeIcon icon={faPlus} color={theme.textSecondary} size={12} />
-              </TouchableOpacity>
+              {profile?.role === 'admin' && (
+                <TouchableOpacity 
+                  style={[styles.venueButton, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+                  onPress={() => setShowVenueModal(true)}
+                >
+                  <View style={[styles.venueIconBox, { backgroundColor: '#8b5cf6' }]}>
+                    <FontAwesomeIcon icon={faMapMarkerAlt} color="white" size={14} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.venueBtnTitle, { color: theme.text }]}>Manage Venues</Text>
+                    <Text style={[styles.venueBtnSub, { color: theme.textSecondary }]}>Add halls or classrooms for exams</Text>
+                  </View>
+                  <FontAwesomeIcon icon={faPlus} color={theme.textSecondary} size={12} />
+                </TouchableOpacity>
+              )}
               <Text style={styles.sectionTitle}>EXAM SESSIONS</Text>
             </View>
           }
@@ -386,15 +451,116 @@ export default function ExamManagementScreen({ navigation }) {
             <View style={styles.emptyContainer}>
               <FontAwesomeIcon icon={faClipboardCheck} size={64} color={theme.border} />
               <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No exam sessions found.</Text>
-              <Text style={[styles.emptySubText, { color: theme.textSecondary }]}>Tap the + button to create a new session.</Text>
+              {profile?.role === 'admin' && (
+                <Text style={[styles.emptySubText, { color: theme.textSecondary }]}>Tap the + button to create a new session.</Text>
+              )}
             </View>
           }
         />
       )}
 
-      <FAB
-        onPress={() => navigation.navigate('CreateExamSession')}
-      />
+      {profile?.role === 'admin' && (
+        <FAB
+          onPress={() => navigation.navigate('CreateExamSession')}
+        />
+      )}
+
+      {/* Edit Session Modal */}
+      <RNModal
+        isVisible={showEditModal}
+        onBackdropPress={() => setShowEditModal(false)}
+        onSwipeComplete={() => setShowEditModal(false)}
+        swipeDirection={['down']}
+        style={{ justifyContent: 'flex-end', margin: 0 }}
+        propagateSwipe
+      >
+        <View style={[styles.modalContent, { backgroundColor: theme.colors.surface || '#ffffff', paddingBottom: insets.bottom + 20 }]}>
+          <View style={styles.modalDragIndicator} />
+          
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Edit Exam Session</Text>
+            <TouchableOpacity onPress={() => setShowEditModal(false)} style={styles.closeIconBtn}>
+              <FontAwesomeIcon icon={faTimes} size={20} color={theme.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView>
+            <View style={styles.formGroup}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>SESSION NAME *</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.colors.background, color: theme.text, borderColor: theme.border }]}
+                placeholder="e.g. Mid-Year 2026"
+                placeholderTextColor={theme.textSecondary}
+                value={editName}
+                onChangeText={setEditName}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>TARGET GRADE (Optional)</Text>
+              <View style={[styles.pickerContainer, { backgroundColor: theme.colors.background, borderColor: theme.border }]}>
+                <Picker
+                  selectedValue={editTargetGrade}
+                  onValueChange={(itemValue) => setEditTargetGrade(itemValue)}
+                  style={{ color: theme.text }}
+                  dropdownIconColor={theme.text}
+                >
+                  <Picker.Item label="General / All Grades" value="" />
+                  {['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].map(g => (
+                    <Picker.Item key={g} label={g} value={g} />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+
+            <View style={styles.row}>
+              <View style={[styles.formGroup, { flex: 1, marginRight: 8 }]}>
+                <Text style={[styles.label, { color: theme.textSecondary }]}>START DATE *</Text>
+                <TouchableOpacity
+                  style={[styles.input, { backgroundColor: theme.colors.background, borderColor: theme.border }]}
+                  onPress={() => setShowStartPicker(true)}
+                >
+                  <Text style={{ color: theme.text }}>{editStartDate.toLocaleDateString()}</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
+                <Text style={[styles.label, { color: theme.textSecondary }]}>END DATE *</Text>
+                <TouchableOpacity
+                  style={[styles.input, { backgroundColor: theme.colors.background, borderColor: theme.border }]}
+                  onPress={() => setShowEndPicker(true)}
+                >
+                  <Text style={{ color: theme.text }}>{editEndDate.toLocaleDateString()}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.switchRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.switchLabel, { color: theme.text }]}>Active Session</Text>
+                <Text style={[styles.switchSub, { color: theme.textSecondary }]}>Visible to students and parents</Text>
+              </View>
+              <Switch
+                value={editIsActive}
+                onValueChange={setEditIsActive}
+                trackColor={{ false: '#767577', true: '#0d9488' }}
+                thumbColor={editIsActive ? '#fff' : '#f4f3f4'}
+              />
+            </View>
+
+            {showStartPicker && (
+              <DateTimePicker value={editStartDate} mode="date" display="default" onChange={(e, d) => { setShowStartPicker(false); if (d) setEditStartDate(d); }} />
+            )}
+            {showEndPicker && (
+              <DateTimePicker value={editEndDate} mode="date" display="default" onChange={(e, d) => { setShowEndPicker(false); if (d) setEditEndDate(d); }} />
+            )}
+
+            <View style={{ marginTop: 24 }}>
+              <Button title="Update Session" onPress={handleUpdateSession} loading={updatingSession} />
+            </View>
+          </ScrollView>
+        </View>
+      </RNModal>
 
       {/* Create Venue Modal */}
       <RNModal
@@ -762,5 +928,26 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+    marginTop: 8,
+  },
+  switchLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  switchSub: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderRadius: 12,
+    justifyContent: 'center',
   },
 });

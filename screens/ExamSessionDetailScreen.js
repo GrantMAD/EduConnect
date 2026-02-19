@@ -174,69 +174,84 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
         );
     };
 
-    const renderPaperItem = ({ item }) => (
-        <View style={styles.glowWrapper}>
-            <TouchableOpacity
-                style={[styles.paperCard, { backgroundColor: theme.cardBackground }]}
-                activeOpacity={0.85}
-                onPress={() => navigation.navigate('ExamAllocations', { sessionId, sessionName, initialPaperId: item.id })}
-            >
-                {/* LEFT ICON */}
-                <LinearGradient
-                    colors={['#14b8a6', '#0d9488']}
-                    style={styles.iconBadge}
-                >
-                    <FontAwesomeIcon icon={faFileAlt} size={18} color="#fff" />
-                </LinearGradient>
+    const renderPaperItem = ({ item }) => {
+        const isAdmin = profile?.role === 'admin';
 
-                {/* MAIN CONTENT */}
-                <View style={styles.paperInfo}>
-                    <Text style={[styles.paperCode, { color: '#0d9488' }]}>{item.paper_code}</Text>
-                    <Text style={[styles.paperSubject, { color: theme.text }]} numberOfLines={1}>{item.subject_name}</Text>
-                    <View style={styles.timeInfo}>
-                        <FontAwesomeIcon icon={faCalendarAlt} size={10} color={theme.textSecondary} />
-                        <Text style={[styles.paperTime, { color: theme.textSecondary }]}>
-                            {new Date(item.date).toLocaleDateString()}
-                        </Text>
-                        <Text style={[styles.dotSeparator, { color: theme.textSecondary }]}>•</Text>
-                        <FontAwesomeIcon icon={faClock} size={10} color={theme.textSecondary} />
-                        <Text style={[styles.paperTime, { color: theme.textSecondary }]}>
-                            {item.start_time.slice(0, 5)}
-                        </Text>
-                        {item.exam_seat_allocations?.[0]?.count > 0 && (
-                            <>
-                                <Text style={[styles.dotSeparator, { color: theme.textSecondary }]}>•</Text>
-                                <Text style={[styles.paperTime, { color: '#0d9488', fontWeight: 'bold' }]}>
-                                    {item.exam_seat_allocations[0].count} Seats
-                                </Text>
-                            </>
+        return (
+            <View style={styles.glowWrapper}>
+                <TouchableOpacity
+                    style={[styles.paperCard, { backgroundColor: theme.cardBackground }]}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                        if (isAdmin) {
+                            navigation.navigate('ExamAllocations', { sessionId, sessionName, initialPaperId: item.id });
+                        } else {
+                            // Teachers can view allocations? Or just enter results?
+                            // User previously said teachers currently create papers and then can enter results.
+                            // We will let them view the allocations too if they want to see who is where.
+                            navigation.navigate('ExamAllocations', { sessionId, sessionName, initialPaperId: item.id });
+                        }
+                    }}
+                >
+                    {/* LEFT ICON */}
+                    <LinearGradient
+                        colors={['#14b8a6', '#0d9488']}
+                        style={styles.iconBadge}
+                    >
+                        <FontAwesomeIcon icon={faFileAlt} size={18} color="#fff" />
+                    </LinearGradient>
+
+                    {/* MAIN CONTENT */}
+                    <View style={styles.paperInfo}>
+                        <Text style={[styles.paperCode, { color: '#0d9488' }]}>{item.paper_code}</Text>
+                        <Text style={[styles.paperSubject, { color: theme.text }]} numberOfLines={1}>{item.subject_name}</Text>
+                        <View style={styles.timeInfo}>
+                            <FontAwesomeIcon icon={faCalendarAlt} size={10} color={theme.textSecondary} />
+                            <Text style={[styles.paperTime, { color: theme.textSecondary }]}>
+                                {new Date(item.date).toLocaleDateString()}
+                            </Text>
+                            <Text style={[styles.dotSeparator, { color: theme.textSecondary }]}>•</Text>
+                            <FontAwesomeIcon icon={faClock} size={10} color={theme.textSecondary} />
+                            <Text style={[styles.paperTime, { color: theme.textSecondary }]}>
+                                {item.start_time.slice(0, 5)}
+                            </Text>
+                            {item.exam_seat_allocations?.[0]?.count > 0 && (
+                                <>
+                                    <Text style={[styles.dotSeparator, { color: theme.textSecondary }]}>•</Text>
+                                    <Text style={[styles.paperTime, { color: '#0d9488', fontWeight: 'bold' }]}>
+                                        {item.exam_seat_allocations[0].count} Seats
+                                    </Text>
+                                </>
+                            )}
+                        </View>
+                    </View>
+
+                    <View style={styles.actionButtons}>
+                        <TouchableOpacity
+                            onPress={() => {
+                                setSelectedResultPaper(item);
+                                setShowResultsModal(true);
+                            }}
+                            style={styles.actionGhost}
+                            hitSlop={10}
+                        >
+                            <FontAwesomeIcon icon={faStar} size={14} color="#10b981" />
+                        </TouchableOpacity>
+
+                        {isAdmin && (
+                            <TouchableOpacity
+                                onPress={() => handleDeletePaper(item.id)}
+                                style={styles.deleteGhost}
+                                hitSlop={10}
+                            >
+                                <FontAwesomeIcon icon={faTrash} size={12} color="#ef4444" />
+                            </TouchableOpacity>
                         )}
                     </View>
-                </View>
-
-                <View style={styles.actionButtons}>
-                    <TouchableOpacity
-                        onPress={() => {
-                            setSelectedResultPaper(item);
-                            setShowResultsModal(true);
-                        }}
-                        style={styles.actionGhost}
-                        hitSlop={10}
-                    >
-                        <FontAwesomeIcon icon={faStar} size={14} color="#10b981" />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        onPress={() => handleDeletePaper(item.id)}
-                        style={styles.deleteGhost}
-                        hitSlop={10}
-                    >
-                        <FontAwesomeIcon icon={faTrash} size={12} color="#ef4444" />
-                    </TouchableOpacity>
-                </View>
-            </TouchableOpacity>
-        </View>
-    );
+                </TouchableOpacity>
+            </View>
+        );
+    };
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -263,38 +278,42 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
             </LinearGradient>
 
             <View style={styles.actionsBar}>
-                <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: theme.cardBackground }]}
-                    onPress={handleManageSeats}
-                    activeOpacity={0.7}
-                >
-                    <View style={[styles.actionIcon, { backgroundColor: '#6366f115' }]}>
-                        <FontAwesomeIcon icon={faChair} size={14} color="#6366f1" />
-                    </View>
-                    <Text style={[styles.actionText, { color: theme.text }]}>Seats</Text>
-                </TouchableOpacity>
+                {profile?.role === 'admin' && (
+                    <>
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: theme.cardBackground }]}
+                            onPress={handleManageSeats}
+                            activeOpacity={0.7}
+                        >
+                            <View style={[styles.actionIcon, { backgroundColor: '#6366f115' }]}>
+                                <FontAwesomeIcon icon={faChair} size={14} color="#6366f1" />
+                            </View>
+                            <Text style={[styles.actionText, { color: theme.text }]}>Seats</Text>
+                        </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: theme.cardBackground }]}
-                    onPress={() => navigation.navigate('InvigilatorManagement', { sessionId, sessionName })}
-                    activeOpacity={0.7}
-                >
-                    <View style={[styles.actionIcon, { backgroundColor: '#f59e0b15' }]}>
-                        <FontAwesomeIcon icon={faUserShield} size={14} color="#f59e0b" />
-                    </View>
-                    <Text style={[styles.actionText, { color: theme.text }]}>Staff</Text>
-                </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: theme.cardBackground }]}
+                            onPress={() => navigation.navigate('InvigilatorManagement', { sessionId, sessionName })}
+                            activeOpacity={0.7}
+                        >
+                            <View style={[styles.actionIcon, { backgroundColor: '#f59e0b15' }]}>
+                                <FontAwesomeIcon icon={faUserShield} size={14} color="#f59e0b" />
+                            </View>
+                            <Text style={[styles.actionText, { color: theme.text }]}>Staff</Text>
+                        </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: theme.cardBackground }]}
-                    onPress={handleNotify}
-                    activeOpacity={0.7}
-                >
-                    <View style={[styles.actionIcon, { backgroundColor: '#0d948815' }]}>
-                        <FontAwesomeIcon icon={faBullhorn} size={14} color="#0d9488" />
-                    </View>
-                    <Text style={[styles.actionText, { color: theme.text }]}>Notify</Text>
-                </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: theme.cardBackground }]}
+                            onPress={handleNotify}
+                            activeOpacity={0.7}
+                        >
+                            <View style={[styles.actionIcon, { backgroundColor: '#0d948815' }]}>
+                                <FontAwesomeIcon icon={faBullhorn} size={14} color="#0d9488" />
+                            </View>
+                            <Text style={[styles.actionText, { color: theme.text }]}>Notify</Text>
+                        </TouchableOpacity>
+                    </>
+                )}
 
                 <TouchableOpacity
                     style={[styles.actionButton, { backgroundColor: theme.cardBackground }]}

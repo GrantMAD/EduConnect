@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { fetchInactiveExamSessions } from './examService';
 
 export const getDashboardOverview = async ({ schoolId, userId, role }) => {
     const normalizedRole = role?.toLowerCase();
@@ -15,16 +16,18 @@ export const getDashboardOverview = async ({ schoolId, userId, role }) => {
     // 2. Fetch action items (alerts) in parallel if applicable (Admin and Teacher)
     let actionItems = [];
     if (['teacher', 'admin'].includes(normalizedRole)) {
-        const [attendanceAlerts, ungradedAlerts, lessonAlerts] = await Promise.all([
+        const [attendanceAlerts, ungradedAlerts, lessonAlerts, inactiveExamAlerts] = await Promise.all([
             fetchMissingAttendance({ userId, role, schoolId }),
             fetchUngradedSubmissions({ userId, role, schoolId }),
-            fetchClassesWithoutLessons({ userId, role })
+            fetchClassesWithoutLessons({ userId, role }),
+            fetchInactiveExamSessions({ userId, role, schoolId })
         ]);
 
         actionItems = [
             ...(attendanceAlerts || []).map(a => ({ ...a, type: 'attendance' })),
             ...(ungradedAlerts || []),
-            ...(lessonAlerts || [])
+            ...(lessonAlerts || []),
+            ...(inactiveExamAlerts || [])
         ].filter(item => {
             if (normalizedRole === 'admin' && (item.type === 'attendance' || item.type === 'missing_lesson_plan')) {
                 return false;

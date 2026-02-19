@@ -102,6 +102,7 @@ export default function CreateExamPaperScreen({ route, navigation }) {
         start_time: startTime.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }), // HH:MM
         duration_minutes: parseInt(duration),
         total_marks: parseInt(totalMarks),
+        created_by: profile.id
       });
       navigation.goBack();
     } catch (error) {
