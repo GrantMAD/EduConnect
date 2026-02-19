@@ -9,17 +9,20 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import WalkthroughTarget from '../WalkthroughTarget';
+import { SkeletonPiece } from '../skeletons/DashboardScreenSkeleton';
 
 // Import services
 import { fetchParentChildren } from '../../services/userService';
 import { fetchStudentSubjects, fetchChildrenSubjects } from '../../services/classService';
 import { fetchResourcesWithVotes } from '../../services/resourceService';
 
-const RecommendedResources = React.memo(({ id, schoolId, userId, role }) => {
+const RecommendedResources = React.memo(({ id, schoolId, userId, role, loading: externalLoading }) => {
     const navigation = useNavigation();
     const { theme } = useTheme();
     const [recommendations, setRecommendations] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [internalLoading, setInternalLoading] = useState(true);
+
+    const isLoading = externalLoading !== undefined ? externalLoading : internalLoading;
 
     useEffect(() => {
         if (schoolId && userId) {
@@ -28,7 +31,7 @@ const RecommendedResources = React.memo(({ id, schoolId, userId, role }) => {
     }, [schoolId, userId]);
 
     const fetchRecommendations = async () => {
-        setLoading(true);
+        setInternalLoading(true);
         try {
             // 1. Determine target subjects based on role
             let subjects = [];
@@ -70,7 +73,7 @@ const RecommendedResources = React.memo(({ id, schoolId, userId, role }) => {
         } catch (err) {
             console.error('Error fetching recommendations:', err);
         } finally {
-            setLoading(false);
+            setInternalLoading(false);
         }
     };
 
@@ -86,11 +89,18 @@ const RecommendedResources = React.memo(({ id, schoolId, userId, role }) => {
         return faFileAlt;
     };
 
-    if (loading) {
+    if (isLoading) {
         return (
             <WalkthroughTarget id={id}>
-                <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-                    <ActivityIndicator size="small" color={theme.colors.primary} />
+                <View style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                    <View style={styles.header}>
+                        <SkeletonPiece style={{ width: 120, height: 20, borderRadius: 4 }} />
+                    </View>
+                    <View style={styles.list}>
+                        {[1, 2].map(i => (
+                            <SkeletonPiece key={i} style={{ width: '100%', height: 72, borderRadius: 20, marginBottom: 12 }} />
+                        ))}
+                    </View>
                 </View>
             </WalkthroughTarget>
         );

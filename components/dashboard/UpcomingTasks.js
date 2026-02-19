@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
     faClipboardList,
-    faChevronRight
+    faChevronRight,
+    faChevronDown,
+    faChevronUp
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { SkeletonPiece } from '../skeletons/DashboardScreenSkeleton';
@@ -11,6 +13,7 @@ import WalkthroughTarget from '../WalkthroughTarget';
 
 const UpcomingTasks = React.memo(({ loading, upcomingTasks, navigation, style }) => {
     const { theme } = useTheme();
+    const [showAll, setShowAll] = useState(false);
 
     const renderUpcomingTasks = () => {
         if (loading) {
@@ -28,36 +31,60 @@ const UpcomingTasks = React.memo(({ loading, upcomingTasks, navigation, style })
             </View>
         );
 
-        return upcomingTasks.map((task) => {
-            const dueDate = new Date(task.due_date);
-            const isToday = new Date().toDateString() === dueDate.toDateString();
+        const displayedTasks = showAll ? upcomingTasks : upcomingTasks.slice(0, 3);
 
-            return (
-                <TouchableOpacity
-                    key={`${task.type}-${task.id}`}
-                    style={[styles.taskItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-                    onPress={() => navigation.navigate(task.type === 'homework' ? 'Homework' : 'Assignments')}
-                    activeOpacity={0.7}
-                >
-                    <View style={styles.taskIconContainer}>
-                        <View style={[styles.taskTypeIcon, { backgroundColor: task.type === 'homework' ? '#3b82f615' : '#4f46e515' }]}>
-                            <FontAwesomeIcon icon={faClipboardList} size={14} color={task.type === 'homework' ? '#3b82f6' : '#4f46e5'} />
-                        </View>
-                    </View>
-                    <View style={styles.taskInfo}>
-                        <Text style={[styles.taskTitle, { color: theme.colors.text }]} numberOfLines={1}>{task.title || task.subject}</Text>
-                        <Text style={[styles.taskSubject, { color: theme.colors.placeholder }]}>{task.subject?.toUpperCase() || task.type?.toUpperCase()}</Text>
-                    </View>
-                    <View style={styles.taskDueContainer}>
-                        <View style={[styles.dueBadge, { backgroundColor: isToday ? '#ef444415' : theme.colors.background }]}>
-                            <Text style={[styles.taskDueDate, { color: isToday ? '#ef4444' : theme.colors.placeholder }]}>
-                                {isToday ? 'TODAY' : dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}
-                            </Text>
-                        </View>
-                    </View>
-                </TouchableOpacity>
-            );
-        });
+        return (
+            <View>
+                {displayedTasks.map((task) => {
+                    const dueDate = new Date(task.due_date);
+                    const isToday = new Date().toDateString() === dueDate.toDateString();
+
+                    return (
+                        <TouchableOpacity
+                            key={`${task.type}-${task.id}`}
+                            style={[styles.taskItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                            onPress={() => navigation.navigate(task.type === 'homework' ? 'Homework' : 'Assignments')}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.taskIconContainer}>
+                                <View style={[styles.taskTypeIcon, { backgroundColor: task.type === 'homework' ? '#3b82f615' : '#4f46e515' }]}>
+                                    <FontAwesomeIcon icon={faClipboardList} size={14} color={task.type === 'homework' ? '#3b82f6' : '#4f46e5'} />
+                                </View>
+                            </View>
+                            <View style={styles.taskInfo}>
+                                <Text style={[styles.taskTitle, { color: theme.colors.text }]} numberOfLines={1}>{task.title || task.subject}</Text>
+                                <Text style={[styles.taskSubject, { color: theme.colors.placeholder }]}>{task.subject?.toUpperCase() || task.type?.toUpperCase()}</Text>
+                            </View>
+                            <View style={styles.taskDueContainer}>
+                                <View style={[styles.dueBadge, { backgroundColor: isToday ? '#ef444415' : theme.colors.background }]}>
+                                    <Text style={[styles.taskDueDate, { color: isToday ? '#ef4444' : theme.colors.placeholder }]}>
+                                        {isToday ? 'TODAY' : dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}
+                                    </Text>
+                                </View>
+                            </View>
+                        </TouchableOpacity>
+                    );
+                })}
+                
+                {upcomingTasks.length > 3 && (
+                    <TouchableOpacity 
+                        style={[styles.toggleButton, { backgroundColor: theme.colors.primary + '10' }]} 
+                        onPress={() => setShowAll(!showAll)}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={[styles.toggleButtonText, { color: theme.colors.primary }]}>
+                            {showAll ? 'SHOW LESS' : `SHOW ALL (${upcomingTasks.length})`}
+                        </Text>
+                        <FontAwesomeIcon 
+                            icon={showAll ? faChevronUp : faChevronDown} 
+                            size={10} 
+                            color={theme.colors.primary} 
+                            style={{ marginLeft: 8 }} 
+                        />
+                    </TouchableOpacity>
+                )}
+            </View>
+        );
     };
 
     return (
@@ -159,6 +186,19 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         marginTop: 12,
         textAlign: 'center',
+    },
+    toggleButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 16,
+        marginTop: 4,
+    },
+    toggleButtonText: {
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
 });
 

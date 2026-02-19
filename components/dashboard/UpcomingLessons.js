@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faBookOpen, faChevronRight, faClock } from '@fortawesome/free-solid-svg-icons';
+import { faBookOpen, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { SkeletonPiece } from '../skeletons/DashboardScreenSkeleton';
 
 const formatDate = (dateString, options = { month: 'short', day: 'numeric' }) => {
     try {
@@ -12,16 +13,22 @@ const formatDate = (dateString, options = { month: 'short', day: 'numeric' }) =>
     }
 };
 
-const formatTime = (dateString) => {
-    try {
-        return new Date(dateString).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    } catch (e) {
-        return '';
-    }
-};
-
-const UpcomingLessons = ({ lessons, navigation, role }) => {
+const UpcomingLessons = ({ lessons, navigation, role, loading }) => {
     const { theme } = useTheme();
+
+    if (loading) {
+        return (
+            <View style={styles.container}>
+                <View style={styles.header}>
+                    <SkeletonPiece style={{ width: 140, height: 20, borderRadius: 4 }} />
+                </View>
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <SkeletonPiece style={{ width: 260, height: 76, borderRadius: 20 }} />
+                    <SkeletonPiece style={{ width: 40, height: 76, borderRadius: 20 }} />
+                </View>
+            </View>
+        );
+    }
 
     if (!lessons || lessons.length === 0) return null;
 
@@ -54,12 +61,6 @@ const UpcomingLessons = ({ lessons, navigation, role }) => {
                         <View style={styles.lessonInfo}>
                             <Text style={[styles.classTitle, { color: theme.colors.placeholder }]}>{lesson.class?.name}</Text>
                             <Text style={[styles.lessonTitle, { color: theme.colors.text }]} numberOfLines={1}>{lesson.title}</Text>
-                            <View style={styles.timeRow}>
-                                <FontAwesomeIcon icon={faClock} size={10} color={theme.colors.placeholder} />
-                                <Text style={[styles.timeText, { color: theme.colors.placeholder }]}>
-                                    {formatTime(lesson.scheduled_date)}
-                                </Text>
-                            </View>
                         </View>
                         <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
                     </TouchableOpacity>
@@ -93,9 +94,7 @@ const styles = StyleSheet.create({
     dateText: { fontSize: 11, fontWeight: '900', textAlign: 'center' },
     lessonInfo: { flex: 1, marginLeft: 12 },
     classTitle: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
-    lessonTitle: { fontSize: 14, fontWeight: '800', marginVertical: 2 },
-    timeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    timeText: { fontSize: 11, fontWeight: '600' }
+    lessonTitle: { fontSize: 14, fontWeight: '800', marginVertical: 2 }
 });
 
 export default UpcomingLessons;

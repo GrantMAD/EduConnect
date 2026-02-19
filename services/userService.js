@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 export const getUserProfile = async (userId) => {
     const { data, error } = await supabase
         .from('users')
-        .select('*')
+        .select('id, full_name, email, role, avatar_url, country, number, school_id, has_seen_welcome_modal, notification_preferences')
         .eq('id', userId)
         .maybeSingle();
 

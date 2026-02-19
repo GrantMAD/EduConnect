@@ -94,12 +94,14 @@ const QuickActions = React.memo(({ id, navigation, userRole, loading }) => {
                         onPress={() => navigation.navigate('CreateClass', { fromDashboard: true })}
                         color="#3b82f6"
                     />
-                    <QuickActionButton
-                        icon={faUsers}
-                        title="Users"
-                        onPress={() => navigation.navigate('UserManagement', { fromDashboard: true })}
-                        color="#7c3aed"
-                    />
+                    {userRole === 'admin' && (
+                        <QuickActionButton
+                            icon={faUsers}
+                            title="Users"
+                            onPress={() => navigation.navigate('UserManagement', { fromDashboard: true })}
+                            color="#7c3aed"
+                        />
+                    )}
                     <QuickActionButton
                         icon={faComments}
                         title="Chat Hub"

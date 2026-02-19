@@ -26,7 +26,7 @@ const DailyOverview = React.memo(({ id, loading, todaySessions, navigation }) =>
 
         if (!todaySessions || todaySessions.length === 0) return (
             <View style={[styles.emptyWidget, { backgroundColor: theme.colors.card }]}>
-                <FontAwesomeIcon icon={faInfoCircle} size={24} color={theme.colors.placeholder} />
+                <FontAwesomeIcon icon={faInfoCircle} size={24} color={theme.colors.primary} />
                 <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No classes scheduled for today.</Text>
             </View>
         );
@@ -179,7 +179,6 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 1,
     },
     emptyText: {
         fontSize: 10,

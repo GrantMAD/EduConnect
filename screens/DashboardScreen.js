@@ -1,10 +1,8 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, Dimensions } from 'react-native';
-import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Image, Dimensions } from 'react-native';
 import {
     faUsers, faUserTie, faChalkboardTeacher, faUserGraduate, faChild,
-    faBookOpen, faClipboardList, faPoll, faUserFriends, faChevronRight,
-    faChartLine
+    faBookOpen, faClipboardList, faPoll, faUserFriends
 } from '@fortawesome/free-solid-svg-icons';
 import StatCard from '../components/dashboard/StatCard';
 import UpcomingTasks from '../components/dashboard/UpcomingTasks';
@@ -32,7 +30,7 @@ import { fetchAssignments as fetchAssignmentsService } from '../services/assignm
 import { fetchTodaySchedules, fetchClassIds } from '../services/classService';
 import { fetchTodayPTMBookings } from '../services/ptmService';
 import { fetchUpcomingLessons } from '../services/lessonService';
-import { getDashboardStats, dailyCheckIn, fetchParentChildLinkCount, fetchClubsCount, fetchTotalClassesCount, fetchMissingAttendance, fetchUngradedSubmissions, fetchClassesWithoutLessons } from '../services/dashboardService';
+import { getDashboardOverview, dailyCheckIn } from '../services/dashboardService';
 import { markWelcomeModalAsSeen } from '../services/userService';
 import ActionRequiredList from '../components/dashboard/ActionRequiredList';
 import DashboardSkeleton, { StatCardSkeleton, SkeletonPiece, MissingAttendanceSkeleton } from '../components/skeletons/DashboardScreenSkeleton';
@@ -42,16 +40,22 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const DashboardScreen = ({ navigation }) => {
     const { theme, isDarkTheme } = useTheme();
     const { schoolId, schoolData } = useSchool();
-    const { user, profile } = useAuth(); // Get profile from context
+    const { user, profile } = useAuth();
     const { showToast } = useToast();
     const { awardXP } = useGamification();
 
     const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
-    const [userRole, setUserRole] = useState(profile?.role || ''); // Initialize with context role
-    const [userProfile, setUserProfile] = useState(profile || null); // Initialize with context profile
-    const [loading, setLoading] = useState(true);
+    const [userRole, setUserRole] = useState(profile?.role || '');
+    const [userProfile, setUserProfile] = useState(profile || null);
+    
+    // Granular loading states
+    const [loadingOverview, setLoadingOverview] = useState(true);
+    const [loadingTasks, setLoadingTasks] = useState(true);
+    const [loadingSessions, setLoadingSessions] = useState(true);
+    const [loadingLessons, setLoadingLessons] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+
     const [upcomingTasks, setUpcomingTasks] = useState([]);
     const [upcomingLessons, setUpcomingLessons] = useState([]);
     const [todaySessions, setTodaySessions] = useState([]);
@@ -80,16 +84,13 @@ const DashboardScreen = ({ navigation }) => {
         try {
             const user = await getCurrentUser();
             if (!user) return;
-
-            const data = await dailyCheckIn(user.id);
-
-            if (data && data.length > 0) {
-                awardXP('daily_check_in', 5);
-            }
+            await dailyCheckIn(user.id);
+            awardXP('daily_check_in', 5);
         } catch (e) { }
     }, [awardXP]);
 
-    const fetchUpcomingTasks = useCallback(async (userId, role) => {
+    const fetchUpcomingTasksData = useCallback(async (userId, role) => {
+        setLoadingTasks(true);
         try {
             let childIds = [];
             if (role === 'parent') {
@@ -101,18 +102,27 @@ const DashboardScreen = ({ navigation }) => {
                 fetchAssignmentsService({ userId, userRole: role, schoolId, childIds })
             ]);
 
+            const now = new Date();
+            now.setHours(0, 0, 0, 0); // Start of today
+
             const combined = [
                 ...(hwData || []).map(i => ({ ...i, type: 'homework' })),
                 ...(assignData || []).map(i => ({ ...i, type: 'assignment' }))
-            ].sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).slice(0, 5);
+            ]
+                .filter(item => new Date(item.due_date) >= now)
+                .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))
+                .slice(0, 10);
 
             setUpcomingTasks(combined);
         } catch (e) {
             console.error('Error fetching upcoming tasks:', e);
+        } finally {
+            setLoadingTasks(false);
         }
     }, [schoolId]);
 
-    const fetchTodaySessions = useCallback(async (userId, role) => {
+    const fetchTodaySessionsData = useCallback(async (userId, role) => {
+        setLoadingSessions(true);
         try {
             const [schedules, ptms] = await Promise.all([
                 fetchTodaySchedules(schoolId, userId, role),
@@ -122,7 +132,7 @@ const DashboardScreen = ({ navigation }) => {
             const combined = [
                 ...(schedules || []).map(s => ({ ...s, eventType: 'class' })),
                 ...(ptms || [])
-                    .filter(p => p.slot) // Safety check
+                    .filter(p => p.slot)
                     .map(p => ({
                         id: p.id,
                         start_time: p.slot.start_time,
@@ -135,10 +145,13 @@ const DashboardScreen = ({ navigation }) => {
             setTodaySessions(combined);
         } catch (e) {
             console.error('Error fetching today sessions:', e);
+        } finally {
+            setLoadingSessions(false);
         }
     }, [schoolId]);
 
-    const fetchDashboardLessons = useCallback(async (userId, role) => {
+    const fetchDashboardLessonsData = useCallback(async (userId, role) => {
+        setLoadingLessons(true);
         try {
             if (!userId) return;
             const classIds = await fetchClassIds(userId, role, schoolId);
@@ -148,100 +161,49 @@ const DashboardScreen = ({ navigation }) => {
             }
         } catch (e) {
             console.error('Error fetching dashboard lessons:', e);
+        } finally {
+            setLoadingLessons(false);
         }
     }, [schoolId]);
 
-    const fetchDashboardData = useCallback(async () => {
+    const fetchDashboardData = useCallback(async (isRefresh = false) => {
         if (!schoolId) return;
 
-        setLoading(true);
+        if (!isRefresh) setLoadingOverview(true);
         try {
-            // 1. Fetch Stats
-            const statsData = await getDashboardStats(schoolId);
+            const currentUserId = user?.id;
+            const currentRole = profile?.role;
 
-            const user = await getCurrentUser();
-            const profile = await getUserProfile(user.id);
+            // 1. Fetch Consolidated Overview (Stats + Actions)
+            const overview = await getDashboardOverview({ 
+                schoolId, 
+                userId: currentUserId, 
+                role: currentRole 
+            });
 
-            let linkCount = 0;
-            if (profile?.role === 'admin') {
-                linkCount = await fetchParentChildLinkCount(schoolId);
+            if (overview) {
+                setStats(overview.stats);
+                setActionItems(overview.actionItems);
             }
+            setLoadingOverview(false);
 
-            const clubsCount = await fetchClubsCount(schoolId);
-            const totalClassesCount = await fetchTotalClassesCount(schoolId);
-
-            if (statsData) {
-                setStats({
-                    totalUsers: statsData.totalUsers || 0,
-                    adminCount: statsData.adminCount || 0,
-                    teacherCount: statsData.teacherCount || 0,
-                    studentCount: statsData.studentCount || 0,
-                    parentCount: statsData.parentCount || 0,
-                    classCount: Math.max(0, (totalClassesCount || 0) - (clubsCount || 0)),
-                    clubCount: clubsCount || 0,
-                    assignmentCount: statsData.assignmentCount || 0,
-                    pollCount: statsData.pollCount || 0,
-                    parentChildLinkCount: linkCount
-                });
-            }
-
-            // 2. Fetch Data
-            await Promise.all([
-                fetchUpcomingTasks(user.id, profile?.role),
-                fetchTodaySessions(user.id, profile?.role),
-                fetchDashboardLessons(user.id, profile?.role),
-                // Fetch missing attendance and ungraded submissions
-                (async () => {
-                    if (['teacher', 'admin'].includes(profile?.role?.toLowerCase())) {
-                        const [attendanceAlerts, ungradedAlerts, lessonAlerts] = await Promise.all([
-                            fetchMissingAttendance({
-                                userId: user.id,
-                                role: profile.role,
-                                schoolId
-                            }),
-                            fetchUngradedSubmissions({
-                                userId: user.id,
-                                role: profile.role,
-                                schoolId
-                            }),
-                            fetchClassesWithoutLessons({
-                                userId: user.id,
-                                role: profile.role
-                            })
-                        ]);
-
-                        const combinedActions = [
-                            ...(attendanceAlerts || []).map(a => ({ ...a, type: 'attendance' })),
-                            ...(ungradedAlerts || []),
-                            ...(lessonAlerts || [])
-                        ].filter(item => {
-                            // If user is admin, hide attendance and lesson alerts (unless they teach)
-                            // In this system, admin role usually implies management, 
-                            // but teachers see their own specific tasks.
-                            if (profile?.role?.toLowerCase() === 'admin' && (item.type === 'attendance' || item.type === 'missing_lesson_plan')) {
-                                return false;
-                            }
-                            return true;
-                        });
-                        setActionItems(combinedActions);
-                    }
-                })()
+            // 2. Fetch Other Sections in Parallel but with their own loaders
+            Promise.all([
+                fetchUpcomingTasksData(currentUserId, currentRole),
+                fetchTodaySessionsData(currentUserId, currentRole),
+                fetchDashboardLessonsData(currentUserId, currentRole)
             ]);
 
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
-        } finally {
-            setLoading(false);
+            setLoadingOverview(false);
         }
-    }, [schoolId, fetchUpcomingTasks, fetchTodaySessions]);
+    }, [schoolId, user?.id, profile?.role, fetchUpcomingTasksData, fetchTodaySessionsData, fetchDashboardLessonsData]);
 
     const checkUserAccessAndWalkthrough = useCallback(async () => {
         try {
-            const user = await getCurrentUser();
             if (!user) return;
-
-            const userData = await getUserProfile(user.id);
-
+            const userData = profile || await getUserProfile(user.id);
             setUserRole(userData.role);
             setUserProfile(userData);
 
@@ -250,14 +212,15 @@ const DashboardScreen = ({ navigation }) => {
             }
         } catch (error) {
             console.error('Error checking access:', error);
-            showToast('Failed to verify access.', 'error');
-            navigation.goBack();
         }
-    }, [navigation, showToast]);
+    }, [user, profile]);
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await Promise.all([fetchDashboardData(), checkUserAccessAndWalkthrough()]);
+        await Promise.all([
+            fetchDashboardData(true), 
+            checkUserAccessAndWalkthrough()
+        ]);
         setRefreshing(false);
     }, [fetchDashboardData, checkUserAccessAndWalkthrough]);
 
@@ -293,8 +256,6 @@ const DashboardScreen = ({ navigation }) => {
     useEffect(() => {
         if (schoolId) {
             fetchDashboardData();
-        } else {
-            setLoading(false);
         }
         checkUserAccessAndWalkthrough();
         handleDailyCheckIn();
@@ -333,7 +294,7 @@ const DashboardScreen = ({ navigation }) => {
                     </View>
                 </View>
 
-                {/* School Banner & Welcome Card combined (Matches Web Design) */}
+                {/* School Banner */}
                 <View style={styles.bannerContainer}>
                     {schoolData?.logo_url ? (
                         <Image
@@ -350,7 +311,6 @@ const DashboardScreen = ({ navigation }) => {
                         />
                     )}
 
-                    {/* Gradient Overlay for Text Readability */}
                     <LinearGradient
                         colors={schoolData?.logo_url
                             ? ['rgba(30, 27, 75, 0.95)', 'rgba(30, 27, 75, 0.6)', 'transparent']
@@ -377,9 +337,9 @@ const DashboardScreen = ({ navigation }) => {
                     </View>
                 </View>
 
-                {/* Action Required List (Merged Missing Attendance & Ungraded) */}
-                {['teacher', 'admin'].includes(userRole || profile?.role) && (
-                    loading ? (
+                {/* Action Required List */}
+                {['teacher', 'admin'].includes(userRole) && (
+                    loadingOverview ? (
                         <MissingAttendanceSkeleton />
                     ) : (
                         actionItems.length > 0 && (
@@ -394,7 +354,7 @@ const DashboardScreen = ({ navigation }) => {
                 {/* Gamification Hub */}
                 <GamificationHub id="dashboard-gamification" />
 
-                {/* Recommended Resources (Student/Parent only) */}
+                {/* Recommended Resources */}
                 {['student', 'parent'].includes(userRole) && (
                     <RecommendedResources
                         id="dashboard-recommendations"
@@ -406,18 +366,18 @@ const DashboardScreen = ({ navigation }) => {
 
                 {/* Role Specific Widgets */}
                 {userRole === 'parent' && (
-                    <ChildProgressSnapshot id="dashboard-parent-child" loading={loading} />
+                    <ChildProgressSnapshot id="dashboard-parent-child" loading={loadingOverview} />
                 )}
 
-                {['admin', 'teacher'].includes(userRole) || loading ? (
-                    <QuickActions id="dashboard-quick-actions" navigation={navigation} userRole={userRole} loading={loading} />
+                {['admin', 'teacher'].includes(userRole) ? (
+                    <QuickActions id="dashboard-quick-actions" navigation={navigation} userRole={userRole} loading={loadingOverview} />
                 ) : null}
 
                 {/* Tasks & Events */}
                 <View style={styles.row}>
                     <UpcomingTasks
                         id="dashboard-tasks"
-                        loading={loading}
+                        loading={loadingTasks}
                         upcomingTasks={upcomingTasks}
                         navigation={navigation}
                         style={styles.fullWidth}
@@ -428,26 +388,25 @@ const DashboardScreen = ({ navigation }) => {
                     lessons={upcomingLessons}
                     navigation={navigation}
                     role={userRole}
+                    loading={loadingLessons}
                 />
 
                 <DailyOverview
                     id="dashboard-recent"
-                    loading={loading}
+                    loading={loadingSessions}
                     todaySessions={todaySessions}
                     navigation={navigation}
                 />
 
-
-                {/* Admin/Teacher Stats */}
-                {/* Admin/Teacher Stats */}
-                {['admin', 'teacher'].includes(userRole) && (
+                {/* Admin Stats */}
+                {userRole === 'admin' && (
                     <View style={styles.statsSection}>
                         <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>School Statistics</Text>
                         <Text style={[styles.sectionDescription, { color: theme.colors.placeholder, marginTop: -12, marginBottom: 16 }]}>
                             A comprehensive overview of your school's community and reach.
                         </Text>
 
-                        {loading ? (
+                        {loadingOverview ? (
                             <View style={styles.statsGrid}>
                                 {[1, 2, 3, 4].map((item) => (
                                     <StatCardSkeleton key={item} />
@@ -513,7 +472,7 @@ const DashboardScreen = ({ navigation }) => {
                             Monitor educational materials and engagement across the platform.
                         </Text>
 
-                        {loading ? (
+                        {loadingOverview ? (
                             <View style={styles.statsGrid}>
                                 {[1, 2, 3, 4].map((item) => (
                                     <StatCardSkeleton key={item} />

@@ -19,7 +19,7 @@ export const fetchTodaySchedules = async (schoolId, userId, role) => {
 
     let query = supabase
         .from('class_schedules')
-        .select('*, class:classes(*)')
+        .select('id, start_time, end_time, title, class_id, class:classes!inner(id, name, subject, teacher_id, school_id)')
         .gte('start_time', startOfDay)
         .lte('start_time', endOfDay);
 
