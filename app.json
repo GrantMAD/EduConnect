@@ -2,7 +2,7 @@
   "expo": {
     "name": "ClassConnect",
     "slug": "classconnect",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/Logo.png",
     "scheme": "classconnect",
@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.classconnect.app",
-      "buildNumber": "3"
+      "buildNumber": "4"
     },
     "android": {
       "adaptiveIcon": {
@@ -27,7 +27,7 @@
       },
       "package": "com.classconnect.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 5
+      "versionCode": 7
     },
     "web": {
       "favicon": "./assets/favicon.png"
