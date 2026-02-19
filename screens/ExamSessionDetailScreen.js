@@ -6,7 +6,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 import { fetchExamPapers, deleteExamPaper, autoAllocateSession, fetchExamVenues, notifySessionStudents, clearSessionAllocations, fetchExamSession } from '../services/examService';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTrash, faArrowLeft, faFileAlt, faClock, faCalendarAlt, faChair, faBullhorn, faPlus, faCheckCircle, faList, faRedo, faBan, faUserShield, faStar } from '@fortawesome/free-solid-svg-icons';
+import { faTrash, faArrowLeft, faFileAlt, faClock, faCalendarAlt, faChair, faBullhorn, faPlus, faCheckCircle, faList, faRedo, faBan, faUserShield, faStar, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import Button from '../components/Button';
 import LinearGradient from 'react-native-linear-gradient';
 import ExamSessionDetailScreenSkeleton from '../components/skeletons/ExamSessionDetailScreenSkeleton';
@@ -81,6 +81,11 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
     };
 
     const handleNotify = async () => {
+        if (!session?.is_active) {
+            Alert.alert("Action Required", "You must activate the session before you can notify students.");
+            return;
+        }
+
         Alert.alert(
             "Notify Students",
             "This will send notifications to all allocated students and their parents. Continue?",
@@ -303,9 +308,14 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={[styles.actionButton, { backgroundColor: theme.cardBackground }]}
+                            style={[
+                                styles.actionButton, 
+                                { backgroundColor: theme.cardBackground },
+                                !session?.is_active && { opacity: 0.5 }
+                            ]}
                             onPress={handleNotify}
                             activeOpacity={0.7}
+                            disabled={!session?.is_active || notifying}
                         >
                             <View style={[styles.actionIcon, { backgroundColor: '#0d948815' }]}>
                                 <FontAwesomeIcon icon={faBullhorn} size={14} color="#0d9488" />
@@ -326,6 +336,28 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
                     <Text style={[styles.actionText, { color: theme.text }]}>Add Paper</Text>
                 </TouchableOpacity>
             </View>
+
+            {!session?.is_active && profile?.role === 'admin' && (
+                <View style={{ 
+                    marginHorizontal: 20, 
+                    marginBottom: 16, 
+                    padding: 12, 
+                    backgroundColor: theme.dark ? 'rgba(245, 158, 11, 0.1)' : '#fff7ed', 
+                    borderRadius: 16, 
+                    borderWidth: 1,
+                    borderColor: theme.dark ? 'rgba(245, 158, 11, 0.2)' : '#ffedd5',
+                    flexDirection: 'row', 
+                    alignItems: 'center', 
+                    gap: 12 
+                }}>
+                    <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#f59e0b20', justifyContent: 'center', alignItems: 'center' }}>
+                        <FontAwesomeIcon icon={faInfoCircle} size={14} color="#f59e0b" />
+                    </View>
+                    <Text style={{ fontSize: 12, color: theme.dark ? '#fbbf24' : '#c2410c', fontWeight: '700', flex: 1 }}>
+                        This session is not active. Please activate it to notify students.
+                    </Text>
+                </View>
+            )}
 
             <Text style={styles.sectionTitle}>EXAM PAPERS</Text>
 
