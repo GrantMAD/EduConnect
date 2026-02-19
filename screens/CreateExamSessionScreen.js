@@ -162,6 +162,19 @@ export default function CreateExamSessionScreen({ navigation }) {
             {showEndPicker && (
               <DateTimePicker value={endDate} mode="date" display="default" onChange={onEndDateChange} />
             )}
+
+            <View style={styles.switchRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.switchLabel, { color: theme.text }]}>Active Session</Text>
+                <Text style={[styles.switchSub, { color: theme.textSecondary }]}>Visible to students and parents</Text>
+              </View>
+              <Switch
+                value={isActive}
+                onValueChange={setIsActive}
+                trackColor={{ false: '#767577', true: '#0d9488' }}
+                thumbColor={isActive ? '#fff' : '#f4f3f4'}
+              />
+            </View>
           </View>
         </View>
 
@@ -287,5 +300,21 @@ const styles = StyleSheet.create({
   footer: {
     marginTop: 24,
     marginBottom: 40
-  }
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+    marginTop: 8,
+  },
+  switchLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  switchSub: {
+    fontSize: 12,
+    marginTop: 2,
+  },
 });
