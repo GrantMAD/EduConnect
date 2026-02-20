@@ -367,6 +367,14 @@ const ClassCard = React.memo(({ classInfo, theme, onPress }) => {
   const [expanded, setExpanded] = useState(false);
   const toggleExpanded = useCallback(() => setExpanded(prev => !prev), []);
 
+  const handlePress = useCallback(() => {
+    if (onPress) {
+      onPress(classInfo);
+    } else {
+      toggleExpanded();
+    }
+  }, [onPress, classInfo, toggleExpanded]);
+
   const attendanceStats = useMemo(() => classInfo.fullAttendance?.reduce((acc, curr) => {
     if (curr.status === 'present') acc.present++;
     if (curr.status !== 'unmarked') acc.total++;
@@ -383,7 +391,7 @@ const ClassCard = React.memo(({ classInfo, theme, onPress }) => {
 
   return (
     <View style={[styles.clsCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-      <TouchableOpacity onPress={onPress || toggleExpanded} style={styles.clsCardHeader}>
+      <TouchableOpacity onPress={handlePress} style={styles.clsCardHeader}>
         <View style={styles.clsIconNameRow}>
           <View style={[styles.clsIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
             <FontAwesomeIcon icon={faChalkboardTeacher} size={18} color={theme.colors.primary} />
@@ -493,6 +501,14 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
     setActiveTab(tab);
     if (onTabChange) onTabChange(tab);
   };
+
+  const handleClassPress = useCallback((cls) => {
+    navigation.navigate('StudentClassDashboard', {
+      classId: cls.class_id,
+      className: cls.classes?.name,
+      studentId: student.id
+    });
+  }, [navigation, student.id]);
 
   useEffect(() => {
     const fetchClassData = async () => {
@@ -649,13 +665,7 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
                 key={idx}
                 classInfo={cls}
                 theme={theme}
-                onPress={() => {
-                  navigation.navigate('StudentClassDashboard', {
-                    classId: cls.class_id,
-                    className: cls.classes?.name,
-                    studentId: student.id // Explicitly pass studentId
-                  });
-                }}
+                onPress={handleClassPress}
               />
             ))}
           </>
