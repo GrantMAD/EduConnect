@@ -25,6 +25,104 @@ import { fetchAnnouncementById } from '../services/announcementService';
 import { fetchHomeworkById } from '../services/homeworkService';
 import { fetchAssignmentById } from '../services/assignmentService';
 
+const NotificationItem = React.memo(({ item, theme, onMainPress, onAcceptPress, onDeclinePress, onMarkReadPress, onDeletePress }) => {
+  const isUnread = !item.is_read;
+  
+  const typeInfo = {
+    new_general_announcement: { icon: 'bullhorn', color: '#007AFF', label: 'Announcement' },
+    new_class_announcement: { icon: 'bullhorn', color: '#34C759', label: 'Class Update' },
+    new_homework: { icon: 'clipboard-list', color: '#FF9500', label: 'Homework' },
+    new_assignment: { icon: 'file-signature', color: '#AF52DE', label: 'Assignment' },
+    new_poll: { icon: 'poll', color: '#5856D6', label: 'Poll' },
+    new_ptm_booking: { icon: 'handshake', color: '#FF2D55', label: 'PTM' },
+    ptm_cancellation: { icon: 'handshake-slash', color: '#FF3B30', label: 'PTM Cancel' },
+    school_join_request: { icon: 'school', color: '#007AFF', label: 'Join Request' },
+    parent_child_request: { icon: 'user-friends', color: '#5AC8FA', label: 'Association' },
+    parent_welcome: { icon: 'user-plus', color: '#34C759', label: 'Welcome' },
+    added_to_club: { icon: 'users', color: '#AF52DE', label: 'Club' },
+  };
+
+  const info = typeInfo[item.type] || { icon: 'bell', color: theme.colors.primary, label: 'Notification' };
+
+  const isPressable = [
+    'new_general_announcement',
+    'new_class_announcement',
+    'new_homework',
+    'new_assignment',
+    'new_poll',
+    'new_ptm_booking',
+    'ptm_cancellation',
+    'added_to_club',
+    'club_join_request',
+    'club_join_accepted',
+    'parent_child_request',
+    'parent_welcome',
+    'exam_schedule'
+  ].includes(item.type);
+
+  return (
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: theme.colors.cardBackground,
+          borderColor: theme.colors.cardBorder,
+          borderWidth: 1,
+          borderLeftColor: isUnread ? info.color : theme.colors.cardBorder,
+          borderLeftWidth: 4
+        }
+      ]}
+    >
+      <TouchableOpacity
+        style={styles.cardMain}
+        onPress={() => onMainPress(item)}
+        disabled={!isPressable}
+      >
+        <View style={[styles.iconContainer, { backgroundColor: isUnread ? `${info.color}15` : theme.colors.background }]}>
+          <FontAwesome5 name={info.icon} size={18} color={isUnread ? info.color : theme.colors.placeholder} />
+        </View>
+        <View style={styles.contentContainer}>
+          <View style={styles.typeHeader}>
+            <Text style={[styles.typeLabel, { color: isUnread ? info.color : theme.colors.placeholder }]}>{info.label}</Text>
+            {isUnread && <View style={[styles.unreadDot, { backgroundColor: info.color }]} />}
+          </View>
+          <Text style={[styles.title, { color: theme.colors.text }, isUnread && { fontWeight: 'bold' }]}>{item.title}</Text>
+          <Text style={[styles.message, { color: theme.colors.textSecondary }]} numberOfLines={2}>{item.message}</Text>
+          <Text style={[styles.date, { color: theme.colors.placeholder }]}>{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+
+          {(item.type === 'school_join_request' || item.type === 'parent_child_request') && isUnread && (
+            <View style={styles.buttonsRow}>
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: theme.colors.primary }]}
+                onPress={() => onAcceptPress(item)}
+              >
+                <Text style={[styles.buttonText, { color: '#fff' }]}>Accept</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: theme.colors.error }]}
+                onPress={() => onDeclinePress(item)}
+              >
+                <Text style={[styles.buttonText, { color: '#fff' }]}>Decline</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+
+      <View style={styles.actionsContainer}>
+        {isUnread && (
+          <TouchableOpacity onPress={() => onMarkReadPress(item.id)} style={styles.actionButton}>
+            <FontAwesome5 name="check-circle" size={16} color={theme.colors.success} />
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity onPress={() => onDeletePress(item.id)} style={styles.actionButton}>
+          <FontAwesome5 name="trash-alt" size={16} color={theme.colors.error} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+});
+
 const NotificationsScreen = ({ route, navigation }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -417,100 +515,16 @@ const NotificationsScreen = ({ route, navigation }) => {
   }, [notifications]);
 
   const renderNotification = useCallback(({ item }) => {
-    const isUnread = !item.is_read;
-    const typeInfo = {
-      new_general_announcement: { icon: 'bullhorn', color: '#007AFF', label: 'Announcement' },
-      new_class_announcement: { icon: 'bullhorn', color: '#34C759', label: 'Class Update' },
-      new_homework: { icon: 'clipboard-list', color: '#FF9500', label: 'Homework' },
-      new_assignment: { icon: 'file-signature', color: '#AF52DE', label: 'Assignment' },
-      new_poll: { icon: 'poll', color: '#5856D6', label: 'Poll' },
-      new_ptm_booking: { icon: 'handshake', color: '#FF2D55', label: 'PTM' },
-      ptm_cancellation: { icon: 'handshake-slash', color: '#FF3B30', label: 'PTM Cancel' },
-      school_join_request: { icon: 'school', color: '#007AFF', label: 'Join Request' },
-      parent_child_request: { icon: 'user-friends', color: '#5AC8FA', label: 'Association' },
-      parent_welcome: { icon: 'user-plus', color: '#34C759', label: 'Welcome' },
-      added_to_club: { icon: 'users', color: '#AF52DE', label: 'Club' },
-    };
-
-    const info = typeInfo[item.type] || { icon: 'bell', color: theme.colors.primary, label: 'Notification' };
-
-    const isPressable = [
-      'new_general_announcement',
-      'new_class_announcement',
-      'new_homework',
-      'new_assignment',
-      'new_poll',
-      'new_ptm_booking',
-      'ptm_cancellation',
-      'added_to_club',
-      'club_join_request',
-      'club_join_accepted',
-      'parent_child_request',
-      'parent_welcome',
-      'exam_schedule'
-    ].includes(item.type);
-
     return (
-      <View
-        key={item.id}
-        style={[
-          styles.card,
-          {
-            backgroundColor: theme.colors.cardBackground,
-            borderColor: theme.colors.cardBorder,
-            borderWidth: 1,
-            borderLeftColor: isUnread ? info.color : theme.colors.cardBorder,
-            borderLeftWidth: 4
-          }
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.cardMain}
-          onPress={() => handleNotificationPress(item)}
-          disabled={!isPressable}
-        >
-          <View style={[styles.iconContainer, { backgroundColor: isUnread ? `${info.color}15` : theme.colors.background }]}>
-            <FontAwesome5 name={info.icon} size={18} color={isUnread ? info.color : theme.colors.placeholder} />
-          </View>
-          <View style={styles.contentContainer}>
-            <View style={styles.typeHeader}>
-              <Text style={[styles.typeLabel, { color: isUnread ? info.color : theme.colors.placeholder }]}>{info.label}</Text>
-              {isUnread && <View style={[styles.unreadDot, { backgroundColor: info.color }]} />}
-            </View>
-            <Text style={[styles.title, { color: theme.colors.text }, isUnread && { fontWeight: 'bold' }]}>{item.title}</Text>
-            <Text style={[styles.message, { color: theme.colors.textSecondary }]} numberOfLines={2}>{item.message}</Text>
-            <Text style={[styles.date, { color: theme.colors.placeholder }]}>{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-
-            {(item.type === 'school_join_request' || item.type === 'parent_child_request') && isUnread && (
-              <View style={styles.buttonsRow}>
-                <TouchableOpacity
-                  style={[styles.button, { backgroundColor: theme.colors.primary }]}
-                  onPress={() => item.type === 'school_join_request' ? handleJoinResponse(item, true) : handleParentChildResponse(item, true)}
-                >
-                  <Text style={[styles.buttonText, { color: '#fff' }]}>Accept</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.button, { backgroundColor: theme.colors.error }]}
-                  onPress={() => item.type === 'school_join_request' ? handleJoinResponse(item, false) : handleParentChildResponse(item, false)}
-                >
-                  <Text style={[styles.buttonText, { color: '#fff' }]}>Decline</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.actionsContainer}>
-          {isUnread && (
-            <TouchableOpacity onPress={() => handleMarkAsRead(item.id)} style={styles.actionButton}>
-              <FontAwesome5 name="check-circle" size={16} color={theme.colors.success} />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.actionButton}>
-            <FontAwesome5 name="trash-alt" size={16} color={theme.colors.error} />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <NotificationItem
+        item={item}
+        theme={theme}
+        onMainPress={handleNotificationPress}
+        onAcceptPress={handleJoinResponse}
+        onDeclinePress={handleParentChildResponse}
+        onMarkReadPress={handleMarkAsRead}
+        onDeletePress={handleDelete}
+      />
     );
   }, [theme, handleNotificationPress, handleJoinResponse, handleParentChildResponse, handleMarkAsRead, handleDelete]);
 

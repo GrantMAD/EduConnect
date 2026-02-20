@@ -83,6 +83,48 @@ const STATIC_PAGES = [
   { id: 'exam-management', title: 'Exam Management', screen: 'ExamManagement', icon: faFileSignature, description: 'Manage exam sessions and papers' },
 ];
 
+const SearchResultItem = React.memo(({ item, theme, itemColor, onNavigate }) => {
+  const handlePress = useCallback(() => {
+    onNavigate(item);
+  }, [onNavigate, item]);
+
+  const getResultIcon = (type, item) => {
+    switch (type) {
+      case 'announcement': return faBullhorn;
+      case 'homework': return faBookOpen;
+      case 'assignment': return faFileSignature;
+      case 'resource': return faFileAlt;
+      case 'user': return faUser;
+      case 'page': return item.icon || faSearch;
+      case 'class': return faChalkboardTeacher;
+      case 'market': return faStore;
+      case 'poll': return faPoll;
+      case 'club': return faUsers;
+      case 'exam': return faFileSignature;
+      default: return faSearch;
+    }
+  };
+
+  return (
+    <TouchableOpacity
+      style={[styles.resultItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.resultIconBox, { backgroundColor: itemColor + '15' }]}>
+        <FontAwesomeIcon icon={getResultIcon(item.type, item)} color={itemColor} size={16} />
+      </View>
+      <View style={styles.resultText}>
+        <Text style={[styles.resultTitle, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
+        <Text style={[styles.resultSub, { color: theme.colors.placeholder }]} numberOfLines={1}>
+          <Text style={{ color: itemColor, fontWeight: '800' }}>{item.type.toUpperCase()}</Text> • {item.description || item.message || item.role || ''}
+        </Text>
+      </View>
+      <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.cardBorder} />
+    </TouchableOpacity>
+  );
+});
+
 const SearchScreen = ({ navigation }) => {
   const { theme } = useTheme();
   const { schoolId } = useSchool();
@@ -289,24 +331,14 @@ const SearchScreen = ({ navigation }) => {
   const renderResultItem = useCallback(({ item }) => {
     const itemColor = getResultColor(item.type, item);
     return (
-      <TouchableOpacity
-        style={[styles.resultItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-        onPress={() => navigateToResult(item)}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.resultIconBox, { backgroundColor: itemColor + '15' }]}>
-          <FontAwesomeIcon icon={getResultIcon(item.type, item)} color={itemColor} size={16} />
-        </View>
-        <View style={styles.resultText}>
-          <Text style={[styles.resultTitle, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
-          <Text style={[styles.resultSub, { color: theme.colors.placeholder }]} numberOfLines={1}>
-            <Text style={{ color: itemColor, fontWeight: '800' }}>{item.type.toUpperCase()}</Text> • {item.description || item.message || item.role || ''}
-          </Text>
-        </View>
-        <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.cardBorder} />
-      </TouchableOpacity>
+      <SearchResultItem
+        item={item}
+        theme={theme}
+        itemColor={itemColor}
+        onNavigate={navigateToResult}
+      />
     );
-  }, [theme, getResultColor, getResultIcon, navigateToResult]);
+  }, [theme, getResultColor, navigateToResult]);
 
   const clearRecentSearches = useCallback(async () => {
     setRecentSearches([]);

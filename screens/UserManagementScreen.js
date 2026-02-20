@@ -1,9 +1,24 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TextInput, FlatList, TouchableOpacity, Modal, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TextInput, FlatList, TouchableOpacity, Modal, Image, Dimensions, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import UserManagementScreenSkeleton, { UserItemSkeleton } from '../components/skeletons/UserManagementScreenSkeleton';
-import { faTimes, faArrowLeft, faUsers, faChevronLeft, faSearch, faChevronRight, faUserCircle } from '@fortawesome/free-solid-svg-icons';
+import { 
+  faTimes, 
+  faArrowLeft, 
+  faUsers, 
+  faChevronLeft, 
+  faSearch, 
+  faChevronRight, 
+  faUserCircle,
+  faEnvelope,
+  faPhone,
+  faGlobe,
+  faGraduationCap,
+  faCalendarAlt,
+  faIdCard,
+  faShieldAlt
+} from '@fortawesome/free-solid-svg-icons';
 import { useToastActions } from '../context/ToastContext';
 import { useSchool } from '../context/SchoolContext';
 import { useTheme } from '../context/ThemeContext';
@@ -14,6 +29,54 @@ import { getAvatarUrl } from '../lib/utils';
 
 // Import services
 import { updateUserRole, getUsersBySchoolQuery } from '../services/userService';
+
+const InfoRow = ({ label, value, icon, theme, fullWidth }) => (
+  <View style={[styles.infoRow, { width: fullWidth ? '100%' : '48%' }, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+    <View style={[styles.infoIconBox, { backgroundColor: theme.colors.primary + '10' }]}>
+      <FontAwesomeIcon icon={icon} size={12} color={theme.colors.primary} />
+    </View>
+    <View style={styles.infoTextContainer}>
+      <Text style={[styles.infoLabel, { color: theme.colors.placeholder }]}>{label}</Text>
+      <Text style={[styles.infoValue, { color: theme.colors.text }]} numberOfLines={1}>{value || 'N/A'}</Text>
+    </View>
+  </View>
+);
+
+const UserItem = React.memo(({ item, theme, onPress }) => {
+  const handlePress = useCallback(() => {
+    onPress(item);
+  }, [onPress, item]);
+
+  return (
+    <TouchableOpacity 
+      onPress={handlePress}
+      activeOpacity={0.7}
+      style={{ paddingHorizontal: 20 }}
+    >
+      <View style={[styles.userItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+        <View style={styles.itemLeft}>
+          <View style={[styles.avatarBox, { borderColor: theme.colors.cardBorder }]}>
+              <Image
+                  source={getAvatarUrl(item.avatar_url, item.email, item.id)}
+                  style={styles.avatar}
+              />
+          </View>
+          <View style={styles.userInfo}>
+              <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name || item.email}</Text>
+              <View style={[styles.roleBadge, { 
+                  backgroundColor: item.role === 'admin' ? '#fff1f2' : item.role === 'teacher' ? '#ecfdf5' : item.role === 'parent' ? '#fff7ed' : '#eef2ff'
+              }]}>
+                  <Text style={[styles.roleText, { 
+                      color: item.role === 'admin' ? '#e11d48' : item.role === 'teacher' ? '#059669' : item.role === 'parent' ? '#d97706' : '#4f46e5'
+                  }]}>{item.role.toUpperCase()}</Text>
+              </View>
+          </View>
+        </View>
+        <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.cardBorder} />
+      </View>
+    </TouchableOpacity>
+  );
+});
 
 const UserManagementScreen = ({ navigation, route }) => {
   const { fromDashboard } = route?.params || {};
@@ -145,33 +208,7 @@ const UserManagementScreen = ({ navigation, route }) => {
   const renderItem = useCallback(({ item }) => loading ? (
     <View style={{ paddingHorizontal: 20 }}><UserItemSkeleton /></View>
   ) : (
-    <TouchableOpacity 
-      onPress={() => openModal(item)}
-      activeOpacity={0.7}
-      style={{ paddingHorizontal: 20 }}
-    >
-      <View style={[styles.userItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-        <View style={styles.itemLeft}>
-          <View style={[styles.avatarBox, { borderColor: theme.colors.cardBorder }]}>
-              <Image
-                  source={getAvatarUrl(item.avatar_url, item.email, item.id)}
-                  style={styles.avatar}
-              />
-          </View>
-          <View style={styles.userInfo}>
-              <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name || item.email}</Text>
-              <View style={[styles.roleBadge, { 
-                  backgroundColor: item.role === 'admin' ? '#fff1f2' : item.role === 'teacher' ? '#ecfdf5' : item.role === 'parent' ? '#fff7ed' : '#eef2ff'
-              }]}>
-                  <Text style={[styles.roleText, { 
-                      color: item.role === 'admin' ? '#e11d48' : item.role === 'teacher' ? '#059669' : item.role === 'parent' ? '#d97706' : '#4f46e5'
-                  }]}>{item.role.toUpperCase()}</Text>
-              </View>
-          </View>
-        </View>
-        <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.cardBorder} />
-      </View>
-    </TouchableOpacity>
+    <UserItem item={item} theme={theme} onPress={openModal} />
   ), [loading, theme, openModal]);
 
   return (
@@ -211,34 +248,77 @@ const UserManagementScreen = ({ navigation, route }) => {
                 <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.text} />
               </TouchableOpacity>
               
-              <View style={[styles.modalAvatarBox, { borderColor: theme.colors.cardBorder }]}>
-                <Image
-                    source={getAvatarUrl(selectedUser.avatar_url, selectedUser.email, selectedUser.id)}
-                    style={styles.modalAvatar}
-                />
-              </View>
-              
-              <Text style={[styles.modalUserName, { color: theme.colors.text }]}>{selectedUser.full_name}</Text>
-              <Text style={[styles.modalEmail, { color: theme.colors.placeholder }]}>{selectedUser.email}</Text>
+              <ScrollView 
+                showsVerticalScrollIndicator={false} 
+                style={{ width: '100%' }}
+                contentContainerStyle={{ alignItems: 'center', paddingBottom: 20 }}
+              >
+                <View style={[styles.modalAvatarBox, { borderColor: theme.colors.cardBorder }]}>
+                  <Image
+                      source={getAvatarUrl(selectedUser.avatar_url, selectedUser.email, selectedUser.id)}
+                      style={styles.modalAvatar}
+                  />
+                </View>
+                
+                <Text style={[styles.modalUserName, { color: theme.colors.text }]}>{selectedUser.full_name}</Text>
+                <Text style={[styles.modalEmail, { color: theme.colors.placeholder }]}>{selectedUser.email}</Text>
+                <Text style={[styles.modalIdGray, { color: theme.colors.placeholder, marginTop: 6 }]}>ID: {selectedUser.id}</Text>
 
-              <View style={[styles.pickerSection, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                <Text style={styles.pickerLabel}>ASSIGN ROLE</Text>
-                <Picker
-                  selectedValue={selectedUser.role}
-                  style={[styles.picker, { color: theme.colors.text }]}
-                  itemStyle={{ color: theme.colors.text, fontSize: 15 }}
-                  dropdownIconColor={theme.colors.placeholder}
-                  onValueChange={(itemValue) => handleRoleChange(itemValue)}
-                >
-                  <Picker.Item label="Admin" value="admin" />
-                  <Picker.Item label="Parent" value="parent" />
-                  <Picker.Item label="Student" value="student" />
-                  <Picker.Item label="Teacher" value="teacher" />
-                </Picker>
-              </View>
-              
-              <Text style={[styles.roleHint, { color: theme.colors.placeholder }]}>Changing a role updates user permissions immediately.</Text>
-              <Text style={[styles.userId, { color: theme.colors.cardBorder }]}>{selectedUser.id}</Text>
+                <View style={styles.detailsDivider}>
+                  <Text style={[styles.dividerText, { color: theme.colors.placeholder }]}>ACCOUNT DETAILS</Text>
+                  <View style={[styles.dividerLine, { backgroundColor: theme.colors.cardBorder }]} />
+                </View>
+
+                <View style={styles.infoGrid}>
+                  <InfoRow label="FULL NAME" value={selectedUser.full_name} icon={faUserCircle} theme={theme} fullWidth />
+                  <InfoRow label="EMAIL ADDRESS" value={selectedUser.email} icon={faEnvelope} theme={theme} fullWidth />
+                  
+                  <InfoRow label="PHONE" value={selectedUser.number} icon={faPhone} theme={theme} />
+                  <InfoRow label="COUNTRY" value={selectedUser.country} icon={faGlobe} theme={theme} />
+                  
+                  {selectedUser.role === 'student' && (
+                    <InfoRow label="GRADE" value={selectedUser.grade} icon={faGraduationCap} theme={theme} />
+                  )}
+
+                  <View style={[styles.gridPickerSection, { 
+                    width: selectedUser.role === 'student' ? '48%' : '100%',
+                    backgroundColor: theme.colors.background, 
+                    borderColor: theme.colors.cardBorder, 
+                    borderWidth: 1 
+                  }]}>
+                    <View style={[styles.infoIconBox, { backgroundColor: theme.colors.primary + '10', marginTop: 4 }]}>
+                      <FontAwesomeIcon icon={faShieldAlt} size={12} color={theme.colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.gridPickerLabel, { color: theme.colors.placeholder }]}>USER ROLE</Text>
+                      <Picker
+                        selectedValue={selectedUser.role}
+                        style={[styles.picker, { color: theme.colors.text, marginTop: -8, marginLeft: -8 }]}
+                        itemStyle={{ color: theme.colors.text, fontSize: 13 }}
+                        dropdownIconColor={theme.colors.placeholder}
+                        onValueChange={(itemValue) => handleRoleChange(itemValue)}
+                      >
+                        <Picker.Item label="Admin" value="admin" />
+                        <Picker.Item label="Parent" value="parent" />
+                        <Picker.Item label="Student" value="student" />
+                        <Picker.Item label="Teacher" value="teacher" />
+                      </Picker>
+                    </View>
+                  </View>
+                  
+                  <InfoRow 
+                    label="JOINED ON" 
+                    value={new Date(selectedUser.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} 
+                    icon={faCalendarAlt} 
+                    theme={theme} 
+                    fullWidth
+                  />
+                </View>
+                
+                <Text style={[styles.roleHint, { color: theme.colors.placeholder, marginTop: 24 }]}>
+                  Note: Only the role can be modified by admins. Other data must be updated by the user or through specific management tools.
+                </Text>
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -370,7 +450,8 @@ const styles = StyleSheet.create({
   modalContent: {
     borderRadius: 32,
     padding: 24,
-    width: '85%',
+    width: '90%',
+    maxHeight: '85%',
     alignItems: 'center',
   },
   closeButton: {
@@ -383,6 +464,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.05)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 10,
   },
   modalAvatarBox: {
     width: 100,
@@ -405,13 +487,34 @@ const styles = StyleSheet.create({
   modalEmail: {
     fontSize: 14,
     fontWeight: '500',
+    textAlign: 'center',
+  },
+  modalIdGray: {
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center',
     marginBottom: 24,
+    opacity: 0.6,
   },
   pickerSection: {
       width: '100%',
       padding: 16,
       borderRadius: 24,
-      marginBottom: 16,
+      marginBottom: 24,
+  },
+  gridPickerSection: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  gridPickerLabel: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginLeft: 4,
+    textTransform: 'uppercase',
   },
   pickerLabel: {
       fontSize: 9,
@@ -424,10 +527,60 @@ const styles = StyleSheet.create({
   picker: {
     width: '100%',
   },
+  detailsDivider: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  dividerText: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginRight: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  infoGrid: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
+  },
+  infoRow: {
+    padding: 12,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  infoIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  infoTextContainer: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 2,
+    textTransform: 'uppercase',
+  },
+  infoValue: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
   roleHint: {
     fontSize: 11,
     fontWeight: '500',
-    marginBottom: 20,
     textAlign: 'center',
   },
   userId: {
