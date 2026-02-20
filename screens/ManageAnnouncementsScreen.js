@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import ManagementCardSkeleton from '../components/skeletons/ManagementCardSkeleton';
 import { faEdit, faTrash, faArrowLeft, faBullhorn, faChevronLeft } from '@fortawesome/free-solid-svg-icons';
 import EditAnnouncementModal from '../components/EditAnnouncementModal';
+import AnnouncementDetailModal from '../components/AnnouncementDetailModal';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
@@ -20,12 +21,47 @@ import {
   getAnnouncementsQuery
 } from '../services/announcementService';
 
+const AnnouncementManagementCard = React.memo(({ item, theme, onEdit, onDelete, onPress }) => {
+  const handleEdit = React.useCallback(() => onEdit(item), [onEdit, item]);
+  const handleDelete = React.useCallback(() => onDelete(item.id), [onDelete, item.id]);
+  const handlePress = React.useCallback(() => onPress(item), [onPress, item]);
+
+  return (
+    <TouchableOpacity 
+      activeOpacity={0.9} 
+      onPress={handlePress}
+      style={[styles.announcementCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+    >
+      <View style={styles.cardContent}>
+        <Text style={[styles.cardTitle, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
+        <Text style={[styles.cardMessage, { color: theme.colors.placeholder }]} numberOfLines={2}>{item.message}</Text>
+        <View style={styles.cardFooter}>
+          <View style={[styles.authorBadge, { backgroundColor: theme.colors.primary + '10' }]}>
+              <Text style={[styles.cardMeta, { color: theme.colors.primary }]}>{item.author?.full_name?.split(' ')[0] || 'User'}</Text>
+          </View>
+          <Text style={[styles.cardDate, { color: theme.colors.placeholder }]}>{new Date(item.created_at).toLocaleDateString()}</Text>
+        </View>
+      </View>
+      <View style={styles.cardActions}>
+        <TouchableOpacity onPress={handleEdit} style={[styles.actionBtn, { backgroundColor: '#e0f2fe' }]}>
+          <FontAwesomeIcon icon={faEdit} size={16} color="#0369a1" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleDelete} style={[styles.actionBtn, { backgroundColor: '#fff1f2' }]}>
+          <FontAwesomeIcon icon={faTrash} size={16} color="#e11d48" />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
 const ManageAnnouncementsScreen = ({ navigation }) => {
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState(null);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const { schoolId } = useSchool();
@@ -149,32 +185,24 @@ const ManageAnnouncementsScreen = ({ navigation }) => {
     setEditingAnnouncement(null);
   }, []);
 
+  const handlePress = useCallback((announcement) => {
+    setSelectedAnnouncement(announcement);
+    setShowDetailModal(true);
+  }, []);
+
   const renderItem = useCallback(({ item }) => {
     if (loading) return <ManagementCardSkeleton />;
 
     return (
-      <View style={[styles.announcementCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-        <View style={styles.cardContent}>
-          <Text style={[styles.cardTitle, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
-          <Text style={[styles.cardMessage, { color: theme.colors.placeholder }]} numberOfLines={2}>{item.message}</Text>
-          <View style={styles.cardFooter}>
-            <View style={[styles.authorBadge, { backgroundColor: theme.colors.primary + '10' }]}>
-                <Text style={[styles.cardMeta, { color: theme.colors.primary }]}>{item.author?.full_name?.split(' ')[0] || 'User'}</Text>
-            </View>
-            <Text style={[styles.cardDate, { color: theme.colors.placeholder }]}>{new Date(item.created_at).toLocaleDateString()}</Text>
-          </View>
-        </View>
-        <View style={styles.cardActions}>
-          <TouchableOpacity onPress={() => handleEdit(item)} style={[styles.actionBtn, { backgroundColor: '#e0f2fe' }]}>
-            <FontAwesomeIcon icon={faEdit} size={16} color="#0369a1" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleDelete(item.id)} style={[styles.actionBtn, { backgroundColor: '#fff1f2' }]}>
-            <FontAwesomeIcon icon={faTrash} size={16} color="#e11d48" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <AnnouncementManagementCard
+        item={item}
+        theme={theme}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onPress={handlePress}
+      />
     );
-  }, [loading, theme, handleEdit, handleDelete]);
+  }, [loading, theme, handleEdit, handleDelete, handlePress]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -221,6 +249,12 @@ const ManageAnnouncementsScreen = ({ navigation }) => {
         announcement={editingAnnouncement}
         onClose={handleCancelEdit}
         onSave={handleSaveEdit}
+      />
+
+      <AnnouncementDetailModal
+        visible={showDetailModal}
+        announcement={selectedAnnouncement}
+        onClose={() => setShowDetailModal(false)}
       />
     </View>
   );

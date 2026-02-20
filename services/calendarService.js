@@ -204,7 +204,8 @@ export const fetchCalendarEvents = async (user, profile) => {
         .from('events')
         .select(`
             *,
-            class:classes(id, name, subject)
+            class:classes(id, name, subject),
+            announcements(*)
         `)
         .eq('school_id', profile.school_id);
 

@@ -10,6 +10,11 @@ import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext'; // Import useTheme
 import StandardBottomModal from '../components/StandardBottomModal';
 import LinearGradient from 'react-native-linear-gradient';
+import HomeworkDetailModal from '../components/HomeworkDetailModal';
+import AssignmentDetailModal from '../components/AssignmentDetailModal';
+import ExamDetailModal from '../components/ExamDetailModal';
+import PTMDetailModal from '../components/PTMDetailModal';
+import AnnouncementDetailModal from '../components/AnnouncementDetailModal';
 
 // Import services
 import { getCurrentUser } from '../services/authService';
@@ -24,6 +29,10 @@ const EventCard = React.memo(({ item, theme, onPress }) => {
   const isClub = item.class?.subject === 'Extracurricular';
 
   const start = new Date(item.start_time);
+
+  const handlePress = React.useCallback(() => {
+    if (onPress) onPress(item);
+  }, [onPress, item]);
 
   const getEventColor = () => {
     if (isMeeting) return theme.colors.warning;
@@ -56,7 +65,7 @@ const EventCard = React.memo(({ item, theme, onPress }) => {
 
   return (
     <TouchableOpacity
-      onPress={() => onPress(item)}
+      onPress={handlePress}
       style={[
         styles.eventCard,
         { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder },
@@ -108,6 +117,13 @@ const CalendarScreen = ({ navigation, route }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [isModalVisible, setModalVisible] = useState(false);
+  const [isHomeworkModalVisible, setHomeworkModalVisible] = useState(false);
+  const [isAssignmentModalVisible, setAssignmentModalVisible] = useState(false);
+  const [isExamModalVisible, setExamModalVisible] = useState(false);
+  const [isPTMModalVisible, setPTMModalVisible] = useState(false);
+  const [isAnnouncementModalVisible, setAnnouncementModalVisible] = useState(false);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+
   const [dropdowns, setDropdowns] = useState({});
   const [dayModalSchedules, setDayModalSchedules] = useState([]);
   const [isDayModalVisible, setDayModalVisible] = useState(false);
@@ -215,17 +231,29 @@ const CalendarScreen = ({ navigation, route }) => {
 
   const openScheduleModal = useCallback((schedule) => {
     if (schedule.eventType === 'meeting') {
-      navigation.navigate('Meetings');
+      setSelectedSchedule(schedule);
+      setPTMModalVisible(true);
     } else if (schedule.class?.subject === 'Extracurricular') {
       navigation.navigate('ClubDetail', { clubId: schedule.class_id });
     } else if (schedule.eventType === 'homework') {
-      navigation.navigate('Homework', { initialHomeworkId: schedule.id });
+      setSelectedSchedule(schedule);
+      setHomeworkModalVisible(true);
     } else if (schedule.eventType === 'assignment') {
-      navigation.navigate('Assignments', { initialAssignmentId: schedule.id });
+      setSelectedSchedule(schedule);
+      setAssignmentModalVisible(true);
     } else if (schedule.eventType === 'exam') {
-      navigation.navigate('MyExams');
+      setSelectedSchedule(schedule);
+      setExamModalVisible(true);
     } else if (schedule.eventType === 'event' && schedule.announcement_id) {
-      navigation.navigate('Announcements', { openAnnouncementId: schedule.announcement_id });
+      // In calendarService, announcement_id is mapped from generic events
+      // We need the full announcement object for the modal or at least title/message
+      // For now, if we have originalData with announcement info, we can use it
+      if (schedule.originalData?.announcements) {
+        setSelectedAnnouncement(schedule.originalData.announcements);
+        setAnnouncementModalVisible(true);
+      } else {
+        navigation.navigate('Announcements', { openAnnouncementId: schedule.announcement_id });
+      }
     } else {
       setSelectedSchedule(schedule);
       setModalVisible(true);
@@ -449,6 +477,36 @@ const CalendarScreen = ({ navigation, route }) => {
           {dayModalSchedules.map(renderEventCard)}
         </View>
       </StandardBottomModal>
+
+      <HomeworkDetailModal
+        visible={isHomeworkModalVisible}
+        onClose={() => setHomeworkModalVisible(false)}
+        homework={selectedSchedule?.originalData}
+      />
+
+      <AssignmentDetailModal
+        visible={isAssignmentModalVisible}
+        onClose={() => setAssignmentModalVisible(false)}
+        assignment={selectedSchedule?.originalData}
+      />
+
+      <ExamDetailModal
+        visible={isExamModalVisible}
+        onClose={() => setExamModalVisible(false)}
+        exam={selectedSchedule}
+      />
+
+      <PTMDetailModal
+        visible={isPTMModalVisible}
+        onClose={() => setPTMModalVisible(false)}
+        ptm={selectedSchedule}
+      />
+
+      <AnnouncementDetailModal
+        visible={isAnnouncementModalVisible}
+        onClose={() => setAnnouncementModalVisible(false)}
+        announcement={selectedAnnouncement}
+      />
     </ScrollView>
   );
 }
