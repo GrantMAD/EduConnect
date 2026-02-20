@@ -49,6 +49,10 @@ const PollCard = React.memo(({ item, userId, theme, onVotePress, isExpired }) =>
     fetchVotes();
   }, [fetchVotes]);
 
+  const handleVotePress = useCallback(() => {
+    if (onVotePress) onVotePress(item);
+  }, [onVotePress, item]);
+
   const userVote = useMemo(() => votes.find(v => v.user_id === userId), [votes, userId]);
   const totalVotes = votes.length;
 
@@ -143,7 +147,7 @@ const PollCard = React.memo(({ item, userId, theme, onVotePress, isExpired }) =>
         ) : (
           <TouchableOpacity
             style={[styles.pollVoteBtn, { backgroundColor: theme.colors.primary }]}
-            onPress={onVotePress}
+            onPress={handleVotePress}
             activeOpacity={0.8}
           >
             <Text style={styles.pollVoteBtnText}>Cast Your Vote</Text>
@@ -276,7 +280,7 @@ const PollsScreen = ({ navigation, route }) => {
         item={item}
         userId={userId}
         theme={theme}
-        onVotePress={() => handleVotePress(item)}
+        onVotePress={handleVotePress}
         isExpired={isExpired}
       />
     );

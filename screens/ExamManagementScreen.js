@@ -55,6 +55,189 @@ const FAB = ({ onPress }) => (
   </TouchableOpacity>
 );
 
+const ExamSessionItem = React.memo(({ item, theme, isAdmin, onPress, onEdit, onDelete }) => {
+  const totalAllocations =
+    item.exam_papers?.reduce(
+      (acc, paper) => acc + (paper.exam_seat_allocations?.[0]?.count || 0),
+      0
+    ) || 0;
+
+  const totalInvigilators =
+    item.exam_papers?.reduce(
+      (acc, paper) => acc + (paper.exam_invigilators?.[0]?.count || 0),
+      0
+    ) || 0;
+
+  const unsentPapers = item.exam_papers?.filter(p => !p.notifications_sent) || [];
+  const unsentCount = unsentPapers.length;
+
+  const handlePress = React.useCallback(() => onPress(item), [onPress, item]);
+  const handleEdit = React.useCallback(() => onEdit(item), [onEdit, item]);
+  const handleDelete = React.useCallback(() => onDelete(item.id), [onDelete, item.id]);
+
+  return (
+    <View style={styles.glowWrapper}>
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: theme.cardBackground }]}
+        activeOpacity={0.85}
+        onPress={handlePress}
+      >
+        {/* LEFT ICON */}
+        <LinearGradient
+          colors={['#14b8a6', '#0d9488']}
+          style={styles.iconBadge}
+        >
+          <FontAwesomeIcon icon={faFileAlt} size={18} color="#fff" />
+        </LinearGradient>
+
+        {/* MAIN CONTENT */}
+        <View style={styles.cardBody}>
+          {/* TITLE */}
+          <View style={styles.titleRow}>
+            <Text
+              style={[styles.cardTitle, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {item.name}
+            </Text>
+
+            <View
+              style={[
+                styles.statusPill,
+                { backgroundColor: item.is_active ? '#dcfce7' : '#f3f4f6' },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusText,
+                  { color: item.is_active ? '#166534' : '#374151' },
+                ]}
+              >
+                {item.is_active ? 'ACTIVE' : 'DRAFT'}
+              </Text>
+            </View>
+          </View>
+
+          {/* META */}
+          <Text style={[styles.dateText, { color: theme.textSecondary }]}>
+            {new Date(item.start_date).toLocaleDateString()} –{' '}
+            {new Date(item.end_date).toLocaleDateString()}
+            {item.target_grade ? ` • ${item.target_grade}` : ''}
+          </Text>
+
+          {/* BADGES */}
+          <View style={styles.badgeRow}>
+            {totalAllocations === 0 && (
+              <View style={[styles.alertBadge, { backgroundColor: '#fff1f2' }]}>
+                <FontAwesomeIcon
+                  icon={faExclamationTriangle}
+                  size={10}
+                  color="#e11d48"
+                />
+                <Text style={[styles.alertText, { color: '#be123c' }]}>
+                  Seats Missing
+                </Text>
+              </View>
+            )}
+
+            {totalInvigilators === 0 && (
+              <View style={[styles.alertBadge, { backgroundColor: '#fff7ed' }]}>
+                <FontAwesomeIcon
+                  icon={faExclamationTriangle}
+                  size={10}
+                  color="#f59e0b"
+                />
+                <Text style={[styles.alertText, { color: '#c2410c' }]}>
+                  Staff Missing
+                </Text>
+              </View>
+            )}
+
+            {totalAllocations > 0 && (
+              unsentCount > 0 ? (
+                <View style={[styles.alertBadge, { backgroundColor: '#f0fdfa' }]}>
+                  <FontAwesomeIcon
+                    icon={faInfoCircle}
+                    size={10}
+                    color="#0d9488"
+                  />
+                  <Text style={[styles.alertText, { color: '#0f766e' }]}>
+                    {unsentCount} to Notify
+                  </Text>
+                </View>
+              ) : (
+                <View style={[styles.alertBadge, { backgroundColor: '#f0fdf4' }]}>
+                  <FontAwesomeIcon
+                    icon={faCheckCircle}
+                    size={10}
+                    color="#16a34a"
+                  />
+                  <Text style={[styles.alertText, { color: '#166534' }]}>
+                    Notified
+                  </Text>
+                </View>
+              )
+            )}
+          </View>
+
+          {/* FOOTER */}
+          <View style={styles.footerRow}>
+            <View style={styles.statPill}>
+              <FontAwesomeIcon
+                icon={faFileAlt}
+                size={10}
+                color={theme.textSecondary}
+              />
+              <Text
+                style={[styles.statText, { color: theme.textSecondary }]}
+              >
+                {item.exam_papers?.length || 0} Papers
+              </Text>
+            </View>
+
+            <View style={styles.statPill}>
+              <FontAwesomeIcon
+                icon={faChair}
+                size={10}
+                color={theme.textSecondary}
+              />
+              <Text
+                style={[styles.statText, { color: theme.textSecondary }]}
+              >
+                {totalAllocations} Seats
+              </Text>
+            </View>
+
+            {isAdmin && (
+              <View style={{ flexDirection: 'row', marginLeft: 'auto', gap: 12 }}>
+                <TouchableOpacity
+                  onPress={handleEdit}
+                  hitSlop={10}
+                >
+                  <FontAwesomeIcon icon={faEdit} size={12} color="#3b82f6" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleDelete}
+                  hitSlop={10}
+                >
+                  <FontAwesomeIcon icon={faTrash} size={12} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* CHEVRON */}
+        <FontAwesomeIcon
+          icon={faChevronRight}
+          size={12}
+          color={theme.border}
+        />
+      </TouchableOpacity>
+    </View>
+  );
+});
+
 export default function ExamManagementScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
@@ -185,191 +368,27 @@ export default function ExamManagementScreen({ navigation }) {
     );
   };
 
-  const renderSessionItem = ({ item }) => {
-    const totalAllocations =
-      item.exam_papers?.reduce(
-        (acc, paper) => acc + (paper.exam_seat_allocations?.[0]?.count || 0),
-        0
-      ) || 0;
+  const handleSessionPress = React.useCallback((item) => {
+    navigation.navigate('ExamSessionDetail', {
+      sessionId: item.id,
+      sessionName: item.name,
+    });
+  }, [navigation]);
 
-    const totalInvigilators =
-      item.exam_papers?.reduce(
-        (acc, paper) => acc + (paper.exam_invigilators?.[0]?.count || 0),
-        0
-      ) || 0;
-
-    const unsentPapers = item.exam_papers?.filter(p => !p.notifications_sent) || [];
-    const unsentCount = unsentPapers.length;
-
+  const renderSessionItem = React.useCallback(({ item }) => {
     const isAdmin = profile?.role === 'admin';
 
     return (
-      <View style={styles.glowWrapper}>
-        <TouchableOpacity
-          style={[styles.card, { backgroundColor: theme.cardBackground }]}
-          activeOpacity={0.85}
-          onPress={() =>
-            navigation.navigate('ExamSessionDetail', {
-              sessionId: item.id,
-              sessionName: item.name,
-            })
-          }
-        >
-          {/* LEFT ICON */}
-          <LinearGradient
-            colors={['#14b8a6', '#0d9488']}
-            style={styles.iconBadge}
-          >
-            <FontAwesomeIcon icon={faFileAlt} size={18} color="#fff" />
-          </LinearGradient>
-
-          {/* MAIN CONTENT */}
-          <View style={styles.cardBody}>
-            {/* TITLE */}
-            <View style={styles.titleRow}>
-              <Text
-                style={[styles.cardTitle, { color: theme.text }]}
-                numberOfLines={1}
-              >
-                {item.name}
-              </Text>
-
-              <View
-                style={[
-                  styles.statusPill,
-                  { backgroundColor: item.is_active ? '#dcfce7' : '#f3f4f6' },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.statusText,
-                    { color: item.is_active ? '#166534' : '#374151' },
-                  ]}
-                >
-                  {item.is_active ? 'ACTIVE' : 'DRAFT'}
-                </Text>
-              </View>
-            </View>
-
-            {/* META */}
-            <Text style={[styles.dateText, { color: theme.textSecondary }]}>
-              {new Date(item.start_date).toLocaleDateString()} –{' '}
-              {new Date(item.end_date).toLocaleDateString()}
-              {item.target_grade ? ` • ${item.target_grade}` : ''}
-            </Text>
-
-            {/* BADGES */}
-            <View style={styles.badgeRow}>
-              {totalAllocations === 0 && (
-                <View style={[styles.alertBadge, { backgroundColor: '#fff1f2' }]}>
-                  <FontAwesomeIcon
-                    icon={faExclamationTriangle}
-                    size={10}
-                    color="#e11d48"
-                  />
-                  <Text style={[styles.alertText, { color: '#be123c' }]}>
-                    Seats Missing
-                  </Text>
-                </View>
-              )}
-
-              {totalInvigilators === 0 && (
-                <View style={[styles.alertBadge, { backgroundColor: '#fff7ed' }]}>
-                  <FontAwesomeIcon
-                    icon={faExclamationTriangle}
-                    size={10}
-                    color="#f59e0b"
-                  />
-                  <Text style={[styles.alertText, { color: '#c2410c' }]}>
-                    Staff Missing
-                  </Text>
-                </View>
-              )}
-
-              {totalAllocations > 0 && (
-                unsentCount > 0 ? (
-                  <View style={[styles.alertBadge, { backgroundColor: '#f0fdfa' }]}>
-                    <FontAwesomeIcon
-                      icon={faInfoCircle}
-                      size={10}
-                      color="#0d9488"
-                    />
-                    <Text style={[styles.alertText, { color: '#0f766e' }]}>
-                      {unsentCount} to Notify
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={[styles.alertBadge, { backgroundColor: '#f0fdf4' }]}>
-                    <FontAwesomeIcon
-                      icon={faCheckCircle}
-                      size={10}
-                      color="#16a34a"
-                    />
-                    <Text style={[styles.alertText, { color: '#166534' }]}>
-                      Notified
-                    </Text>
-                  </View>
-                )
-              )}
-            </View>
-
-            {/* FOOTER */}
-            <View style={styles.footerRow}>
-              <View style={styles.statPill}>
-                <FontAwesomeIcon
-                  icon={faFileAlt}
-                  size={10}
-                  color={theme.textSecondary}
-                />
-                <Text
-                  style={[styles.statText, { color: theme.textSecondary }]}
-                >
-                  {item.exam_papers?.length || 0} Papers
-                </Text>
-              </View>
-
-              <View style={styles.statPill}>
-                <FontAwesomeIcon
-                  icon={faChair}
-                  size={10}
-                  color={theme.textSecondary}
-                />
-                <Text
-                  style={[styles.statText, { color: theme.textSecondary }]}
-                >
-                  {totalAllocations} Seats
-                </Text>
-              </View>
-
-              {isAdmin && (
-                <View style={{ flexDirection: 'row', marginLeft: 'auto', gap: 12 }}>
-                  <TouchableOpacity
-                    onPress={() => handleEditSession(item)}
-                    hitSlop={10}
-                  >
-                    <FontAwesomeIcon icon={faEdit} size={12} color="#3b82f6" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleDelete(item.id)}
-                    hitSlop={10}
-                  >
-                    <FontAwesomeIcon icon={faTrash} size={12} color="#ef4444" />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          </View>
-
-          {/* CHEVRON */}
-          <FontAwesomeIcon
-            icon={faChevronRight}
-            size={12}
-            color={theme.border}
-          />
-        </TouchableOpacity>
-      </View>
+      <ExamSessionItem
+        item={item}
+        theme={theme}
+        isAdmin={isAdmin}
+        onPress={handleSessionPress}
+        onEdit={handleEditSession}
+        onDelete={handleDelete}
+      />
     );
-  };
+  }, [theme, profile?.role, handleSessionPress, handleEditSession, handleDelete]);
 
   return (
     <View
