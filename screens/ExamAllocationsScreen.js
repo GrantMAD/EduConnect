@@ -12,7 +12,59 @@ import { faArrowLeft, faTrash, faUser, faChair, faSearch, faTh, faList, faMagic,
 import LinearGradient from 'react-native-linear-gradient';
 import Button from '../components/Button';
 
-export default function ExamAllocationsScreen({ route, navigation }) {
+const AllocationItem = React.memo(({ item, theme, onDelete }) => {
+    const handleDelete = React.useCallback(() => onDelete(item.id), [onDelete, item.id]);
+
+    return (
+        <View style={[styles.itemCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+            <View style={styles.itemInfo}>
+                <View style={styles.studentRow}>
+                    <Image
+                        source={getAvatarUrl(item.student?.avatar_url, item.student?.email, item.student?.id)}
+                        style={styles.avatarList}
+                    />
+                    <Text style={[styles.studentName, { color: theme.text }]}>{item.student?.full_name || 'Unknown Student'}</Text>
+                </View>
+                <Text style={[styles.studentId, { color: theme.textSecondary }]}>{item.student?.number || item.student?.email}</Text>
+            </View>
+            <View style={styles.seatBadge}>
+                <FontAwesomeIcon icon={faChair} size={12} color="#0d9488" />
+                <Text style={styles.seatText}>{item.seat_label}</Text>
+            </View>
+            <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
+                <FontAwesomeIcon icon={faTrash} size={14} color={theme.error || '#ef4444'} />
+            </TouchableOpacity>
+        </View>
+    );
+});
+
+const GridSeat = React.memo(({ r, c, allocation, cellSize, theme, onClick }) => {
+    const seatLabel = `${String.fromCharCode(64 + r)}-${c}`;
+    const handleClick = React.useCallback(() => onClick(r, c, seatLabel), [onClick, r, c, seatLabel]);
+
+    return (
+        <TouchableOpacity
+            onPress={handleClick}
+            style={[
+                styles.gridCell,
+                { width: cellSize, height: cellSize, backgroundColor: theme.cardBackground, borderColor: theme.border, overflow: 'hidden' },
+                allocation ? { borderColor: '#0d9488', borderWidth: 2 } : {}
+            ]}
+        >
+            {allocation ? (
+                <Image
+                    source={getAvatarUrl(allocation.student?.avatar_url, allocation.student?.email, allocation.student?.id)}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                />
+            ) : (
+                <Text style={[styles.gridSeatLabel, { color: theme.textSecondary }]}>{seatLabel}</Text>
+            )}
+        </TouchableOpacity>
+    );
+});
+
+const ExamAllocationsScreen = ({ route, navigation }) => {
     const { sessionId, sessionName } = route.params;
     const insets = useSafeAreaInsets();
     const { profile } = useAuth();
@@ -253,27 +305,13 @@ export default function ExamAllocationsScreen({ route, navigation }) {
         }
     };
 
-    const renderAllocationItem = ({ item }) => (
-        <View style={[styles.itemCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-            <View style={styles.itemInfo}>
-                <View style={styles.studentRow}>
-                    <Image
-                        source={getAvatarUrl(item.student?.avatar_url, item.student?.email, item.student?.id)}
-                        style={styles.avatarList}
-                    />
-                    <Text style={[styles.studentName, { color: theme.text }]}>{item.student?.full_name || 'Unknown Student'}</Text>
-                </View>
-                <Text style={[styles.studentId, { color: theme.textSecondary }]}>{item.student?.number || item.student?.email}</Text>
-            </View>
-            <View style={styles.seatBadge}>
-                <FontAwesomeIcon icon={faChair} size={12} color="#0d9488" />
-                <Text style={styles.seatText}>{item.seat_label}</Text>
-            </View>
-            <TouchableOpacity onPress={() => handleDeleteAllocation(item.id)} style={styles.deleteButton}>
-                <FontAwesomeIcon icon={faTrash} size={14} color={theme.error || '#ef4444'} />
-            </TouchableOpacity>
-        </View>
-    );
+    const handleSeatClickCallback = React.useCallback((r, c, label) => {
+        handleSeatClick(r, c, label);
+    }, [allocations, venue]);
+
+    const renderAllocationItem = React.useCallback(({ item }) => (
+        <AllocationItem item={item} theme={theme} onDelete={handleDeleteAllocation} />
+    ), [theme, handleDeleteAllocation]);
 
     const renderSeatingMap = () => {
         if (!venue) return <Text style={{ textAlign: 'center', marginTop: 20, color: theme.textSecondary }}>No venue information available.</Text>;
@@ -289,30 +327,16 @@ export default function ExamAllocationsScreen({ route, navigation }) {
         for (let r = 1; r <= venue.rows; r++) {
             const rowCells = [];
             for (let c = 1; c <= venue.columns; c++) {
-                const allocation = allocationMap[`${r}-${c}`];
-                const seatLabel = `${String.fromCharCode(64 + r)}-${c}`;
-
                 rowCells.push(
-                    <TouchableOpacity
+                    <GridSeat
                         key={`${r}-${c}`}
-                        onPress={() => handleSeatClick(r, c, seatLabel)}
-                        style={[
-                            styles.gridCell,
-                            { width: cellSize, height: cellSize, backgroundColor: theme.cardBackground, borderColor: theme.border, overflow: 'hidden' },
-                            allocation ? { borderColor: '#0d9488', borderWidth: 2 } : {}
-                        ]}
-                    >
-                        {allocation ? (
-                            <Image
-                                                                 source={getAvatarUrl(allocation.student?.avatar_url, allocation.student?.email, allocation.student?.id)}
-                                
-                                style={{ width: '100%', height: '100%' }}
-                                resizeMode="cover"
-                            />
-                        ) : (
-                            <Text style={[styles.gridSeatLabel, { color: theme.textSecondary }]}>{seatLabel}</Text>
-                        )}
-                    </TouchableOpacity>
+                        r={r}
+                        c={c}
+                        allocation={allocationMap[`${r}-${c}`]}
+                        cellSize={cellSize}
+                        theme={theme}
+                        onClick={handleSeatClickCallback}
+                    />
                 );
             }
             grid.push(<View key={r} style={styles.gridRow}>{rowCells}</View>);
@@ -512,7 +536,9 @@ export default function ExamAllocationsScreen({ route, navigation }) {
             </Modal>
         </View>
     );
-}
+};
+
+export default React.memo(ExamAllocationsScreen);
 
 const styles = StyleSheet.create({
     container: {

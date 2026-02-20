@@ -33,6 +33,33 @@ const AuditStat = React.memo(({ icon, label, count, color, theme }) => {
     );
 });
 
+const TeacherAuditItem = React.memo(({ teacher, theme, onPress }) => {
+    const handlePress = React.useCallback(() => onPress(teacher), [onPress, teacher]);
+
+    return (
+        <TouchableOpacity 
+            style={[styles.teacherListItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+            onPress={handlePress}
+            activeOpacity={0.7}
+        >
+            <Image 
+                source={getAvatarUrl(teacher.avatar_url, teacher.email, teacher.id)}
+                style={styles.avatarSmall}
+            />
+            <View style={styles.teacherInfoSmall}>
+                <Text style={[styles.teacherNameSmall, { color: theme.colors.text }]}>{teacher.full_name}</Text>
+                <Text style={[styles.teacherEmailSmall, { color: theme.colors.placeholder }]}>{teacher.email}</Text>
+            </View>
+            <View style={styles.listAction}>
+                <View style={[styles.badgeSmall, { backgroundColor: theme.colors.primary + '10' }]}>
+                    <Text style={[styles.badgeTextSmall, { color: theme.colors.primary }]}>{teacher.total}</Text>
+                </View>
+                <FontAwesomeIcon icon={faChevronRight} color={theme.colors.cardBorder} size={12} />
+            </View>
+        </TouchableOpacity>
+    );
+});
+
 const EngagementInsightsScreen = ({ navigation }) => {
     const { theme } = useTheme();
     const { schoolId } = useSchool();
@@ -173,27 +200,12 @@ const EngagementInsightsScreen = ({ navigation }) => {
                         </View>
 
                         {sortedTeachers.map((teacher) => (
-                            <TouchableOpacity 
+                            <TeacherAuditItem 
                                 key={teacher.id} 
-                                style={[styles.teacherListItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-                                onPress={() => handleTeacherPress(teacher)}
-                                activeOpacity={0.7}
-                            >
-                                <Image 
-                                    source={getAvatarUrl(teacher.avatar_url, teacher.email, teacher.id)}
-                                    style={styles.avatarSmall}
-                                />
-                                <View style={styles.teacherInfoSmall}>
-                                    <Text style={[styles.teacherNameSmall, { color: theme.colors.text }]}>{teacher.full_name}</Text>
-                                    <Text style={[styles.teacherEmailSmall, { color: theme.colors.placeholder }]}>{teacher.email}</Text>
-                                </View>
-                                <View style={styles.listAction}>
-                                    <View style={[styles.badgeSmall, { backgroundColor: theme.colors.primary + '10' }]}>
-                                        <Text style={[styles.badgeTextSmall, { color: theme.colors.primary }]}>{teacher.total}</Text>
-                                    </View>
-                                    <FontAwesomeIcon icon={faChevronRight} color={theme.colors.cardBorder} size={12} />
-                                </View>
-                            </TouchableOpacity>
+                                teacher={teacher} 
+                                theme={theme} 
+                                onPress={handleTeacherPress} 
+                            />
                         ))}
                     </View>
                 )}

@@ -17,7 +17,55 @@ import {
   faInfoCircle
 } from '@fortawesome/free-solid-svg-icons';
 
-export default function MyExamsScreen({ navigation, route }) {
+const ExamItem = React.memo(({ item, theme }) => (
+  <View style={[
+    styles.examCard,
+    {
+      backgroundColor: theme.colors.card,
+      borderColor: theme.colors?.cardBorder || theme.border,
+      borderWidth: 1
+    }
+  ]}>
+    {/* Left Side: Date Box / Icon */}
+    <View style={[styles.cardIconBox, { backgroundColor: '#f59e0b15' }]}>
+      <FontAwesomeIcon icon={faBookOpen} size={20} color="#f59e0b" />
+    </View>
+
+    {/* Right Side: Content */}
+    <View style={styles.cardContent}>
+      {/* Header */}
+      <View style={styles.cardHeader}>
+        <View>
+          <Text style={[styles.subjectName, { color: theme.text }]}>{item.subject_name}</Text>
+          <Text style={[styles.paperCode, { color: theme.textSecondary }]}>
+            {item.paper_code} • {item.duration_minutes} min
+          </Text>
+        </View>
+        <View style={[styles.statusBadge, { backgroundColor: '#ecfdf5' }]}>
+          <Text style={[styles.statusText, { color: '#059669' }]}>Upcoming</Text>
+        </View>
+      </View>
+
+      {/* Footer Grid */}
+      <View style={[styles.cardFooter, { borderTopColor: theme.border }]}>
+        <View style={styles.footerItem}>
+          <FontAwesomeIcon icon={faClock} size={12} color="#6366f1" />
+          <Text style={[styles.footerText, { color: theme.textSecondary }]}>{item.start_time.slice(0, 5)}</Text>
+        </View>
+        <View style={styles.footerItem}>
+          <FontAwesomeIcon icon={faMapMarkerAlt} size={12} color="#e11d48" />
+          <Text style={[styles.footerText, { color: theme.textSecondary }]}>{item.venue_name || 'TBA'}</Text>
+        </View>
+        <View style={styles.footerItem}>
+          <FontAwesomeIcon icon={faChair} size={12} color="#059669" />
+          <Text style={[styles.footerText, { color: theme.textSecondary }]}>Seat: {item.seat_label || '--'}</Text>
+        </View>
+      </View>
+    </View>
+  </View>
+));
+
+const MyExamsScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { user, profile } = useAuth();
   const { theme, isDarkTheme } = useTheme();
@@ -35,7 +83,7 @@ export default function MyExamsScreen({ navigation, route }) {
     }
   }, [profile?.role, navigation, route.params]);
 
-  const loadSchedule = async () => {
+  const loadSchedule = useCallback(async () => {
     try {
       if (user?.id) {
         const data = await fetchStudentExamSchedule(user.id);
@@ -48,90 +96,41 @@ export default function MyExamsScreen({ navigation, route }) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user?.id]);
 
   useEffect(() => {
     loadSchedule();
-  }, [user]);
+  }, [loadSchedule]);
 
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadSchedule();
-  };
+  }, [loadSchedule]);
 
-  const upcomingExams = schedule.filter(exam => new Date(exam.date) >= new Date().setHours(0, 0, 0, 0));
-
-  // Group exams by date for better display
-  const groupedExams = upcomingExams.reduce((groups, exam) => {
-    const date = exam.date;
-    if (!groups[date]) {
-      groups[date] = [];
-    }
-    groups[date].push(exam);
-    return groups;
-  }, {});
-
-  const renderExamItem = ({ item }) => (
-    <View style={[
-      styles.examCard,
-      {
-        backgroundColor: theme.colors.card, // Use theme.colors.card (assuming context provides it, or fallback)
-        borderColor: theme.colors?.cardBorder || theme.border,
-        borderWidth: 1
+  const groupedExams = useMemo(() => {
+    const upcomingExams = schedule.filter(exam => new Date(exam.date) >= new Date().setHours(0, 0, 0, 0));
+    return upcomingExams.reduce((groups, exam) => {
+      const date = exam.date;
+      if (!groups[date]) {
+        groups[date] = [];
       }
-    ]}>
-      {/* Left Side: Date Box / Icon */}
-      <View style={[styles.cardIconBox, { backgroundColor: '#f59e0b15' }]}>
-        <FontAwesomeIcon icon={faBookOpen} size={20} color="#f59e0b" />
-      </View>
+      groups[date].push(exam);
+      return groups;
+    }, {});
+  }, [schedule]);
 
-      {/* Right Side: Content */}
-      <View style={styles.cardContent}>
-        {/* Header */}
-        <View style={styles.cardHeader}>
-          <View>
-            <Text style={[styles.subjectName, { color: theme.text }]}>{item.subject_name}</Text>
-            <Text style={[styles.paperCode, { color: theme.textSecondary }]}>
-              {item.paper_code} • {item.duration_minutes} min
-            </Text>
-          </View>
-          {/* Status Badge (Optional - added for completeness) */}
-          <View style={[styles.statusBadge, { backgroundColor: '#ecfdf5' }]}>
-            <Text style={[styles.statusText, { color: '#059669' }]}>Upcoming</Text>
-          </View>
-        </View>
-
-        {/* Footer Grid */}
-        <View style={[styles.cardFooter, { borderTopColor: theme.border }]}>
-          <View style={styles.footerItem}>
-            <FontAwesomeIcon icon={faClock} size={12} color="#6366f1" />
-            <Text style={[styles.footerText, { color: theme.textSecondary }]}>{item.start_time.slice(0, 5)}</Text>
-          </View>
-          <View style={styles.footerItem}>
-            <FontAwesomeIcon icon={faMapMarkerAlt} size={12} color="#e11d48" />
-            <Text style={[styles.footerText, { color: theme.textSecondary }]}>{item.venue_name || 'TBA'}</Text>
-          </View>
-          <View style={styles.footerItem}>
-            <FontAwesomeIcon icon={faChair} size={12} color="#059669" />
-            <Text style={[styles.footerText, { color: theme.textSecondary }]}>Seat: {item.seat_label || '--'}</Text>
-          </View>
-        </View>
-      </View>
-    </View>
-  );
-
-  const renderDateGroup = ({ item: date }) => (
+  const renderDateGroup = useCallback(({ item: date }) => (
     <View style={styles.dateGroup}>
       <Text style={[styles.groupDateTitle, { color: theme.textSecondary }]}>
         {new Date(date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
       </Text>
       {groupedExams[date].map((exam, index) => (
         <View key={index} style={styles.examItemWrapper}>
-          {renderExamItem({ item: exam })}
+          <ExamItem item={exam} theme={theme} />
         </View>
       ))}
     </View>
-  );
+  ), [groupedExams, theme]);
 
   if (loading) {
     return (
@@ -140,6 +139,8 @@ export default function MyExamsScreen({ navigation, route }) {
       </View>
     );
   }
+
+  const sortedDates = useMemo(() => Object.keys(groupedExams).sort((a, b) => new Date(a) - new Date(b)), [groupedExams]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -173,7 +174,7 @@ export default function MyExamsScreen({ navigation, route }) {
       </LinearGradient>
 
       <FlatList
-        data={Object.keys(groupedExams).sort((a, b) => new Date(a) - new Date(b))}
+        data={sortedDates}
         renderItem={renderDateGroup}
         keyExtractor={item => item}
         contentContainerStyle={styles.listContent}
@@ -195,7 +196,9 @@ export default function MyExamsScreen({ navigation, route }) {
       />
     </View>
   );
-}
+};
+
+export default React.memo(MyExamsScreen);
 
 const styles = StyleSheet.create({
   container: {

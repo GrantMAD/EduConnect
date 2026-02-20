@@ -12,7 +12,76 @@ import LinearGradient from 'react-native-linear-gradient';
 import ExamSessionDetailScreenSkeleton from '../components/skeletons/ExamSessionDetailScreenSkeleton';
 import EnterExamResultsModal from '../components/EnterExamResultsModal';
 
-export default function ExamSessionDetailScreen({ route, navigation }) {
+const ExamPaperItem = React.memo(({ item, theme, isAdmin, onPress, onResults, onDelete }) => {
+    const handlePress = React.useCallback(() => onPress(item), [onPress, item]);
+    const handleResults = React.useCallback(() => onResults(item), [onResults, item]);
+    const handleDelete = React.useCallback(() => onDelete(item.id), [onDelete, item.id]);
+
+    return (
+        <View style={styles.glowWrapper}>
+            <TouchableOpacity
+                style={[styles.paperCard, { backgroundColor: theme.cardBackground }]}
+                activeOpacity={0.85}
+                onPress={handlePress}
+            >
+                {/* LEFT ICON */}
+                <LinearGradient
+                    colors={['#14b8a6', '#0d9488']}
+                    style={styles.iconBadge}
+                >
+                    <FontAwesomeIcon icon={faFileAlt} size={18} color="#fff" />
+                </LinearGradient>
+
+                {/* MAIN CONTENT */}
+                <View style={styles.paperInfo}>
+                    <Text style={[styles.paperCode, { color: '#0d9488' }]}>{item.paper_code}</Text>
+                    <Text style={[styles.paperSubject, { color: theme.text }]} numberOfLines={1}>{item.subject_name}</Text>
+                    <View style={styles.timeInfo}>
+                        <FontAwesomeIcon icon={faCalendarAlt} size={10} color={theme.textSecondary} />
+                        <Text style={[styles.paperTime, { color: theme.textSecondary }]}>
+                            {new Date(item.date).toLocaleDateString()}
+                        </Text>
+                        <Text style={[styles.dotSeparator, { color: theme.textSecondary }]}>•</Text>
+                        <FontAwesomeIcon icon={faClock} size={10} color={theme.textSecondary} />
+                        <Text style={[styles.paperTime, { color: theme.textSecondary }]}>
+                            {item.start_time.slice(0, 5)}
+                        </Text>
+                        {item.exam_seat_allocations?.[0]?.count > 0 && (
+                            <>
+                                <Text style={[styles.dotSeparator, { color: theme.textSecondary }]}>•</Text>
+                                <Text style={[styles.paperTime, { color: '#0d9488', fontWeight: 'bold' }]}>
+                                    {item.exam_seat_allocations[0].count} Seats
+                                </Text>
+                            </>
+                        )}
+                    </View>
+                </View>
+
+                <View style={styles.actionButtons}>
+                    <TouchableOpacity
+                        onPress={handleResults}
+                        style={styles.actionGhost}
+                        hitSlop={10}
+                    >
+                        <FontAwesomeIcon icon={faStar} size={14} color="#10b981" />
+                    </TouchableOpacity>
+
+                    {isAdmin && (
+                        <TouchableOpacity
+                            onPress={handleDelete}
+                            style={styles.deleteGhost}
+                            hitSlop={10}
+                        >
+                            <FontAwesomeIcon icon={faTrash} size={12} color="#ef4444" />
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </TouchableOpacity>
+        </View>
+    );
+});
+
+const ExamSessionDetailScreen = ({ route, navigation }) => {
     const { sessionId, sessionName } = route.params;
     const insets = useSafeAreaInsets();
     const { profile } = useAuth();
@@ -58,7 +127,7 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
         return unsubscribe;
     }, [navigation]);
 
-    const handleDeletePaper = async (id) => {
+    const handleDeletePaper = React.useCallback(async (id) => {
         Alert.alert(
             "Delete Paper",
             "Are you sure?",
@@ -78,7 +147,7 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
                 }
             ]
         );
-    };
+    }, [sessionId]);
 
     const handleNotify = async () => {
         if (!session?.is_active) {
@@ -179,84 +248,34 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
         );
     };
 
-    const renderPaperItem = ({ item }) => {
+    const handlePaperPress = React.useCallback((item) => {
+        const isAdmin = profile?.role === 'admin';
+        if (isAdmin) {
+            navigation.navigate('ExamAllocations', { sessionId, sessionName, initialPaperId: item.id });
+        } else {
+            navigation.navigate('ExamAllocations', { sessionId, sessionName, initialPaperId: item.id });
+        }
+    }, [navigation, sessionId, sessionName, profile?.role]);
+
+    const handleResultsPress = React.useCallback((item) => {
+        setSelectedResultPaper(item);
+        setShowResultsModal(true);
+    }, []);
+
+    const renderPaperItem = React.useCallback(({ item }) => {
         const isAdmin = profile?.role === 'admin';
 
         return (
-            <View style={styles.glowWrapper}>
-                <TouchableOpacity
-                    style={[styles.paperCard, { backgroundColor: theme.cardBackground }]}
-                    activeOpacity={0.85}
-                    onPress={() => {
-                        if (isAdmin) {
-                            navigation.navigate('ExamAllocations', { sessionId, sessionName, initialPaperId: item.id });
-                        } else {
-                            // Teachers can view allocations? Or just enter results?
-                            // User previously said teachers currently create papers and then can enter results.
-                            // We will let them view the allocations too if they want to see who is where.
-                            navigation.navigate('ExamAllocations', { sessionId, sessionName, initialPaperId: item.id });
-                        }
-                    }}
-                >
-                    {/* LEFT ICON */}
-                    <LinearGradient
-                        colors={['#14b8a6', '#0d9488']}
-                        style={styles.iconBadge}
-                    >
-                        <FontAwesomeIcon icon={faFileAlt} size={18} color="#fff" />
-                    </LinearGradient>
-
-                    {/* MAIN CONTENT */}
-                    <View style={styles.paperInfo}>
-                        <Text style={[styles.paperCode, { color: '#0d9488' }]}>{item.paper_code}</Text>
-                        <Text style={[styles.paperSubject, { color: theme.text }]} numberOfLines={1}>{item.subject_name}</Text>
-                        <View style={styles.timeInfo}>
-                            <FontAwesomeIcon icon={faCalendarAlt} size={10} color={theme.textSecondary} />
-                            <Text style={[styles.paperTime, { color: theme.textSecondary }]}>
-                                {new Date(item.date).toLocaleDateString()}
-                            </Text>
-                            <Text style={[styles.dotSeparator, { color: theme.textSecondary }]}>•</Text>
-                            <FontAwesomeIcon icon={faClock} size={10} color={theme.textSecondary} />
-                            <Text style={[styles.paperTime, { color: theme.textSecondary }]}>
-                                {item.start_time.slice(0, 5)}
-                            </Text>
-                            {item.exam_seat_allocations?.[0]?.count > 0 && (
-                                <>
-                                    <Text style={[styles.dotSeparator, { color: theme.textSecondary }]}>•</Text>
-                                    <Text style={[styles.paperTime, { color: '#0d9488', fontWeight: 'bold' }]}>
-                                        {item.exam_seat_allocations[0].count} Seats
-                                    </Text>
-                                </>
-                            )}
-                        </View>
-                    </View>
-
-                    <View style={styles.actionButtons}>
-                        <TouchableOpacity
-                            onPress={() => {
-                                setSelectedResultPaper(item);
-                                setShowResultsModal(true);
-                            }}
-                            style={styles.actionGhost}
-                            hitSlop={10}
-                        >
-                            <FontAwesomeIcon icon={faStar} size={14} color="#10b981" />
-                        </TouchableOpacity>
-
-                        {isAdmin && (
-                            <TouchableOpacity
-                                onPress={() => handleDeletePaper(item.id)}
-                                style={styles.deleteGhost}
-                                hitSlop={10}
-                            >
-                                <FontAwesomeIcon icon={faTrash} size={12} color="#ef4444" />
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                </TouchableOpacity>
-            </View>
+            <ExamPaperItem
+                item={item}
+                theme={theme}
+                isAdmin={isAdmin}
+                onPress={handlePaperPress}
+                onResults={handleResultsPress}
+                onDelete={handleDeletePaper}
+            />
         );
-    };
+    }, [theme, profile?.role, handlePaperPress, handleResultsPress, handleDeletePaper]);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -428,7 +447,9 @@ export default function ExamSessionDetailScreen({ route, navigation }) {
             </Modal>
         </View>
     );
-}
+};
+
+export default React.memo(ExamSessionDetailScreen);
 
 const styles = StyleSheet.create({
     container: {
@@ -657,4 +678,3 @@ const styles = StyleSheet.create({
         marginBottom: 2,
     },
 });
-

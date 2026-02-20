@@ -14,7 +14,127 @@ import LinearGradient from 'react-native-linear-gradient';
 import Button from '../components/Button';
 import InvigilatorManagementScreenSkeleton from '../components/skeletons/InvigilatorManagementScreenSkeleton';
 
-export default function InvigilatorManagementScreen({ route, navigation }) {
+const PaperDutyItem = React.memo(({ item, theme, onPress }) => {
+    const handlePress = React.useCallback(() => onPress(item), [onPress, item]);
+
+    return (
+        <View style={styles.glowWrapper}>
+            <TouchableOpacity 
+                style={[styles.card, { backgroundColor: theme.cardBackground }]}
+                onPress={handlePress}
+                activeOpacity={0.85}
+            >
+                {/* LEFT ICON */}
+                <LinearGradient
+                    colors={['#14b8a6', '#0d9488']}
+                    style={styles.iconBadge}
+                >
+                    <FontAwesomeIcon icon={faUserShield} size={18} color="#fff" />
+                </LinearGradient>
+
+                <View style={styles.cardContent}>
+                    <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={1}>{item.subject_name}</Text>
+                    <Text style={[styles.cardDescription, { color: theme.textSecondary }]}>
+                        {new Date(item.date).toLocaleDateString()} • {item.start_time.slice(0, 5)}
+                    </Text>
+                    <View style={[styles.countBadge, { backgroundColor: item.exam_invigilators?.[0]?.count > 0 ? '#dcfce7' : '#fff7ed' }]}>
+                        <Text style={[styles.countText, { color: item.exam_invigilators?.[0]?.count > 0 ? '#166534' : '#c2410c' }]}>
+                            {item.exam_invigilators?.[0]?.count || 0} STAFF ASSIGNED
+                        </Text>
+                    </View>
+                </View>
+                <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.border} />
+            </TouchableOpacity>
+        </View>
+    );
+});
+
+const StaffAssignmentCard = React.memo(({ s, theme, assigning, onAssign }) => {
+    const handleAssign = React.useCallback(() => onAssign(s), [onAssign, s]);
+
+    return (
+        <TouchableOpacity 
+            style={[styles.staffCard, { backgroundColor: theme.colors.inputBackground }]}
+            onPress={handleAssign}
+            disabled={assigning}
+        >
+            <Image 
+                source={getAvatarUrl(s.avatar_url, s.email, s.id)}                                                    
+                style={styles.miniAvatar} 
+            />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.staffName, { color: theme.text }]} numberOfLines={1}>{s.full_name}</Text>
+                <View style={styles.staffMetaRow}>
+                    <View style={[styles.miniRoleBadge, { backgroundColor: theme.dark ? 'rgba(13, 148, 136, 0.2)' : '#f0fdfa' }]}>
+                        <Text style={[styles.miniRoleText, { color: '#0d9488' }]}>{s.role.toUpperCase()}</Text>
+                    </View>
+                    {s.number && (
+                        <Text style={[styles.staffEmail, { color: theme.textSecondary }]} numberOfLines={1}>• {s.number}</Text>
+                    )}
+                </View>
+            </View>
+            <View style={[styles.assignIconBtn, { backgroundColor: '#0d9488' }]}>
+                <FontAwesomeIcon icon={faPlus} size={10} color="#fff" />
+            </View>
+        </TouchableOpacity>
+    );
+});
+
+const RosterCard = React.memo(({ inv, venues, theme, onRemove }) => {
+    const handleRemove = React.useCallback(() => onRemove(inv.id), [onRemove, inv.id]);
+    const venueName = venues.find(v => v.id === inv.venue_id)?.name || 'Venue';
+
+    return (
+        <View style={styles.glowWrapper}>
+            <View style={[styles.rosterCard, { backgroundColor: theme.cardBackground }]}>
+                <View style={styles.avatarWrapper}>
+                    <Image 
+                        source={getAvatarUrl(inv.teacher?.avatar_url, inv.teacher?.email, inv.teacher?.id)} 
+                        style={styles.avatar} 
+                    />
+                    {inv.is_chief_invigilator && (
+                        <View style={styles.chiefBadge}>
+                            <FontAwesomeIcon icon={faUserShield} size={8} color="#fff" />
+                        </View>
+                    )}
+                </View>
+                <View style={{ flex: 1, marginLeft: 16 }}>
+                    <Text style={[styles.staffName, { color: theme.text }]}>{inv.teacher?.full_name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                        <FontAwesomeIcon icon={faMapMarkerAlt} size={10} color="#0d9488" />
+                        <Text style={[styles.venueName, { color: '#0d9488' }]}>
+                            {venueName}
+                        </Text>
+                    </View>
+                </View>
+                <TouchableOpacity onPress={handleRemove} style={styles.removeBtn}>
+                    <FontAwesomeIcon icon={faTrash} size={14} color="#ef4444" />
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+});
+
+const VenueChip = React.memo(({ v, isSelected, theme, onPress }) => {
+    const handlePress = React.useCallback(() => onPress(v.id), [onPress, v.id]);
+
+    return (
+        <TouchableOpacity 
+            style={[
+                styles.venueSettingChip, 
+                { 
+                    backgroundColor: isSelected ? '#0d9488' : theme.background,
+                    borderColor: isSelected ? '#0d9488' : theme.border 
+                }
+            ]}
+            onPress={handlePress}
+        >
+            <Text style={[styles.venueSettingText, { color: isSelected ? '#fff' : theme.textSecondary }]}>{v.name}</Text>
+        </TouchableOpacity>
+    );
+});
+
+const InvigilatorManagementScreen = ({ route, navigation }) => {
     const { sessionId, sessionName } = route.params;
     const insets = useSafeAreaInsets();
     const { profile } = useAuth();
@@ -154,36 +274,25 @@ export default function InvigilatorManagementScreen({ route, navigation }) {
         !paperInvigilators.some(inv => inv.teacher_id === s.id)
     );
 
-    const renderPaperItem = ({ item }) => (
-        <View style={styles.glowWrapper}>
-            <TouchableOpacity 
-                style={[styles.card, { backgroundColor: theme.cardBackground }]}
-                onPress={() => handleManagePaper(item)}
-                activeOpacity={0.85}
-            >
-                {/* LEFT ICON */}
-                <LinearGradient
-                    colors={['#14b8a6', '#0d9488']}
-                    style={styles.iconBadge}
-                >
-                    <FontAwesomeIcon icon={faUserShield} size={18} color="#fff" />
-                </LinearGradient>
+    const handleManagePaperCallback = React.useCallback((item) => {
+        handleManagePaper(item);
+    }, [handleManagePaper]);
 
-                <View style={styles.cardContent}>
-                    <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={1}>{item.subject_name}</Text>
-                    <Text style={[styles.cardDescription, { color: theme.textSecondary }]}>
-                        {new Date(item.date).toLocaleDateString()} • {item.start_time.slice(0, 5)}
-                    </Text>
-                    <View style={[styles.countBadge, { backgroundColor: item.exam_invigilators?.[0]?.count > 0 ? '#dcfce7' : '#fff7ed' }]}>
-                        <Text style={[styles.countText, { color: item.exam_invigilators?.[0]?.count > 0 ? '#166534' : '#c2410c' }]}>
-                            {item.exam_invigilators?.[0]?.count || 0} STAFF ASSIGNED
-                        </Text>
-                    </View>
-                </View>
-                <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.border} />
-            </TouchableOpacity>
-        </View>
-    );
+    const handleAssignCallback = React.useCallback((s) => {
+        handleAssign(s);
+    }, [handleAssign]);
+
+    const handleRemoveCallback = React.useCallback((id) => {
+        handleRemove(id);
+    }, [handleRemove]);
+
+    const handleVenueSelect = React.useCallback((id) => {
+        setSelectedVenueId(id);
+    }, []);
+
+    const renderPaperItem = React.useCallback(({ item }) => (
+        <PaperDutyItem item={item} theme={theme} onPress={handleManagePaperCallback} />
+    ), [theme, handleManagePaperCallback]);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -267,19 +376,13 @@ export default function InvigilatorManagementScreen({ route, navigation }) {
                                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.venueScroll}>
                                             <View style={{ flexDirection: 'row', gap: 6 }}>
                                                 {venues.map(v => (
-                                                    <TouchableOpacity 
-                                                        key={v.id} 
-                                                        style={[
-                                                            styles.venueSettingChip, 
-                                                            { 
-                                                                backgroundColor: selectedVenueId === v.id ? '#0d9488' : theme.background,
-                                                                borderColor: selectedVenueId === v.id ? '#0d9488' : theme.border 
-                                                            }
-                                                        ]}
-                                                        onPress={() => setSelectedVenueId(v.id)}
-                                                    >
-                                                        <Text style={[styles.venueSettingText, { color: selectedVenueId === v.id ? '#fff' : theme.textSecondary }]}>{v.name}</Text>
-                                                    </TouchableOpacity>
+                                                    <VenueChip
+                                                        key={v.id}
+                                                        v={v}
+                                                        isSelected={selectedVenueId === v.id}
+                                                        theme={theme}
+                                                        onPress={handleVenueSelect}
+                                                    />
                                                 ))}
                                             </View>
                                         </ScrollView>
@@ -295,33 +398,13 @@ export default function InvigilatorManagementScreen({ route, navigation }) {
                                 <ActivityIndicator style={{ marginTop: 20 }} color="#0d9488" />
                             ) : paperInvigilators.length > 0 ? (
                                 paperInvigilators.map(inv => (
-                                <View key={inv.id} style={styles.glowWrapper}>
-                                    <View style={[styles.rosterCard, { backgroundColor: theme.cardBackground }]}>
-                                        <View style={styles.avatarWrapper}>
-                                            <Image 
-                                                source={getAvatarUrl(inv.teacher?.avatar_url, inv.teacher?.email, inv.teacher?.id)} 
-                                                style={styles.avatar} 
-                                            />
-                                            {inv.is_chief_invigilator && (
-                                                <View style={styles.chiefBadge}>
-                                                    <FontAwesomeIcon icon={faUserShield} size={8} color="#fff" />
-                                                </View>
-                                            )}
-                                        </View>
-                                        <View style={{ flex: 1, marginLeft: 16 }}>
-                                            <Text style={[styles.staffName, { color: theme.text }]}>{inv.teacher?.full_name}</Text>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                                                <FontAwesomeIcon icon={faMapMarkerAlt} size={10} color="#0d9488" />
-                                                <Text style={[styles.venueName, { color: '#0d9488' }]}>
-                                                    {venues.find(v => v.id === inv.venue_id)?.name || 'Venue'}
-                                                </Text>
-                                            </View>
-                                        </View>
-                                        <TouchableOpacity onPress={() => handleRemove(inv.id)} style={styles.removeBtn}>
-                                            <FontAwesomeIcon icon={faTrash} size={14} color="#ef4444" />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
+                                    <RosterCard
+                                        key={inv.id}
+                                        inv={inv}
+                                        venues={venues}
+                                        theme={theme}
+                                        onRemove={handleRemoveCallback}
+                                    />
                                 ))
                             ) : (
                                 <View style={[styles.emptyBlock, { borderColor: theme.border }]}>
@@ -362,30 +445,13 @@ export default function InvigilatorManagementScreen({ route, navigation }) {
 
                                     <View style={styles.staffGrid}>
                                         {filteredStaff.map(s => (
-                                            <TouchableOpacity 
-                                                key={s.id} 
-                                                style={[styles.staffCard, { backgroundColor: theme.colors.inputBackground }]}
-                                                onPress={() => handleAssign(s)}
-                                                disabled={assigning}
-                                            >
-                                                <Image 
-                                                                                                         source={getAvatarUrl(s.avatar_url, s.email, s.id)}                                                    style={styles.miniAvatar} 
-                                                />
-                                                <View style={{ flex: 1, marginLeft: 12 }}>
-                                                    <Text style={[styles.staffName, { color: theme.text }]} numberOfLines={1}>{s.full_name}</Text>
-                                                    <View style={styles.staffMetaRow}>
-                                                        <View style={[styles.miniRoleBadge, { backgroundColor: theme.dark ? 'rgba(13, 148, 136, 0.2)' : '#f0fdfa' }]}>
-                                                            <Text style={[styles.miniRoleText, { color: '#0d9488' }]}>{s.role.toUpperCase()}</Text>
-                                                        </View>
-                                                        {s.number && (
-                                                            <Text style={[styles.staffEmail, { color: theme.textSecondary }]} numberOfLines={1}>• {s.number}</Text>
-                                                        )}
-                                                    </View>
-                                                </View>
-                                                <View style={[styles.assignIconBtn, { backgroundColor: '#0d9488' }]}>
-                                                    <FontAwesomeIcon icon={faPlus} size={10} color="#fff" />
-                                                </View>
-                                            </TouchableOpacity>
+                                            <StaffAssignmentCard
+                                                key={s.id}
+                                                s={s}
+                                                theme={theme}
+                                                assigning={assigning}
+                                                onAssign={handleAssignCallback}
+                                            />
                                         ))}
                                         {filteredStaff.length === 0 && (
                                             <View style={styles.noResults}>
@@ -405,7 +471,9 @@ export default function InvigilatorManagementScreen({ route, navigation }) {
             </Modal>
         </View>
     );
-}
+};
+
+export default React.memo(InvigilatorManagementScreen);
 
 const styles = StyleSheet.create({
     container: {
