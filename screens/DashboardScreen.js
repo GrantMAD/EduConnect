@@ -224,6 +224,22 @@ const DashboardScreen = ({ navigation }) => {
         setRefreshing(false);
     }, [fetchDashboardData, checkUserAccessAndWalkthrough]);
 
+    const handleStatPress = useCallback((category) => {
+        if (['total', 'admin', 'teacher', 'student', 'parent'].includes(category)) {
+            fetchUsersByCategory(category);
+        } else if (category === 'family_links') {
+            setShowFamilyLinksModal(true);
+        } else if (category === 'classes') {
+            navigation.navigate('ManageClasses');
+        } else if (category === 'clubs') {
+            navigation.navigate('ClubList');
+        } else if (category === 'assignments') {
+            navigation.navigate('Homework');
+        } else if (category === 'polls') {
+            navigation.navigate('Polls');
+        }
+    }, [fetchUsersByCategory, navigation]);
+
     const fetchUsersByCategory = useCallback(async (category) => {
         try {
             const filters = {};
@@ -419,7 +435,8 @@ const DashboardScreen = ({ navigation }) => {
                                     title="Total Users"
                                     value={stats.totalUsers}
                                     color="#007AFF"
-                                    onPress={() => fetchUsersByCategory('total')}
+                                    onPress={handleStatPress}
+                                    pressId="total"
                                     style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
                                 />
                                 <StatCard
@@ -427,7 +444,8 @@ const DashboardScreen = ({ navigation }) => {
                                     title="Admins"
                                     value={stats.adminCount}
                                     color="#FF3B30"
-                                    onPress={() => fetchUsersByCategory('admin')}
+                                    onPress={handleStatPress}
+                                    pressId="admin"
                                     style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
                                 />
                                 <StatCard
@@ -435,7 +453,8 @@ const DashboardScreen = ({ navigation }) => {
                                     title="Teachers"
                                     value={stats.teacherCount}
                                     color="#34C759"
-                                    onPress={() => fetchUsersByCategory('teacher')}
+                                    onPress={handleStatPress}
+                                    pressId="teacher"
                                     style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
                                 />
                                 <StatCard
@@ -443,7 +462,8 @@ const DashboardScreen = ({ navigation }) => {
                                     title="Students"
                                     value={stats.studentCount}
                                     color="#5856D6"
-                                    onPress={() => fetchUsersByCategory('student')}
+                                    onPress={handleStatPress}
+                                    pressId="student"
                                     style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
                                 />
                                 <StatCard
@@ -451,7 +471,8 @@ const DashboardScreen = ({ navigation }) => {
                                     title="Parents"
                                     value={stats.parentCount}
                                     color="#FF9500"
-                                    onPress={() => fetchUsersByCategory('parent')}
+                                    onPress={handleStatPress}
+                                    pressId="parent"
                                     style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
                                 />
                                 {userRole === 'admin' && (
@@ -460,7 +481,8 @@ const DashboardScreen = ({ navigation }) => {
                                         title="Family Links"
                                         value={stats.parentChildLinkCount}
                                         color="#AF52DE"
-                                        onPress={() => setShowFamilyLinksModal(true)}
+                                        onPress={handleStatPress}
+                                        pressId="family_links"
                                         style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
                                     />
                                 )}
@@ -485,7 +507,8 @@ const DashboardScreen = ({ navigation }) => {
                                     title="Classes"
                                     value={stats.classCount}
                                     color="#007AFF"
-                                    onPress={() => navigation.navigate('ManageClasses')}
+                                    onPress={handleStatPress}
+                                    pressId="classes"
                                     style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
                                 />
                                 <StatCard
@@ -493,7 +516,8 @@ const DashboardScreen = ({ navigation }) => {
                                     title="Clubs"
                                     value={stats.clubCount}
                                     color="#FF9500"
-                                    onPress={() => navigation.navigate('ClubList')}
+                                    onPress={handleStatPress}
+                                    pressId="clubs"
                                     style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
                                 />
                                 <StatCard
@@ -501,7 +525,8 @@ const DashboardScreen = ({ navigation }) => {
                                     title="Assignments"
                                     value={stats.assignmentCount}
                                     color="#5856D6"
-                                    onPress={() => navigation.navigate('Homework')}
+                                    onPress={handleStatPress}
+                                    pressId="assignments"
                                     style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
                                 />
                                 <StatCard
@@ -509,7 +534,8 @@ const DashboardScreen = ({ navigation }) => {
                                     title="Active Polls"
                                     value={stats.pollCount}
                                     color="#FF9500"
-                                    onPress={() => navigation.navigate('Polls')}
+                                    onPress={handleStatPress}
+                                    pressId="polls"
                                     style={{ backgroundColor: isDarkTheme ? '#262626' : '#f3f4f6' }}
                                 />
                             </View>

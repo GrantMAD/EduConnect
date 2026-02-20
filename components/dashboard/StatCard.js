@@ -4,8 +4,14 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { useTheme } from '../../context/ThemeContext';
 import { SkeletonPiece } from '../skeletons/DashboardScreenSkeleton';
 
-const StatCard = React.memo(({ icon, title, value, color, onPress, style, loading }) => {
+const StatCard = React.memo(({ icon, title, value, color, onPress, style, loading, pressId }) => {
     const { theme } = useTheme();
+
+    const handlePress = React.useCallback(() => {
+        if (onPress) {
+            onPress(pressId);
+        }
+    }, [onPress, pressId]);
 
     return (
         <TouchableOpacity
@@ -18,7 +24,7 @@ const StatCard = React.memo(({ icon, title, value, color, onPress, style, loadin
                 },
                 style
             ]}
-            onPress={onPress}
+            onPress={handlePress}
             activeOpacity={onPress ? 0.7 : 1}
         >
             <View style={[styles.iconContainer, { backgroundColor: color + '15' }]}>

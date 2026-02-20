@@ -14,6 +14,14 @@ import { useTheme } from '../context/ThemeContext';
 const AssignmentCard = React.memo(({ assignment, onPress, onTrackPress, userId }) => {
   const { theme } = useTheme();
 
+  const handlePress = React.useCallback(() => {
+    if (onPress) onPress(assignment);
+  }, [onPress, assignment]);
+
+  const handleTrackPress = React.useCallback(() => {
+    if (onTrackPress) onTrackPress(assignment);
+  }, [onTrackPress, assignment]);
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const options = { day: '2-digit', month: 'long', year: 'numeric' };
@@ -27,7 +35,7 @@ const AssignmentCard = React.memo(({ assignment, onPress, onTrackPress, userId }
 
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={handlePress}
       style={[styles.container, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
       activeOpacity={0.7}
     >
@@ -70,7 +78,7 @@ const AssignmentCard = React.memo(({ assignment, onPress, onTrackPress, userId }
         {isTeacher ? (
           <TouchableOpacity
             style={[styles.trackButton, { backgroundColor: theme.colors.primary }]}
-            onPress={onTrackPress}
+            onPress={handleTrackPress}
           >
             <FontAwesomeIcon icon={faClipboardCheck} size={12} color="#fff" />
             <Text style={styles.trackButtonText}>TRACK STUDENTS</Text>

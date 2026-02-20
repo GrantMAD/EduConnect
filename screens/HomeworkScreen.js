@@ -126,6 +126,17 @@ const HomeworkList = React.memo(() => {
     fetchHomework();
   }, [fetchHomework]);
 
+  const handleHomeworkPress = useCallback((item) => {
+    setSelectedHomework(item);
+    setModalVisible(true);
+    setIsEditing(false);
+  }, []);
+
+  const handleHomeworkTrackPress = useCallback((item) => {
+    setCurrentTrackItem(item);
+    setManageModalVisible(true);
+  }, []);
+
   const formatDate = useCallback((date) =>
     new Date(date).toLocaleDateString('en-GB', {
       day: '2-digit',
@@ -176,17 +187,10 @@ const HomeworkList = React.memo(() => {
       <HomeworkCard
         homework={item}
         userId={currentUserId}
-        onPress={() => {
-          setSelectedHomework(item);
-          setModalVisible(true);
-          setIsEditing(false);
-        }}
-        onTrackPress={() => {
-          setCurrentTrackItem(item);
-          setManageModalVisible(true);
-        }}
+        onPress={handleHomeworkPress}
+        onTrackPress={handleHomeworkTrackPress}
       />
-    ), [loading]);
+    ), [loading, currentUserId, handleHomeworkPress, handleHomeworkTrackPress]);
 
   return (
     <View style={[styles.listContainer, { backgroundColor: theme.colors.background }]}>
@@ -486,6 +490,17 @@ const AssignmentsList = React.memo(() => {
     fetchAssignments();
   }, [fetchAssignments]);
 
+  const handleAssignmentPress = useCallback((item) => {
+    setSelectedAssignment(item);
+    setModalVisible(true);
+    setIsEditing(false);
+  }, []);
+
+  const handleAssignmentTrackPress = useCallback((item) => {
+    setCurrentTrackItem(item);
+    setManageModalVisible(true);
+  }, []);
+
   const formatDate = useCallback((date) =>
     new Date(date).toLocaleDateString('en-GB', {
       day: '2-digit',
@@ -536,17 +551,10 @@ const AssignmentsList = React.memo(() => {
       <AssignmentCard
         assignment={item}
         userId={currentUserId}
-        onPress={() => {
-          setSelectedAssignment(item);
-          setModalVisible(true);
-          setIsEditing(false);
-        }}
-        onTrackPress={() => {
-          setCurrentTrackItem(item);
-          setManageModalVisible(true);
-        }}
+        onPress={handleAssignmentPress}
+        onTrackPress={handleAssignmentTrackPress}
       />
-    ), [loading, currentUserId]);
+    ), [loading, currentUserId, handleAssignmentPress, handleAssignmentTrackPress]);
 
   return (
     <View style={[styles.listContainer, { backgroundColor: theme.colors.background }]}>
