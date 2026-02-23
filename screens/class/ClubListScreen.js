@@ -18,6 +18,57 @@ import { sendNotification } from '../../services/notificationService';
 
 const { width } = Dimensions.get('window');
 
+const ClubCard = React.memo(({ item, theme, navigation, activeTab, handleJoinRequest, applyingId }) => (
+  <TouchableOpacity
+    style={[styles.clubCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+    onPress={() => activeTab === 'my-clubs' ? navigation.navigate('ClubDetail', { clubId: item.id }) : null}
+    activeOpacity={activeTab === 'my-clubs' ? 0.7 : 1}
+  >
+    <View style={styles.cardHeader}>
+      <View style={[styles.iconContainer, { backgroundColor: '#AF52DE15' }]}>
+        <FontAwesomeIcon icon={faFootballBall} size={20} color="#AF52DE" />
+      </View>
+      <View style={styles.headerInfo}>
+        <Text style={[styles.clubName, { color: theme.colors.text }]} numberOfLines={1}>{item.name}</Text>
+        <Text style={[styles.coordinatorName, { color: theme.colors.placeholder }]} numberOfLines={1}>
+          Coordinator: {item.teacher?.full_name || 'Assigning...'}
+        </Text>
+      </View>
+      {activeTab === 'my-clubs' && (
+        <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
+      )}
+    </View>
+
+    <View style={[styles.cardDivider, { backgroundColor: theme.colors.cardBorder, opacity: 0.3 }]} />
+
+    {activeTab === 'my-clubs' ? (
+      <View style={styles.cardFooter}>
+        <View style={[styles.memberBadge, { backgroundColor: '#AF52DE10' }]}>
+          <FontAwesomeIcon icon={faUsers} size={10} color="#AF52DE" style={{ marginRight: 6 }} />
+          <Text style={[styles.badgeText, { color: '#AF52DE' }]}>ACTIVE MEMBER</Text>
+        </View>
+        <Text style={[styles.viewDetails, { color: '#AF52DE' }]}>ENTER HUB</Text>
+      </View>
+    ) : (
+      <TouchableOpacity
+        style={[styles.joinButton, { backgroundColor: '#AF52DE' }]}
+        onPress={() => handleJoinRequest(item)}
+        disabled={applyingId === item.id}
+        activeOpacity={0.8}
+      >
+        {applyingId === item.id ? (
+          <ActivityIndicator color="white" size="small" />
+        ) : (
+          <>
+            <FontAwesomeIcon icon={faPlus} size={14} color="white" style={{ marginRight: 8 }} />
+            <Text style={styles.joinButtonText}>Request to Join</Text>
+          </>
+        )}
+      </TouchableOpacity>
+    )}
+  </TouchableOpacity>
+));
+
 const ClubListScreen = ({ navigation }) => {
   const { theme } = useTheme();
   const { schoolId } = useSchool();
@@ -102,54 +153,14 @@ const ClubListScreen = ({ navigation }) => {
   const currentClubs = useMemo(() => activeTab === 'my-clubs' ? myClubs : availableClubs, [activeTab, myClubs, availableClubs]);
 
   const renderClubCard = useCallback(({ item }) => (
-    <TouchableOpacity
-      style={[styles.clubCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-      onPress={() => activeTab === 'my-clubs' ? navigation.navigate('ClubDetail', { clubId: item.id }) : null}
-      activeOpacity={activeTab === 'my-clubs' ? 0.7 : 1}
-    >
-      <View style={styles.cardHeader}>
-        <View style={[styles.iconContainer, { backgroundColor: '#AF52DE15' }]}>
-          <FontAwesomeIcon icon={faFootballBall} size={20} color="#AF52DE" />
-        </View>
-        <View style={styles.headerInfo}>
-          <Text style={[styles.clubName, { color: theme.colors.text }]} numberOfLines={1}>{item.name}</Text>
-          <Text style={[styles.coordinatorName, { color: theme.colors.placeholder }]} numberOfLines={1}>
-            Coordinator: {item.teacher?.full_name || 'Assigning...'}
-          </Text>
-        </View>
-        {activeTab === 'my-clubs' && (
-          <FontAwesomeIcon icon={faChevronRight} size={12} color={theme.colors.cardBorder} />
-        )}
-      </View>
-
-      <View style={[styles.cardDivider, { backgroundColor: theme.colors.cardBorder, opacity: 0.3 }]} />
-
-      {activeTab === 'my-clubs' ? (
-        <View style={styles.cardFooter}>
-          <View style={[styles.memberBadge, { backgroundColor: '#AF52DE10' }]}>
-            <FontAwesomeIcon icon={faUsers} size={10} color="#AF52DE" style={{ marginRight: 6 }} />
-            <Text style={[styles.badgeText, { color: '#AF52DE' }]}>ACTIVE MEMBER</Text>
-          </View>
-          <Text style={[styles.viewDetails, { color: '#AF52DE' }]}>ENTER HUB</Text>
-        </View>
-      ) : (
-        <TouchableOpacity
-          style={[styles.joinButton, { backgroundColor: '#AF52DE' }]}
-          onPress={() => handleJoinRequest(item)}
-          disabled={applyingId === item.id}
-          activeOpacity={0.8}
-        >
-          {applyingId === item.id ? (
-            <ActivityIndicator color="white" size="small" />
-          ) : (
-            <>
-              <FontAwesomeIcon icon={faPlus} size={14} color="white" style={{ marginRight: 8 }} />
-              <Text style={styles.joinButtonText}>Request to Join</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      )}
-    </TouchableOpacity>
+    <ClubCard 
+      item={item} 
+      theme={theme} 
+      navigation={navigation} 
+      activeTab={activeTab} 
+      handleJoinRequest={handleJoinRequest} 
+      applyingId={applyingId} 
+    />
   ), [theme, activeTab, navigation, applyingId, handleJoinRequest]);
 
   return (
@@ -191,16 +202,14 @@ const ClubListScreen = ({ navigation }) => {
             {isAdmin ? 'All Clubs' : 'My Clubs'} ({myClubs.length})
           </Text>
         </TouchableOpacity>
-        {!isAdmin && (
-          <TouchableOpacity
-            onPress={() => setActiveTab('browse')}
-            style={[styles.tab, activeTab === 'browse' && { backgroundColor: theme.colors.card }]}
-          >
-            <Text style={[styles.tabText, { color: activeTab === 'browse' ? '#AF52DE' : theme.colors.placeholder }]}>
-              Browse ({availableClubs.length})
-            </Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          onPress={() => setActiveTab('browse')}
+          style={[styles.tab, activeTab === 'browse' && { backgroundColor: theme.colors.card }]}
+        >
+          <Text style={[styles.tabText, { color: activeTab === 'browse' ? '#AF52DE' : theme.colors.placeholder }]}>
+            {isAdmin ? 'Discovery' : 'Browse'} ({availableClubs.length})
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -220,7 +229,7 @@ const ClubListScreen = ({ navigation }) => {
               <Text style={[styles.emptyText, { color: theme.colors.text }]}>
                 {activeTab === 'my-clubs' ? "You haven't joined any clubs yet." : "No other clubs found."}
               </Text>
-              {activeTab === 'my-clubs' && !isAdmin && (
+              {activeTab === 'my-clubs' && (
                 <TouchableOpacity onPress={() => setActiveTab('browse')} style={styles.exploreButton}>
                   <Text style={{ color: '#AF52DE', fontWeight: '900', textTransform: 'uppercase', fontSize: 12 }}>Explore Clubs</Text>
                 </TouchableOpacity>

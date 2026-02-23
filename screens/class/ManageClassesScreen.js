@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
 import { useSchool } from '../../context/SchoolContext';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -9,11 +9,73 @@ import { faBook, faChalkboardTeacher, faPlus, faChevronRight, faBookOpen, faUser
 import { useToast } from '../../context/ToastContext';
 import { useTheme } from '../../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
+import { getAvatarUrl } from '../../lib/utils';
 
 // Import services
 import { getCurrentUser } from '../../services/authService';
 import { getUserProfile } from '../../services/userService';
 import { getClassesBySchoolQuery } from '../../services/classService';
+
+const ClassCard = React.memo(({ item, theme, navigation, userRole }) => (
+  <TouchableOpacity
+    style={[styles.classCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+    activeOpacity={0.8}
+    onPress={() => {
+      navigation.navigate('StudentClassDashboard', { classId: item.id, className: item.name });
+    }}
+  >
+    <View style={styles.cardContent}>
+      {/* Top Row: Icon, Title and Subject Badge */}
+      <View style={styles.topRow}>
+        <View style={styles.titleArea}>
+          <View style={[styles.iconBox, { backgroundColor: '#05966910' }]}>
+            <FontAwesomeIcon icon={faBookOpen} size={18} color="#059669" />
+          </View>
+          <Text style={[styles.className, { color: theme.colors.text }]} numberOfLines={1}>{item.name}</Text>
+        </View>
+        {item.subject && (
+          <View style={[styles.subjectBadge, { backgroundColor: '#05966915' }]}>
+            <Text style={[styles.subjectBadgeText, { color: '#059669' }]}>{item.subject.toUpperCase()}</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Teacher Info Section */}
+      <View style={styles.teacherSection}>
+        <Image 
+          source={getAvatarUrl(item.teacher?.avatar_url, item.teacher?.email, item.teacher_id)} 
+          style={styles.teacherAvatar} 
+        />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.teacherLabel, { color: theme.colors.placeholder }]}>INSTRUCTOR</Text>
+          <Text style={[styles.teacherName, { color: theme.colors.text }]} numberOfLines={1}>
+            {item.teacher?.full_name || 'Assigning...'}
+          </Text>
+        </View>
+      </View>
+
+      {/* Stats / Footer Row */}
+      <View style={styles.cardFooter}>
+        <View style={styles.statGroup}>
+          <FontAwesomeIcon 
+            icon={faBook} 
+            size={12} 
+            color={item.class_resources?.length > 0 ? '#059669' : theme.colors.placeholder} 
+          />
+          <Text style={[styles.statText, { color: item.class_resources?.length > 0 ? '#059669' : theme.colors.placeholder }]}>
+            {item.class_resources?.length || 0} Materials
+          </Text>
+        </View>
+        <View style={styles.actionLink}>
+          <Text style={[styles.portalText, { color: '#059669' }]}>
+            {userRole === 'teacher' || userRole === 'admin' ? 'MANAGE' : 'VIEW'}
+          </Text>
+          <FontAwesomeIcon icon={faChevronRight} size={10} color="#059669" />
+        </View>
+      </View>
+    </View>
+  </TouchableOpacity>
+));
 
 const ManageClassesScreen = ({ navigation }) => {
   const [classes, setClasses] = useState([]);
@@ -68,53 +130,7 @@ const ManageClassesScreen = ({ navigation }) => {
 
   const renderClassItem = useCallback(({ item }) => {
     if (loading) return <CardSkeleton />;
-
-    return (
-      <TouchableOpacity
-        style={[styles.classCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-        activeOpacity={0.7}
-        onPress={() => {
-          navigation.navigate('StudentClassDashboard', { classId: item.id, className: item.name });
-        }}
-      >
-        <View style={styles.cardContent}>
-          <View style={styles.cardHeader}>
-            <View style={[styles.iconBox, { backgroundColor: '#10b98115' }]}>
-              <FontAwesomeIcon icon={faBookOpen} size={18} color="#10b981" />
-            </View>
-            <Text style={[styles.className, { color: theme.colors.text }]} numberOfLines={1}>{item.name}</Text>
-          </View>
-
-          <View style={styles.cardDetails}>
-            <View style={styles.detailRow}>
-              <FontAwesomeIcon icon={faChalkboardTeacher} size={12} color={theme.colors.placeholder} style={{ marginRight: 8 }} />
-              <Text style={[styles.detailText, { color: theme.colors.placeholder }]}>
-                Teacher: {item.teacher?.full_name || 'Assigning...'}
-              </Text>
-            </View>
-            {item.subject && (
-              <View style={styles.detailRow}>
-                <FontAwesomeIcon icon={faBook} size={12} color={theme.colors.placeholder} style={{ marginRight: 8 }} />
-                <Text style={[styles.detailText, { color: theme.colors.placeholder }]}>Subject: {item.subject}</Text>
-              </View>
-            )}
-            <View style={styles.detailRow}>
-              <FontAwesomeIcon icon={faBookOpen} size={12} color={item.class_resources?.length > 0 ? '#6366f1' : theme.colors.placeholder} style={{ marginRight: 8 }} />
-              <Text style={[styles.detailText, { color: item.class_resources?.length > 0 ? '#6366f1' : theme.colors.placeholder, fontWeight: item.class_resources?.length > 0 ? '700' : '500' }]}>
-                {item.class_resources?.length > 0 
-                  ? `${item.class_resources.length} Resource${item.class_resources.length === 1 ? '' : 's'} linked` 
-                  : 'No resources linked yet'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.cardFooter}>
-            <Text style={styles.portalText}>{userRole === 'teacher' || userRole === 'admin' ? 'MANAGE CLASS' : 'CLASS DASHBOARD'}</Text>
-            <FontAwesomeIcon icon={faChevronRight} size={10} color="#10b981" />
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
+    return <ClassCard item={item} theme={theme} navigation={navigation} userRole={userRole} />;
   }, [loading, theme, navigation, userRole]);
 
   return (
@@ -144,6 +160,15 @@ const ManageClassesScreen = ({ navigation }) => {
         </View>
       </LinearGradient>
 
+      {!loading && (
+        <View style={styles.countContainer}>
+          <Text style={[styles.countText, { color: '#059669' }]}>
+            {classes.length} {classes.length === 1 ? 'Academic Class' : 'Academic Classes'} Found
+          </Text>
+          <View style={[styles.countDivider, { backgroundColor: '#059669', opacity: 0.3 }]} />
+        </View>
+      )}
+
       <FlatList
         data={loading ? [1, 2, 3] : classes}
         keyExtractor={(item, index) => loading ? index.toString() : item.id.toString()}
@@ -166,11 +191,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroContainer: {
-    padding: 20,
-    marginBottom: 0,
+    padding: 24,
+    paddingTop: 40,
     elevation: 0,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
   heroContent: {
     flexDirection: 'row',
@@ -183,13 +208,15 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: '#fff',
-    fontSize: 24,
-    fontWeight: '800',
-    marginBottom: 6,
+    fontSize: 28,
+    fontWeight: '900',
+    marginBottom: 8,
+    letterSpacing: -1,
   },
   heroDescription: {
     color: '#d1fae5',
     fontSize: 14,
+    fontWeight: '500',
   },
   heroButton: {
     backgroundColor: '#fff',
@@ -210,45 +237,96 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   listContent: {
-    padding: 16,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  countContainer: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 8,
+  },
+  countText: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  countDivider: {
+    height: 1,
+    width: 40,
+    marginTop: 8,
+    borderRadius: 1,
   },
   classCard: {
-    borderRadius: 16,
+    borderRadius: 24,
     marginBottom: 16,
     overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
   },
   cardContent: {
-    padding: 16,
+    padding: 20,
   },
-  cardHeader: {
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  titleArea: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    flex: 1,
+    marginRight: 12,
   },
   iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+  },
+  subjectBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  subjectBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
   className: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    marginLeft: 12,
     flex: 1,
   },
-  cardDetails: {
-    marginBottom: 16,
-    gap: 6,
-  },
-  detailRow: {
+  teacherSection: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 20,
+    gap: 12,
   },
-  detailText: {
-    fontSize: 13,
-    fontWeight: '500',
+  teacherAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  teacherLabel: {
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  teacherName: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   cardFooter: {
     flexDirection: 'row',
@@ -256,20 +334,34 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.05)',
-    paddingTop: 12,
+    paddingTop: 16,
+  },
+  statGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  actionLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   portalText: {
-    color: '#10b981',
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 1,
   },
   emptyContainer: {
     alignItems: 'center',
-    marginTop: 40,
+    marginTop: 60,
   },
   emptyText: {
     fontSize: 16,
+    fontWeight: '600',
     fontStyle: 'italic',
   },
 });

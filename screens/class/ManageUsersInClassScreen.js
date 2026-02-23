@@ -82,6 +82,109 @@ const getDateString = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const ScheduleCard = React.memo(({ item, profile, theme, formatTime, onEdit, onDelete, onSelect }) => {
+  const canManage = profile?.role === 'teacher' || profile?.role === 'admin';
+  return (
+    <TouchableOpacity
+      style={[styles.sessionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+      activeOpacity={canManage ? 0.7 : 1}
+      disabled={!canManage}
+      onPress={() => onSelect(getDateString(item.start_time))}
+    >
+      <View style={styles.sessionLeft}>
+        <View style={[styles.sessionIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+          <FontAwesomeIcon icon={faClock} size={16} color={theme.colors.primary} />
+        </View>
+        <View style={{ marginLeft: 12 }}>
+          <Text style={[styles.sessionDate, { color: theme.colors.text }]}>{new Date(item.start_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
+          <Text style={[styles.sessionTime, { color: theme.colors.placeholder }]}>
+            {formatTime(item.start_time)} - {formatTime(item.end_time)}
+          </Text>
+        </View>
+      </View>
+      {canManage && (
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity onPress={() => onEdit(item)} style={styles.sessionEditBtn}>
+            <FontAwesomeIcon icon={faEdit} size={16} color={theme.colors.placeholder} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => onDelete(item.id)} style={styles.sessionEditBtn}>
+            <FontAwesomeIcon icon={faTrash} size={16} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+});
+
+const StudentManagementCard = React.memo(({ item, selectedScheduleDate, expanded, onToggleExpand, onAttendanceChange, onManageMarks, studentMarks, theme }) => {
+  const student = item.users;
+  const attendanceStatus = item.attendance?.[selectedScheduleDate] ?? null;
+
+  return (
+    <View style={[styles.studentCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+      <TouchableOpacity onPress={onToggleExpand}>
+        <View style={styles.studentHeader}>
+          <Image source={getAvatarUrl(student.avatar_url, student.email, student.id)} style={styles.studentAvatar} />
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={[styles.studentName, { color: theme.colors.text }]}>{student.full_name}</Text>
+            <Text style={[styles.studentEmail, { color: theme.colors.placeholder }]}>{student.email}</Text>
+          </View>
+
+          <View style={styles.attGrid}>
+            <TouchableOpacity
+              onPress={() => onAttendanceChange(item, true)}
+              style={[styles.attBtn, attendanceStatus === true && { backgroundColor: '#10b981' }]}
+            >
+              <FontAwesomeIcon icon={faCheckCircle} size={14} color={attendanceStatus === true ? '#fff' : '#10b981'} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => onAttendanceChange(item, false)}
+              style={[styles.attBtn, attendanceStatus === false && { backgroundColor: '#ef4444' }]}
+            >
+              <FontAwesomeIcon icon={faTimesCircle} size={14} color={attendanceStatus === false ? '#fff' : '#ef4444'} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => onAttendanceChange(item, null)}
+              style={[styles.attBtn, attendanceStatus === null && { backgroundColor: theme.colors.primary }]}
+            >
+              <FontAwesomeIcon icon={faQuestionCircle} size={14} color={attendanceStatus === null ? '#fff' : theme.colors.primary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={styles.expandedMarks}>
+          <View style={styles.marksHeaderRow}>
+            <Text style={styles.marksTitle}>ACADEMIC RECORDS</Text>
+            <TouchableOpacity onPress={() => onManageMarks(item)}>
+              <Text style={{ color: theme.colors.primary, fontSize: 11, fontWeight: '900' }}>MANAGE</Text>
+            </TouchableOpacity>
+          </View>
+
+          {studentMarks[student.id] && studentMarks[student.id].length > 0 ? (
+            studentMarks[student.id].map((mark, i) => (
+              <View key={i} style={[styles.markItem, { borderBottomColor: theme.colors.cardBorder + '30' }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.markName, { color: theme.colors.text }]}>{mark.assessment_name}</Text>
+                  {mark.teacher_feedback && <Text style={[styles.markFeedback, { color: theme.colors.placeholder }]}>{mark.teacher_feedback}</Text>}
+                </View>
+                <View style={[styles.markValueBox, { backgroundColor: theme.colors.primary + '10' }]}>
+                  <Text style={[styles.markValue, { color: theme.colors.primary }]}>{mark.mark}</Text>
+                </View>
+              </View>
+            ))
+          ) : (
+            <Text style={[styles.emptyMarks, { color: theme.colors.placeholder }]}>No marks recorded yet.</Text>
+          )}
+        </View>
+      )}
+    </View>
+  );
+});
+
 const ManageUsersInClassScreen = ({ navigation }) => {
   const route = useRoute();
   const { classId, className, selectedDate } = route.params;
@@ -131,7 +234,6 @@ const ManageUsersInClassScreen = ({ navigation }) => {
   const fetchClassMembers = useCallback(async () => {
     try {
       const data = await fetchClassMembersService(classId);
-      // Filter for students as in original
       const studentMembers = data.filter(m => m.role === 'student');
       setClassMembers(studentMembers || []);
     } catch (error) {
@@ -291,9 +393,9 @@ const ManageUsersInClassScreen = ({ navigation }) => {
     } catch (error) {
       console.error("Error updating attendance:", error);
       showToast("Failed to save attendance.", 'error');
-      setClassMembers(classMembers);
+      fetchClassMembers();
     }
-  }, [selectedScheduleDate, classMembers, classId, className, user, showToast]);
+  }, [selectedScheduleDate, classMembers, classId, className, user, showToast, fetchClassMembers]);
 
   const handleEditTimeChange = useCallback((text, isStart) => {
     const cleaned = text.replace(/[^0-9]/g, '');
@@ -518,12 +620,11 @@ const ManageUsersInClassScreen = ({ navigation }) => {
     } finally {
       setSaving(false);
     }
-  }, [selectedScheduleDate, classMembers, fetchClassMembers, awardXP, showToast]);
+  }, [selectedScheduleDate, classMembers, fetchClassMembers, awardXP, showToast, classId, user.id]);
 
   const handleCloseMarksModal = useCallback((refresh = false) => {
     setMarksModalVisible(false);
     if (refresh) {
-      // Re-fetch marks for all currently expanded students to show updates immediately
       Object.keys(expandedStudents).forEach(sid => {
         if (expandedStudents[sid]) {
           fetchStudentMarks(sid, classId);
@@ -543,118 +644,38 @@ const ManageUsersInClassScreen = ({ navigation }) => {
     setSelectedStudent(null);
   }, []);
 
-  const renderSchedule = useCallback(({ item }) => {
-    const canManage = profile?.role === 'teacher' || profile?.role === 'admin';
+  const renderScheduleItem = useCallback(({ item }) => (
+    <ScheduleCard 
+      item={item} 
+      profile={profile} 
+      theme={theme} 
+      formatTime={formatTime} 
+      onEdit={handleEditSchedule} 
+      onDelete={handleDeleteSchedule} 
+      onSelect={setSelectedScheduleDate} 
+    />
+  ), [profile, theme, formatTime, handleEditSchedule, handleDeleteSchedule]);
 
-    return (
-      <TouchableOpacity
-        style={[styles.sessionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-        activeOpacity={canManage ? 0.7 : 1}
-        disabled={!canManage}
-        onPress={() => setSelectedScheduleDate(getDateString(item.start_time))}
-      >
-        <View style={styles.sessionLeft}>
-          <View style={[styles.sessionIconBox, { backgroundColor: theme.colors.primary + '15' }]}>
-            <FontAwesomeIcon icon={faClock} size={16} color={theme.colors.primary} />
-          </View>
-          <View style={{ marginLeft: 12 }}>
-            <Text style={[styles.sessionDate, { color: theme.colors.text }]}>{new Date(item.start_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
-            <Text style={[styles.sessionTime, { color: theme.colors.placeholder }]}>
-              {formatTime(item.start_time)} - {formatTime(item.end_time)}
-            </Text>
-          </View>
-        </View>
-        {(profile?.role === 'teacher' || profile?.role === 'admin') && (
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <TouchableOpacity onPress={() => handleEditSchedule(item)} style={styles.sessionEditBtn}>
-              <FontAwesomeIcon icon={faEdit} size={16} color={theme.colors.placeholder} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleDeleteSchedule(item.id)} style={styles.sessionEditBtn}>
-              <FontAwesomeIcon icon={faTrash} size={16} color="#ef4444" />
-            </TouchableOpacity>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  }, [theme, formatTime, handleEditSchedule, handleDeleteSchedule, profile]);
+  const renderStudentItem = useCallback(({ item }) => (
+    <StudentManagementCard 
+      item={item} 
+      selectedScheduleDate={selectedScheduleDate} 
+      expanded={expandedStudents[item.users.id]} 
+      onToggleExpand={() => {
+        const isExpanding = !expandedStudents[item.users.id];
+        setExpandedStudents(prev => ({ ...prev, [item.users.id]: isExpanding }));
+        if (isExpanding) {
+          fetchStudentMarks(item.users.id, classId);
+        }
+      }} 
+      onAttendanceChange={handleAttendanceChange} 
+      onManageMarks={handleOpenManageMarksModal} 
+      studentMarks={studentMarks} 
+      theme={theme} 
+    />
+  ), [selectedScheduleDate, expandedStudents, handleAttendanceChange, handleOpenManageMarksModal, studentMarks, theme, classId, fetchStudentMarks]);
 
-  const renderStudent = useCallback(({ item }) => {
-    const student = item.users;
-    const attendanceStatus = item.attendance?.[selectedScheduleDate] ?? null;
-    const isExpanded = expandedStudents[student.id];
-
-    return (
-      <View style={[styles.studentCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-        <TouchableOpacity onPress={() => {
-          const isExpanding = !expandedStudents[student.id];
-          setExpandedStudents(prev => ({ ...prev, [student.id]: isExpanding }));
-          if (isExpanding) {
-            fetchStudentMarks(student.id, classId);
-          }
-        }}>
-          <View style={styles.studentHeader}>
-            <Image source={getAvatarUrl(student.avatar_url, student.email, student.id)} style={styles.studentAvatar} />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={[styles.studentName, { color: theme.colors.text }]}>{student.full_name}</Text>
-              <Text style={[styles.studentEmail, { color: theme.colors.placeholder }]}>{student.email}</Text>
-            </View>
-
-            <View style={styles.attGrid}>
-              <TouchableOpacity
-                onPress={() => handleAttendanceChange(item, true)}
-                style={[styles.attBtn, attendanceStatus === true && { backgroundColor: '#10b981' }]}
-              >
-                <FontAwesomeIcon icon={faCheckCircle} size={14} color={attendanceStatus === true ? '#fff' : '#10b981'} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => handleAttendanceChange(item, false)}
-                style={[styles.attBtn, attendanceStatus === false && { backgroundColor: '#ef4444' }]}
-              >
-                <FontAwesomeIcon icon={faTimesCircle} size={14} color={attendanceStatus === false ? '#fff' : '#ef4444'} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => handleAttendanceChange(item, null)}
-                style={[styles.attBtn, attendanceStatus === null && { backgroundColor: theme.colors.primary }]}
-              >
-                <FontAwesomeIcon icon={faQuestionCircle} size={14} color={attendanceStatus === null ? '#fff' : theme.colors.primary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </TouchableOpacity>
-
-        {isExpanded && (
-          <View style={styles.expandedMarks}>
-            <View style={styles.marksHeaderRow}>
-              <Text style={styles.marksTitle}>ACADEMIC RECORDS</Text>
-              <TouchableOpacity onPress={() => handleOpenManageMarksModal(item)}>
-                <Text style={{ color: theme.colors.primary, fontSize: 11, fontWeight: '900' }}>MANAGE</Text>
-              </TouchableOpacity>
-            </View>
-
-            {studentMarks[student.id] && studentMarks[student.id].length > 0 ? (
-              studentMarks[student.id].map((mark, i) => (
-                <View key={i} style={[styles.markItem, { borderBottomColor: theme.colors.cardBorder + '30' }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.markName, { color: theme.colors.text }]}>{mark.assessment_name}</Text>
-                    {mark.teacher_feedback && <Text style={[styles.markFeedback, { color: theme.colors.placeholder }]}>{mark.teacher_feedback}</Text>}
-                  </View>
-                  <View style={[styles.markValueBox, { backgroundColor: theme.colors.primary + '10' }]}>
-                    <Text style={[styles.markValue, { color: theme.colors.primary }]}>{mark.mark}</Text>
-                  </View>
-                </View>
-              ))
-            ) : (
-              <Text style={[styles.emptyMarks, { color: theme.colors.placeholder }]}>No marks recorded yet.</Text>
-            )}
-          </View>
-        )}
-      </View>
-    );
-  }, [selectedScheduleDate, expandedStudents, studentMarks, theme, handleAttendanceChange, handleOpenManageMarksModal]);
-
-  const renderHeader = useCallback(() => {
+  const header = useMemo(() => {
     if (loading && !selectedScheduleDate) {
       return (
         <View style={{ padding: 20 }}>
@@ -719,7 +740,7 @@ const ManageUsersInClassScreen = ({ navigation }) => {
               scrollEnabled={false}
               data={classSchedules}
               keyExtractor={(item) => item.id.toString()}
-              renderItem={renderSchedule}
+              renderItem={renderScheduleItem}
               ListEmptyComponent={<Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No scheduled sessions yet.</Text>}
             />
           </View>
@@ -754,7 +775,6 @@ const ManageUsersInClassScreen = ({ navigation }) => {
         </LinearGradient>
 
         <View style={{ padding: 20 }}>
-          {/* Helpful Instruction Description */}
           <View style={[styles.instructionCard, { backgroundColor: theme.colors.primary + '08', borderColor: theme.colors.primary + '20' }]}>
             <FontAwesomeIcon icon={faQuestionCircle} size={16} color={theme.colors.primary} />
             <Text style={[styles.instructionText, { color: theme.colors.textSecondary }]}>
@@ -778,7 +798,7 @@ const ManageUsersInClassScreen = ({ navigation }) => {
             scrollEnabled={false}
             data={classMembers}
             keyExtractor={(item) => item.id.toString()}
-            renderItem={renderStudent}
+            renderItem={renderStudentItem}
             ListEmptyComponent={<Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No students enrolled.</Text>}
           />
 
@@ -815,12 +835,12 @@ const ManageUsersInClassScreen = ({ navigation }) => {
         </View>
       </View>
     );
-  }, [loading, selectedScheduleDate, className, navigation, openAddScheduleModal, classSchedules, renderSchedule, theme, markAllPresent, classMembers, renderStudent, searchQuery, fetchAllStudents, availableStudents, addStudentToClass]);
+  }, [loading, selectedScheduleDate, className, navigation, openAddScheduleModal, classSchedules, renderScheduleItem, theme, markAllPresent, classMembers, renderStudentItem, searchQuery, fetchAllStudents, availableStudents, addStudentToClass, profile, classId, handleDeleteClass]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <FlatList
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={header}
         data={[]}
         keyExtractor={(item, index) => index.toString()}
         contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}

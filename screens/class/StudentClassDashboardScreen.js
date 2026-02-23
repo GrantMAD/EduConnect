@@ -62,6 +62,7 @@ import { fetchHomework, updateHomework, deleteHomework } from '../../services/ho
 import { fetchAssignmentsByClass, updateAssignment, deleteAssignment } from '../../services/assignmentService';
 import { fetchLessonPlans } from '../../services/lessonService';
 import { fetchResources } from '../../services/resourceService';
+import { fetchGradebookData } from '../../services/gradebookService';
 import { sendBatchNotifications } from '../../services/notificationService';
 import { Calendar } from "react-native-calendars";
 import RNModal from 'react-native-modal';
@@ -92,7 +93,7 @@ const getDateString = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-const StudentClassDashboardScreen = () => {
+const StudentClassDashboardScreen = React.memo(() => {
     const navigation = useNavigation();
     const route = useRoute();
     const { classId, className } = route.params || {};
@@ -144,6 +145,17 @@ const StudentClassDashboardScreen = () => {
             return true;
         });
     }, [resources, resourceType]);
+
+    const tabs = useMemo(() => [
+        { id: 'announcements', label: 'News', icon: faBullhorn, count: announcements.length },
+        { id: 'homework', label: 'Homework', icon: faBook, count: homework.length },
+        { id: 'lessons', label: 'Lessons', icon: faBookOpen, count: lessons.length },
+        { id: 'resources', label: 'Resources', icon: faBook, count: resources.length },
+        { id: 'assignments', label: 'Assignments', icon: faClipboardList, count: assignments.length },
+        { id: 'classmates', label: 'Classmates', icon: faUserGraduate, count: classMembers.length },
+        { id: 'schedule', label: 'Schedule', icon: faCalendarAlt, count: schedules.length },
+        { id: 'grades', label: (profile?.role === 'teacher' || profile?.role === 'admin') ? 'Gradebook' : 'Grades', icon: faGraduationCap, count: marks.length },
+    ], [announcements.length, homework.length, lessons.length, resources.length, assignments.length, classMembers.length, schedules.length, marks.length, profile?.role]);
     const [fetchingStudents, setFetchingStudents] = useState(false);
     const [saving, setSaving] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -185,21 +197,21 @@ const StudentClassDashboardScreen = () => {
 
     const isTeacher = profile?.role === 'teacher' || profile?.role === 'admin';
 
-    const handleHwScroll = (event) => {
+    const handleHwScroll = useCallback((event) => {
         setHwScrollOffset(event.nativeEvent.contentOffset.y);
-    };
+    }, []);
 
-    const handleHwScrollTo = (p) => {
+    const handleHwScrollTo = useCallback((p) => {
         if (hwScrollViewRef.current) hwScrollViewRef.current.scrollTo(p);
-    };
+    }, []);
 
-    const handleAsgnScroll = (event) => {
+    const handleAsgnScroll = useCallback((event) => {
         setAsgnScrollOffset(event.nativeEvent.contentOffset.y);
-    };
+    }, []);
 
-    const handleAsgnScrollTo = (p) => {
+    const handleAsgnScrollTo = useCallback((p) => {
         if (asgnScrollViewRef.current) asgnScrollViewRef.current.scrollTo(p);
-    };
+    }, []);
 
     const formatDate = useCallback((date) =>
         new Date(date).toLocaleDateString('en-GB', {
@@ -290,6 +302,10 @@ const StudentClassDashboardScreen = () => {
           (student) => !classStudentIds.includes(student.id)
         );
     }, [allStudents, classMembers]);
+
+    const openAddScheduleModal = useCallback(() => {
+        setAddModalVisible(true);
+    }, []);
 
     const fetchAllStudents = useCallback(async () => {
         if (!schoolId) return;
@@ -606,7 +622,7 @@ const StudentClassDashboardScreen = () => {
             const [info, scheds, myMarks, myAttendance, classAnnouncements, classHomework, classAssignments, classLessons, members, classResources] = await Promise.all([
                 fetchClassInfo(classId),
                 fetchClassSchedules([classId]),
-                fetchStudentMarks(targetStudentId, [classId]),
+                isTeacher ? fetchGradebookData(classId) : fetchStudentMarks(targetStudentId, [classId]),
                 fetchAttendanceHistory(targetStudentId, classId),
                 fetchAnnouncements(classId),
                 fetchHomework(profile?.school_id, targetStudentId, profile?.role, { class_id: classId }),
@@ -631,24 +647,13 @@ const StudentClassDashboardScreen = () => {
         } finally {
             setLoading(false);
         }
-    }, [classId, user.id, profile?.role]);
+    }, [classId, user.id, profile?.role, profile?.school_id, schoolId, className]);
 
     useEffect(() => {
         loadData();
     }, [loadData]);
 
-    const tabs = [
-        { id: 'announcements', label: 'News', icon: faBullhorn, count: announcements.length },
-        { id: 'homework', label: 'Homework', icon: faBook, count: homework.length },
-        { id: 'lessons', label: 'Lessons', icon: faBookOpen, count: lessons.length },
-        { id: 'resources', label: 'Resources', icon: faBook, count: resources.length },
-        { id: 'assignments', label: 'Assignments', icon: faClipboardList, count: assignments.length },
-        { id: 'classmates', label: 'Classmates', icon: faUserGraduate, count: classMembers.length },
-        { id: 'schedule', label: 'Schedule', icon: faCalendarAlt, count: schedules.length },
-        { id: 'grades', label: isTeacher ? 'Gradebook' : 'Grades', icon: faGraduationCap, count: marks.length },
-    ];
-
-    const renderHeader = () => (
+    const header = useMemo(() => (
         <View>
             <LinearGradient
                 colors={['#4f46e5', '#7c3aed']}
@@ -678,7 +683,13 @@ const StudentClassDashboardScreen = () => {
                 {tabs.map(tab => (
                     <TouchableOpacity
                         key={tab.id}
-                        onPress={() => setActiveTab(tab.id)}
+                        onPress={() => {
+                            if (tab.id === 'grades' && isTeacher) {
+                                navigation.navigate('Gradebook', { classId, className });
+                            } else {
+                                setActiveTab(tab.id);
+                            }
+                        }}
                         style={[
                             styles.tabBtn,
                             activeTab === tab.id && { borderBottomWidth: 2, borderBottomColor: theme.colors.primary }
@@ -709,9 +720,9 @@ const StudentClassDashboardScreen = () => {
                 ))}
             </View>
         </View>
-    );
+    ), [insets.top, className, classData, theme, tabs, activeTab, isTeacher]);
 
-    const renderContent = () => {
+    const content = useMemo(() => {
         if (loading) {
             return (
                 <View style={styles.center}>
@@ -1243,16 +1254,16 @@ const StudentClassDashboardScreen = () => {
             default:
                 return null;
         }
-    };
+    }, [loading, activeTab, announcements, homework, assignments, filteredResources, resourceType, isTeacher, navigation, classId, profile?.role, lessons, className, schedules, classMembers, selectedScheduleDate, markAllPresent, handleAttendanceChange, setMarksModalVisible, removeStudentFromClass, searchQuery, fetchAllStudents, availableStudents, addStudentToClass, attendance, theme, marks, user.id, isAnnouncementModalVisible, isManageModalVisible, manageType, isMarksModalVisible, isManageMarksModalVisible, selectedStudent]);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            {renderHeader()}
+            {header}
             <ScrollView
                 contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
                 refreshControl={<RefreshControl refreshing={loading} onRefresh={loadData} />}
             >
-                {renderContent()}
+                {content}
             </ScrollView>
 
             <AnnouncementDetailModal
@@ -1661,7 +1672,7 @@ const StudentClassDashboardScreen = () => {
             </Modal>
         </View>
     );
-};
+});
 
 const styles = StyleSheet.create({
     container: {
@@ -2058,4 +2069,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default React.memo(StudentClassDashboardScreen);
+export default StudentClassDashboardScreen;

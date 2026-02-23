@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking, Alert, ActivityIndicator } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import {
   faCog, faMoon, faSun, faBell, faInfoCircle, faFileContract,
@@ -34,7 +34,7 @@ import { deletePollsByUser } from '../services/pollService';
 import { deleteAnnouncementsByUser } from '../services/announcementService';
 import { sendNotification } from '../services/notificationService';
 
-const SettingRow = React.memo(({ icon, label, value, onValueChange, color, theme }) => (
+const SettingRow = React.memo(({ icon, label, value, onValueChange, color, theme, isLoading }) => (
   <View style={[styles.settingRow, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
     <View style={styles.settingLeft}>
       <View style={[styles.iconBox, { backgroundColor: (color || theme.colors.primary) + '15' }]}>
@@ -42,7 +42,11 @@ const SettingRow = React.memo(({ icon, label, value, onValueChange, color, theme
       </View>
       <Text style={[styles.settingLabel, { color: theme.colors.text }]}>{label}</Text>
     </View>
-    <Switch value={value} onValueChange={onValueChange} color={theme.colors.primary} />
+    {isLoading ? (
+      <ActivityIndicator size="small" color={theme.colors.primary} />
+    ) : (
+      <Switch value={value} onValueChange={onValueChange} color={theme.colors.primary} />
+    )}
   </View>
 ));
 
@@ -77,8 +81,23 @@ const SettingsScreen = ({ navigation }) => {
   const [showLeaveSchoolConfirm, setShowLeaveSchoolConfirm] = useState(false);
   const [isProcessingLeave, setIsProcessingLeave] = useState(false);
   const [notificationPermissions, setNotificationPermissions] = useState(null);
+  const [isSwitchingTheme, setIsSwitchingTheme] = useState(false);
 
   const { isDarkTheme, toggleTheme, theme } = useTheme();
+
+  // Reset switching state when theme actually changes
+  useEffect(() => {
+    setIsSwitchingTheme(false);
+  }, [isDarkTheme]);
+
+  const handleThemeToggle = useCallback(() => {
+    setIsSwitchingTheme(true);
+    // Use a small timeout to allow the ActivityIndicator to render before the heavy app-wide re-render starts
+    setTimeout(() => {
+      toggleTheme();
+    }, 100);
+  }, [toggleTheme]);
+
   const { preferences, updatePreference } = useNotificationPreferences();
   const { showToast } = useToast();
   const insets = useSafeAreaInsets();
@@ -250,9 +269,10 @@ const SettingsScreen = ({ navigation }) => {
           icon={isDarkTheme ? faMoon : faSun}
           label="Dark Mode"
           value={isDarkTheme}
-          onValueChange={toggleTheme}
+          onValueChange={handleThemeToggle}
           color={isDarkTheme ? '#fbbf24' : '#f59e0b'}
           theme={theme}
+          isLoading={isSwitchingTheme}
         />
 
         <View style={{ marginTop: 8 }}>

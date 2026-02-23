@@ -11,7 +11,7 @@ const LeaderboardSkeleton = React.memo(() => {
     const renderItem = (i) => (
         <View 
             key={i} 
-            style={[styles.userCard, { backgroundColor: theme.colors.card, borderBottomColor: theme.colors.cardBorder }]}
+            style={[styles.userCard, { backgroundColor: theme.colors.card }]}
         >
             <View style={styles.rankContainer}>
                 <SkeletonBase style={{ width: 20, height: 20, borderRadius: 10 }} />
@@ -49,7 +49,6 @@ const styles = StyleSheet.create({
         padding: 16,
         borderRadius: 20,
         marginBottom: 12,
-        borderWidth: 1,
     },
     rankContainer: {
         width: 32,

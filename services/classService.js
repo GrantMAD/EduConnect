@@ -229,8 +229,9 @@ export const fetchClassesByTeacher = async (teacherId) => {
 export const getClassesBySchoolQuery = ({ schoolId, teacherId = null }) => {
     let query = supabase
         .from('classes')
-        .select('id, name, subject, teacher_id, teacher:users!teacher_id(full_name), class_resources(id)')
-        .eq('school_id', schoolId);
+        .select('id, name, subject, teacher_id, teacher:users!teacher_id(full_name, avatar_url, email), class_resources(id)')
+        .eq('school_id', schoolId)
+        .neq('subject', 'Extracurricular');
 
     if (teacherId) {
         query = query.eq('teacher_id', teacherId);

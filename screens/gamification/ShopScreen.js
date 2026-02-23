@@ -277,25 +277,28 @@ const ShopScreen = ({ navigation }) => {
                 <View style={styles.itemInfo}>
                     <Text style={[styles.itemName, { color: theme.colors.text }]} numberOfLines={1}>{item.name}</Text>
                     
-                    {isEquipped ? (
-                        <View style={[styles.badge, { backgroundColor: theme.colors.primary, borderColor: 'transparent' }]}>
-                            <FontAwesomeIcon icon={faCheck} size={10} color="#fff" style={{ marginRight: 4 }} />
-                            <Text style={[styles.badgeText, { color: '#fff' }]}>Equipped</Text>
-                        </View>
-                    ) : isLocked ? (
-                        <View style={[styles.badge, { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' }]}>
-                            <Text style={[styles.badgeText, { color: '#9CA3AF' }]}>Locked</Text>
-                        </View>
-                    ) : details.label === 'Equip' ? (
-                        <View style={[styles.badge, { backgroundColor: theme.colors.primary + '15', borderColor: theme.colors.primary + '30' }]}>
-                            <Text style={[styles.badgeText, { color: theme.colors.primary }]}>Owned</Text>
-                        </View>
-                    ) : (
-                        <View style={[styles.badge, { backgroundColor: '#FFFBEB', borderColor: '#FEF3C7' }]}>
-                            <FontAwesomeIcon icon={faCoins} size={10} color="#F59E0B" style={{ marginRight: 4 }} />
-                            <Text style={[styles.badgeText, { color: '#92400E' }]}>{item.cost}</Text>
-                        </View>
-                    )}
+                    <View style={styles.badgeWrapper}>
+                        {isEquipped ? (
+                            <View style={[styles.premiumBadge, { backgroundColor: '#10b98115', borderColor: '#10b98140' }]}>
+                                <FontAwesomeIcon icon={faCheck} size={10} color="#10b981" />
+                                <Text style={[styles.premiumBadgeText, { color: '#10b981' }]}>EQUIPPED</Text>
+                            </View>
+                        ) : isLocked ? (
+                            <View style={[styles.premiumBadge, { backgroundColor: '#f1f5f9', borderColor: '#e2e8f0' }]}>
+                                <FontAwesomeIcon icon={faLock} size={10} color="#94a3b8" />
+                                <Text style={[styles.premiumBadgeText, { color: '#94a3b8' }]}>LOCKED</Text>
+                            </View>
+                        ) : details.label === 'Equip' ? (
+                            <View style={[styles.premiumBadge, { backgroundColor: '#6366f115', borderColor: '#6366f140' }]}>
+                                <Text style={[styles.premiumBadgeText, { color: '#6366f1' }]}>OWNED</Text>
+                            </View>
+                        ) : (
+                            <View style={[styles.premiumBadge, { backgroundColor: '#fffbeb', borderColor: '#fef3c7' }]}>
+                                <FontAwesomeIcon icon={faCoins} size={12} color="#f59e0b" />
+                                <Text style={[styles.premiumBadgeText, { color: '#b45309', fontSize: 13, fontWeight: '900' }]}>{item.cost}</Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
             </TouchableOpacity>
         );
@@ -464,12 +467,16 @@ const ShopScreen = ({ navigation }) => {
                                         <ActivityIndicator color="#fff" />
                                     ) : (
                                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                            <Text style={styles.actionButtonText}>{modalActionDetails.label.replace('Buy for ', '')}</Text>
-                                            {modalActionDetails.label.includes('Buy') && (
-                                                <View style={styles.buttonCoinRow}>
-                                                    <Text style={styles.buttonCoinText}>{selectedItem.cost}</Text>
-                                                    <FontAwesomeIcon icon={faCoins} size={16} color="#FBBF24" style={{ marginLeft: 6 }} />
-                                                </View>
+                                            {modalActionDetails.label.includes('Buy') ? (
+                                                <>
+                                                    <Text style={styles.actionButtonText}>BUY</Text>
+                                                    <View style={styles.buttonCoinRow}>
+                                                        <Text style={styles.buttonCoinText}>{selectedItem.cost}</Text>
+                                                        <FontAwesomeIcon icon={faCoins} size={16} color="#FBBF24" style={{ marginLeft: 6 }} />
+                                                    </View>
+                                                </>
+                                            ) : (
+                                                <Text style={styles.actionButtonText}>{modalActionDetails.label}</Text>
                                             )}
                                         </View>
                                     )}
@@ -608,7 +615,27 @@ const styles = StyleSheet.create({
         fontWeight: '900',
     },
     itemInfo: { width: '100%', alignItems: 'center' },
-    itemName: { fontSize: 13, fontWeight: '800', marginBottom: 8, textAlign: 'center', letterSpacing: -0.2 },
+    itemName: { fontSize: 13, fontWeight: '800', marginBottom: 10, textAlign: 'center', letterSpacing: -0.2 },
+    badgeWrapper: {
+        width: '100%',
+        alignItems: 'center',
+    },
+    premiumBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+        borderWidth: 1,
+        gap: 6,
+        minWidth: 70,
+        justifyContent: 'center',
+    },
+    premiumBadgeText: {
+        fontSize: 11,
+        fontWeight: '800',
+        letterSpacing: 0.5,
+    },
     badge: { 
         flexDirection: 'row', 
         alignItems: 'center', 

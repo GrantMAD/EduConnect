@@ -9,6 +9,29 @@ import { fetchGradebookData, fetchGradingCategories, calculateWeightedGrade } fr
 import GradingCategoriesModal from '../../components/GradingCategoriesModal';
 import StudentGradeDetailModal from '../../components/StudentGradeDetailModal';
 
+const StudentGradeCard = React.memo(({ item, theme, onPress, getGradeColor }) => (
+    <TouchableOpacity
+        style={[styles.studentCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
+        activeOpacity={0.7}
+        onPress={() => onPress(item)}
+    >
+        <View style={styles.studentInfo}>
+            <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarText}>{item.student.full_name.charAt(0)}</Text>
+            </View>
+            <View style={styles.studentDetails}>
+                <Text style={[styles.studentName, { color: theme.colors.text }]}>{item.student.full_name}</Text>
+                <Text style={[styles.studentEmail, { color: theme.colors.placeholder }]}>{item.student.email}</Text>
+            </View>
+            <View style={[styles.gradeBadge, { backgroundColor: getGradeColor(item.weightedGrade) + '20' }]}>
+                <Text style={[styles.gradeText, { color: getGradeColor(item.weightedGrade) }]}>
+                    {item.weightedGrade ? `${item.weightedGrade}%` : 'N/A'}
+                </Text>
+            </View>
+        </View>
+    </TouchableOpacity>
+));
+
 const GradebookScreen = ({ route, navigation }) => {
     const { classId, className } = route.params;
     const { theme } = useTheme();
@@ -60,46 +83,32 @@ const GradebookScreen = ({ route, navigation }) => {
         loadData();
     }, [loadData]);
 
-    const onRefresh = () => {
+    const onRefresh = useCallback(() => {
         setRefreshing(true);
         loadData();
-    };
+    }, [loadData]);
 
-    const getGradeColor = (grade) => {
+    const getGradeColor = useCallback((grade) => {
         if (!grade) return '#94a3b8';
         if (grade >= 80) return '#10b981';
         if (grade >= 60) return '#3b82f6';
         if (grade >= 40) return '#f59e0b';
         return '#ef4444';
-    };
+    }, []);
 
-    const handleStudentPress = (item) => {
+    const handleStudentPress = useCallback((item) => {
         setSelectedStudentData(item);
         setIsStudentModalVisible(true);
-    };
+    }, []);
 
-    const renderStudentItem = ({ item }) => (
-        <TouchableOpacity
-            style={[styles.studentCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder }]}
-            activeOpacity={0.7}
-            onPress={() => handleStudentPress(item)}
-        >
-            <View style={styles.studentInfo}>
-                <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarText}>{item.student.full_name.charAt(0)}</Text>
-                </View>
-                <View style={styles.studentDetails}>
-                    <Text style={[styles.studentName, { color: theme.colors.text }]}>{item.student.full_name}</Text>
-                    <Text style={[styles.studentEmail, { color: theme.colors.placeholder }]}>{item.student.email}</Text>
-                </View>
-                <View style={[styles.gradeBadge, { backgroundColor: getGradeColor(item.weightedGrade) + '20' }]}>
-                    <Text style={[styles.gradeText, { color: getGradeColor(item.weightedGrade) }]}>
-                        {item.weightedGrade ? `${item.weightedGrade}%` : 'N/A'}
-                    </Text>
-                </View>
-            </View>
-        </TouchableOpacity>
-    );
+    const renderStudentItem = useCallback(({ item }) => (
+        <StudentGradeCard 
+            item={item} 
+            theme={theme} 
+            onPress={handleStudentPress} 
+            getGradeColor={getGradeColor} 
+        />
+    ), [theme, handleStudentPress, getGradeColor]);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -208,4 +217,4 @@ const styles = StyleSheet.create({
     actionBtnText: { color: '#fff', fontWeight: '900', letterSpacing: 1 }
 });
 
-export default GradebookScreen;
+export default React.memo(GradebookScreen);

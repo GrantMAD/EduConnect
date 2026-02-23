@@ -11,6 +11,18 @@ const MarketplaceItemDetailModal = React.memo(({ visible, item, onClose, onViewS
     const insets = useSafeAreaInsets();
     const [loading, setLoading] = useState(false);
     const [imageError, setImageError] = useState(false);
+    const [showContent, setShowContent] = useState(false);
+
+    React.useEffect(() => {
+        if (visible) {
+            // Delay content rendering to allow modal animation to finish smoothly
+            const timer = setTimeout(() => setShowContent(true), 300);
+            return () => clearTimeout(timer);
+        } else {
+            setShowContent(false);
+            setImageError(false);
+        }
+    }, [visible]);
 
     if (!item) return null;
 
@@ -51,97 +63,105 @@ const MarketplaceItemDetailModal = React.memo(({ visible, item, onClose, onViewS
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 24 }}>
-                    {!imageError && item.image_url ? (
-                        <Image
-                            source={{ uri: item.image_url }}
-                            style={[styles.itemImage, { borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-                            resizeMode="cover"
-                            onError={() => setImageError(true)}
-                        />
+                    {showContent ? (
+                        <>
+                            {!imageError && item.image_url ? (
+                                <Image
+                                    source={{ uri: item.image_url }}
+                                    style={[styles.itemImage, { borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                                    resizeMode="cover"
+                                    onError={() => setImageError(true)}
+                                />
+                            ) : (
+                                <View style={[styles.itemImage, styles.fallbackContainer, { borderColor: theme.colors.cardBorder, borderWidth: 1, backgroundColor: theme.colors.inputBackground }]}>
+                                    <FontAwesomeIcon icon={getCategoryIcon(item.category)} size={80} color={theme.colors.placeholder} />
+                                </View>
+                            )}
+
+                            <View style={styles.contentContainer}>
+                                <View style={styles.titleRow}>
+                                    <Text style={[styles.title, { color: theme.colors.text }]}>{item.title}</Text>
+                                    <Text style={[styles.price, { color: theme.colors.primary }]}>R {item.price.toFixed(2)}</Text>
+                                </View>
+
+                                <View style={[styles.categoryLabel, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                                    <Text style={[styles.categoryText, { color: theme.colors.placeholder }]}>{item.category?.toUpperCase() || 'OTHER'}</Text>
+                                </View>
+
+                                <Text style={[styles.description, { color: theme.colors.text }]}>{item.description}</Text>
+
+                                <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
+
+                                {isManagementMode ? (
+                                    <View style={styles.actionButtonsContainer}>
+                                        {onEdit && (
+                                            <TouchableOpacity
+                                                style={[styles.actionBtn, { backgroundColor: theme.colors.primary }]}
+                                                onPress={() => onEdit(item)}
+                                            >
+                                                <Text style={styles.actionBtnText}>EDIT LISTING</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                        {onDelete && (
+                                            <TouchableOpacity
+                                                style={[styles.actionBtn, { backgroundColor: '#ef4444' }]}
+                                                onPress={() => onDelete(item.id)}
+                                            >
+                                                <Text style={styles.actionBtnText}>DELETE</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                ) : (
+                                    <View>
+                                        <TouchableOpacity
+                                            style={[styles.sellerCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                                            onPress={() => {
+                                                onClose();
+                                                setTimeout(() => onViewSeller(item.seller), 500);
+                                            }}
+                                            activeOpacity={0.7}
+                                        >
+                                            <View style={[styles.sellerAvatarBox, { backgroundColor: theme.colors.primary + '10' }]}>
+                                                <FontAwesomeIcon icon={faUserCircle} size={20} color={theme.colors.primary} />
+                                            </View>
+                                            <View style={styles.sellerInfo}>
+                                                <Text style={[styles.sellerLabel, { color: theme.colors.placeholder }]}>SOLD BY</Text>
+                                                <Text style={[styles.sellerName, { color: theme.colors.text }]}>{item.seller?.full_name || 'Unknown Seller'}</Text>
+                                            </View>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={[styles.messageButton, { backgroundColor: theme.colors.primary }]}
+                                            onPress={async () => {
+                                                if (loading) return;
+                                                setLoading(true);
+                                                try {
+                                                    await onMessageSeller(item.seller);
+                                                    onClose();
+                                                } catch (error) {
+                                                    console.error("Error messaging seller:", error);
+                                                } finally {
+                                                    setLoading(false);
+                                                }
+                                            }}
+                                            disabled={loading}
+                                            activeOpacity={0.8}
+                                        >
+                                            {loading ? (
+                                                <ActivityIndicator size="small" color="#fff" />
+                                            ) : (
+                                                <Text style={styles.messageButtonText}>SEND MESSAGE TO SELLER</Text>
+                                            )}
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+                            </View>
+                        </>
                     ) : (
-                        <View style={[styles.itemImage, styles.fallbackContainer, { borderColor: theme.colors.cardBorder, borderWidth: 1, backgroundColor: theme.colors.inputBackground }]}>
-                            <FontAwesomeIcon icon={getCategoryIcon(item.category)} size={80} color={theme.colors.placeholder} />
+                        <View style={{ height: 400, justifyContent: 'center', alignItems: 'center' }}>
+                            <ActivityIndicator color={theme.colors.primary} size="large" />
                         </View>
                     )}
-
-                    <View style={styles.contentContainer}>
-                        <View style={styles.titleRow}>
-                            <Text style={[styles.title, { color: theme.colors.text }]}>{item.title}</Text>
-                            <Text style={[styles.price, { color: theme.colors.primary }]}>R {item.price.toFixed(2)}</Text>
-                        </View>
-
-                        <View style={[styles.categoryLabel, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                            <Text style={[styles.categoryText, { color: theme.colors.placeholder }]}>{item.category?.toUpperCase() || 'OTHER'}</Text>
-                        </View>
-
-                        <Text style={[styles.description, { color: theme.colors.text }]}>{item.description}</Text>
-
-                        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
-
-                        {isManagementMode ? (
-                            <View style={styles.actionButtonsContainer}>
-                                {onEdit && (
-                                    <TouchableOpacity
-                                        style={[styles.actionBtn, { backgroundColor: theme.colors.primary }]}
-                                        onPress={() => onEdit(item)}
-                                    >
-                                        <Text style={styles.actionBtnText}>EDIT LISTING</Text>
-                                    </TouchableOpacity>
-                                )}
-                                {onDelete && (
-                                    <TouchableOpacity
-                                        style={[styles.actionBtn, { backgroundColor: '#ef4444' }]}
-                                        onPress={() => onDelete(item.id)}
-                                    >
-                                        <Text style={styles.actionBtnText}>DELETE</Text>
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                        ) : (
-                            <View>
-                                <TouchableOpacity
-                                    style={[styles.sellerCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-                                    onPress={() => {
-                                        onClose();
-                                        setTimeout(() => onViewSeller(item.seller), 500);
-                                    }}
-                                    activeOpacity={0.7}
-                                >
-                                    <View style={[styles.sellerAvatarBox, { backgroundColor: theme.colors.primary + '10' }]}>
-                                        <FontAwesomeIcon icon={faUserCircle} size={20} color={theme.colors.primary} />
-                                    </View>
-                                    <View style={styles.sellerInfo}>
-                                        <Text style={[styles.sellerLabel, { color: theme.colors.placeholder }]}>SOLD BY</Text>
-                                        <Text style={[styles.sellerName, { color: theme.colors.text }]}>{item.seller?.full_name || 'Unknown Seller'}</Text>
-                                    </View>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={[styles.messageButton, { backgroundColor: theme.colors.primary }]}
-                                    onPress={async () => {
-                                        if (loading) return;
-                                        setLoading(true);
-                                        try {
-                                            await onMessageSeller(item.seller);
-                                            onClose();
-                                        } catch (error) {
-                                            console.error("Error messaging seller:", error);
-                                        } finally {
-                                            setLoading(false);
-                                        }
-                                    }}
-                                    disabled={loading}
-                                    activeOpacity={0.8}
-                                >
-                                    {loading ? (
-                                        <ActivityIndicator size="small" color="#fff" />
-                                    ) : (
-                                        <Text style={styles.messageButtonText}>SEND MESSAGE TO SELLER</Text>
-                                    )}
-                                </TouchableOpacity>
-                            </View>
-                        )}
-                    </View>
                 </ScrollView >
             </View >
         </Modal >

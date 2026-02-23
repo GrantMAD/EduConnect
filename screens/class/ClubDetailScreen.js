@@ -34,6 +34,95 @@ import {
 
 const { width } = Dimensions.get('window');
 
+const ClubHero = React.memo(({ clubData, members, isCoordinator, isMember, navigation, handleLeaveClub, isLeaving }) => (
+    <LinearGradient
+        colors={['#9333ea', '#4f46e5']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroContainer}
+    >
+        <View style={styles.heroContent}>
+            <View style={styles.heroHeaderRow}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
+                    <FontAwesomeIcon icon={faChevronLeft} size={20} color="#fff" />
+                </TouchableOpacity>
+                <View style={styles.heroActions}>
+                    {isCoordinator ? (
+                        <TouchableOpacity
+                            style={styles.heroActionBtn}
+                            onPress={() => navigation.navigate('CreateClub', { clubToEdit: clubData })}
+                        >
+                            <Text style={styles.heroActionBtnText}>MANAGE</Text>
+                        </TouchableOpacity>
+                    ) : isMember ? (
+                        <TouchableOpacity
+                            style={[styles.heroActionBtn, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}
+                            onPress={handleLeaveClub}
+                            disabled={isLeaving}
+                        >
+                            {isLeaving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[styles.heroActionBtnText, { color: '#fca5a5' }]}>LEAVE</Text>}
+                        </TouchableOpacity>
+                    ) : null}
+                </View>
+            </View>
+
+            <View style={styles.heroBody}>
+                <View style={styles.clubLogoBox}>
+                    <View style={[styles.logoInner, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                        <Text style={styles.logoText}>{clubData?.name?.charAt(0)}</Text>
+                    </View>
+                </View>
+                <View style={{ flex: 1, marginLeft: 16 }}>
+                    <Text style={styles.clubNameHero}>{clubData?.name}</Text>
+                    <View style={styles.heroMetaRow}>
+                        <View style={styles.heroBadge}>
+                            <FontAwesomeIcon icon={faFootballBall} size={10} color="#fff" style={{ opacity: 0.7 }} />
+                            <Text style={styles.heroBadgeText}>EXTRA-CURRICULAR</Text>
+                        </View>
+                        <View style={styles.heroBadge}>
+                            <FontAwesomeIcon icon={faUserFriends} size={10} color="#fff" style={{ opacity: 0.7 }} />
+                            <Text style={styles.heroBadgeText}>{members.length} MEMBERS</Text>
+                        </View>
+                    </View>
+                </View>
+            </View>
+
+            <View style={styles.coordBox}>
+                <View style={styles.coordAvatarBox}>
+                    <Image source={getAvatarUrl(clubData?.teacher?.avatar_url, clubData?.teacher?.email, clubData?.teacher?.id)} style={styles.coordAvatar} />
+                </View>
+                <View style={{ marginLeft: 10 }}>
+                    <Text style={styles.coordLabel}>COORDINATOR</Text>
+                    <Text style={styles.coordName}>{clubData?.teacher?.full_name || 'Unassigned'}</Text>
+                </View>
+            </View>
+        </View>
+    </LinearGradient>
+));
+
+const ClubTabs = React.memo(({ isCoordinator, activeTab, setActiveTab, theme }) => (
+    <View style={[styles.tabBar, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderBottomWidth: 1 }]}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
+            {[
+                { id: 'news', label: 'News', icon: faBullhorn },
+                { id: 'lessons', label: 'Lessons', icon: faBookOpen },
+                { id: 'members', label: 'Members', icon: faUserFriends },
+                { id: 'calendar', label: 'Calendar', icon: faCalendarAlt },
+                ...(isCoordinator ? [{ id: 'requests', label: 'Requests', icon: faPlus }] : [])
+            ].map(tab => (
+                <TouchableOpacity
+                    key={tab.id}
+                    onPress={() => setActiveTab(tab.id)}
+                    style={[styles.tab, activeTab === tab.id && { borderBottomColor: '#AF52DE', borderBottomWidth: 2 }]}
+                >
+                    <FontAwesomeIcon icon={tab.icon} size={14} color={activeTab === tab.id ? '#AF52DE' : theme.colors.placeholder} />
+                    <Text style={[styles.tabLabel, { color: activeTab === tab.id ? '#AF52DE' : theme.colors.placeholder }]}>{tab.label}</Text>
+                </TouchableOpacity>
+            ))}
+        </ScrollView>
+    </View>
+));
+
 const ClubDetailScreen = ({ route, navigation }) => {
     const { clubId } = route.params;
     const { theme } = useTheme();
@@ -178,96 +267,28 @@ const ClubDetailScreen = ({ route, navigation }) => {
     const isCoordinator = useMemo(() => currentUserProfile?.role === 'admin' || clubData?.teacher_id === currentUserProfile?.id, [currentUserProfile, clubData]);
     const isMember = useMemo(() => members.some(m => m.user_id === currentUserProfile?.id), [members, currentUserProfile]);
 
-    const renderHeader = useCallback(() => (
-        <LinearGradient
-            colors={['#9333ea', '#4f46e5']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroContainer}
-        >
-            <View style={styles.heroContent}>
-                <View style={styles.heroHeaderRow}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonHero}>
-                        <FontAwesomeIcon icon={faChevronLeft} size={20} color="#fff" />
-                    </TouchableOpacity>
-                    <View style={styles.heroActions}>
-                        {isCoordinator ? (
-                            <TouchableOpacity
-                                style={styles.heroActionBtn}
-                                onPress={() => navigation.navigate('CreateClub', { clubToEdit: clubData })}
-                            >
-                                <Text style={styles.heroActionBtnText}>MANAGE</Text>
-                            </TouchableOpacity>
-                        ) : isMember ? (
-                            <TouchableOpacity
-                                style={[styles.heroActionBtn, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}
-                                onPress={handleLeaveClub}
-                                disabled={isLeaving}
-                            >
-                                {isLeaving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[styles.heroActionBtnText, { color: '#fca5a5' }]}>LEAVE</Text>}
-                            </TouchableOpacity>
-                        ) : null}
-                    </View>
-                </View>
+    const header = useMemo(() => (
+        <ClubHero 
+            clubData={clubData} 
+            members={members} 
+            isCoordinator={isCoordinator} 
+            isMember={isMember} 
+            navigation={navigation} 
+            handleLeaveClub={handleLeaveClub} 
+            isLeaving={isLeaving} 
+        />
+    ), [clubData, members, isCoordinator, isMember, navigation, handleLeaveClub, isLeaving]);
 
-                <View style={styles.heroBody}>
-                    <View style={styles.clubLogoBox}>
-                        <View style={[styles.logoInner, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                            <Text style={styles.logoText}>{clubData?.name?.charAt(0)}</Text>
-                        </View>
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 16 }}>
-                        <Text style={styles.clubNameHero}>{clubData?.name}</Text>
-                        <View style={styles.heroMetaRow}>
-                            <View style={styles.heroBadge}>
-                                <FontAwesomeIcon icon={faFootballBall} size={10} color="#fff" style={{ opacity: 0.7 }} />
-                                <Text style={styles.heroBadgeText}>EXTRA-CURRICULAR</Text>
-                            </View>
-                            <View style={styles.heroBadge}>
-                                <FontAwesomeIcon icon={faUserFriends} size={10} color="#fff" style={{ opacity: 0.7 }} />
-                                <Text style={styles.heroBadgeText}>{members.length} MEMBERS</Text>
-                            </View>
-                        </View>
-                    </View>
-                </View>
+    const tabs = useMemo(() => (
+        <ClubTabs 
+            isCoordinator={isCoordinator} 
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab} 
+            theme={theme} 
+        />
+    ), [isCoordinator, activeTab, theme]);
 
-                <View style={styles.coordBox}>
-                    <View style={styles.coordAvatarBox}>
-                        <Image source={getAvatarUrl(clubData?.teacher?.avatar_url, clubData?.teacher?.email, clubData?.teacher?.id)} style={styles.coordAvatar} />
-                    </View>
-                    <View style={{ marginLeft: 10 }}>
-                        <Text style={styles.coordLabel}>COORDINATOR</Text>
-                        <Text style={styles.coordName}>{clubData?.teacher?.full_name || 'Unassigned'}</Text>
-                    </View>
-                </View>
-            </View>
-        </LinearGradient>
-    ), [isCoordinator, isMember, clubData, members, navigation, handleLeaveClub, isLeaving]);
-
-    const renderTabs = useCallback(() => (
-        <View style={[styles.tabBar, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderBottomWidth: 1 }]}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
-                {[
-                    { id: 'news', label: 'News', icon: faBullhorn },
-                    { id: 'lessons', label: 'Lessons', icon: faBookOpen },
-                    { id: 'members', label: 'Members', icon: faUserFriends },
-                    { id: 'calendar', label: 'Calendar', icon: faCalendarAlt },
-                    ...(isCoordinator ? [{ id: 'requests', label: 'Requests', icon: faPlus }] : [])
-                ].map(tab => (
-                    <TouchableOpacity
-                        key={tab.id}
-                        onPress={() => setActiveTab(tab.id)}
-                        style={[styles.tab, activeTab === tab.id && { borderBottomColor: '#AF52DE', borderBottomWidth: 2 }]}
-                    >
-                        <FontAwesomeIcon icon={tab.icon} size={14} color={activeTab === tab.id ? '#AF52DE' : theme.colors.placeholder} />
-                        <Text style={[styles.tabLabel, { color: activeTab === tab.id ? '#AF52DE' : theme.colors.placeholder }]}>{tab.label}</Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
-        </View>
-    ), [isCoordinator, activeTab, theme.colors]);
-
-    const renderContent = useCallback(() => {
+    const content = useMemo(() => {
         if (loading) return <View style={{ padding: 20 }}><CardSkeleton /></View>;
 
         switch (activeTab) {
@@ -433,7 +454,7 @@ const ClubDetailScreen = ({ route, navigation }) => {
             default:
                 return null;
         }
-    }, [loading, activeTab, theme, isCoordinator, navigation, clubId, announcements, members, schedules, requests, processingId, handleRequestAction]);
+    }, [loading, activeTab, theme, isCoordinator, navigation, clubId, announcements, members, schedules, requests, processingId, handleRequestAction, clubData, currentUserProfile]);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -441,9 +462,9 @@ const ClubDetailScreen = ({ route, navigation }) => {
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#AF52DE" />}
             >
-                {renderHeader()}
-                {renderTabs()}
-                {renderContent()}
+                {header}
+                {tabs}
+                {content}
             </ScrollView>
         </View>
     );
