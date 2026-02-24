@@ -54,7 +54,12 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MyChildrenScreenSkeleton, { ChildCardSkeleton } from '../components/skeletons/MyChildrenScreenSkeleton';
+import MyChildrenScreenSkeleton, { 
+  ChildSelectorSkeleton, 
+  ChildHeroSkeleton, 
+  PerformanceDashboardSkeleton, 
+  ExamsDashboardSkeleton 
+} from '../components/skeletons/MyChildrenScreenSkeleton';
 import { useGamification } from '../context/GamificationContext';
 import { supabase } from '../lib/supabase';
 import CreateManagedStudentModal from '../components/CreateManagedStudentModal';
@@ -599,7 +604,13 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
     };
   }, [classes]);
 
-  if (loading) return <View style={{ marginTop: 40 }}><ActivityIndicator size="large" color={theme.colors.primary} /></View>;
+  if (loading) {
+    return (
+      <View style={{ marginTop: 20 }}>
+        {activeTab === 'performance' ? <PerformanceDashboardSkeleton /> : <ExamsDashboardSkeleton />}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.dashboardContainer}>
@@ -888,32 +899,26 @@ const MyChildrenScreen = ({ navigation, route }) => {
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <LinearGradient
-            colors={['#4f46e5', '#7c3aed']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroContainer}
-          >
-            <View style={styles.heroContent}>
-              <View style={styles.heroTextContainer}>
-                <Text style={styles.heroTitle}>My Children</Text>
-                <Text style={styles.heroDescription}>
-                  Academic performance and attendance overview.
-                </Text>
-              </View>
-              <View style={[styles.heroActionBtn, { opacity: 0.5 }]}>
-                <FontAwesomeIcon icon={faUserPlus} size={14} color="#4f46e5" />
-              </View>
+        <LinearGradient
+          colors={['#4f46e5', '#7c3aed']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroContainer}
+        >
+          <View style={styles.heroContent}>
+            <View style={styles.heroTextContainer}>
+              <Text style={styles.heroTitle}>My Children</Text>
+              <Text style={styles.heroDescription}>
+                Academic performance and attendance overview.
+              </Text>
             </View>
-          </LinearGradient>
-
-          <View style={{ padding: 20 }}>
-            <ChildCardSkeleton />
-            <ChildCardSkeleton />
-            <ChildCardSkeleton />
+            <View style={[styles.heroActionBtn, { opacity: 0.5 }]}>
+              <FontAwesomeIcon icon={faUserPlus} size={14} color="#4f46e5" />
+            </View>
           </View>
-        </ScrollView>
+        </LinearGradient>
+
+        <MyChildrenScreenSkeleton />
       </View>
     );
   }

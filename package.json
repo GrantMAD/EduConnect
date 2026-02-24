@@ -1,14 +1,12 @@
 {
   "name": "classconnect",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
-    "android": "npm run bump-version && expo run:android",
-    "ios": "npm run bump-version && expo run:ios",
-    "web": "expo start --web",
-    "bump-version": "node increment_version.js",
-    "eas-build-pre-install": "npm run bump-version"
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web"
   },
   "dependencies": {
     "@fortawesome/free-solid-svg-icons": "^7.1.0",
