@@ -21,6 +21,9 @@ import FamilyLinksModal from '../components/FamilyLinksModal';
 import ChildProgressSnapshot from '../components/ChildProgressSnapshot';
 import LinearGradient from 'react-native-linear-gradient';
 import WelcomeModal from '../components/WelcomeModal';
+import InsightCard from '../components/dashboard/InsightCard';
+import InsightTaskSelectorModal from '../components/dashboard/InsightTaskSelectorModal';
+import { useIsFocused } from '@react-navigation/native';
 
 // Import services
 import { getCurrentUser } from '../services/authService';
@@ -30,7 +33,7 @@ import { fetchAssignments as fetchAssignmentsService } from '../services/assignm
 import { fetchTodaySchedules, fetchClassIds } from '../services/classService';
 import { fetchTodayPTMBookings } from '../services/ptmService';
 import { fetchUpcomingLessons } from '../services/lessonService';
-import { getDashboardOverview, dailyCheckIn } from '../services/dashboardService';
+import { getDashboardOverview, dailyCheckIn, fetchChildProgressSnapshot } from '../services/dashboardService';
 import { markWelcomeModalAsSeen } from '../services/userService';
 import ActionRequiredList from '../components/dashboard/ActionRequiredList';
 import DashboardSkeleton, { StatCardSkeleton, SkeletonPiece, MissingAttendanceSkeleton } from '../components/skeletons/DashboardScreenSkeleton';
@@ -48,7 +51,7 @@ const DashboardScreen = ({ navigation }) => {
 
     const [userRole, setUserRole] = useState(profile?.role || '');
     const [userProfile, setUserProfile] = useState(profile || null);
-    
+
     // Granular loading states
     const [loadingOverview, setLoadingOverview] = useState(true);
     const [loadingTasks, setLoadingTasks] = useState(true);
@@ -73,12 +76,14 @@ const DashboardScreen = ({ navigation }) => {
     });
 
     const [actionItems, setActionItems] = useState([]);
+    const [insightData, setInsightData] = useState(null);
 
     // Modal state for user lists
     const [showUserModal, setShowUserModal] = useState(false);
     const [userListData, setUserListData] = useState([]);
     const [selectedUserCategory, setSelectedUserCategory] = useState('');
     const [showFamilyLinksModal, setShowFamilyLinksModal] = useState(false);
+    const [showInsightModal, setShowInsightModal] = useState(false);
 
     const handleDailyCheckIn = useCallback(async () => {
         try {
@@ -106,8 +111,8 @@ const DashboardScreen = ({ navigation }) => {
             now.setHours(0, 0, 0, 0); // Start of today
 
             const combined = [
-                ...(hwData || []).map(i => ({ ...i, type: 'homework' })),
-                ...(assignData || []).map(i => ({ ...i, type: 'assignment' }))
+                ...(hwData?.data || []).map(i => ({ ...i, type: 'homework' })),
+                ...(assignData?.data || []).map(i => ({ ...i, type: 'assignment' }))
             ]
                 .filter(item => new Date(item.due_date) >= now)
                 .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))
@@ -175,15 +180,16 @@ const DashboardScreen = ({ navigation }) => {
             const currentRole = profile?.role;
 
             // 1. Fetch Consolidated Overview (Stats + Actions)
-            const overview = await getDashboardOverview({ 
-                schoolId, 
-                userId: currentUserId, 
-                role: currentRole 
+            const overview = await getDashboardOverview({
+                schoolId,
+                userId: currentUserId,
+                role: currentRole
             });
 
             if (overview) {
                 setStats(overview.stats);
                 setActionItems(overview.actionItems);
+                setInsightData(overview.insight);
             }
             setLoadingOverview(false);
 
@@ -218,7 +224,7 @@ const DashboardScreen = ({ navigation }) => {
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         await Promise.all([
-            fetchDashboardData(true), 
+            fetchDashboardData(true),
             checkUserAccessAndWalkthrough()
         ]);
         setRefreshing(false);
@@ -276,6 +282,38 @@ const DashboardScreen = ({ navigation }) => {
         checkUserAccessAndWalkthrough();
         handleDailyCheckIn();
     }, [schoolId, fetchDashboardData, checkUserAccessAndWalkthrough, handleDailyCheckIn]);
+
+    const handleTaskSelection = useCallback((type) => {
+        const role = profile?.role;
+        const isParent = role === 'parent';
+
+        if (type === 'homework') {
+            navigation.navigate('Homework', { initialTab: 'HomeworkTab' });
+        } else if (type === 'assignment') {
+            navigation.navigate('Homework', { initialTab: 'AssignmentsTab' });
+        } else if (type === 'exams') {
+            if (isParent) navigation.navigate('MyChildren', { initialTab: 'exams' });
+            else navigation.navigate('MyExams');
+        }
+    }, [profile?.role, navigation]);
+
+    const handleInsightAction = useCallback(() => {
+        if (!insightData?.tasks) return;
+
+        const { homework, assignment, exams } = insightData.tasks;
+        const types = [];
+        if (homework > 0) types.push('homework');
+        if (assignment > 0) types.push('assignment');
+        if (exams > 0) types.push('exams');
+
+        if (types.length === 0) return;
+
+        if (types.length === 1) {
+            handleTaskSelection(types[0]);
+        } else {
+            setShowInsightModal(true);
+        }
+    }, [insightData, handleTaskSelection]);
 
     const greeting = new Date().getHours() < 12 ? 'Good Morning' : new Date().getHours() < 17 ? 'Good Afternoon' : 'Good Evening';
 
@@ -352,6 +390,15 @@ const DashboardScreen = ({ navigation }) => {
                         </View>
                     </View>
                 </View>
+
+                {/* Insight Card Section */}
+                {insightData && (
+                    <InsightCard
+                        insight={insightData}
+                        profile={userProfile}
+                        onAction={handleInsightAction}
+                    />
+                )}
 
                 {/* Action Required List */}
                 {['teacher', 'admin'].includes(userRole) && (
@@ -554,6 +601,13 @@ const DashboardScreen = ({ navigation }) => {
             <FamilyLinksModal
                 visible={showFamilyLinksModal}
                 onClose={() => setShowFamilyLinksModal(false)}
+            />
+
+            <InsightTaskSelectorModal
+                isVisible={showInsightModal}
+                onClose={() => setShowInsightModal(false)}
+                tasks={insightData?.tasks}
+                onSelect={handleTaskSelection}
             />
 
             <WelcomeModal

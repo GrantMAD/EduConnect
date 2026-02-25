@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshCon
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { 
+import {
     faBullhorn,
     faBook,
     faBookOpen,
@@ -19,13 +19,13 @@ import {
     faEllipsisH,
     faCheckCircle,
     faTimesCircle,
-    faPlusCircle, 
-    faMinusCircle, 
-    faUserPlus, 
-    faTrash, 
-    faSearch, 
-    faInfoCircle, 
-    faEdit, 
+    faPlusCircle,
+    faMinusCircle,
+    faUserPlus,
+    faTrash,
+    faSearch,
+    faInfoCircle,
+    faEdit,
     faLayerGroup,
     faUsers,
     faArrowLeft,
@@ -38,10 +38,10 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { 
-    fetchClassInfo, 
-    fetchClassMembers, 
-    fetchClassSchedules, 
+import {
+    fetchClassInfo,
+    fetchClassMembers,
+    fetchClassSchedules,
     fetchAttendanceHistory,
     addMemberToClass,
     removeMemberFromClass,
@@ -50,16 +50,17 @@ import {
     createClassSchedules,
     deleteClassScheduleById
 } from '../../services/classService';
-import { 
-    fetchStudentMarks, 
-    fetchParentChildren, 
+import {
+    fetchStudentMarks,
+    fetchParentChildren,
     fetchClassMembersIds,
     fetchUsersBySchool,
     fetchParentsOfStudentsRpc
 } from '../../services/userService';
 import { fetchAnnouncements } from '../../services/announcementService';
-import { fetchHomework, updateHomework, deleteHomework } from '../../services/homeworkService';
-import { fetchAssignmentsByClass, updateAssignment, deleteAssignment } from '../../services/assignmentService';
+import { fetchHomework as fetchHomeworkService, updateHomework, deleteHomework } from '../../services/homeworkService';
+import { fetchAssignments as fetchAssignmentsService, updateAssignment, deleteAssignment } from '../../services/assignmentService';
+import Pagination from '../../components/Pagination';
 import { fetchLessonPlans } from '../../services/lessonService';
 import { fetchResources } from '../../services/resourceService';
 import { fetchGradebookData } from '../../services/gradebookService';
@@ -86,11 +87,11 @@ import { getAvatarUrl } from '../../lib/utils';
 const { width } = Dimensions.get('window');
 
 const getDateString = (date) => {
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 };
 
 const StudentClassDashboardScreen = React.memo(() => {
@@ -108,22 +109,27 @@ const StudentClassDashboardScreen = React.memo(() => {
     const [loading, setLoading] = useState(true);
     const [classData, setClassData] = useState(null);
     const [schedules, setSchedules] = useState([]);
-    const [announcements, setAnnouncements] = useState([]); 
-    const [homework, setHomework] = useState([]); 
-    const [assignments, setAssignments] = useState([]); 
+    const [announcements, setAnnouncements] = useState([]);
+    const [homework, setHomework] = useState([]);
+    const [assignments, setAssignments] = useState([]);
+    const [hwPage, setHwPage] = useState(1);
+    const [hwTotal, setHwTotal] = useState(0);
+    const [asgnPage, setAsgnPage] = useState(1);
+    const [asgnTotal, setAsgnTotal] = useState(0);
+    const pageSize = 10;
     const [lessons, setLessons] = useState([]);
     const [resources, setResources] = useState([]);
     const [marks, setMarks] = useState([]);
     const [attendance, setAttendance] = useState([]);
     const [classMembers, setClassMembers] = useState([]);
     const [resourceType, setResourceType] = useState('all'); // 'all', 'general', 'lessons'
-    
+
     // Management State
     const [allStudents, setAllStudents] = useState([]);
 
     const filteredResources = useMemo(() => {
         if (!resources) return [];
-        
+
         // Deduplicate resources by ID (in case of multiple lesson links)
         const resourceMap = new Map();
         resources.forEach(r => {
@@ -134,7 +140,7 @@ const StudentClassDashboardScreen = React.memo(() => {
         const deduped = Array.from(resourceMap.values());
 
         if (resourceType === 'all') return deduped;
-        
+
         return deduped.filter(item => {
             if (resourceType === 'general') {
                 return item.class_resources?.some(cr => cr.lesson_plan_id === null);
@@ -186,7 +192,7 @@ const StudentClassDashboardScreen = React.memo(() => {
     const [isEditing, setIsEditing] = useState(false);
     const [resourceModalVisible, setResourceModalVisible] = useState(false);
     const [selectedResource, setSelectedResource] = useState(null);
-    
+
     // New detail modal states
     const [isHomeworkDetailVisible, setIsHomeworkDetailVisible] = useState(false);
     const [isAssignmentDetailVisible, setIsAssignmentDetailVisible] = useState(false);
@@ -299,7 +305,7 @@ const StudentClassDashboardScreen = React.memo(() => {
     const availableStudents = useMemo(() => {
         const classStudentIds = classMembers.map((member) => member.users?.id);
         return allStudents.filter(
-          (student) => !classStudentIds.includes(student.id)
+            (student) => !classStudentIds.includes(student.id)
         );
     }, [allStudents, classMembers]);
 
@@ -571,7 +577,7 @@ const StudentClassDashboardScreen = React.memo(() => {
     useEffect(() => {
         if (!loading && route.params?.manageItem) {
             const itemId = route.params.manageItem;
-            
+
             // Try to find in homework first
             const hwItem = homework.find(h => h.id === itemId);
             if (hwItem) {
@@ -619,14 +625,30 @@ const StudentClassDashboardScreen = React.memo(() => {
                 console.log(`Loading dashboard as ${profile?.role} ${user.id}`);
             }
 
-            const [info, scheds, myMarks, myAttendance, classAnnouncements, classHomework, classAssignments, classLessons, members, classResources] = await Promise.all([
+            const [info, scheds, myMarks, myAttendance, classAnnouncements, hwRes, asgnRes, classLessons, members, classResources] = await Promise.all([
                 fetchClassInfo(classId),
                 fetchClassSchedules([classId]),
                 isTeacher ? fetchGradebookData(classId) : fetchStudentMarks(targetStudentId, [classId]),
                 fetchAttendanceHistory(targetStudentId, classId),
                 fetchAnnouncements(classId),
-                fetchHomework(profile?.school_id, targetStudentId, profile?.role, { class_id: classId }),
-                fetchAssignmentsByClass(classId),
+                fetchHomeworkService({
+                    userId: user.id,
+                    userRole: profile?.role,
+                    schoolId: profile?.school_id,
+                    childIds: profile?.role === 'parent' ? [targetStudentId] : [],
+                    class_id: classId,
+                    page: hwPage,
+                    pageSize
+                }),
+                fetchAssignmentsService({
+                    userId: user.id,
+                    userRole: profile?.role,
+                    schoolId: profile?.school_id,
+                    childIds: profile?.role === 'parent' ? [targetStudentId] : [],
+                    class_id: classId,
+                    page: asgnPage,
+                    pageSize
+                }),
                 fetchLessonPlans(classId, profile?.role),
                 fetchClassMembers(classId),
                 fetchResources(schoolId, [classId], true)
@@ -637,8 +659,10 @@ const StudentClassDashboardScreen = React.memo(() => {
             setMarks(myMarks || []);
             setAttendance(myAttendance || []);
             setAnnouncements(classAnnouncements || []);
-            setHomework(classHomework || []);
-            setAssignments(classAssignments || []);
+            setHomework(hwRes?.data || []);
+            setHwTotal(hwRes?.count || 0);
+            setAssignments(asgnRes?.data || []);
+            setAsgnTotal(asgnRes?.count || 0);
             setLessons(classLessons || []);
             setResources(classResources || []);
             setClassMembers(members.filter(m => m.role === 'student') || []);
@@ -647,11 +671,11 @@ const StudentClassDashboardScreen = React.memo(() => {
         } finally {
             setLoading(false);
         }
-    }, [classId, user.id, profile?.role, profile?.school_id, schoolId, className]);
+    }, [classId, user.id, profile?.role, profile?.school_id, schoolId, className, hwPage, asgnPage]);
 
     useEffect(() => {
         loadData();
-    }, [loadData]);
+    }, [loadData, hwPage, asgnPage]);
 
     const header = useMemo(() => (
         <View>
@@ -768,7 +792,7 @@ const StudentClassDashboardScreen = React.memo(() => {
                                     key={hw.id}
                                     homework={hw}
                                     userId={user.id}
-                                    onPress={() => { 
+                                    onPress={() => {
                                         setSelectedItem(hw);
                                         setIsHomeworkDetailVisible(true);
                                     }}
@@ -779,6 +803,14 @@ const StudentClassDashboardScreen = React.memo(() => {
                                     }}
                                 />
                             ))
+                        )}
+                        {!loading && hwTotal > pageSize && (
+                            <Pagination
+                                currentPage={hwPage}
+                                totalItems={hwTotal}
+                                pageSize={pageSize}
+                                onPageChange={setHwPage}
+                            />
                         )}
                     </View>
                 );
@@ -796,7 +828,7 @@ const StudentClassDashboardScreen = React.memo(() => {
                                     key={asgn.id}
                                     assignment={asgn}
                                     userId={user.id}
-                                    onPress={() => { 
+                                    onPress={() => {
                                         setSelectedItem(asgn);
                                         setIsAssignmentDetailVisible(true);
                                     }}
@@ -807,6 +839,14 @@ const StudentClassDashboardScreen = React.memo(() => {
                                     }}
                                 />
                             ))
+                        )}
+                        {!loading && asgnTotal > pageSize && (
+                            <Pagination
+                                currentPage={asgnPage}
+                                totalItems={asgnTotal}
+                                pageSize={pageSize}
+                                onPageChange={setAsgnPage}
+                            />
                         )}
                     </View>
                 );
@@ -824,7 +864,7 @@ const StudentClassDashboardScreen = React.memo(() => {
                                 {filteredResources.length} {resourceType === 'all' ? 'Total' : resourceType.charAt(0).toUpperCase() + resourceType.slice(1)} Materials
                             </Text>
                             {isTeacher && (
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     onPress={() => navigation.navigate('Resources')}
                                     style={{ backgroundColor: theme.colors.primary, width: 28, height: 28, borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}
                                 >
@@ -849,13 +889,13 @@ const StudentClassDashboardScreen = React.memo(() => {
                                             resourceType === t.id && { backgroundColor: theme.colors.primary + '15' }
                                         ]}
                                     >
-                                        <FontAwesomeIcon 
-                                            icon={t.icon} 
-                                            size={10} 
-                                            color={resourceType === t.id ? theme.colors.primary : theme.colors.placeholder} 
+                                        <FontAwesomeIcon
+                                            icon={t.icon}
+                                            size={10}
+                                            color={resourceType === t.id ? theme.colors.primary : theme.colors.placeholder}
                                         />
                                         <Text style={[
-                                            styles.typeToggleText, 
+                                            styles.typeToggleText,
                                             { color: resourceType === t.id ? theme.colors.primary : theme.colors.placeholder }
                                         ]}>
                                             {t.label}
@@ -874,13 +914,13 @@ const StudentClassDashboardScreen = React.memo(() => {
                             filteredResources.map((item, index) => {
                                 const isStaff = profile?.role === 'teacher' || profile?.role === 'admin';
                                 // Privacy filter: Only show links for the current class for students. Staff see all.
-                                const visibleLinks = (item.class_resources || []).filter(cr => 
+                                const visibleLinks = (item.class_resources || []).filter(cr =>
                                     isStaff || cr.class_id === classId
                                 );
 
                                 return (
-                                    <TouchableOpacity 
-                                        key={item.id} 
+                                    <TouchableOpacity
+                                        key={item.id}
                                         style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
                                         onPress={() => {
                                             setSelectedResource(item);
@@ -895,7 +935,7 @@ const StudentClassDashboardScreen = React.memo(() => {
                                             <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder, marginBottom: 4 }]}>
                                                 {item.category || 'General'}
                                             </Text>
-                                            
+
                                             {/* Lesson Badges Row (Privacy Filtered) */}
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                                                 {visibleLinks.map((cr, idx) => (
@@ -931,13 +971,13 @@ const StudentClassDashboardScreen = React.memo(() => {
                             <Text style={[styles.sectionTitle, { color: theme.colors.text, marginBottom: 0 }]}>CLASS CURRICULUM</Text>
                             {(profile?.role === 'teacher' || profile?.role === 'admin') && (
                                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         onPress={() => navigation.navigate('LessonPlans', { classId, className, role: profile?.role })}
                                         style={{ backgroundColor: theme.colors.primary + '15', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 }}
                                     >
                                         <Text style={{ color: theme.colors.primary, fontSize: 11, fontWeight: '900' }}>MANAGE ALL</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         onPress={() => navigation.navigate('LessonPlans', { classId, className, role: profile?.role })}
                                         style={{ backgroundColor: theme.colors.primary, width: 28, height: 28, borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}
                                     >
@@ -953,8 +993,8 @@ const StudentClassDashboardScreen = React.memo(() => {
                             </View>
                         ) : (
                             lessons.map((lesson, index) => (
-                                <TouchableOpacity 
-                                    key={lesson.id} 
+                                <TouchableOpacity
+                                    key={lesson.id}
                                     style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
                                     onPress={() => navigation.navigate('LessonPlans', { classId, className, role: profile?.role })}
                                 >
@@ -977,7 +1017,7 @@ const StudentClassDashboardScreen = React.memo(() => {
                 return (
                     <View style={styles.contentContainer}>
                         {(profile?.role === 'teacher' || profile?.role === 'admin') && (
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 onPress={() => openAddScheduleModal()}
                                 style={[styles.mainActionBtn, { backgroundColor: theme.colors.primary, marginBottom: 20, width: '100%', h: 56 }]}
                             >
@@ -992,8 +1032,8 @@ const StudentClassDashboardScreen = React.memo(() => {
                             </View>
                         ) : (
                             schedules.map((schedule, index) => (
-                                <TouchableOpacity 
-                                    key={index} 
+                                <TouchableOpacity
+                                    key={index}
                                     style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
                                     onPress={() => {
                                         if (isTeacher) {
@@ -1137,8 +1177,8 @@ const StudentClassDashboardScreen = React.memo(() => {
                                                     <Text style={[styles.cardTitle, { color: theme.colors.text }]}>{item.full_name}</Text>
                                                     <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]}>{item.email}</Text>
                                                 </View>
-                                                <TouchableOpacity 
-                                                    onPress={() => addStudentToClass(item.id)} 
+                                                <TouchableOpacity
+                                                    onPress={() => addStudentToClass(item.id)}
                                                     style={{ backgroundColor: theme.colors.primary + '15', width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' }}
                                                 >
                                                     <FontAwesomeIcon icon={faPlus} size={12} color={theme.colors.primary} />
@@ -1151,7 +1191,7 @@ const StudentClassDashboardScreen = React.memo(() => {
                         </View>
                     );
                 }
-                
+
                 // Student View for classmates
                 return (
                     <View style={styles.contentContainer}>

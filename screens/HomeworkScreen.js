@@ -33,6 +33,7 @@ import AssignmentCard from '../components/AssignmentCard';
 import ManageCompletionsModal from '../components/ManageCompletionsModal';
 import ResourceDetailModal from '../components/ResourceDetailModal';
 import CardSkeleton from '../components/skeletons/CardSkeleton';
+import Pagination from '../components/Pagination';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -51,6 +52,9 @@ const HomeworkList = React.memo(() => {
   const [homework, setHomework] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const pageSize = 10;
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedHomework, setSelectedHomework] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -94,7 +98,7 @@ const HomeworkList = React.memo(() => {
 
       const profile = await getUserProfile(user.id);
       const userRole = profile?.role;
-      
+
       let childIds = [];
       if (userRole === 'parent') {
         childIds = await fetchParentChildren(user.id);
@@ -104,10 +108,13 @@ const HomeworkList = React.memo(() => {
         userId: user.id,
         userRole,
         schoolId: profile?.school_id,
-        childIds
+        childIds,
+        page: currentPage,
+        pageSize
       });
 
-      setHomework(data || []);
+      setHomework(data?.data || []);
+      setTotalItems(data?.count || 0);
     } catch (error) {
       console.error('Error fetching homework:', error);
     } finally {
@@ -119,7 +126,7 @@ const HomeworkList = React.memo(() => {
   useEffect(() => {
     if (isFocused) fetchHomework();
     fetchUser();
-  }, [isFocused, fetchHomework, fetchUser]);
+  }, [isFocused, fetchHomework, fetchUser, currentPage]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -385,6 +392,16 @@ const HomeworkList = React.memo(() => {
             <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No homework assigned yet.</Text>
           </View>
         )}
+        ListFooterComponent={
+          !loading && totalItems > pageSize && (
+            <Pagination
+              currentPage={currentPage}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+            />
+          )
+        }
       />
 
       <ManageCompletionsModal
@@ -413,6 +430,9 @@ const AssignmentsList = React.memo(() => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const pageSize = 10;
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -456,7 +476,7 @@ const AssignmentsList = React.memo(() => {
 
       const profile = await getUserProfile(user.id);
       const userRole = profile?.role;
-      
+
       let childIds = [];
       if (userRole === 'parent') {
         childIds = await fetchParentChildren(user.id);
@@ -466,10 +486,13 @@ const AssignmentsList = React.memo(() => {
         userId: user.id,
         userRole,
         schoolId: profile?.school_id,
-        childIds
+        childIds,
+        page: currentPage,
+        pageSize
       });
-      
-      setAssignments(data || []);
+
+      setAssignments(data?.data || []);
+      setTotalItems(data?.count || 0);
     } catch (error) {
       console.error('Error fetching assignments:', error);
     } finally {
@@ -480,10 +503,10 @@ const AssignmentsList = React.memo(() => {
 
   useEffect(() => {
     if (isFocused) {
-        fetchAssignments();
-        fetchUser();
+      fetchAssignments();
+      fetchUser();
     }
-  }, [isFocused, fetchAssignments, fetchUser]);
+  }, [isFocused, fetchAssignments, fetchUser, currentPage]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -749,6 +772,16 @@ const AssignmentsList = React.memo(() => {
             <Text style={[styles.emptyText, { color: theme.colors.placeholder }]}>No assignments found.</Text>
           </View>
         )}
+        ListFooterComponent={
+          !loading && totalItems > pageSize && (
+            <Pagination
+              currentPage={currentPage}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+            />
+          )
+        }
       />
 
       <ManageCompletionsModal
@@ -773,7 +806,7 @@ const AssignmentsList = React.memo(() => {
 /* =========================
    MAIN SCREEN
 ========================= */
-const HomeworkScreen = () => {
+const HomeworkScreen = ({ route }) => {
   const navigation = useNavigation();
   const { theme } = useTheme();
   const [userRole, setUserRole] = useState(null);
@@ -795,25 +828,27 @@ const HomeworkScreen = () => {
   }, []);
 
   const isTeacherOrAdmin = userRole === 'teacher' || userRole === 'admin';
+  const initialTab = route.params?.initialTab || 'HomeworkTab';
 
   return (
     <Provider>
       <View style={[styles.screenWrapper, { backgroundColor: theme.colors.background }]}>
         <LinearGradient
-            colors={['#4f46e5', '#4338ca']} 
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroContainer}
+          colors={['#4f46e5', '#4338ca']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroContainer}
         >
-            <View style={styles.heroContent}>
-                <Text style={styles.heroTitle}>Tasks & Assignments</Text>
-                <Text style={styles.heroDescription}>
-                    View all homework and assignments assigned to you.
-                </Text>
-            </View>
+          <View style={styles.heroContent}>
+            <Text style={styles.heroTitle}>Tasks & Assignments</Text>
+            <Text style={styles.heroDescription}>
+              View all homework and assignments assigned to you.
+            </Text>
+          </View>
         </LinearGradient>
 
         <Tab.Navigator
+          initialRouteName={initialTab}
           screenOptions={{
             tabBarLabelStyle: { textTransform: 'none', color: theme.colors.text },
             tabBarStyle: { backgroundColor: theme.colors.surface },
@@ -860,17 +895,17 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 12,
   },
   heroContent: {
-      marginBottom: 10,
+    marginBottom: 10,
   },
   heroTitle: {
-      color: '#fff',
-      fontSize: 24,
-      fontWeight: '800',
-      marginBottom: 6,
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '800',
+    marginBottom: 6,
   },
   heroDescription: {
-      color: '#e0e7ff',
-      fontSize: 14,
+    color: '#e0e7ff',
+    fontSize: 14,
   },
   emptyContainer: {
     flex: 1,
@@ -967,7 +1002,7 @@ const styles = StyleSheet.create({
     marginVertical: 16,
     marginLeft: 48,
   },
-  
+
   descriptionContainer: { paddingVertical: 20 },
 
   detailsCard: {

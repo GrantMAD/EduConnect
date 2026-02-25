@@ -54,11 +54,11 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MyChildrenScreenSkeleton, { 
-  ChildSelectorSkeleton, 
-  ChildHeroSkeleton, 
-  PerformanceDashboardSkeleton, 
-  ExamsDashboardSkeleton 
+import MyChildrenScreenSkeleton, {
+  ChildSelectorSkeleton,
+  ChildHeroSkeleton,
+  PerformanceDashboardSkeleton,
+  ExamsDashboardSkeleton
 } from '../components/skeletons/MyChildrenScreenSkeleton';
 import { useGamification } from '../context/GamificationContext';
 import { supabase } from '../lib/supabase';
@@ -418,23 +418,23 @@ const ClassCard = React.memo(({ classInfo, theme, onPress }) => {
           )}
         </View>
 
-          <View style={[styles.clsFooter, { borderTopColor: theme.colors.cardBorder, borderTopWidth: 1 }]}>
-            <View style={{ flexDirection: 'column', gap: 4 }}>
-              <View style={styles.footerStat}>
-                <FontAwesomeIcon icon={faCalendarCheck} size={12} color={attendanceRate > 85 ? '#10b981' : '#f59e0b'} />
-                <Text style={[styles.footerStatText, { color: theme.colors.placeholder }]}>{attendanceRate}% Attendance</Text>
-              </View>
-              <View style={styles.footerStat}>
-                <FontAwesomeIcon icon={faBookOpen} size={12} color={classInfo.classes?.class_resources?.length > 0 ? '#6366f1' : '#94a3b8'} />
-                <Text style={[styles.footerStatText, { color: classInfo.classes?.class_resources?.length > 0 ? '#6366f1' : theme.colors.placeholder, fontWeight: classInfo.classes?.class_resources?.length > 0 ? '700' : '500' }]}>
-                  {classInfo.classes?.class_resources?.length > 0 
-                    ? `${classInfo.classes.class_resources.length} Resource${classInfo.classes.class_resources.length === 1 ? '' : 's'}` 
-                    : 'No resources linked'}
-                </Text>
-              </View>
+        <View style={[styles.clsFooter, { borderTopColor: theme.colors.cardBorder, borderTopWidth: 1 }]}>
+          <View style={{ flexDirection: 'column', gap: 4 }}>
+            <View style={styles.footerStat}>
+              <FontAwesomeIcon icon={faCalendarCheck} size={12} color={attendanceRate > 85 ? '#10b981' : '#f59e0b'} />
+              <Text style={[styles.footerStatText, { color: theme.colors.placeholder }]}>{attendanceRate}% Attendance</Text>
             </View>
-            <FontAwesomeIcon icon={expanded ? faChevronUp : faChevronDown} size={14} color={theme.colors.placeholder} />
+            <View style={styles.footerStat}>
+              <FontAwesomeIcon icon={faBookOpen} size={12} color={classInfo.classes?.class_resources?.length > 0 ? '#6366f1' : '#94a3b8'} />
+              <Text style={[styles.footerStatText, { color: classInfo.classes?.class_resources?.length > 0 ? '#6366f1' : theme.colors.placeholder, fontWeight: classInfo.classes?.class_resources?.length > 0 ? '700' : '500' }]}>
+                {classInfo.classes?.class_resources?.length > 0
+                  ? `${classInfo.classes.class_resources.length} Resource${classInfo.classes.class_resources.length === 1 ? '' : 's'}`
+                  : 'No resources linked'}
+              </Text>
+            </View>
           </View>
+          <FontAwesomeIcon icon={expanded ? faChevronUp : faChevronDown} size={14} color={theme.colors.placeholder} />
+        </View>
       </TouchableOpacity>
 
       {expanded && (
@@ -468,9 +468,9 @@ const CandidateInfoCard = React.memo(({ profile, examCount, theme }) => (
   <View style={[styles.candidateInfoCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
     <View style={styles.candidateInfoLeft}>
       <View style={[styles.candidateAvatarBox, { borderColor: theme.colors.cardBorder }]}>
-        <Image 
-          source={getAvatarUrl(profile?.avatar_url, profile?.email, profile?.id)} 
-          style={styles.candidateAvatar} 
+        <Image
+          source={getAvatarUrl(profile?.avatar_url, profile?.email, profile?.id)}
+          style={styles.candidateAvatar}
         />
       </View>
       <View style={{ flex: 1 }}>
@@ -684,7 +684,7 @@ const StudentDashboard = React.memo(({ student, theme, refreshTrigger, initialTa
       ) : (
         <View style={styles.examContainer}>
           <CandidateInfoCard profile={student} examCount={categorizedExams.upcoming.length} theme={theme} />
-          
+
           {/* Sub-Tabs */}
           <View style={[styles.subTabContainer, { backgroundColor: theme.colors.cardBorder + '30' }]}>
             <TouchableOpacity
@@ -831,7 +831,7 @@ const MyChildrenScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const [children, setChildren] = useState([]);
   const [selectedChildId, setSelectedChildId] = useState(route.params?.studentId || null);
-  const [activeTab, setActiveTab] = useState(route.params?.activeTab || 'performance');
+  const [activeTab, setActiveTab] = useState(route.params?.initialTab || 'performance');
   const [parents, setParents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -842,12 +842,15 @@ const MyChildrenScreen = ({ navigation, route }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedParent, setSelectedParent] = useState(null);
 
-  // Sync state with route params (for notifications)
+  // Sync state with route params (for notifications and dashboard deep linking)
   useEffect(() => {
     if (route.params?.studentId) {
       setSelectedChildId(route.params.studentId);
     }
-  }, [route.params?.studentId]);
+    if (route.params?.initialTab) {
+      setActiveTab(route.params.initialTab);
+    }
+  }, [route.params?.studentId, route.params?.initialTab]);
 
   const fetchInitialData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -1082,7 +1085,7 @@ const MyChildrenScreen = ({ navigation, route }) => {
                     <Text style={styles.heroEmail}>{selectedChild.email || 'No email provided'}</Text>
                     <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                       <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>Student</Text></View>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         onPress={() => setActiveTab('exams')}
                         style={styles.hallTicketBtn}
                       >

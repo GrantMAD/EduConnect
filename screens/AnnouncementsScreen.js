@@ -7,8 +7,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faBullhorn, faCalendar, faUsers, faTimes, faWifi, faChevronRight, faPlus, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
 import AnnouncementDetailModal from '../components/AnnouncementDetailModal';
 import { useTheme } from '../context/ThemeContext';
-import { useSupabaseInfiniteQuery } from '../hooks/useSupabaseInfiniteQuery';
 import LinearGradient from 'react-native-linear-gradient';
+import Pagination from '../components/Pagination';
 
 // Import services
 import { getAnnouncementsQuery } from '../services/announcementService';
@@ -103,47 +103,60 @@ const AnnouncementItem = React.memo(({ item, theme, onPress, isNew }) => (
 ));
 
 const AnnouncementsScreen = ({ navigation, route }) => {
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
+  const [announcementsLoading, setAnnouncementsLoading] = useState(true);
+  const [announcementsRefreshing, setAnnouncementsRefreshing] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
   const [userClasses, setUserClasses] = useState([]);
   const [allClasses, setAllClasses] = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
 
   const { schoolId, loadingSchool, schoolData } = useSchool();
   const { theme } = useTheme();
 
-  const fetchAnnouncementsQuery = useCallback(({ from, to }) => {
-    if (!schoolId) return Promise.resolve({ data: [], error: null });
+  const fetchAnnouncementsData = useCallback(async (isRefresh = false) => {
+    if (!schoolId || userRole === null) return;
 
-    return getAnnouncementsQuery({
-      schoolId,
-      userRole,
-      userClasses,
-      from,
-      to
-    });
-  }, [schoolId, userRole, userClasses]);
+    if (isRefresh) setAnnouncementsRefreshing(true);
+    else setAnnouncementsLoading(true);
 
-  const {
-    data: announcementsData,
-    loading: announcementsLoading,
-    loadingMore,
-    refreshing: announcementsRefreshing,
-    isOffline,
-    hasMore,
-    refetch,
-    loadMore
-  } = useSupabaseInfiniteQuery(
-    `announcements_${schoolId}_${userRole}`,
-    fetchAnnouncementsQuery,
-    {
-      pageSize: 15,
-      dependencies: [schoolId, userRole, userClasses.length]
+    try {
+      const from = (currentPage - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, count, error } = await getAnnouncementsQuery({
+        schoolId,
+        userRole,
+        userClasses,
+        from,
+        to
+      });
+
+      if (error) throw error;
+
+      setAnnouncements(data || []);
+      setTotalItems(count || 0);
+      setIsOffline(false);
+    } catch (error) {
+      console.error('Error fetching announcements:', error);
+      setIsOffline(true);
+    } finally {
+      setAnnouncementsLoading(false);
+      setAnnouncementsRefreshing(false);
     }
-  );
+  }, [schoolId, userRole, userClasses, currentPage, pageSize]);
 
-  const announcements = announcementsData || [];
+  useEffect(() => {
+    fetchAnnouncementsData();
+  }, [fetchAnnouncementsData]);
+
   const isLoading = loading || loadingSchool || announcementsLoading;
 
   // Handle auto-opening an announcement from params
@@ -155,13 +168,13 @@ const AnnouncementsScreen = ({ navigation, route }) => {
         setShowModal(true);
         // Clear param to prevent re-opening
         navigation.setParams({ openAnnouncementId: null });
-      } else if (!hasMore) {
+      } else if (currentPage * pageSize >= totalItems) {
         // ID not found and no more to load
         console.log("Announcement ID not found in current list");
         navigation.setParams({ openAnnouncementId: null });
       }
     }
-  }, [route.params?.openAnnouncementId, announcements, hasMore, navigation]);
+  }, [route.params?.openAnnouncementId, announcements, totalItems, currentPage, pageSize, navigation]);
 
   const fetchUserClassesData = useCallback(async () => {
     try {
@@ -222,14 +235,14 @@ const AnnouncementsScreen = ({ navigation, route }) => {
   useFocusEffect(
     useCallback(() => {
       if (schoolId && userRole !== null && userClasses !== null && allClasses !== null) {
-        refetch();
+        fetchAnnouncementsData(true);
       }
-    }, [schoolId, userRole, userClasses, allClasses, refetch])
+    }, [schoolId, userRole, userClasses, allClasses, fetchAnnouncementsData])
   );
 
   const onRefresh = useCallback(async () => {
-    refetch();
-  }, [refetch]);
+    fetchAnnouncementsData(true);
+  }, [fetchAnnouncementsData]);
 
   const handleCardPress = useCallback((announcement) => {
     setSelectedAnnouncement(announcement);
@@ -253,14 +266,6 @@ const AnnouncementsScreen = ({ navigation, route }) => {
     );
   }, [isLoading, theme, handleCardPress]);
 
-  const renderFooter = useCallback(() => {
-    if (!loadingMore) return null;
-    return (
-      <View style={{ paddingVertical: 20 }}>
-        <ActivityIndicator size="small" color={theme.colors.primary} />
-      </View>
-    );
-  }, [loadingMore, theme.colors.primary]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -275,13 +280,16 @@ const AnnouncementsScreen = ({ navigation, route }) => {
         keyExtractor={(item, index) => isLoading ? index.toString() : item.id.toString()}
         onRefresh={onRefresh}
         refreshing={announcementsRefreshing}
-        onEndReached={() => {
-          if (hasMore && !loadingMore && !isLoading) {
-            loadMore();
-          }
-        }}
-        onEndReachedThreshold={0.3}
-        ListFooterComponent={renderFooter}
+        ListFooterComponent={
+          !isLoading && totalItems > pageSize && (
+            <Pagination
+              currentPage={currentPage}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+            />
+          )
+        }
         removeClippedSubviews={true}
         initialNumToRender={5}
         maxToRenderPerBatch={5}

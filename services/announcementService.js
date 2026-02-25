@@ -13,7 +13,7 @@ export const fetchAnnouncements = async (classId) => {
 
 export const getAnnouncementsQuery = ({ schoolId, userRole, userClasses, from, to }) => {
   let query = supabase.from('announcements')
-    .select('*, author:users(full_name), class:classes(name)')
+    .select('*, author:users(full_name), class:classes(name)', { count: 'exact' })
     .eq('school_id', schoolId)
     .order('created_at', { ascending: false })
     .range(from, to);

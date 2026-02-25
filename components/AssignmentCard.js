@@ -33,6 +33,14 @@ const AssignmentCard = React.memo(({ assignment, onPress, onTrackPress, userId }
   const resourceCount = assignment.resources?.length || 0;
   const hasLinkedLesson = !!assignment.lesson_plans;
 
+  const isToday = React.useMemo(() => {
+    const today = new Date();
+    const d = new Date(assignment.due_date);
+    return today.getFullYear() === d.getFullYear() &&
+      today.getMonth() === d.getMonth() &&
+      today.getDate() === d.getDate();
+  }, [assignment.due_date]);
+
   return (
     <TouchableOpacity
       onPress={handlePress}
@@ -69,9 +77,21 @@ const AssignmentCard = React.memo(({ assignment, onPress, onTrackPress, userId }
         )}
       </View>
 
-      <View style={[styles.dateRow, { backgroundColor: theme.colors.background }]}>
-        <FontAwesomeIcon icon={faCalendarAlt} size={12} color={theme.colors.placeholder} />
-        <Text style={[styles.dateText, { color: theme.colors.placeholder }]}>DUE {formatDate(assignment.due_date).toUpperCase()}</Text>
+      <View style={[
+        styles.dateRow,
+        { backgroundColor: isToday ? theme.colors.error + '15' : theme.colors.background }
+      ]}>
+        <FontAwesomeIcon
+          icon={faCalendarAlt}
+          size={12}
+          color={isToday ? theme.colors.error : theme.colors.placeholder}
+        />
+        <Text style={[
+          styles.dateText,
+          { color: isToday ? theme.colors.error : theme.colors.placeholder }
+        ]}>
+          DUE {formatDate(assignment.due_date).toUpperCase()}
+        </Text>
       </View>
 
       <View style={styles.footer}>

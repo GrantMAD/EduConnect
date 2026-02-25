@@ -1,17 +1,19 @@
 import { supabase } from '../lib/supabase';
 import { fetchInactiveExamSessions } from './examService';
+import { fetchTodayTaskProgress } from './assignmentService';
 
 export const getDashboardOverview = async ({ schoolId, userId, role }) => {
     const normalizedRole = role?.toLowerCase();
     const isAdmin = normalizedRole === 'admin';
-    
+
     // 1. Fetch basic stats and profile-related counts in parallel (Only for Admin)
-    const [statsData, clubsCount, totalClassesCount, linkCount] = isAdmin ? await Promise.all([
-        getDashboardStats(schoolId),
-        fetchClubsCount(schoolId),
-        fetchTotalClassesCount(schoolId),
-        fetchParentChildLinkCount(schoolId)
-    ]) : [null, 0, 0, 0];
+    const [statsData, clubsCount, totalClassesCount, linkCount, dailyProgress] = await Promise.all([
+        isAdmin ? getDashboardStats(schoolId) : Promise.resolve(null),
+        isAdmin ? fetchClubsCount(schoolId) : Promise.resolve(0),
+        isAdmin ? fetchTotalClassesCount(schoolId) : Promise.resolve(0),
+        isAdmin ? fetchParentChildLinkCount(schoolId) : Promise.resolve(0),
+        ['student', 'teacher', 'parent'].includes(normalizedRole) ? fetchTodayTaskProgress({ userId, role: normalizedRole, schoolId }) : Promise.resolve(null)
+    ]);
 
     // 2. Fetch action items (alerts) in parallel if applicable (Admin and Teacher)
     let actionItems = [];
@@ -49,8 +51,117 @@ export const getDashboardOverview = async ({ schoolId, userId, role }) => {
             pollCount: statsData?.pollCount || 0,
             parentChildLinkCount: linkCount
         },
-        actionItems
+        actionItems,
+        insight: dailyProgress ? {
+            tasks: {
+                total: dailyProgress.total,
+                completed: dailyProgress.completed,
+                dueToday: dailyProgress.total - dailyProgress.completed,
+                homework: dailyProgress.pendingHomework,
+                assignment: dailyProgress.pendingAssignment,
+                exams: dailyProgress.pendingExam
+            }
+        } : null
     };
+};
+
+export const fetchChildProgressSnapshot = async (childIds) => {
+    if (!childIds || childIds.length === 0) return [];
+
+    const now = new Date();
+    const isSameDayNative = (date1, date2) => {
+        return date1.getFullYear() === date2.getFullYear() &&
+            date1.getMonth() === date2.getMonth() &&
+            date1.getDate() === date2.getDate();
+    };
+
+    try {
+        const { data: members, error: membersError } = await supabase
+            .from('class_members')
+            .select('user_id, class_id, users!user_id(full_name, avatar_url)')
+            .in('user_id', childIds);
+
+        if (membersError) throw membersError;
+
+        const allClassIds = [...new Set(members.map(m => m.class_id))];
+        let allHomework = [];
+        let allAssignments = [];
+        let examsToday = [];
+
+        if (allClassIds.length > 0) {
+            const startRange = new Date(now);
+            startRange.setDate(now.getDate() - 1);
+            const endRange = new Date(now);
+            endRange.setDate(now.getDate() + 1);
+
+            const [hwRes, asgRes, exmRes] = await Promise.all([
+                supabase.from('homework')
+                    .select('class_id, due_date, student_completions(id, student_id)')
+                    .in('class_id', allClassIds)
+                    .gte('due_date', startRange.toISOString()),
+                supabase.from('assignments')
+                    .select('class_id, due_date, student_completions(id, student_id)')
+                    .in('class_id', allClassIds)
+                    .gte('due_date', startRange.toISOString()),
+                supabase.from('exam_papers')
+                    .select('class_id, session_id, exam_sessions(id, date)')
+                    .in('class_id', allClassIds)
+            ]);
+
+            allHomework = hwRes.data || [];
+            allAssignments = asgRes.data || [];
+
+            const examsResponse = exmRes.data || [];
+            examsToday = examsResponse.filter(e => e.exam_sessions && isSameDayNative(new Date(e.exam_sessions.date), now));
+        }
+
+        const results = childIds.map(childId => {
+            const member = members.find(m => m.user_id === childId);
+            const childClasses = members.filter(m => m.user_id === childId).map(m => m.class_id);
+
+            const childHomework = allHomework.filter(hw => childClasses.includes(hw.class_id));
+            const childAssignments = allAssignments.filter(asg => childClasses.includes(asg.class_id));
+            const childExams = (examsToday || []).filter(e => childClasses.includes(e.class_id));
+
+            const pendingHomework = childHomework.filter(hw => {
+                const isToday = isSameDayNative(new Date(hw.due_date), now);
+                const isCompleted = hw.student_completions?.some(c => c.student_id === childId);
+                return isToday && !isCompleted;
+            }).length;
+
+            const pendingAssignment = childAssignments.filter(asg => {
+                const isToday = isSameDayNative(new Date(asg.due_date), now);
+                const isCompleted = asg.student_completions?.some(c => c.student_id === childId);
+                return isToday && !isCompleted;
+            }).length;
+
+            const pendingExam = childExams.length;
+
+            const nextDue = [...childHomework, ...childAssignments]
+                .filter(x => new Date(x.due_date) > now)
+                .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))[0];
+
+            return {
+                childId,
+                name: member?.users?.full_name,
+                avatar: member?.users?.avatar_url,
+                pendingHomework,
+                pendingAssignment,
+                pendingExam,
+                totalPendingToday: pendingHomework + pendingAssignment + pendingExam,
+                nextDue: nextDue ? {
+                    type: nextDue.due_date ? (nextDue.subject ? 'homework' : 'assignment') : 'unknown',
+                    date: nextDue.due_date,
+                    subject: nextDue.subject || nextDue.title
+                } : null
+            };
+        });
+
+        return results;
+    } catch (error) {
+        console.error('Error in fetchChildProgressSnapshot:', error);
+        return [];
+    }
 };
 
 export const getDashboardStats = async (schoolId) => {
@@ -118,8 +229,6 @@ export const fetchMissingAttendance = async ({ userId, role, schoolId }) => {
             console.log('Role not authorized:', normalizedRole);
             return [];
         }
-
-        // Strict attendance check REMOVED (column missing)
 
         // 2. Fetch past schedules (LAST 7 DAYS)
         const now = new Date();

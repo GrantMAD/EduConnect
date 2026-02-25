@@ -33,6 +33,14 @@ const HomeworkCard = React.memo(({ homework, onPress, onTrackPress, userId }) =>
   const resourceCount = homework.resources?.length || 0;
   const hasLinkedLesson = !!homework.lesson_plans;
 
+  const isToday = React.useMemo(() => {
+    const today = new Date();
+    const d = new Date(homework.due_date);
+    return today.getFullYear() === d.getFullYear() &&
+      today.getMonth() === d.getMonth() &&
+      today.getDate() === d.getDate();
+  }, [homework.due_date]);
+
   return (
     <TouchableOpacity
       onPress={handlePress}
@@ -53,7 +61,6 @@ const HomeworkCard = React.memo(({ homework, onPress, onTrackPress, userId }) =>
           </View>
         )}
       </View>
-
       <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         {resourceCount > 0 && (
           <View style={[styles.badge, { backgroundColor: '#10b981' + '15' }]}>
@@ -69,9 +76,21 @@ const HomeworkCard = React.memo(({ homework, onPress, onTrackPress, userId }) =>
         )}
       </View>
 
-      <View style={[styles.dateRow, { backgroundColor: theme.colors.background }]}>
-        <FontAwesomeIcon icon={faCalendarAlt} size={12} color={theme.colors.placeholder} />
-        <Text style={[styles.dateText, { color: theme.colors.placeholder }]}>DUE {formatDate(homework.due_date).toUpperCase()}</Text>
+      <View style={[
+        styles.dateRow,
+        { backgroundColor: isToday ? theme.colors.error + '15' : theme.colors.background }
+      ]}>
+        <FontAwesomeIcon
+          icon={faCalendarAlt}
+          size={12}
+          color={isToday ? theme.colors.error : theme.colors.placeholder}
+        />
+        <Text style={[
+          styles.dateText,
+          { color: isToday ? theme.colors.error : theme.colors.placeholder }
+        ]}>
+          DUE {formatDate(homework.due_date).toUpperCase()}
+        </Text>
       </View>
 
       <View style={styles.footer}>
