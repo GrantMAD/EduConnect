@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, SectionList, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal, ScrollView, Linking, RefreshControl } from 'react-native';
 import NotificationCardSkeleton, { SkeletonPiece } from '../components/skeletons/NotificationCardSkeleton';
+import NotificationGroup from '../components/NotificationGroup';
+import NotificationItem from '../components/NotificationItem';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -25,103 +27,6 @@ import { fetchAnnouncementById } from '../services/announcementService';
 import { fetchHomeworkById } from '../services/homeworkService';
 import { fetchAssignmentById } from '../services/assignmentService';
 
-const NotificationItem = React.memo(({ item, theme, onMainPress, onAcceptPress, onDeclinePress, onMarkReadPress, onDeletePress }) => {
-  const isUnread = !item.is_read;
-  
-  const typeInfo = {
-    new_general_announcement: { icon: 'bullhorn', color: '#007AFF', label: 'Announcement' },
-    new_class_announcement: { icon: 'bullhorn', color: '#34C759', label: 'Class Update' },
-    new_homework: { icon: 'clipboard-list', color: '#FF9500', label: 'Homework' },
-    new_assignment: { icon: 'file-signature', color: '#AF52DE', label: 'Assignment' },
-    new_poll: { icon: 'poll', color: '#5856D6', label: 'Poll' },
-    new_ptm_booking: { icon: 'handshake', color: '#FF2D55', label: 'PTM' },
-    ptm_cancellation: { icon: 'handshake-slash', color: '#FF3B30', label: 'PTM Cancel' },
-    school_join_request: { icon: 'school', color: '#007AFF', label: 'Join Request' },
-    parent_child_request: { icon: 'user-friends', color: '#5AC8FA', label: 'Association' },
-    parent_welcome: { icon: 'user-plus', color: '#34C759', label: 'Welcome' },
-    added_to_club: { icon: 'users', color: '#AF52DE', label: 'Club' },
-  };
-
-  const info = typeInfo[item.type] || { icon: 'bell', color: theme.colors.primary, label: 'Notification' };
-
-  const isPressable = [
-    'new_general_announcement',
-    'new_class_announcement',
-    'new_homework',
-    'new_assignment',
-    'new_poll',
-    'new_ptm_booking',
-    'ptm_cancellation',
-    'added_to_club',
-    'club_join_request',
-    'club_join_accepted',
-    'parent_child_request',
-    'parent_welcome',
-    'exam_schedule'
-  ].includes(item.type);
-
-  return (
-    <View
-      style={[
-        styles.card,
-        {
-          backgroundColor: theme.colors.cardBackground,
-          borderColor: theme.colors.cardBorder,
-          borderWidth: 1,
-          borderLeftColor: isUnread ? info.color : theme.colors.cardBorder,
-          borderLeftWidth: 4
-        }
-      ]}
-    >
-      <TouchableOpacity
-        style={styles.cardMain}
-        onPress={() => onMainPress(item)}
-        disabled={!isPressable}
-      >
-        <View style={[styles.iconContainer, { backgroundColor: isUnread ? `${info.color}15` : theme.colors.background }]}>
-          <FontAwesome5 name={info.icon} size={18} color={isUnread ? info.color : theme.colors.placeholder} />
-        </View>
-        <View style={styles.contentContainer}>
-          <View style={styles.typeHeader}>
-            <Text style={[styles.typeLabel, { color: isUnread ? info.color : theme.colors.placeholder }]}>{info.label}</Text>
-            {isUnread && <View style={[styles.unreadDot, { backgroundColor: info.color }]} />}
-          </View>
-          <Text style={[styles.title, { color: theme.colors.text }, isUnread && { fontWeight: 'bold' }]}>{item.title}</Text>
-          <Text style={[styles.message, { color: theme.colors.textSecondary }]} numberOfLines={2}>{item.message}</Text>
-          <Text style={[styles.date, { color: theme.colors.placeholder }]}>{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-
-          {(item.type === 'school_join_request' || item.type === 'parent_child_request') && isUnread && (
-            <View style={styles.buttonsRow}>
-              <TouchableOpacity
-                style={[styles.button, { backgroundColor: theme.colors.primary }]}
-                onPress={() => onAcceptPress(item)}
-              >
-                <Text style={[styles.buttonText, { color: '#fff' }]}>Accept</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, { backgroundColor: theme.colors.error }]}
-                onPress={() => onDeclinePress(item)}
-              >
-                <Text style={[styles.buttonText, { color: '#fff' }]}>Decline</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </TouchableOpacity>
-
-      <View style={styles.actionsContainer}>
-        {isUnread && (
-          <TouchableOpacity onPress={() => onMarkReadPress(item.id)} style={styles.actionButton}>
-            <FontAwesome5 name="check-circle" size={16} color={theme.colors.success} />
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity onPress={() => onDeletePress(item.id)} style={styles.actionButton}>
-          <FontAwesome5 name="trash-alt" size={16} color={theme.colors.error} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-});
 
 const NotificationsScreen = ({ route, navigation }) => {
   const [notifications, setNotifications] = useState([]);
@@ -230,9 +135,9 @@ const NotificationsScreen = ({ route, navigation }) => {
         );
 
         if (profile?.role === 'parent') {
-            navigation.navigate('MyChildren', { studentId: notification.related_user_id, activeTab: 'exams' });
+          navigation.navigate('MyChildren', { studentId: notification.related_user_id, activeTab: 'exams' });
         } else {
-            navigation.navigate('MyExams');
+          navigation.navigate('MyExams');
         }
         return;
       default:
@@ -307,7 +212,7 @@ const NotificationsScreen = ({ route, navigation }) => {
     try {
       if (accept) {
         const requesterId = notification.related_user_id || notification.created_by;
-        
+
         // Check if this is a student. If so, we need to assign a grade.
         const { data: requester } = await supabase
           .from('users')
@@ -317,7 +222,7 @@ const NotificationsScreen = ({ route, navigation }) => {
 
         if (requester?.role === 'student') {
           const schoolIdToUse = requester.school_id || requester.requested_school_id || profile?.school_id;
-          
+
           setPendingStudent({
             id: requesterId,
             name: requester.full_name,
@@ -377,7 +282,7 @@ const NotificationsScreen = ({ route, navigation }) => {
         .from('users')
         .update({ grade: grade })
         .eq('id', pendingStudent.id);
-      
+
       if (updateError) throw updateError;
 
       // 2. Merge accounts if needed
@@ -395,7 +300,7 @@ const NotificationsScreen = ({ route, navigation }) => {
       // 4. Update local UI
       setNotifications(prev => prev.filter(n => n.id !== pendingStudent.notificationId));
       showToast('Student accepted and grade assigned.', 'success');
-      
+
       setGradeModalVisible(false);
       setPendingStudent(null);
       setExistingShadow(null);
@@ -484,13 +389,56 @@ const NotificationsScreen = ({ route, navigation }) => {
     }
   }, [showToast]);
 
+  const handleMarkGroupAsRead = useCallback(async (items) => {
+    try {
+      const unreadIds = items.filter(i => !i.is_read).map(i => i.id);
+      if (unreadIds.length === 0) return;
+
+      await Promise.all(unreadIds.map(id => markAsRead(id)));
+
+      setNotifications(prev =>
+        prev.map(n => unreadIds.includes(n.id) ? { ...n, is_read: true } : n)
+      );
+      showToast('Group marked as read.', 'success');
+    } catch (err) {
+      console.error('Error marking group as read:', err);
+      showToast('Could not mark group as read.', 'error');
+    }
+  }, [showToast]);
+
+  const handleDeleteGroup = useCallback(async (items) => {
+    Alert.alert(
+      'Delete Group',
+      `Are you sure you want to delete all ${items.length} notifications in this group?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete All',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const ids = items.map(i => i.id);
+              await Promise.all(ids.map(id => deleteNotificationService(id)));
+
+              setNotifications(prev => prev.filter(n => !ids.includes(n.id)));
+              showToast('Group deleted.', 'success');
+            } catch (err) {
+              console.error('Error deleting group:', err);
+              showToast('Could not delete group.', 'error');
+            }
+          }
+        }
+      ]
+    );
+  }, [showToast]);
+
   const sections = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    const groups = {
+    const initialGroups = {
       Today: [],
       Yesterday: [],
       Older: []
@@ -501,20 +449,91 @@ const NotificationsScreen = ({ route, navigation }) => {
       date.setHours(0, 0, 0, 0);
 
       if (date.getTime() === today.getTime()) {
-        groups.Today.push(n);
+        initialGroups.Today.push(n);
       } else if (date.getTime() === yesterday.getTime()) {
-        groups.Yesterday.push(n);
+        initialGroups.Yesterday.push(n);
       } else {
-        groups.Older.push(n);
+        initialGroups.Older.push(n);
       }
     });
 
-    return Object.entries(groups)
+    const groupableTypes = [
+      'new_homework', 'new_assignment', 'new_poll',
+      'new_class_announcement', 'homework_submission'
+    ];
+
+    const getGroupKey = (n) => {
+      if (!groupableTypes.includes(n.type)) return null;
+      const data = n.data || {};
+      const homeworkId = data.homework_id || (n.type === 'new_homework' ? n.related_user_id : null);
+      const assignmentId = data.assignment_id || (n.type === 'new_assignment' ? n.related_user_id : null);
+      const pollId = data.poll_id || (n.type === 'new_poll' ? n.related_user_id : null);
+      const classId = data.class_id || (n.type === 'new_class_announcement' ? n.related_user_id : null);
+      return homeworkId || assignmentId || pollId || classId || null;
+    };
+
+    return Object.entries(initialGroups)
       .filter(([_, items]) => items.length > 0)
-      .map(([title, data]) => ({ title, data }));
+      .map(([title, sectionItems]) => {
+        const subGroups = [];
+        const processedIndices = new Set();
+
+        for (let i = 0; i < sectionItems.length; i++) {
+          if (processedIndices.has(i)) continue;
+
+          const current = sectionItems[i];
+          const key = getGroupKey(current);
+
+          if (key) {
+            const groupItems = [current];
+            for (let j = i + 1; j < sectionItems.length; j++) {
+              if (processedIndices.has(j)) continue;
+              const other = sectionItems[j];
+              if (other.type === current.type && getGroupKey(other) === key) {
+                groupItems.push(other);
+                processedIndices.add(j);
+              }
+            }
+
+            if (groupItems.length > 1) {
+              subGroups.push({
+                isGroup: true,
+                type: current.type,
+                groupKey: key,
+                items: groupItems,
+                id: `group-${current.type}-${key}`,
+                created_at: current.created_at // Use the latest one for display
+              });
+            } else {
+              subGroups.push({ isGroup: false, ...current });
+            }
+          } else {
+            subGroups.push({ isGroup: false, ...current });
+          }
+          processedIndices.add(i);
+        }
+
+        return { title, data: subGroups };
+      });
   }, [notifications]);
 
   const renderNotification = useCallback(({ item }) => {
+    if (item.isGroup) {
+      return (
+        <NotificationGroup
+          group={item}
+          theme={theme}
+          onMainPress={handleNotificationPress}
+          onAcceptPress={handleJoinResponse}
+          onDeclinePress={handleParentChildResponse}
+          onMarkReadPress={handleMarkAsRead}
+          onDeletePress={handleDelete}
+          onMarkGroupAsRead={() => handleMarkGroupAsRead(item.items)}
+          onDeleteGroup={() => handleDeleteGroup(item.items)}
+        />
+      );
+    }
+
     return (
       <NotificationItem
         item={item}
@@ -526,7 +545,7 @@ const NotificationsScreen = ({ route, navigation }) => {
         onDeletePress={handleDelete}
       />
     );
-  }, [theme, handleNotificationPress, handleJoinResponse, handleParentChildResponse, handleMarkAsRead, handleDelete]);
+  }, [theme, handleNotificationPress, handleJoinResponse, handleParentChildResponse, handleMarkAsRead, handleDelete, handleMarkGroupAsRead, handleDeleteGroup]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
