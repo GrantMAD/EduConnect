@@ -1,16 +1,52 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, TextInput } from 'react-native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faTimes, faPoll, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
+import { 
+  faTimes, faPoll, faCheckCircle, faStar as faSolidStar, 
+  faCheckSquare, faAlignLeft, faSquare as faSolidSquare,
+  faCircle as faSolidCircle
+} from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const PollVoteModal = React.memo(({ visible, onClose, poll, onVote, description, loading }) => {
+const PollVoteModal = React.memo(({ visible, onClose, poll, onVote, loading }) => {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  
+  const [selectedOptions, setSelectedOptions] = useState([]);
+  const [rating, setRating] = useState(0);
+  const [openResponse, setOpenResponse] = useState('');
+
+  // Reset state when poll changes or modal opens
+  useEffect(() => {
+    if (visible) {
+      setSelectedOptions([]);
+      setRating(0);
+      setOpenResponse('');
+    }
+  }, [visible, poll?.id]);
 
   if (!poll) return null;
+
+  const handleMultipleToggle = (option) => {
+    setSelectedOptions(prev => 
+      prev.includes(option) ? prev.filter(o => o !== option) : [...prev, option]
+    );
+  };
+
+  const handleSubmit = () => {
+    if (poll.type === 'multiple_choice') {
+      if (selectedOptions.length === 0) return;
+      onVote(poll.id, selectedOptions);
+    } else if (poll.type === 'rating') {
+      if (rating === 0) return;
+      onVote(poll.id, rating.toString());
+    } else if (poll.type === 'open_ended') {
+      if (!openResponse.trim()) return;
+      onVote(poll.id, openResponse.trim());
+    }
+  };
 
   return (
     <Modal
@@ -39,7 +75,12 @@ const PollVoteModal = React.memo(({ visible, onClose, poll, onVote, description,
 
             <Text style={[styles.questionText, { color: theme.colors.text }]}>{poll.question}</Text>
 
-            <Text style={[styles.subText, { color: theme.colors.placeholder }]}>SELECT AN OPTION TO CAST YOUR VOTE</Text>
+            <Text style={[styles.subText, { color: theme.colors.placeholder }]}>
+              {poll.type === 'multiple_choice' ? 'SELECT ONE OR MORE OPTIONS' : 
+               poll.type === 'rating' ? 'PROVIDE YOUR RATING' :
+               poll.type === 'open_ended' ? 'TYPE YOUR RESPONSE BELOW' :
+               'SELECT AN OPTION TO CAST YOUR VOTE'}
+            </Text>
 
             {loading ? (
               <View style={styles.loadingContainer}>
@@ -48,7 +89,8 @@ const PollVoteModal = React.memo(({ visible, onClose, poll, onVote, description,
               </View>
             ) : (
               <View style={styles.optionsContainer}>
-                {poll.options.map((option, idx) => (
+                {/* Single Choice */}
+                {(poll.type === 'single_choice' || !poll.type) && poll.options.map((option, idx) => (
                   <TouchableOpacity
                     key={idx}
                     style={[styles.optionButton, { borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.card, borderWidth: 1 }]}
@@ -61,6 +103,84 @@ const PollVoteModal = React.memo(({ visible, onClose, poll, onVote, description,
                     </View>
                   </TouchableOpacity>
                 ))}
+
+                {/* Multiple Choice */}
+                {poll.type === 'multiple_choice' && (
+                  <>
+                    {poll.options.map((option, idx) => (
+                      <TouchableOpacity
+                        key={idx}
+                        style={[
+                          styles.optionButton, 
+                          { borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.card, borderWidth: 1 },
+                          selectedOptions.includes(option) && { borderColor: theme.colors.primary, backgroundColor: theme.colors.primary + '10' }
+                        ]}
+                        onPress={() => handleMultipleToggle(option)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.optionButtonText, { color: theme.colors.text }]}>{option}</Text>
+                        {selectedOptions.includes(option) ? (
+                          <FontAwesomeIcon icon={faCheckSquare} color={theme.colors.primary} size={20} />
+                        ) : (
+                          <View style={[styles.squareOutline, { borderColor: theme.colors.cardBorder }]} />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                    <TouchableOpacity 
+                      style={[styles.submitBtn, { backgroundColor: theme.colors.primary }, selectedOptions.length === 0 && { opacity: 0.5 }]}
+                      onPress={handleSubmit}
+                      disabled={selectedOptions.length === 0}
+                    >
+                      <Text style={styles.submitBtnText}>Submit Selection</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {/* Rating */}
+                {poll.type === 'rating' && (
+                  <View style={styles.ratingBox}>
+                    <View style={styles.starsContainer}>
+                      {[...Array(poll.settings?.max_rating || 5)].map((_, i) => (
+                        <TouchableOpacity key={i} onPress={() => setRating(i + 1)} style={styles.starTouch}>
+                          <FontAwesomeIcon 
+                            icon={faSolidStar} 
+                            size={32} 
+                            color={rating >= i + 1 ? '#f59e0b' : theme.colors.placeholder + '40'} 
+                          />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    <TouchableOpacity 
+                      style={[styles.submitBtn, { backgroundColor: theme.colors.primary }, rating === 0 && { opacity: 0.5 }]}
+                      onPress={handleSubmit}
+                      disabled={rating === 0}
+                    >
+                      <Text style={styles.submitBtnText}>Confirm Rating</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Open Ended */}
+                {poll.type === 'open_ended' && (
+                  <View style={styles.openEndedBox}>
+                    <TextInput
+                      style={[styles.textArea, { backgroundColor: theme.colors.background, color: theme.colors.text, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                      placeholder="Type your response here..."
+                      placeholderTextColor={theme.colors.placeholder}
+                      multiline
+                      numberOfLines={4}
+                      value={openResponse}
+                      onChangeText={setOpenResponse}
+                    />
+                    <TouchableOpacity 
+                      style={[styles.submitBtn, { backgroundColor: theme.colors.primary }, !openResponse.trim() && { opacity: 0.5 }]}
+                      onPress={handleSubmit}
+                      disabled={!openResponse.trim()}
+                    >
+                      <Text style={styles.submitBtnText}>Send Feedback</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -119,6 +239,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 1.5,
     marginBottom: 32,
+    textAlign: 'center',
   },
   optionsContainer: {
     width: '100%',
@@ -149,6 +270,12 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: 'transparent',
   },
+  squareOutline: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+  },
   loadingContainer: {
     alignItems: 'center',
     paddingVertical: 40,
@@ -158,6 +285,45 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  submitBtn: {
+    height: 56,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  submitBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  ratingBox: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  starsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 24,
+  },
+  starTouch: {
+    padding: 4,
+  },
+  openEndedBox: {
+    width: '100%',
+  },
+  textArea: {
+    width: '100%',
+    minHeight: 120,
+    borderRadius: 20,
+    padding: 16,
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 20,
+    textAlignVertical: 'top',
+  }
 });
 
 export default PollVoteModal;

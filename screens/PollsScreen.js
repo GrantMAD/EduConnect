@@ -14,7 +14,10 @@ import {
   faTrophy,
   faGift,
   faInbox,
-  faChevronRight
+  faChevronRight,
+  faStar,
+  faQuoteLeft,
+  faChevronLeft
 } from '@fortawesome/free-solid-svg-icons';
 import CardListSkeleton, { SkeletonPiece } from '../components/skeletons/CardListSkeleton';
 import CardSkeleton from '../components/skeletons/CardSkeleton';
@@ -31,51 +34,111 @@ import { getUserProfile } from '../services/userService';
 import { getCurrentUser } from '../services/authService';
 
 const PollCard = React.memo(({ item, userId, theme, onVotePress, isExpired }) => {
-  const [votes, setVotes] = useState([]);
-  const [loadingVotes, setLoadingVotes] = useState(true);
-
-  const fetchVotes = useCallback(async () => {
-    try {
-      const data = await fetchPollVotes(item.id);
-      setVotes(data);
-    } catch (error) {
-      console.error('Error fetching votes:', error);
-    } finally {
-      setLoadingVotes(false);
-    }
-  }, [item.id]);
-
-  useEffect(() => {
-    fetchVotes();
-  }, [fetchVotes]);
-
   const handleVotePress = useCallback(() => {
     if (onVotePress) onVotePress(item);
   }, [onVotePress, item]);
 
-  const userVote = useMemo(() => votes.find(v => v.user_id === userId), [votes, userId]);
-  const totalVotes = votes.length;
-
-  const winningOption = useMemo(() => {
-    if (!isExpired || totalVotes === 0) return null;
-    const counts = {};
-    item.options.forEach(opt => counts[opt] = 0);
-    votes.forEach(v => {
-      if (counts[v.selected_option] !== undefined) counts[v.selected_option]++;
-    });
-
-    let maxVotes = -1;
-    let winner = null;
-    Object.keys(counts).forEach(opt => {
-      if (counts[opt] > maxVotes) {
-        maxVotes = counts[opt];
-        winner = opt;
-      }
-    });
-    return winner;
-  }, [isExpired, totalVotes, item.options, votes]);
-
+  const userVote = item.userVote;
+  const stats = item.stats;
   const canVote = !userVote && !isExpired;
+
+  const renderChoiceResults = () => (
+    <View style={styles.pollResults}>
+      {item.options.map((option, idx) => {
+        const optionVotes = stats.counts[option] || 0;
+        const percentage = stats.totalVotes > 0 ? (optionVotes / stats.totalVotes) * 100 : 0;
+        
+        let isSelected = false;
+        if (item.type === 'multiple_choice') {
+          try {
+            const parsed = JSON.parse(userVote?.selected_option || '[]');
+            isSelected = Array.isArray(parsed) && parsed.includes(option);
+          } catch(e) { isSelected = userVote?.selected_option === option; }
+        } else {
+          isSelected = userVote?.selected_option === option;
+        }
+
+        return (
+          <View key={idx} style={styles.pollResultItem}>
+            <View style={styles.pollResultLabelRow}>
+              <Text style={[styles.pollResultLabel, { color: theme.colors.text, fontWeight: isSelected ? '800' : '600' }]} numberOfLines={1}>
+                {option}
+              </Text>
+              <Text style={[styles.pollResultPercent, { color: isSelected ? theme.colors.primary : theme.colors.text }]}>
+                {percentage.toFixed(0)}%
+              </Text>
+            </View>
+            <View style={[styles.pollProgressTrack, { backgroundColor: theme.colors.background }]}>
+              <View
+                style={[
+                  styles.pollProgressFill,
+                  {
+                    width: `${percentage}%`,
+                    backgroundColor: isSelected ? theme.colors.primary : '#94a3b8'
+                  }
+                ]}
+              />
+            </View>
+            <View style={styles.pollVoteCountRow}>
+              {isSelected && <Text style={[styles.myVoteText, { color: theme.colors.primary }]}>Your Choice</Text>}
+              <Text style={styles.voteCountSmall}>{optionVotes} votes</Text>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+
+  const renderRatingResults = () => {
+    const userRating = parseInt(userVote?.selected_option || 0);
+    const max = item.settings?.max_rating || 5;
+
+    return (
+      <View style={[styles.ratingResultsBox, { backgroundColor: theme.colors.background }]}>
+        <View style={styles.ratingStatsRow}>
+          <View>
+            <Text style={styles.ratingValueText}>{stats.averageRating.toFixed(1)}</Text>
+            <View style={styles.starsRow}>
+              {[...Array(max)].map((_, i) => (
+                <FontAwesomeIcon 
+                  key={i} 
+                  icon={faStar} 
+                  size={12} 
+                  color={i < Math.round(stats.averageRating) ? '#f59e0b' : theme.colors.placeholder} 
+                />
+              ))}
+            </View>
+          </View>
+          <View style={styles.ratingDivider} />
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <Text style={[styles.ratingSubText, { color: theme.colors.placeholder }]}>AVERAGE RATING</Text>
+            <Text style={[styles.ratingCountText, { color: theme.colors.text }]}>{stats.totalVotes} Total Responses</Text>
+          </View>
+        </View>
+        {userVote && (
+          <View style={styles.userRatingBadge}>
+            <Text style={[styles.userRatingText, { color: theme.colors.primary }]}>YOU RATED: {userRating}/{max}</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderOpenEndedResults = () => (
+    <View style={[styles.openEndedResultsBox, { backgroundColor: theme.colors.background }]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+        <FontAwesomeIcon icon={faCheckCircle} size={14} color={theme.colors.primary} />
+        <Text style={[styles.openEndedStatus, { color: theme.colors.primary }]}>RESPONSE RECORDED</Text>
+      </View>
+      <View style={styles.quoteBox}>
+        <FontAwesomeIcon icon={faQuoteLeft} size={12} color={theme.colors.placeholder} style={{ opacity: 0.3 }} />
+        <Text style={[styles.openEndedText, { color: theme.colors.text }]} numberOfLines={2}>
+          {userVote?.selected_option}
+        </Text>
+      </View>
+      <Text style={styles.openEndedCount}>{stats.totalVotes} community responses</Text>
+    </View>
+  );
 
   return (
     <View style={[styles.pollCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
@@ -88,6 +151,11 @@ const PollCard = React.memo(({ item, userId, theme, onVotePress, isExpired }) =>
             {item.users?.full_name || 'System'} • {new Date(item.created_at).toLocaleDateString()}
           </Text>
           <Text style={[styles.pollQuestion, { color: theme.colors.text }]}>{item.question}</Text>
+          <View style={styles.typeTag}>
+            <Text style={[styles.typeTagText, { color: theme.colors.placeholder }]}>
+              {(item.type || 'single_choice').replace('_', ' ').toUpperCase()}
+            </Text>
+          </View>
         </View>
         {canVote && (
           <View style={styles.pollXPBadge}>
@@ -98,44 +166,14 @@ const PollCard = React.memo(({ item, userId, theme, onVotePress, isExpired }) =>
 
       <View style={styles.pollCardBody}>
         {userVote || isExpired ? (
-          <View style={styles.pollResults}>
-            {item.options.map((option, idx) => {
-              const optionVotes = votes.filter(v => v.selected_option === option).length;
-              const percentage = totalVotes > 0 ? (optionVotes / totalVotes) * 100 : 0;
-              const isWinner = isExpired && option === winningOption;
-              const isSelected = userVote?.selected_option === option;
-
-              return (
-                <View key={idx} style={styles.pollResultItem}>
-                  <View style={styles.pollResultLabelRow}>
-                    <Text style={[styles.pollResultLabel, { color: theme.colors.text, fontWeight: isSelected || isWinner ? '800' : '600' }]} numberOfLines={1}>
-                      {option}
-                    </Text>
-                    <Text style={[styles.pollResultPercent, { color: isSelected ? theme.colors.primary : theme.colors.text }]}>
-                      {percentage.toFixed(0)}%
-                    </Text>
-                  </View>
-                  <View style={[styles.pollProgressTrack, { backgroundColor: theme.colors.background }]}>
-                    <View
-                      style={[
-                        styles.pollProgressFill,
-                        {
-                          width: `${percentage}%`,
-                          backgroundColor: isWinner ? '#f59e0b' : (isSelected ? theme.colors.primary : '#94a3b8')
-                        }
-                      ]}
-                    />
-                  </View>
-                  <View style={styles.pollVoteCountRow}>
-                    {isSelected && <Text style={[styles.myVoteText, { color: theme.colors.primary }]}>Your Choice</Text>}
-                    <Text style={styles.voteCountSmall}>{optionVotes} votes</Text>
-                  </View>
-                </View>
-              );
-            })}
+          <View>
+            {item.type === 'rating' ? renderRatingResults() :
+             item.type === 'open_ended' ? renderOpenEndedResults() :
+             renderChoiceResults()}
+            
             <View style={styles.pollFooter}>
               <View style={styles.totalVotesBadge}>
-                <Text style={styles.totalVotesText}>{totalVotes} Total Votes</Text>
+                <Text style={styles.totalVotesText}>{stats.totalVotes} Total Votes</Text>
               </View>
               {isExpired && (
                 <View style={[styles.statusBadge, { backgroundColor: '#ef444415' }]}>
@@ -191,8 +229,8 @@ const PollsScreen = ({ navigation, route }) => {
 
   const fetchPolls = useCallback(async () => {
     try {
-      const pollsWithUserVotes = await fetchPollsService(schoolId, userId);
-      setPolls(pollsWithUserVotes);
+      const pollsWithStats = await fetchPollsService(schoolId, userId);
+      setPolls(pollsWithStats);
     } catch (error) {
       console.error('Error fetching polls:', error);
     }
@@ -302,6 +340,9 @@ const PollsScreen = ({ navigation, route }) => {
         <View style={styles.heroContent}>
           <View style={styles.heroTextContainer}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12 }}>
+                <FontAwesomeIcon icon={faChevronLeft} size={20} color="#fff" />
+              </TouchableOpacity>
               <Text style={styles.heroTitle}>Polls</Text>
               <TouchableOpacity onPress={openInfoModal} style={styles.infoButton}>
                 <FontAwesomeIcon icon={faInfoCircle} size={16} color="rgba(255,255,255,0.7)" />
@@ -375,7 +416,6 @@ const PollsScreen = ({ navigation, route }) => {
           onClose={closeVoteModal}
           poll={selectedPoll}
           onVote={handleVote}
-          description={selectedPoll.question}
           loading={votingLoading}
         />
       )}
@@ -467,7 +507,6 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 60 },
   emptyStateText: { marginTop: 16, fontSize: 16, color: '#888' },
 
-  // Redesigned Poll Card Styles
   pollCard: {
     borderRadius: 24,
     padding: 20,
@@ -510,8 +549,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '900',
   },
-  pollCardBody: {
-  },
+  typeTag: { marginTop: 4 },
+  typeTagText: { fontSize: 9, fontWeight: '800', opacity: 0.6 },
+  
+  pollCardBody: {},
   pollVoteBtn: {
     height: 52,
     borderRadius: 16,
@@ -528,8 +569,7 @@ const styles = StyleSheet.create({
   pollResults: {
     gap: 16,
   },
-  pollResultItem: {
-  },
+  pollResultItem: {},
   pollResultLabelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -571,6 +611,80 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     marginLeft: 'auto',
   },
+  
+  ratingResultsBox: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 8,
+  },
+  ratingStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  ratingValueText: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#f59e0b',
+  },
+  starsRow: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  ratingDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  ratingSubText: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  ratingCountText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  userRatingBadge: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  userRatingText: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  
+  openEndedResultsBox: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 8,
+  },
+  openEndedStatus: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  quoteBox: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  openEndedText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    fontStyle: 'italic',
+  },
+  openEndedCount: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94a3b8',
+    textAlign: 'right',
+  },
+  
   pollFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
