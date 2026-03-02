@@ -4,7 +4,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { 
   faBook, faPlus, faFileAlt, faThumbsUp, faThumbsDown, faBookmark, 
   faSortAmountDown, faFilter, faInfoCircle, faFolder, faFolderOpen,
-  faFilePdf, faFileImage, faFileWord, faFileExcel, faArrowLeft, faCopy, faCamera
+  faFilePdf, faFileImage, faFileWord, faFileExcel, faArrowLeft, faCopy, faCamera,
+  faEye, faDownload, faFire
 } from '@fortawesome/free-solid-svg-icons';
 import CreateResourceModal from '../components/CreateResourceModal';
 import ResourceDetailModal from '../components/ResourceDetailModal';
@@ -40,6 +41,9 @@ const ResourceItem = React.memo(({ item, theme, userRole, classIds, bookmarkedId
   const isLessonLinked = visibleLinks.some(cr => cr.lesson_plan_id);
   const isBookmarked = bookmarkedIds.has(item.id);
 
+  // Popular logic matching web app
+  const isPopular = (item.view_count > 50) || (item.download_count > 10) || (item.upvotes > 20);
+
   const handleMainPress = useCallback(() => onMainPress(item), [onMainPress, item]);
   const handleBookmarkPress = useCallback(() => onBookmarkPress(item.id), [onBookmarkPress, item.id]);
 
@@ -54,7 +58,15 @@ const ResourceItem = React.memo(({ item, theme, userRole, classIds, bookmarkedId
           <FontAwesomeIcon icon={getFileIcon(item.file_url)} size={28} color={theme.colors.primary} style={{ marginRight: 15, marginLeft: 10 }} />
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={[styles.title, { color: theme.colors.text, flex: 1 }]}>{item.title}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 6 }}>
+                    <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
+                    {isPopular && (
+                        <View style={styles.popularBadge}>
+                            <FontAwesomeIcon icon={faFire} size={8} color="#f97316" />
+                            <Text style={styles.popularBadgeText}>Popular</Text>
+                        </View>
+                    )}
+                </View>
                 <View style={{ flexDirection: 'row', gap: 4 }}>
                     {Array.from(new Map(visibleLinks.map(cr => [cr.class_id, cr])).values()).map((cr, idx) => (
                         <View key={idx} style={styles.classBadge}>
@@ -89,11 +101,25 @@ const ResourceItem = React.memo(({ item, theme, userRole, classIds, bookmarkedId
           </View>
         </View>
       </TouchableOpacity>
-      <View style={[styles.voteSummaryContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
-        <FontAwesomeIcon icon={faThumbsUp} size={14} color="#28A745" />
-        <Text style={[styles.voteCount, { color: theme.colors.text }]}>{item.upvotes}</Text>
-        <FontAwesomeIcon icon={faThumbsDown} size={14} color="#FF3B30" style={{ marginLeft: 10 }} />
-        <Text style={[styles.voteCount, { color: theme.colors.text }]}>{item.downvotes}</Text>
+      
+      <View style={[styles.statsContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.cardBorder }]}>
+        <View style={styles.statItem}>
+            <FontAwesomeIcon icon={faEye} size={10} color={theme.colors.primary} style={{ opacity: 0.7 }} />
+            <Text style={[styles.statText, { color: theme.colors.text }]}>{item.view_count || 0}</Text>
+        </View>
+        <View style={styles.statItem}>
+            <FontAwesomeIcon icon={faDownload} size={10} color="#6366f1" style={{ opacity: 0.7 }} />
+            <Text style={[styles.statText, { color: theme.colors.text }]}>{item.download_count || 0}</Text>
+        </View>
+        <View style={[styles.divider, { backgroundColor: theme.colors.cardBorder }]} />
+        <View style={styles.statItem}>
+            <FontAwesomeIcon icon={faThumbsUp} size={12} color="#28A745" />
+            <Text style={[styles.statText, { color: theme.colors.text }]}>{item.upvotes}</Text>
+        </View>
+        <View style={styles.statItem}>
+            <FontAwesomeIcon icon={faThumbsDown} size={12} color="#FF3B30" />
+            <Text style={[styles.statText, { color: theme.colors.text }]}>{item.downvotes}</Text>
+        </View>
       </View>
 
       <TouchableOpacity
@@ -142,7 +168,7 @@ const ResourcesScreen = ({ route }) => {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedResource, setSelectedResource] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('newest'); 
+  const [sortBy, setSortBy] = useState('popular'); 
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
   const [infoModalVisible, setInfoModalVisible] = useState(false);
@@ -276,7 +302,10 @@ const ResourcesScreen = ({ route }) => {
   }, []);
 
   const filteredResources = useMemo(() => {
-    let processed = [...resources];
+    let processed = resources.map(r => ({
+        ...r,
+        isPopular: (r.view_count > 50) || (r.download_count > 10) || (r.upvotes > 20)
+    }));
 
     if (searchTerm) {
       processed = processed.filter(r =>
@@ -294,9 +323,19 @@ const ResourcesScreen = ({ route }) => {
     }
 
     processed.sort((a, b) => {
+      if (sortBy === 'popular') {
+          // Popular badge items first
+          if (a.isPopular && !b.isPopular) return -1;
+          if (!a.isPopular && b.isPopular) return 1;
+          // Then by view count
+          if ((b.view_count || 0) !== (a.view_count || 0)) return (b.view_count || 0) - (a.view_count || 0);
+          // Then by downloads
+          if ((b.download_count || 0) !== (a.download_count || 0)) return (b.download_count || 0) - (a.download_count || 0);
+          // Finally newest
+          return new Date(b.created_at) - new Date(a.created_at);
+      }
       if (sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at);
       if (sortBy === 'oldest') return new Date(a.created_at) - new Date(b.created_at);
-      if (sortBy === 'popular') return (b.upvotes - b.downvotes) - (a.upvotes - a.downvotes);
       return 0;
     });
 
@@ -438,9 +477,9 @@ const ResourcesScreen = ({ route }) => {
           <TouchableOpacity
             style={[styles.controlButton, { backgroundColor: theme.colors.inputBackground }]}
             onPress={() => {
-              if (sortBy === 'newest') setSortBy('popular');
-              else if (sortBy === 'popular') setSortBy('oldest');
-              else setSortBy('newest');
+              if (sortBy === 'popular') setSortBy('newest');
+              else if (sortBy === 'newest') setSortBy('oldest');
+              else setSortBy('popular');
             }}
           >
             <FontAwesomeIcon icon={faSortAmountDown} size={14} color={theme.colors.placeholder} />
@@ -639,7 +678,7 @@ const styles = StyleSheet.create({
   resourceItemContainer: {
     marginBottom: 15,
   },
-  voteSummaryContainer: {
+  statsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     position: 'absolute',
@@ -651,9 +690,17 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     borderWidth: 1,
     borderColor: '#eee',
-    elevation: 0,
+    elevation: 2,
+    gap: 4,
   },
-  voteCount: { marginLeft: 4, marginRight: 8, fontSize: 12, fontWeight: '600', color: '#555' },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statText: { fontSize: 10, fontWeight: '700', color: '#555' },
+  divider: { width: 1, height: 10, marginHorizontal: 2 },
+  
   controlsContainer: { flexDirection: 'row', marginBottom: 15, paddingHorizontal: 16 },
   controlButton: {
     flexDirection: 'row',
@@ -760,5 +807,23 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: '#6366f1',
     fontWeight: '600',
+  },
+  popularBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff7ed',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#ffedd5',
+    gap: 4,
+  },
+  popularBadgeText: {
+    fontSize: 8,
+    color: '#f97316',
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   }
 });

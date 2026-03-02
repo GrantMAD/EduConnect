@@ -5,6 +5,8 @@ export const fetchResources = async (schoolId, classIds = [], strict = false) =>
         .from('resources')
         .select(`
             *, 
+            view_count,
+            download_count,
             author:users(full_name), 
             class_resources(
                 class_id,
@@ -54,18 +56,28 @@ export const fetchResourceView = async (userId, resourceId) => {
 };
 
 export const trackResourceView = async (userId, resourceId) => {
-    const { data, error } = await supabase
+    // 1. Unique view for XP
+    const { data: existingView } = await supabase
         .from('resource_views')
-        .insert({
+        .select('id')
+        .eq('user_id', userId)
+        .eq('resource_id', resourceId)
+        .maybeSingle();
+
+    if (!existingView) {
+        await supabase.from('resource_views').insert({
             user_id: userId,
             resource_id: resourceId,
             xp_awarded: true
-        })
-        .select()
-        .single();
-    
-    if (error) throw error;
-    return data;
+        });
+    }
+
+    // 2. Global counter increment
+    await supabase.rpc('increment_resource_view', { res_id: resourceId });
+};
+
+export const trackResourceDownload = async (resourceId) => {
+    await supabase.rpc('increment_resource_download', { res_id: resourceId });
 };
 
 export const createResource = async (resourceData) => {
@@ -139,66 +151,35 @@ export const fetchResourceVotes = async (resourceId) => {
 };
 
 export const fetchResourceBookmarks = async (userId) => {
-
     const { data, error } = await supabase
-
         .from('resource_bookmarks')
-
         .select('resource_id')
-
         .eq('user_id', userId);
-
     
-
     if (error) throw error;
-
     return data || [];
-
 };
-
-
 
 export const addBookmark = async (userId, resourceId) => {
-
     const { data, error } = await supabase
-
         .from('resource_bookmarks')
-
         .insert({ user_id: userId, resource_id: resourceId })
-
         .select();
-
     
-
     if (error) throw error;
-
     return data[0];
-
 };
-
-
 
 export const removeBookmark = async (userId, resourceId) => {
-
     const { error } = await supabase
-
         .from('resource_bookmarks')
-
         .delete()
-
         .eq('user_id', userId)
-
         .eq('resource_id', resourceId);
-
     
-
     if (error) throw error;
-
     return true;
-
 };
-
-
 
 export const linkResourceToClass = async (resourceId, classId, lessonPlanId = null) => {
     const { error } = await supabase
@@ -215,6 +196,8 @@ export const fetchResourcesWithVotes = async ({ schoolId, activeTab, userId, cat
         .from('resources')
         .select(`
             *,
+            view_count,
+            download_count,
             users (full_name, email),
             class_resources(
                 class_id, 
@@ -313,7 +296,3 @@ export const fetchClassResources = async (classId) => {
     
     return uniqueResources;
 };
-
-
-
-

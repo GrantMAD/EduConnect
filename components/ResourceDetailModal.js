@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Share } from 'react-native';
 import Modal from 'react-native-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
@@ -12,7 +12,8 @@ import {
   faDownload,
   faTrash,
   faEdit,
-  faShareAlt
+  faShareAlt,
+  faEye
 } from '@fortawesome/free-solid-svg-icons';
 import RNFetchBlob from 'rn-fetch-blob';
 import FileViewer from 'react-native-file-viewer';
@@ -28,7 +29,8 @@ import {
   fetchResourceView, 
   trackResourceView, 
   deleteResource, 
-  voteResource 
+  voteResource,
+  trackResourceDownload
 } from '../services/resourceService';
 
 const timeSince = (date) => {
@@ -64,6 +66,10 @@ const ResourceDetailModal = React.memo(
     const [scrollOffset, setScrollOffset] = useState(0);
     const scrollViewRef = React.useRef(null);
 
+    // Local stats for immediate feedback
+    const [localViewCount, setLocalViewCount] = useState(0);
+    const [localDownloadCount, setLocalDownloadCount] = useState(0);
+
     const handleOnScroll = (event) => {
       setScrollOffset(event.nativeEvent.contentOffset.y);
     };
@@ -97,7 +103,7 @@ const ResourceDetailModal = React.memo(
       };
 
       const handleResourceViewData = async () => {
-        if (!visible || !resource || !awardXP) return;
+        if (!visible || !resource) return;
 
         try {
           const user = await getCurrentUser();
@@ -105,8 +111,12 @@ const ResourceDetailModal = React.memo(
 
           const existingView = await fetchResourceView(user.id, resource.id);
 
-          if (!existingView) {
-            await trackResourceView(user.id, resource.id);
+          // Track the view regardless for the counter (RPC handles unique checks if needed, but here we want simple increment)
+          await trackResourceView(user.id, resource.id);
+          setLocalViewCount(prev => prev + 1);
+          onVotesChanged?.();
+
+          if (!existingView && awardXP) {
             awardXP('resource_view', 5);
           }
         } catch (error) {
@@ -115,6 +125,8 @@ const ResourceDetailModal = React.memo(
       };
 
       if (visible) {
+        setLocalViewCount(resource.view_count || 0);
+        setLocalDownloadCount(resource.download_count || 0);
         fetchData();
         handleResourceViewData();
       }
@@ -189,6 +201,11 @@ const ResourceDetailModal = React.memo(
     const handleOpenFile = async (url) => {
       if (!url) return;
       try {
+        // Track download
+        await trackResourceDownload(resource.id);
+        setLocalDownloadCount(prev => prev + 1);
+        onVotesChanged?.();
+
         const decodedUrl = decodeURIComponent(url);
         const fileName = decodedUrl.split('/').pop();
         const localPath = `${RNFetchBlob.fs.dirs.CacheDir}/${fileName}`;
@@ -267,6 +284,18 @@ const ResourceDetailModal = React.memo(
                   <Text style={[styles.metaValue, { color: theme.colors.text }]}>{timeSince(resource.created_at).toUpperCase()}</Text>
                 </View>
               </View>
+            </View>
+
+            {/* Stats Row */}
+            <View style={styles.statsRow}>
+                <View style={[styles.statBox, { backgroundColor: theme.colors.primary + '08', borderColor: theme.colors.primary + '20' }]}>
+                    <FontAwesomeIcon icon={faEye} size={12} color={theme.colors.primary} />
+                    <Text style={[styles.statBoxText, { color: theme.colors.primary }]}>{localViewCount} VIEWS</Text>
+                </View>
+                <View style={[styles.statBox, { backgroundColor: '#6366f110', borderColor: '#6366f130' }]}>
+                    <FontAwesomeIcon icon={faDownload} size={12} color="#6366f1" />
+                    <Text style={[styles.statBoxText, { color: '#6366f1' }]}>{localDownloadCount} DOWNLOADS</Text>
+                </View>
             </View>
 
             <View style={[styles.voteSection, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
@@ -582,6 +611,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 16,
   },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  statBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 8,
+  },
+  statBoxText: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  }
 });
 
 export default ResourceDetailModal;
