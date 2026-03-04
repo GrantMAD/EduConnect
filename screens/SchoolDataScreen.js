@@ -16,6 +16,8 @@ import LinearGradient from 'react-native-linear-gradient';
 
 // Import services
 import { fetchSchoolById, updateSchool, uploadSchoolLogo, getSchoolLogoUrl } from '../services/schoolService';
+import { getGradesBySchoolType, getDefaultMinGrade } from '../utils/gradeUtils';
+import { SCHOOL_TYPES, DEFAULT_PRIMARY_MIN_GRADE } from '../constants/GradeConstants';
 
 const SchoolDataScreen = ({ navigation, route }) => {
   const { fromDashboard } = route?.params || {};
@@ -30,21 +32,15 @@ const SchoolDataScreen = ({ navigation, route }) => {
   const [address, setAddress] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
-  const [schoolType, setSchoolType] = useState('Primary School');
-  const [studentAccountMinGrade, setStudentAccountMinGrade] = useState('Grade 4');
+  const [schoolType, setSchoolType] = useState(SCHOOL_TYPES[0]);
+  const [studentAccountMinGrade, setStudentAccountMinGrade] = useState(DEFAULT_PRIMARY_MIN_GRADE);
   const [joinPassword, setJoinPassword] = useState('');
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [showGradePicker, setShowGradePicker] = useState(false);
   const [typeChanged, setTypeChanged] = useState(false);
-  const schoolTypes = ['Primary School', 'High School', 'University', 'College', 'Other'];
+  const schoolTypes = SCHOOL_TYPES;
 
-  const getAvailableGrades = (type) => {
-    if (type === 'Primary School') return ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7'];
-    if (type === 'High School') return ['Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
-    return ['None'];
-  };
-
-  const availableGrades = getAvailableGrades(schoolType);
+  const availableGrades = getGradesBySchoolType(schoolType);
 
   const { showToast } = useToast();
   const { theme } = useTheme();
@@ -60,8 +56,8 @@ const SchoolDataScreen = ({ navigation, route }) => {
         setAddress(data.address || '');
         setContactEmail(data.contact_email || '');
         setContactPhone(data.contact_phone || '');
-        setSchoolType(data.school_type || 'Primary School');
-        setStudentAccountMinGrade(data.student_account_min_grade || 'Grade 4');
+        setSchoolType(data.school_type || SCHOOL_TYPES[0]);
+        setStudentAccountMinGrade(data.student_account_min_grade || DEFAULT_PRIMARY_MIN_GRADE);
         setJoinPassword(data.join_password || '');
       }
     } catch (error) {
@@ -173,8 +169,7 @@ const SchoolDataScreen = ({ navigation, route }) => {
 
   const handleSchoolTypeChange = (type) => {
     setSchoolType(type);
-    const newGrades = getAvailableGrades(type);
-    setStudentAccountMinGrade(newGrades[0]);
+    setStudentAccountMinGrade(getDefaultMinGrade(type));
     setTypeChanged(true);
   };
 

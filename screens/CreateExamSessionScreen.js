@@ -10,6 +10,7 @@ import Button from '../components/Button';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import LinearGradient from 'react-native-linear-gradient';
+import { getGradesBySchoolType } from '../utils/gradeUtils';
 
 export default function CreateExamSessionScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -65,7 +66,7 @@ export default function CreateExamSessionScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <LinearGradient
-        colors={['#0d9488', '#14b8a6']} 
+        colors={['#0d9488', '#14b8a6']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.heroContainer, { paddingTop: insets.top + 20 }]}
@@ -120,7 +121,7 @@ export default function CreateExamSessionScreen({ navigation }) {
                   dropdownIconColor={theme.text}
                 >
                   <Picker.Item label="General / All Grades" value="" />
-                  {['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].map(g => (
+                  {getGradesBySchoolType(profile?.school_type).map(g => (
                     <Picker.Item key={g} label={g} value={g} />
                   ))}
                 </Picker>
@@ -141,7 +142,7 @@ export default function CreateExamSessionScreen({ navigation }) {
                   <Text style={{ color: theme.text }}>{startDate.toLocaleDateString()}</Text>
                 </TouchableOpacity>
               </View>
-              
+
               <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
                 <View style={styles.labelContainer}>
                   <FontAwesomeIcon icon={faCalendarAlt} size={12} color="#0d9488" style={{ marginRight: 6 }} />

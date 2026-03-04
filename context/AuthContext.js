@@ -16,7 +16,16 @@ export const AuthProvider = ({ children }) => {
   const fetchProfile = async (userId) => {
     try {
       const data = await getUserProfile(userId);
-      setProfile(data);
+      if (data) {
+        const flattenedProfile = {
+          ...data,
+          school_type: data.school?.school_type || null,
+          student_account_min_grade: data.school?.student_account_min_grade || null
+        };
+        setProfile(flattenedProfile);
+      } else {
+        setProfile(null);
+      }
     } catch (e) {
       console.error('Exception fetching profile:', e);
     } finally {

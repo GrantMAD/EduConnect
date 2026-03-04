@@ -3,13 +3,13 @@ import { View, Text, StyleSheet, ActivityIndicator, TextInput, FlatList, Touchab
 import { Picker } from '@react-native-picker/picker';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import UserManagementScreenSkeleton, { UserItemSkeleton } from '../components/skeletons/UserManagementScreenSkeleton';
-import { 
-  faTimes, 
-  faArrowLeft, 
-  faUsers, 
-  faChevronLeft, 
-  faSearch, 
-  faChevronRight, 
+import {
+  faTimes,
+  faArrowLeft,
+  faUsers,
+  faChevronLeft,
+  faSearch,
+  faChevronRight,
   faUserCircle,
   faEnvelope,
   faPhone,
@@ -28,7 +28,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAvatarUrl } from '../lib/utils';
 
 // Import services
-import { updateUserRole, getUsersBySchoolQuery } from '../services/userService';
+import { updateUserRole, getUsersBySchoolQuery, updateUserGrade } from '../services/userService';
+import { useAuth } from '../context/AuthContext';
+import { getGradesBySchoolType, isGradeRestricted } from '../utils/gradeUtils';
+import { ALL_GRADES } from '../constants/GradeConstants';
 
 const InfoRow = ({ label, value, icon, theme, fullWidth }) => (
   <View style={[styles.infoRow, { width: fullWidth ? '100%' : '48%' }, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
@@ -48,7 +51,7 @@ const UserItem = React.memo(({ item, theme, onPress }) => {
   }, [onPress, item]);
 
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       onPress={handlePress}
       activeOpacity={0.7}
       style={{ paddingHorizontal: 20 }}
@@ -56,20 +59,20 @@ const UserItem = React.memo(({ item, theme, onPress }) => {
       <View style={[styles.userItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
         <View style={styles.itemLeft}>
           <View style={[styles.avatarBox, { borderColor: theme.colors.cardBorder }]}>
-              <Image
-                  source={getAvatarUrl(item.avatar_url, item.email, item.id)}
-                  style={styles.avatar}
-              />
+            <Image
+              source={getAvatarUrl(item.avatar_url, item.email, item.id)}
+              style={styles.avatar}
+            />
           </View>
           <View style={styles.userInfo}>
-              <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name || item.email}</Text>
-              <View style={[styles.roleBadge, { 
-                  backgroundColor: item.role === 'admin' ? '#fff1f2' : item.role === 'teacher' ? '#ecfdf5' : item.role === 'parent' ? '#fff7ed' : '#eef2ff'
-              }]}>
-                  <Text style={[styles.roleText, { 
-                      color: item.role === 'admin' ? '#e11d48' : item.role === 'teacher' ? '#059669' : item.role === 'parent' ? '#d97706' : '#4f46e5'
-                  }]}>{item.role.toUpperCase()}</Text>
-              </View>
+            <Text style={[styles.userName, { color: theme.colors.text }]} numberOfLines={1}>{item.full_name || item.email}</Text>
+            <View style={[styles.roleBadge, {
+              backgroundColor: item.role === 'admin' ? '#fff1f2' : item.role === 'teacher' ? '#ecfdf5' : item.role === 'parent' ? '#fff7ed' : '#eef2ff'
+            }]}>
+              <Text style={[styles.roleText, {
+                color: item.role === 'admin' ? '#e11d48' : item.role === 'teacher' ? '#059669' : item.role === 'parent' ? '#d97706' : '#4f46e5'
+              }]}>{item.role.toUpperCase()}</Text>
+            </View>
           </View>
         </View>
         <FontAwesomeIcon icon={faChevronRight} size={10} color={theme.colors.cardBorder} />
@@ -80,6 +83,7 @@ const UserItem = React.memo(({ item, theme, onPress }) => {
 
 const UserManagementScreen = ({ navigation, route }) => {
   const { fromDashboard } = route?.params || {};
+  const { profile: adminProfile } = useAuth();
   const { schoolId } = useSchool();
   const { showToast } = useToastActions();
   const { theme } = useTheme();
@@ -113,7 +117,7 @@ const UserManagementScreen = ({ navigation, route }) => {
     fetchUsersQuery,
     {
       pageSize: 20,
-      dependencies: [schoolId, searchQuery] 
+      dependencies: [schoolId, searchQuery]
     }
   );
 
@@ -142,8 +146,8 @@ const UserManagementScreen = ({ navigation, route }) => {
         showToast('Update failed: No permissions.', 'error');
       } else {
         showToast('User role updated successfully.', 'success');
-        
-        setUsers(prevUsers => 
+
+        setUsers(prevUsers =>
           prevUsers.map(u => u.id === selectedUser.id ? { ...u, role: newRole } : u)
         );
         setSelectedUser({ ...selectedUser, role: newRole });
@@ -151,6 +155,24 @@ const UserManagementScreen = ({ navigation, route }) => {
     } catch (err) {
       console.error('Error updating role:', err);
       showToast('An unexpected error occurred.', 'error');
+    }
+  }, [selectedUser, setUsers, showToast]);
+
+  const handleGradeChange = useCallback(async (newGrade) => {
+    if (!selectedUser) return;
+    if (selectedUser.grade === newGrade) return;
+
+    try {
+      await updateUserGrade(selectedUser.id, newGrade);
+      showToast('User grade updated successfully.', 'success');
+
+      setUsers(prevUsers =>
+        prevUsers.map(u => u.id === selectedUser.id ? { ...u, grade: newGrade } : u)
+      );
+      setSelectedUser({ ...selectedUser, grade: newGrade });
+    } catch (err) {
+      console.error('Error updating grade:', err);
+      showToast('Failed to update grade.', 'error');
     }
   }, [selectedUser, setUsers, showToast]);
 
@@ -165,43 +187,43 @@ const UserManagementScreen = ({ navigation, route }) => {
 
   const ListHeader = useMemo(() => (
     <View>
-        <LinearGradient
-            colors={['#4f46e5', '#7c3aed']} 
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroContainer}
-        >
-            <View style={styles.heroContent}>
-                <View style={styles.heroTextContainer}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                            <FontAwesomeIcon icon={faChevronLeft} size={18} color="#fff" />
-                        </TouchableOpacity>
-                        <Text style={styles.heroTitle}>User Management</Text>
-                    </View>
-                    <Text style={styles.heroDescription}>
-                        Administer student, teacher, and parent accounts across your school.
-                    </Text>
-                </View>
-                <View style={styles.countBadge}>
-                    <FontAwesomeIcon icon={faUsers} size={16} color="rgba(255,255,255,0.7)" />
-                    <Text style={styles.countValue}>{loading ? '...' : users.length}</Text>
-                </View>
+      <LinearGradient
+        colors={['#4f46e5', '#7c3aed']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroContainer}
+      >
+        <View style={styles.heroContent}>
+          <View style={styles.heroTextContainer}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <FontAwesomeIcon icon={faChevronLeft} size={18} color="#fff" />
+              </TouchableOpacity>
+              <Text style={styles.heroTitle}>User Management</Text>
             </View>
-        </LinearGradient>
-
-        <View style={{ paddingHorizontal: 20, marginTop: 20 }}>
-            <View style={[styles.searchContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                <FontAwesomeIcon icon={faSearch} color={theme.colors.placeholder} size={14} />
-                <TextInput
-                    style={[styles.searchInput, { color: theme.colors.text }]}
-                    placeholder="Search by name..."
-                    placeholderTextColor={theme.colors.placeholder}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                />
-            </View>
+            <Text style={styles.heroDescription}>
+              Administer student, teacher, and parent accounts across your school.
+            </Text>
+          </View>
+          <View style={styles.countBadge}>
+            <FontAwesomeIcon icon={faUsers} size={16} color="rgba(255,255,255,0.7)" />
+            <Text style={styles.countValue}>{loading ? '...' : users.length}</Text>
+          </View>
         </View>
+      </LinearGradient>
+
+      <View style={{ paddingHorizontal: 20, marginTop: 20 }}>
+        <View style={[styles.searchContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+          <FontAwesomeIcon icon={faSearch} color={theme.colors.placeholder} size={14} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.colors.text }]}
+            placeholder="Search by name..."
+            placeholderTextColor={theme.colors.placeholder}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+      </View>
     </View>
   ), [navigation, loading, users.length, theme, searchQuery]);
 
@@ -247,19 +269,19 @@ const UserManagementScreen = ({ navigation, route }) => {
               <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
                 <FontAwesomeIcon icon={faTimes} size={18} color={theme.colors.text} />
               </TouchableOpacity>
-              
-              <ScrollView 
-                showsVerticalScrollIndicator={false} 
+
+              <ScrollView
+                showsVerticalScrollIndicator={false}
                 style={{ width: '100%' }}
                 contentContainerStyle={{ alignItems: 'center', paddingBottom: 20 }}
               >
                 <View style={[styles.modalAvatarBox, { borderColor: theme.colors.cardBorder }]}>
                   <Image
-                      source={getAvatarUrl(selectedUser.avatar_url, selectedUser.email, selectedUser.id)}
-                      style={styles.modalAvatar}
+                    source={getAvatarUrl(selectedUser.avatar_url, selectedUser.email, selectedUser.id)}
+                    style={styles.modalAvatar}
                   />
                 </View>
-                
+
                 <Text style={[styles.modalUserName, { color: theme.colors.text }]}>{selectedUser.full_name}</Text>
                 <Text style={[styles.modalEmail, { color: theme.colors.placeholder }]}>{selectedUser.email}</Text>
                 <Text style={[styles.modalIdGray, { color: theme.colors.placeholder, marginTop: 6 }]}>ID: {selectedUser.id}</Text>
@@ -270,21 +292,56 @@ const UserManagementScreen = ({ navigation, route }) => {
                 </View>
 
                 <View style={styles.infoGrid}>
-                  <InfoRow label="FULL NAME" value={selectedUser.full_name} icon={faUserCircle} theme={theme} fullWidth />
-                  <InfoRow label="EMAIL ADDRESS" value={selectedUser.email} icon={faEnvelope} theme={theme} fullWidth />
-                  
-                  <InfoRow label="PHONE" value={selectedUser.number} icon={faPhone} theme={theme} />
-                  <InfoRow label="COUNTRY" value={selectedUser.country} icon={faGlobe} theme={theme} />
-                  
-                  {selectedUser.role === 'student' && (
-                    <InfoRow label="GRADE" value={selectedUser.grade} icon={faGraduationCap} theme={theme} />
+                  <InfoRow label="PHONE" value={selectedUser.number} icon={faPhone} theme={theme} fullWidth />
+                  <InfoRow label="COUNTRY" value={selectedUser.country} icon={faGlobe} theme={theme} fullWidth />
+
+                  {selectedUser.role === 'student' ? (
+                    <View style={[styles.gridPickerSection, {
+                      width: '100%',
+                      backgroundColor: theme.colors.background,
+                      borderColor: theme.colors.cardBorder,
+                      borderWidth: 1
+                    }]}>
+                      <View style={[styles.infoIconBox, { backgroundColor: theme.colors.primary + '10', marginTop: 4 }]}>
+                        <FontAwesomeIcon icon={faGraduationCap} size={12} color={theme.colors.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.gridPickerLabel, { color: theme.colors.placeholder }]}>GRADE</Text>
+                        <Picker
+                          selectedValue={selectedUser.grade}
+                          style={[styles.picker, { color: theme.colors.text, marginTop: -8, marginLeft: -8 }]}
+                          itemStyle={{ color: theme.colors.text, fontSize: 13 }}
+                          dropdownIconColor={theme.colors.placeholder}
+                          onValueChange={(itemValue) => handleGradeChange(itemValue)}
+                        >
+                          <Picker.Item label="Select Grade" value="" />
+                          {adminProfile?.student_account_min_grade && adminProfile.student_account_min_grade !== 'Grade 1' && (
+                            <Picker.Item
+                              label={`Grades below ${adminProfile.student_account_min_grade} unavailable`}
+                              value=""
+                              color={theme.colors.placeholder}
+                            />
+                          )}
+                          {getGradesBySchoolType(adminProfile?.school_type).map(grade => (
+                            <Picker.Item
+                              key={grade}
+                              label={grade}
+                              value={grade}
+                              enabled={!isGradeRestricted(grade, adminProfile?.student_account_min_grade, ALL_GRADES)}
+                            />
+                          ))}
+                        </Picker>
+                      </View>
+                    </View>
+                  ) : (
+                    <InfoRow label="GRADE" value={selectedUser.grade} icon={faGraduationCap} theme={theme} fullWidth />
                   )}
 
-                  <View style={[styles.gridPickerSection, { 
-                    width: selectedUser.role === 'student' ? '48%' : '100%',
-                    backgroundColor: theme.colors.background, 
-                    borderColor: theme.colors.cardBorder, 
-                    borderWidth: 1 
+                  <View style={[styles.gridPickerSection, {
+                    width: '100%',
+                    backgroundColor: theme.colors.background,
+                    borderColor: theme.colors.cardBorder,
+                    borderWidth: 1
                   }]}>
                     <View style={[styles.infoIconBox, { backgroundColor: theme.colors.primary + '10', marginTop: 4 }]}>
                       <FontAwesomeIcon icon={faShieldAlt} size={12} color={theme.colors.primary} />
@@ -305,18 +362,18 @@ const UserManagementScreen = ({ navigation, route }) => {
                       </Picker>
                     </View>
                   </View>
-                  
-                  <InfoRow 
-                    label="JOINED ON" 
-                    value={new Date(selectedUser.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} 
-                    icon={faCalendarAlt} 
-                    theme={theme} 
+
+                  <InfoRow
+                    label="JOINED ON"
+                    value={new Date(selectedUser.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    icon={faCalendarAlt}
+                    theme={theme}
                     fullWidth
                   />
                 </View>
-                
+
                 <Text style={[styles.roleHint, { color: theme.colors.placeholder, marginTop: 24 }]}>
-                  Note: Only the role can be modified by admins. Other data must be updated by the user or through specific management tools.
+                  Note: Role and Student Grade can be modified by admins. Other data must be updated by the user or through specific management tools.
                 </Text>
               </ScrollView>
             </View>
@@ -341,41 +398,41 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 32,
   },
   heroContent: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   heroTextContainer: {
-      flex: 1,
-      paddingRight: 10,
+    flex: 1,
+    paddingRight: 10,
   },
   heroTitle: {
-      color: '#fff',
-      fontSize: 28,
-      fontWeight: '900',
-      marginBottom: 8,
-      letterSpacing: -1,
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '900',
+    marginBottom: 8,
+    letterSpacing: -1,
   },
   heroDescription: {
-      color: '#e0e7ff',
-      fontSize: 14,
-      fontWeight: '500',
+    color: '#e0e7ff',
+    fontSize: 14,
+    fontWeight: '500',
   },
   backButton: { marginRight: 12 },
   countBadge: {
-      backgroundColor: 'rgba(255,255,255,0.15)',
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 12,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   countValue: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: '900',
-      marginTop: 2,
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '900',
+    marginTop: 2,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -400,9 +457,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   itemLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   avatarBox: {
     width: 48,
@@ -425,21 +482,21 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   roleBadge: {
-      alignSelf: 'flex-start',
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-      borderRadius: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   roleText: {
-      fontSize: 9,
-      fontWeight: '900',
-      letterSpacing: 0.5,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   emptyText: {
-      textAlign: 'center',
-      marginTop: 40,
-      fontSize: 16,
-      fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 40,
+    fontSize: 16,
+    fontStyle: 'italic',
   },
   modalContainer: {
     flex: 1,
@@ -497,10 +554,10 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   pickerSection: {
-      width: '100%',
-      padding: 16,
-      borderRadius: 24,
-      marginBottom: 24,
+    width: '100%',
+    padding: 16,
+    borderRadius: 24,
+    marginBottom: 24,
   },
   gridPickerSection: {
     paddingHorizontal: 12,
@@ -517,12 +574,12 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   pickerLabel: {
-      fontSize: 9,
-      fontWeight: '900',
-      color: '#94a3b8',
-      letterSpacing: 1.5,
-      marginBottom: 8,
-      textAlign: 'center',
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#94a3b8',
+    letterSpacing: 1.5,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   picker: {
     width: '100%',
@@ -588,7 +645,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   backButtonText: {
-      display: 'none', 
+    display: 'none',
   },
   loadingContainer: {
     flex: 1,

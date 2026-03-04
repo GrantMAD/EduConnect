@@ -6,6 +6,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faPlusCircle, faMinusCircle, faUser, faClock, faArrowLeft, faChevronLeft, faChalkboardTeacher, faBookOpen, faSearch, faSave, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { useToastActions } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
+import { getGradesBySchoolType } from '../../utils/gradeUtils';
 import { getAvatarUrl } from '../../lib/utils';
 import TimetableManager from '../../components/TimetableManager';
 import LinearGradient from 'react-native-linear-gradient';
@@ -40,7 +42,10 @@ const CreateClassScreen = ({ navigation, route }) => {
   const { schoolId } = useSchool();
   const { theme } = useTheme();
   const { showToast } = useToastActions();
+  const { profile } = useAuth();
   const insets = useSafeAreaInsets();
+
+  const availableGrades = useMemo(() => getGradesBySchoolType(profile?.school_type), [profile?.school_type]);
 
   const fetchStudents = useCallback(async () => {
     setFetchingStudents(true);
@@ -234,7 +239,7 @@ const CreateClassScreen = ({ navigation, route }) => {
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>TARGET GRADE</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-              {['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].map(g => (
+              {availableGrades.map(g => (
                 <TouchableOpacity
                   key={g}
                   style={[

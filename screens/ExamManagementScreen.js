@@ -44,6 +44,7 @@ import Button from '../components/Button';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { updateExamSession } from '../services/examService';
+import { getGradesBySchoolType } from '../utils/gradeUtils';
 
 const FAB = ({ onPress }) => (
   <TouchableOpacity
@@ -449,7 +450,7 @@ export default function ExamManagementScreen({ navigation }) {
           ListHeaderComponent={
             <View>
               {profile?.role === 'admin' && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.venueButton, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
                   onPress={() => setShowVenueModal(true)}
                 >
@@ -495,7 +496,7 @@ export default function ExamManagementScreen({ navigation }) {
       >
         <View style={[styles.modalContent, { backgroundColor: theme.colors.surface || '#ffffff', paddingBottom: insets.bottom + 20 }]}>
           <View style={styles.modalDragIndicator} />
-          
+
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: theme.text }]}>Edit Exam Session</Text>
             <TouchableOpacity onPress={() => setShowEditModal(false)} style={styles.closeIconBtn}>
@@ -525,7 +526,7 @@ export default function ExamManagementScreen({ navigation }) {
                   dropdownIconColor={theme.text}
                 >
                   <Picker.Item label="General / All Grades" value="" />
-                  {['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].map(g => (
+                  {getGradesBySchoolType(profile?.school_type).map(g => (
                     <Picker.Item key={g} label={g} value={g} />
                   ))}
                 </Picker>
@@ -542,7 +543,7 @@ export default function ExamManagementScreen({ navigation }) {
                   <Text style={{ color: theme.text }}>{editStartDate.toLocaleDateString()}</Text>
                 </TouchableOpacity>
               </View>
-              
+
               <View style={[styles.formGroup, { flex: 1, marginLeft: 8 }]}>
                 <Text style={[styles.label, { color: theme.textSecondary }]}>END DATE *</Text>
                 <TouchableOpacity
@@ -592,7 +593,7 @@ export default function ExamManagementScreen({ navigation }) {
       >
         <View style={[styles.modalContent, { backgroundColor: theme.colors.surface || '#ffffff', paddingBottom: insets.bottom + 20 }]}>
           <View style={styles.modalDragIndicator} />
-          
+
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: theme.text }]}>Add Exam Venue</Text>
             <TouchableOpacity onPress={() => setShowVenueModal(false)} style={styles.closeIconBtn}>

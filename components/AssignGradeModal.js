@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import LinearGradient from 'react-native-linear-gradient';
+import { getGradesBySchoolType, isGradeRestricted } from '../utils/gradeUtils';
 
 const AssignGradeModal = ({
     visible,
@@ -16,27 +17,9 @@ const AssignGradeModal = ({
 }) => {
     const [selectedGrade, setSelectedGrade] = useState('');
 
-    const getGrades = () => {
-        if (schoolType === 'Primary School') {
-            return ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7'];
-        }
-        if (schoolType === 'High School') {
-            return ['Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
-        }
-        return ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
-    };
+    const grades = getGradesBySchoolType(schoolType);
 
-    const grades = getGrades();
-
-    const isRestricted = (grade) => {
-        if (minGrade === 'None') return false;
-        const gradeList = getGrades();
-        const minIndex = gradeList.indexOf(minGrade);
-        const currentIndex = gradeList.indexOf(grade);
-        return currentIndex < minIndex;
-    };
-
-    const selectedIsRestricted = selectedGrade ? isRestricted(selectedGrade) : false;
+    const selectedIsRestricted = selectedGrade ? isGradeRestricted(selectedGrade, minGrade, grades) : false;
 
     const handleConfirm = () => {
         if (!selectedGrade) return;

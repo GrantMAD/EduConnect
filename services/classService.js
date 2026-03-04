@@ -124,7 +124,7 @@ export const disassociateTeacherFromClasses = async (userId, schoolId) => {
 export const fetchClassInfo = async (classId) => {
     const { data, error } = await supabase
         .from('classes')
-        .select('name')
+        .select('*, teacher:users!teacher_id(id, full_name, email, avatar_url)')
         .eq('id', classId)
         .single();
 

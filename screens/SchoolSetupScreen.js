@@ -27,8 +27,9 @@ import LinearGradient from 'react-native-linear-gradient';
 // Import services
 import { getCurrentUser, signOut as signOutService } from '../services/authService';
 import { getUserProfile, updateSchoolRequestStatus, updateUserRole, updateSchoolId } from '../services/userService';
-import { searchSchools, fetchSchoolNameById, createSchool } from '../services/schoolService';
-import { sendNotification } from '../services/notificationService';
+// Import utilities and constants
+import { getGradesBySchoolType, getDefaultMinGrade } from '../utils/gradeUtils';
+import { SCHOOL_TYPES, DEFAULT_PRIMARY_MIN_GRADE } from '../constants/GradeConstants';
 
 const { width } = Dimensions.get('window');
 
@@ -81,25 +82,18 @@ const SchoolSetupScreen = ({ navigation }) => {
   const [newSchoolContactEmail, setNewSchoolContactEmail] = useState('');
   const [newSchoolContactPhone, setNewSchoolContactPhone] = useState('');
 
-  const [schoolType, setSchoolType] = useState('Primary School');
-  const [studentAccountMinGrade, setStudentAccountMinGrade] = useState('Grade 4');
+  const [schoolType, setSchoolType] = useState(SCHOOL_TYPES[0]);
+  const [studentAccountMinGrade, setStudentAccountMinGrade] = useState(DEFAULT_PRIMARY_MIN_GRADE);
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [showGradePicker, setShowGradePicker] = useState(false);
-  const schoolTypes = useMemo(() => ['Primary School', 'High School', 'University', 'College', 'Other'], []);
+  const schoolTypes = useMemo(() => SCHOOL_TYPES, []);
 
-  const getAvailableGrades = useCallback((type) => {
-    if (type === 'Primary School') return ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7'];
-    if (type === 'High School') return ['Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
-    return ['None'];
-  }, []);
-
-  const availableGrades = useMemo(() => getAvailableGrades(schoolType), [schoolType, getAvailableGrades]);
+  const availableGrades = useMemo(() => getGradesBySchoolType(schoolType), [schoolType]);
 
   const handleSchoolTypeChange = useCallback((type) => {
     setSchoolType(type);
-    const newGrades = getAvailableGrades(type);
-    setStudentAccountMinGrade(newGrades[0]);
-  }, [getAvailableGrades]);
+    setStudentAccountMinGrade(getDefaultMinGrade(type));
+  }, []);
 
   const [creating, setCreating] = useState(false);
 

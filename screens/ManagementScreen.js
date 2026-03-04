@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faUsers, faSchool, faBullhorn, faStore, faCog, faArrowLeft, faHandshake, faChartLine, faUserShield, faChevronRight, faUserFriends, faClipboard } from '@fortawesome/free-solid-svg-icons';
+import { faUsers, faSchool, faBullhorn, faStore, faCog, faArrowLeft, faHandshake, faChartLine, faUserShield, faChevronRight, faUserFriends, faClipboard, faChalkboardTeacher } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../context/ThemeContext';
 import SettingsScreenSkeleton, { SkeletonPiece } from '../components/skeletons/SettingsScreenSkeleton';
 import LinearGradient from 'react-native-linear-gradient';
@@ -62,6 +62,7 @@ const ManagementScreen = ({ navigation }) => {
     const navigateToEngagementInsights = useCallback(() => navigation.navigate('EngagementInsights'), [navigation]);
     const navigateToManageMarketData = useCallback(() => navigation.navigate('ManageMarketData'), [navigation]);
     const navigateToExamManagement = useCallback(() => navigation.navigate('ExamManagement'), [navigation]);
+    const navigateToManageClasses = useCallback(() => navigation.navigate('ManageClasses'), [navigation]);
 
     return (
         <ScrollView
@@ -133,6 +134,20 @@ const ManagementScreen = ({ navigation }) => {
                                 description="Manage parent-child links across the school"
                                 onPress={navigateToMyChildren}
                                 color="#a855f7"
+                                theme={theme}
+                            />
+                        </View>
+                    )}
+
+                    {user && (user.role === 'admin' || user.role === 'teacher') && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>ACADEMIC</Text>
+                            <ManagementButton
+                                icon={faChalkboardTeacher}
+                                title="Manage Classes"
+                                description="Create and manage subject classes and rosters"
+                                onPress={navigateToManageClasses}
+                                color="#8b5cf6"
                                 theme={theme}
                             />
                         </View>

@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ActivityInd
 import { FontAwesome5 } from '@expo/vector-icons';
 import LinearGradient from 'react-native-linear-gradient';
 import { supabase } from '../lib/supabase';
+import { getGradesBySchoolType } from '../utils/gradeUtils';
+import { DEFAULT_PRIMARY_MIN_GRADE } from '../constants/GradeConstants';
 
 const CreateManagedStudentModal = ({
     visible,
@@ -17,28 +19,20 @@ const CreateManagedStudentModal = ({
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const getAvailableGrades = () => {
-        const schoolType = profile?.school?.school_type || 'Primary School';
-        const minGrade = profile?.school?.student_account_min_grade || 'Grade 4';
+        const schoolType = profile?.school_type || 'Primary School';
+        const minGrade = profile?.student_account_min_grade || DEFAULT_PRIMARY_MIN_GRADE;
+        const allPossibleGrades = getGradesBySchoolType(schoolType);
 
-        let allPossibleGrades = [];
-        if (schoolType === 'Primary School') {
-            allPossibleGrades = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7'];
-        } else if (schoolType === 'High School') {
-            allPossibleGrades = ['Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
-        } else {
-            allPossibleGrades = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
-        }
-
-        if (minGrade === 'None') return []; // Should normally hide modal or options if no restriction needed
+        if (minGrade === 'None') return [];
 
         const minIndex = allPossibleGrades.indexOf(minGrade);
-        if (minIndex === -1) return allPossibleGrades.slice(0, 3); // Fallback
+        if (minIndex === -1) return allPossibleGrades.slice(0, 3);
 
         return allPossibleGrades.slice(0, minIndex);
     };
 
     const grades = getAvailableGrades();
-    const minGradeText = profile?.school?.student_account_min_grade || 'Grade 4';
+    const minGradeText = profile?.student_account_min_grade || DEFAULT_PRIMARY_MIN_GRADE;
 
     const handleSubmit = async () => {
         if (!fullName || !selectedGrade || !profile?.school_id) return;

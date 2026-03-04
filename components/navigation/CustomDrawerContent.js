@@ -20,7 +20,8 @@ import {
     faFootballBall,
     faSearch,
     faFileSignature,
-    faGraduationCap
+    faGraduationCap,
+    faUserShield
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -273,7 +274,7 @@ const CustomDrawerContent = React.memo((props) => {
                             }
                             color="#10b981"
                         />
-                        
+
                         {(userRole === 'student' || userRole === 'parent') && (
                             <DrawerItem
                                 icon={faGraduationCap}
@@ -291,19 +292,8 @@ const CustomDrawerContent = React.memo((props) => {
                         {['admin', 'teacher'].includes(userRole) && (
                             <>
                                 <DrawerItem
-                                    icon={faBookOpen}
-                                    label="Academic Hub"
-                                    description="Manage class rosters"
-                                    theme={theme}
-                                    active={activeMainStackRouteName === 'ManageClasses'}
-                                    onPress={() =>
-                                        props.navigation.navigate('MainStack', { screen: 'ManageClasses' })
-                                    }
-                                    color="#8b5cf6"
-                                />
-                                <DrawerItem
-                                    icon={faGear}
-                                    label="Management Center"
+                                    icon={faUserShield}
+                                    label="Management Hub"
                                     description="School administration"
                                     theme={theme}
                                     active={activeMainStackRouteName === 'Management'}
