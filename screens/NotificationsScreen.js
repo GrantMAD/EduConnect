@@ -677,6 +677,8 @@ const NotificationsScreen = ({ route, navigation }) => {
         requesterName={pendingStudent?.name}
         existingShadow={existingShadow}
         isLoading={isProcessingGrade}
+        minGrade={profile?.school?.student_account_min_grade || 'Grade 4'}
+        schoolType={profile?.school?.school_type || 'Primary School'}
         theme={theme}
       />
     </View>

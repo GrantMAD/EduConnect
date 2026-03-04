@@ -3,10 +3,10 @@ import { supabase } from '../lib/supabase';
 export const fetchSchoolById = async (schoolId) => {
     const { data, error } = await supabase
         .from('schools')
-        .select('*')
+        .select('*, student_account_min_grade')
         .eq('id', schoolId)
         .single();
-    
+
     if (error) throw error;
     return data;
 };
@@ -17,7 +17,7 @@ export const updateSchool = async (schoolId, schoolData) => {
         .update(schoolData)
         .eq('id', schoolId)
         .select();
-    
+
     if (error) throw error;
     return data[0];
 };
@@ -27,7 +27,7 @@ export const createSchool = async (schoolData) => {
         .from('schools')
         .insert([schoolData])
         .select();
-    
+
     if (error) throw error;
     return data[0];
 };
@@ -58,7 +58,7 @@ export const uploadSchoolLogo = async (filePath, fileBody) => {
     const { data, error } = await supabase.storage
         .from('school_logos')
         .upload(filePath, fileBody);
-    
+
     if (error) throw error;
     return data;
 };
@@ -76,7 +76,7 @@ export const searchSchools = async (searchTerm) => {
         .select('id, name, created_by, logo_url, address, join_password')
         .ilike('name', `%${searchTerm}%`)
         .limit(10);
-    
+
     if (error) throw error;
     return data || [];
 };
@@ -87,7 +87,7 @@ export const fetchSchoolNameById = async (schoolId) => {
         .select('name, created_by')
         .eq('id', schoolId)
         .single();
-    
+
     if (error) throw error;
     return data;
 };

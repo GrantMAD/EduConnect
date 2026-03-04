@@ -3,27 +3,44 @@ import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, ActivityIn
 import { FontAwesome5 } from '@expo/vector-icons';
 import LinearGradient from 'react-native-linear-gradient';
 
-const AssignGradeModal = ({ 
-    visible, 
-    onClose, 
-    onConfirm, 
+const AssignGradeModal = ({
+    visible,
+    onClose,
+    onConfirm,
     requesterName = "the student",
     existingShadow = null,
     isLoading = false,
+    minGrade = 'Grade 4',
+    schoolType = 'Primary School',
     theme
 }) => {
     const [selectedGrade, setSelectedGrade] = useState('');
-    const grades = [
-        'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 
-        'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 
-        'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'
-    ];
 
-    const isRestricted = selectedGrade && ['Grade 1', 'Grade 2', 'Grade 3'].includes(selectedGrade);
+    const getGrades = () => {
+        if (schoolType === 'Primary School') {
+            return ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7'];
+        }
+        if (schoolType === 'High School') {
+            return ['Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+        }
+        return ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+    };
+
+    const grades = getGrades();
+
+    const isRestricted = (grade) => {
+        if (minGrade === 'None') return false;
+        const gradeList = getGrades();
+        const minIndex = gradeList.indexOf(minGrade);
+        const currentIndex = gradeList.indexOf(grade);
+        return currentIndex < minIndex;
+    };
+
+    const selectedIsRestricted = selectedGrade ? isRestricted(selectedGrade) : false;
 
     const handleConfirm = () => {
         if (!selectedGrade) return;
-        onConfirm(selectedGrade, isRestricted, existingShadow?.id);
+        onConfirm(selectedGrade, selectedIsRestricted, existingShadow?.id);
     };
 
     return (
@@ -44,9 +61,9 @@ const AssignGradeModal = ({
                         </View>
                         <Text style={styles.headerTitle}>Assign Grade Level</Text>
                         <Text style={styles.headerSubtitle}>ACADEMIC PLACEMENT</Text>
-                        
-                        <TouchableOpacity 
-                            style={styles.closeBtn} 
+
+                        <TouchableOpacity
+                            style={styles.closeBtn}
                             onPress={onClose}
                             disabled={isLoading}
                         >
@@ -81,13 +98,13 @@ const AssignGradeModal = ({
                             ))}
                         </View>
 
-                        {isRestricted ? (
+                        {selectedIsRestricted ? (
                             <View style={[styles.alertBox, styles.errorAlert]}>
                                 <FontAwesome5 name="exclamation-triangle" size={16} color="#e11d48" />
                                 <View style={styles.alertContent}>
                                     <Text style={styles.alertTitle}>RESTRICTED SIGNUP</Text>
                                     <Text style={styles.alertText}>
-                                        Students below Grade 4 cannot have independent accounts. Please decline and use a managed profile.
+                                        Students below {minGrade} cannot have independent accounts. Please decline and use a managed profile.
                                     </Text>
                                 </View>
                             </View>
@@ -119,10 +136,10 @@ const AssignGradeModal = ({
                             style={[
                                 styles.confirmBtn,
                                 { backgroundColor: theme.colors.primary },
-                                isRestricted && { backgroundColor: theme.colors.cardBorder, opacity: 0.5 }
+                                selectedIsRestricted && { backgroundColor: theme.colors.cardBorder, opacity: 0.5 }
                             ]}
                             onPress={handleConfirm}
-                            disabled={!selectedGrade || isRestricted || isLoading}
+                            disabled={!selectedGrade || selectedIsRestricted || isLoading}
                         >
                             {isLoading ? (
                                 <ActivityIndicator color="#fff" />
@@ -132,7 +149,7 @@ const AssignGradeModal = ({
                                 </Text>
                             )}
                         </TouchableOpacity>
-                        
+
                         <TouchableOpacity
                             style={styles.cancelBtn}
                             onPress={onClose}

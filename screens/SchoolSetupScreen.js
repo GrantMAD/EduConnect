@@ -15,7 +15,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faSchool, faPlusCircle, faChevronDown, faBuilding, faMapMarkerAlt, faEnvelope, faPhone, faGraduationCap, faArrowLeft, faSearch, faSpinner, faTimes, faLock } from '@fortawesome/free-solid-svg-icons';
+import { faSchool, faPlusCircle, faChevronDown, faBuilding, faMapMarkerAlt, faEnvelope, faPhone, faGraduationCap, faArrowLeft, faSearch, faSpinner, faTimes, faLock, faExclamationCircle } from '@fortawesome/free-solid-svg-icons';
 import { Modal } from 'react-native';
 
 import SchoolSetupScreenSkeleton from '../components/skeletons/SchoolSetupScreenSkeleton';
@@ -69,7 +69,7 @@ const SchoolSetupScreen = ({ navigation }) => {
   const [joiningSchool, setJoiningSchool] = useState(null);
   const [selectedSchoolForJoin, setSelectedSchoolForJoin] = useState(null);
   const [passwordInput, setPasswordInput] = useState('');
-  const [requestStatus, setRequestStatus] = useState(null); 
+  const [requestStatus, setRequestStatus] = useState(null);
   const [declinedMessage, setDeclinedMessage] = useState(null);
   const [cancellingRequest, setCancellingRequest] = useState(false);
   const insets = useSafeAreaInsets();
@@ -82,8 +82,25 @@ const SchoolSetupScreen = ({ navigation }) => {
   const [newSchoolContactPhone, setNewSchoolContactPhone] = useState('');
 
   const [schoolType, setSchoolType] = useState('Primary School');
+  const [studentAccountMinGrade, setStudentAccountMinGrade] = useState('Grade 4');
   const [showTypePicker, setShowTypePicker] = useState(false);
+  const [showGradePicker, setShowGradePicker] = useState(false);
   const schoolTypes = useMemo(() => ['Primary School', 'High School', 'University', 'College', 'Other'], []);
+
+  const getAvailableGrades = useCallback((type) => {
+    if (type === 'Primary School') return ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7'];
+    if (type === 'High School') return ['Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+    return ['None'];
+  }, []);
+
+  const availableGrades = useMemo(() => getAvailableGrades(schoolType), [schoolType, getAvailableGrades]);
+
+  const handleSchoolTypeChange = useCallback((type) => {
+    setSchoolType(type);
+    const newGrades = getAvailableGrades(type);
+    setStudentAccountMinGrade(newGrades[0]);
+  }, [getAvailableGrades]);
+
   const [creating, setCreating] = useState(false);
 
   const fetchUserData = useCallback(async () => {
@@ -212,7 +229,7 @@ const SchoolSetupScreen = ({ navigation }) => {
         setCancellingRequest(false);
         return;
       }
-      
+
       const schoolData = await fetchSchoolNameById(requestedSchoolId);
 
       await updateSchoolRequestStatus(user.id, null, null);
@@ -254,10 +271,11 @@ const SchoolSetupScreen = ({ navigation }) => {
         created_by: user.id,
         users: [user.id],
         school_type: schoolType,
+        student_account_min_grade: studentAccountMinGrade,
         join_password: generatedPassword,
       });
 
-      await updateUserRole(user.id, 'admin'); 
+      await updateUserRole(user.id, 'admin');
       await updateSchoolId(user.id, newSchool.id);
 
       showToast(`School created! Password: ${generatedPassword}`, 'success');
@@ -276,26 +294,28 @@ const SchoolSetupScreen = ({ navigation }) => {
 
   const openTypePicker = useCallback(() => setShowTypePicker(true), []);
   const closeTypePicker = useCallback(() => setShowTypePicker(false), []);
+  const openGradePicker = useCallback(() => setShowGradePicker(true), []);
+  const closeGradePicker = useCallback(() => setShowGradePicker(false), []);
 
   if (requestStatus === 'pending') {
     return (
-        <View style={[styles.container, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
-            <View style={[styles.setupCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, padding: 32, alignItems: 'center' }]}>
-                <View style={[styles.iconBoxLarge, { backgroundColor: theme.colors.primary + '15' }]}>
-                    <AnimatedLoader size={32} color={theme.colors.primary} />
-                </View>
-                <Text style={[styles.cardTitleLarge, { color: theme.colors.text }]}>Request Pending</Text>
-                <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]}>
-                    Your request to join the school is waiting for admin approval. You'll be notified once it's processed.
-                </Text>
-                <TouchableOpacity onPress={handleCancelRequest} disabled={cancellingRequest} style={{ marginTop: 20 }}>
-                    <Text style={{ color: theme.colors.error, fontWeight: '700' }}>{cancellingRequest ? 'Cancelling...' : 'Cancel Request'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleSignOut} style={{ marginTop: 32 }}>
-                    <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>Sign Out</Text>
-                </TouchableOpacity>
-            </View>
+      <View style={[styles.container, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <View style={[styles.setupCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1, padding: 32, alignItems: 'center' }]}>
+          <View style={[styles.iconBoxLarge, { backgroundColor: theme.colors.primary + '15' }]}>
+            <AnimatedLoader size={32} color={theme.colors.primary} />
+          </View>
+          <Text style={[styles.cardTitleLarge, { color: theme.colors.text }]}>Request Pending</Text>
+          <Text style={[styles.cardSubtitle, { color: theme.colors.placeholder }]}>
+            Your request to join the school is waiting for admin approval. You'll be notified once it's processed.
+          </Text>
+          <TouchableOpacity onPress={handleCancelRequest} disabled={cancellingRequest} style={{ marginTop: 20 }}>
+            <Text style={{ color: theme.colors.error, fontWeight: '700' }}>{cancellingRequest ? 'Cancelling...' : 'Cancel Request'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleSignOut} style={{ marginTop: 32 }}>
+            <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>Sign Out</Text>
+          </TouchableOpacity>
         </View>
+      </View>
     );
   }
 
@@ -306,240 +326,256 @@ const SchoolSetupScreen = ({ navigation }) => {
 
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 }]} showsVerticalScrollIndicator={false}>
         <TouchableOpacity onPress={() => navigation.navigate('RoleSelection')} style={styles.backButton}>
-            <FontAwesomeIcon icon={faArrowLeft} size={14} color={theme.colors.placeholder} />
-            <Text style={[styles.backButtonText, { color: theme.colors.placeholder }]}>CHANGE ROLE</Text>
+          <FontAwesomeIcon icon={faArrowLeft} size={14} color={theme.colors.placeholder} />
+          <Text style={[styles.backButtonText, { color: theme.colors.placeholder }]}>CHANGE ROLE</Text>
         </TouchableOpacity>
 
         <View style={styles.header}>
-            <Text style={[styles.title, { color: theme.colors.text }]}>Let's connect your <Text style={{ color: theme.colors.primary }}>workspace</Text>.</Text>
-            <Text style={[styles.subtitle, { color: theme.colors.placeholder }]}>
-                {role === 'admin' ? 'Complete your registration by creating your school profile.' : 'Search for your school to join your community.'}
-            </Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>Let's connect your <Text style={{ color: theme.colors.primary }}>workspace</Text>.</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.placeholder }]}>
+            {role === 'admin' ? 'Complete your registration by creating your school profile.' : 'Search for your school to join your community.'}
+          </Text>
         </View>
 
         {loading ? (
-            <View style={{ width: '100%', marginTop: 20 }}>
-                <SkeletonPiece style={{ width: '100%', height: 400, borderRadius: 32 }} />
-            </View>
+          <View style={{ width: '100%', marginTop: 20 }}>
+            <SkeletonPiece style={{ width: '100%', height: 400, borderRadius: 32 }} />
+          </View>
         ) : (
-            <View style={[styles.setupCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                {(role === 'student' || role === 'parent' || role === 'teacher') && (
-                    <View style={styles.cardInner}>
-                        <View style={styles.cardHeaderRow}>
-                            <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
-                                <FontAwesomeIcon icon={selectedSchoolForJoin ? faLock : faSearch} size={20} color={theme.colors.primary} />
-                            </View>
-                            <View>
-                                <Text style={[styles.cardHeaderTitle, { color: theme.colors.text }]}>{selectedSchoolForJoin ? 'Enter Password' : 'Find your School'}</Text>
-                                <Text style={styles.cardHeaderSubtitle}>{selectedSchoolForJoin ? 'SECURITY VERIFICATION' : 'COMMUNITY CONNECTION'}</Text>
-                            </View>
+          <View style={[styles.setupCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+            {(role === 'student' || role === 'parent' || role === 'teacher') && (
+              <View style={styles.cardInner}>
+                <View style={styles.cardHeaderRow}>
+                  <View style={[styles.iconBox, { backgroundColor: theme.colors.primary + '15' }]}>
+                    <FontAwesomeIcon icon={selectedSchoolForJoin ? faLock : faSearch} size={20} color={theme.colors.primary} />
+                  </View>
+                  <View>
+                    <Text style={[styles.cardHeaderTitle, { color: theme.colors.text }]}>{selectedSchoolForJoin ? 'Enter Password' : 'Find your School'}</Text>
+                    <Text style={styles.cardHeaderSubtitle}>{selectedSchoolForJoin ? 'SECURITY VERIFICATION' : 'COMMUNITY CONNECTION'}</Text>
+                  </View>
+                </View>
+
+                {!selectedSchoolForJoin ? (
+                  <>
+                    <View style={[styles.searchWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                      <FontAwesomeIcon icon={faSearch} size={16} color={theme.colors.placeholder} style={{ marginRight: 12 }} />
+                      <TextInput
+                        style={[styles.searchInput, { color: theme.colors.text }]}
+                        placeholder="Search by name..."
+                        placeholderTextColor={theme.colors.placeholder}
+                        value={search}
+                        onChangeText={setSearch}
+                      />
+                    </View>
+
+                    <View style={{ minHeight: 280 }}>
+                      {/* Loader */}
+                      <View
+                        style={[
+                          styles.searchingBox,
+                          {
+                            position: 'absolute',
+                            top: 0, left: 0, right: 0, bottom: 0,
+                            height: 280,
+                            justifyContent: 'center',
+                            zIndex: 10,
+                            opacity: searching ? 1 : 0,
+                            backgroundColor: theme.colors.card // Match card background to cover results
+                          }
+                        ]}
+                        pointerEvents={searching ? 'auto' : 'none'}
+                      >
+                        <View style={{ alignItems: 'center' }}>
+                          <AnimatedLoader size={32} color={theme.colors.primary} />
+                          <Text style={[styles.searchingText, { color: theme.colors.placeholder, marginTop: 12 }]}>SEARCHING...</Text>
                         </View>
+                      </View>
 
-                        {!selectedSchoolForJoin ? (
-                          <>
-                            <View style={[styles.searchWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                                <FontAwesomeIcon icon={faSearch} size={16} color={theme.colors.placeholder} style={{ marginRight: 12 }} />
-                                <TextInput
-                                    style={[styles.searchInput, { color: theme.colors.text }]}
-                                    placeholder="Search by name..."
-                                    placeholderTextColor={theme.colors.placeholder}
-                                    value={search}
-                                    onChangeText={setSearch}
-                                />
-                            </View>
-
-                        <View style={{ minHeight: 280 }}>
-                            {/* Loader */}
-                            <View 
-                                style={[
-                                    styles.searchingBox, 
-                                    { 
-                                        position: 'absolute', 
-                                        top: 0, left: 0, right: 0, bottom: 0, 
-                                        height: 280, 
-                                        justifyContent: 'center', 
-                                        zIndex: 10,
-                                        opacity: searching ? 1 : 0,
-                                        backgroundColor: theme.colors.card // Match card background to cover results
-                                    }
-                                ]} 
-                                pointerEvents={searching ? 'auto' : 'none'}
-                            >
-                                <View style={{ alignItems: 'center' }}>
-                                    <AnimatedLoader size={32} color={theme.colors.primary} />
-                                    <Text style={[styles.searchingText, { color: theme.colors.placeholder, marginTop: 12 }]}>SEARCHING...</Text>
+                      {/* Results or Empty State */}
+                      <View style={{ opacity: searching ? 0 : 1 }}>
+                        {schools.length > 0 ? (
+                          <View style={styles.resultsList}>
+                            {schools.map((item) => (
+                              <View key={item.id} style={[styles.schoolItem, { borderBottomColor: theme.colors.cardBorder + '30' }]}>
+                                <View style={styles.schoolItemLeft}>
+                                  <View style={[styles.schoolLogoBox, { backgroundColor: theme.colors.background }]}>
+                                    <Image
+                                      source={item.logo_url ? { uri: item.logo_url } : require('../assets/DefaultSchool.png')}
+                                      style={styles.schoolLogo}
+                                    />
+                                  </View>
+                                  <View style={{ flex: 1, marginLeft: 12 }}>
+                                    <Text style={[styles.schoolItemName, { color: theme.colors.text }]} numberOfLines={1}>{item.name}</Text>
+                                    <Text style={[styles.schoolItemAddr, { color: theme.colors.placeholder }]} numberOfLines={1}>{item.address || 'Address not listed'}</Text>
+                                  </View>
                                 </View>
-                            </View>
-
-                            {/* Results or Empty State */}
-                            <View style={{ opacity: searching ? 0 : 1 }}>
-                                {schools.length > 0 ? (
-                                    <View style={styles.resultsList}>
-                                        {schools.map((item) => (
-                                            <View key={item.id} style={[styles.schoolItem, { borderBottomColor: theme.colors.cardBorder + '30' }]}>
-                                                <View style={styles.schoolItemLeft}>
-                                                    <View style={[styles.schoolLogoBox, { backgroundColor: theme.colors.background }]}>
-                                                        <Image
-                                                            source={item.logo_url ? { uri: item.logo_url } : require('../assets/DefaultSchool.png')}
-                                                            style={styles.schoolLogo}
-                                                        />
-                                                    </View>
-                                                    <View style={{ flex: 1, marginLeft: 12 }}>
-                                                        <Text style={[styles.schoolItemName, { color: theme.colors.text }]} numberOfLines={1}>{item.name}</Text>
-                                                        <Text style={[styles.schoolItemAddr, { color: theme.colors.placeholder }]} numberOfLines={1}>{item.address || 'Address not listed'}</Text>
-                                                    </View>
-                                                </View>
-                                                <TouchableOpacity
-                                                    style={[styles.joinBtn, { backgroundColor: theme.colors.primary, width: 80, height: 40, justifyContent: 'center', alignItems: 'center' }]}
-                                                    onPress={() => handleJoinSchool(item)}
-                                                    disabled={joiningSchool === item.id}
-                                                >
-                                                    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-                                                        <Text style={[styles.joinBtnText, { opacity: joiningSchool === item.id ? 0 : 1 }]}>Join</Text>
-                                                        <View style={{ position: 'absolute', opacity: joiningSchool === item.id ? 1 : 0 }} pointerEvents="none">
-                                                            <AnimatedLoader size={16} color="#fff" />
-                                                        </View>
-                                                    </View>
-                                                </TouchableOpacity>
-                                            </View>
-                                        ))}
-                                    </View>
-                                ) : search.length > 0 ? (
-                                    <View style={styles.searchingBox}>
-                                        <Text style={[styles.searchingText, { color: theme.colors.placeholder }]}>NO SCHOOLS FOUND</Text>
-                                    </View>
-                                ) : (
-                                    <View style={styles.emptySearch}>
-                                        <FontAwesomeIcon icon={faBuilding} size={40} color={theme.colors.placeholder} style={{ opacity: 0.2 }} />
-                                        <Text style={[styles.emptySearchText, { color: theme.colors.placeholder }]}>Start typing to find your institution.</Text>
-                                    </View>
-                                )}
-                            </View>
-                        </View>
-                          </>
-                        ) : (
-                          <View style={{ paddingVertical: 10 }}>
-                             <Text style={{ color: theme.colors.placeholder, textAlign: 'center', marginBottom: 24, fontSize: 14 }}>
-                               Please enter the access password for{'\n'}
-                               <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>{selectedSchoolForJoin.name}</Text>
-                             </Text>
-
-                             <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, marginBottom: 24 }]}>
-                                <FontAwesomeIcon icon={faLock} size={16} color={theme.colors.placeholder} style={{ marginRight: 12 }} />
-                                <TextInput
-                                  style={[styles.input, { color: theme.colors.text, textAlign: 'center', letterSpacing: 4 }]}
-                                  placeholder="PASSWORD"
-                                  placeholderTextColor={theme.colors.placeholder}
-                                  secureTextEntry
-                                  autoFocus
-                                  value={passwordInput}
-                                  onChangeText={setPasswordInput}
-                                />
-                             </View>
-
-                             <View style={{ flexDirection: 'row', gap: 12 }}>
-                                <TouchableOpacity 
-                                  style={[styles.joinBtn, { backgroundColor: theme.colors.cardBorder, flex: 1, height: 50, justifyContent: 'center', alignItems: 'center' }]}
-                                  onPress={handleCancelJoin}
+                                <TouchableOpacity
+                                  style={[styles.joinBtn, { backgroundColor: theme.colors.primary, width: 80, height: 40, justifyContent: 'center', alignItems: 'center' }]}
+                                  onPress={() => handleJoinSchool(item)}
+                                  disabled={joiningSchool === item.id}
                                 >
-                                  <Text style={[styles.joinBtnText, { color: theme.colors.text }]}>Cancel</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity 
-                                  style={[styles.joinBtn, { backgroundColor: theme.colors.primary, flex: 2, height: 50, justifyContent: 'center', alignItems: 'center' }]}
-                                  onPress={() => handleJoinSchool(selectedSchoolForJoin)}
-                                  disabled={joiningSchool === selectedSchoolForJoin.id}
-                                >
-                                  <View style={{ alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                                    <Text style={[styles.joinBtnText, { opacity: joiningSchool === selectedSchoolForJoin.id ? 0 : 1 }]}>Join School</Text>
-                                    <View style={{ position: 'absolute', opacity: joiningSchool === selectedSchoolForJoin.id ? 1 : 0 }} pointerEvents="none">
+                                  <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                                    <Text style={[styles.joinBtnText, { opacity: joiningSchool === item.id ? 0 : 1 }]}>Join</Text>
+                                    <View style={{ position: 'absolute', opacity: joiningSchool === item.id ? 1 : 0 }} pointerEvents="none">
                                       <AnimatedLoader size={16} color="#fff" />
                                     </View>
                                   </View>
                                 </TouchableOpacity>
-                             </View>
+                              </View>
+                            ))}
+                          </View>
+                        ) : search.length > 0 ? (
+                          <View style={styles.searchingBox}>
+                            <Text style={[styles.searchingText, { color: theme.colors.placeholder }]}>NO SCHOOLS FOUND</Text>
+                          </View>
+                        ) : (
+                          <View style={styles.emptySearch}>
+                            <FontAwesomeIcon icon={faBuilding} size={40} color={theme.colors.placeholder} style={{ opacity: 0.2 }} />
+                            <Text style={[styles.emptySearchText, { color: theme.colors.placeholder }]}>Start typing to find your institution.</Text>
                           </View>
                         )}
+                      </View>
                     </View>
+                  </>
+                ) : (
+                  <View style={{ paddingVertical: 10 }}>
+                    <Text style={{ color: theme.colors.placeholder, textAlign: 'center', marginBottom: 24, fontSize: 14 }}>
+                      Please enter the access password for{'\n'}
+                      <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>{selectedSchoolForJoin.name}</Text>
+                    </Text>
+
+                    <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, marginBottom: 24 }]}>
+                      <FontAwesomeIcon icon={faLock} size={16} color={theme.colors.placeholder} style={{ marginRight: 12 }} />
+                      <TextInput
+                        style={[styles.input, { color: theme.colors.text, textAlign: 'center', letterSpacing: 4 }]}
+                        placeholder="PASSWORD"
+                        placeholderTextColor={theme.colors.placeholder}
+                        secureTextEntry
+                        autoFocus
+                        value={passwordInput}
+                        onChangeText={setPasswordInput}
+                      />
+                    </View>
+
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <TouchableOpacity
+                        style={[styles.joinBtn, { backgroundColor: theme.colors.cardBorder, flex: 1, height: 50, justifyContent: 'center', alignItems: 'center' }]}
+                        onPress={handleCancelJoin}
+                      >
+                        <Text style={[styles.joinBtnText, { color: theme.colors.text }]}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.joinBtn, { backgroundColor: theme.colors.primary, flex: 2, height: 50, justifyContent: 'center', alignItems: 'center' }]}
+                        onPress={() => handleJoinSchool(selectedSchoolForJoin)}
+                        disabled={joiningSchool === selectedSchoolForJoin.id}
+                      >
+                        <View style={{ alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                          <Text style={[styles.joinBtnText, { opacity: joiningSchool === selectedSchoolForJoin.id ? 0 : 1 }]}>Join School</Text>
+                          <View style={{ position: 'absolute', opacity: joiningSchool === selectedSchoolForJoin.id ? 1 : 0 }} pointerEvents="none">
+                            <AnimatedLoader size={16} color="#fff" />
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {role === 'admin' && (
+              <View style={styles.cardInner}>
+                <View style={styles.cardHeaderRow}>
+                  <View style={[styles.iconBox, { backgroundColor: '#10b98115' }]}>
+                    <FontAwesomeIcon icon={faSchool} size={20} color="#10b981" />
+                  </View>
+                  <View>
+                    <Text style={[styles.cardHeaderTitle, { color: theme.colors.text }]}>Register School</Text>
+                    <Text style={styles.cardHeaderSubtitle}>INSTITUTIONAL SETUP</Text>
+                  </View>
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.inputLabel}>OFFICIAL NAME</Text>
+                  <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
+                    <TextInput
+                      style={[styles.input, { color: theme.colors.text }]}
+                      placeholder="e.g. Green Valley High"
+                      placeholderTextColor={theme.colors.placeholder}
+                      value={newSchoolName}
+                      onChangeText={setNewSchoolName}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.inputLabel}>PHYSICAL ADDRESS</Text>
+                  <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, height: 100, alignItems: 'flex-start', paddingTop: 12 }]}>
+                    <TextInput
+                      style={[styles.input, { color: theme.colors.text, height: 80 }]}
+                      placeholder="Street, City, Province"
+                      placeholderTextColor={theme.colors.placeholder}
+                      value={newSchoolAddress}
+                      onChangeText={setNewSchoolAddress}
+                      multiline
+                      textAlignVertical="top"
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.inputLabel}>INSTITUTION CATEGORY</Text>
+                  <TouchableOpacity
+                    style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                    onPress={openTypePicker}
+                  >
+                    <Text style={[styles.input, { color: theme.colors.text, lineHeight: 20, paddingTop: 12 }]}>{schoolType}</Text>
+                    <FontAwesomeIcon icon={faChevronDown} size={12} color={theme.colors.placeholder} />
+                  </TouchableOpacity>
+                </View>
+
+                {schoolType !== 'University' && schoolType !== 'College' && (
+                  <View style={styles.formGroup}>
+                    <Text style={styles.inputLabel}>MIN GRADE FOR STUDENT ACCOUNTS</Text>
+                    <TouchableOpacity
+                      style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
+                      onPress={openGradePicker}
+                    >
+                      <Text style={[styles.input, { color: theme.colors.text, lineHeight: 20, paddingTop: 12 }]}>{studentAccountMinGrade}</Text>
+                      <FontAwesomeIcon icon={faChevronDown} size={12} color={theme.colors.placeholder} />
+                    </TouchableOpacity>
+                    <Text style={{ fontSize: 9, color: theme.colors.placeholder, marginTop: 4, marginLeft: 4 }}>
+                      Students below this grade must be managed by parents.
+                    </Text>
+                  </View>
                 )}
 
-                {role === 'admin' && (
-                    <View style={styles.cardInner}>
-                        <View style={styles.cardHeaderRow}>
-                            <View style={[styles.iconBox, { backgroundColor: '#10b98115' }]}>
-                                <FontAwesomeIcon icon={faSchool} size={20} color="#10b981" />
-                            </View>
-                            <View>
-                                <Text style={[styles.cardHeaderTitle, { color: theme.colors.text }]}>Register School</Text>
-                                <Text style={styles.cardHeaderSubtitle}>INSTITUTIONAL SETUP</Text>
-                            </View>
-                        </View>
-
-                        <View style={styles.formGroup}>
-                            <Text style={styles.inputLabel}>OFFICIAL NAME</Text>
-                            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}>
-                                <TextInput
-                                    style={[styles.input, { color: theme.colors.text }]}
-                                    placeholder="e.g. Green Valley High"
-                                    placeholderTextColor={theme.colors.placeholder}
-                                    value={newSchoolName}
-                                    onChangeText={setNewSchoolName}
-                                />
-                            </View>
-                        </View>
-
-                        <View style={styles.formGroup}>
-                            <Text style={styles.inputLabel}>PHYSICAL ADDRESS</Text>
-                            <View style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1, height: 100, alignItems: 'flex-start', paddingTop: 12 }]}>
-                                <TextInput
-                                    style={[styles.input, { color: theme.colors.text, height: 80 }]}
-                                    placeholder="Street, City, Province"
-                                    placeholderTextColor={theme.colors.placeholder}
-                                    value={newSchoolAddress}
-                                    onChangeText={setNewSchoolAddress}
-                                    multiline
-                                    textAlignVertical="top"
-                                />
-                            </View>
-                        </View>
-
-                        <View style={styles.formGroup}>
-                            <Text style={styles.inputLabel}>INSTITUTION CATEGORY</Text>
-                            <TouchableOpacity
-                                style={[styles.inputWrapper, { backgroundColor: theme.colors.background, borderColor: theme.colors.cardBorder, borderWidth: 1 }]}
-                                onPress={openTypePicker}
-                            >
-                                <Text style={[styles.input, { color: theme.colors.text, lineHeight: 20, paddingTop: 12 }]}>{schoolType}</Text>
-                                <FontAwesomeIcon icon={faChevronDown} size={12} color={theme.colors.placeholder} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <TouchableOpacity 
-                            style={styles.createBtnContainer} 
-                            onPress={handleCreateSchool} 
-                            disabled={creating}
-                            activeOpacity={0.8}
-                        >
-                            <LinearGradient
-                                colors={['#10b981', '#059669']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.createBtn}
-                            >
-                                <View style={{ alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                                  <Text style={[styles.createBtnText, { opacity: creating ? 0 : 1 }]}>Finish Registration</Text>
-                                  <View style={{ position: 'absolute', opacity: creating ? 1 : 0 }} pointerEvents="none">
-                                    <AnimatedLoader size={24} color="#fff" />
-                                  </View>
-                                </View>
-                            </LinearGradient>
-                        </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.createBtnContainer}
+                  onPress={handleCreateSchool}
+                  disabled={creating}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={['#10b981', '#059669']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.createBtn}
+                  >
+                    <View style={{ alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                      <Text style={[styles.createBtnText, { opacity: creating ? 0 : 1 }]}>Finish Registration</Text>
+                      <View style={{ position: 'absolute', opacity: creating ? 1 : 0 }} pointerEvents="none">
+                        <AnimatedLoader size={24} color="#fff" />
+                      </View>
                     </View>
-                )}
-            </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         )}
 
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-            <Text style={styles.signOutText}>Sign Out</Text>
+          <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -553,19 +589,47 @@ const SchoolSetupScreen = ({ navigation }) => {
           <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
             <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Select School Type</Text>
             <ScrollView showsVerticalScrollIndicator={false}>
-                {schoolTypes.map((type) => (
+              {schoolTypes.map((type) => (
                 <TouchableOpacity
-                    key={type}
-                    style={[styles.modalItem, { borderBottomColor: theme.colors.cardBorder + '30' }]}
-                    onPress={() => {
-                    setSchoolType(type);
+                  key={type}
+                  style={[styles.modalItem, { borderBottomColor: theme.colors.cardBorder + '30' }]}
+                  onPress={() => {
+                    handleSchoolTypeChange(type);
                     setShowTypePicker(false);
-                    }}
+                  }}
                 >
-                    <Text style={[styles.modalItemText, { color: theme.colors.text }, schoolType === type && { color: theme.colors.primary, fontWeight: '900' }]}>{type}</Text>
-                    {schoolType === type && <FontAwesomeIcon icon={faSchool} size={16} color={theme.colors.primary} />}
+                  <Text style={[styles.modalItemText, { color: theme.colors.text }, schoolType === type && { color: theme.colors.primary, fontWeight: '900' }]}>{type}</Text>
+                  {schoolType === type && <FontAwesomeIcon icon={faSchool} size={16} color={theme.colors.primary} />}
                 </TouchableOpacity>
-                ))}
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal
+        visible={showGradePicker}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeGradePicker}
+      >
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closeGradePicker}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Min Account Grade</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {availableGrades.map((grade) => (
+                <TouchableOpacity
+                  key={grade}
+                  style={[styles.modalItem, { borderBottomColor: theme.colors.cardBorder + '30' }]}
+                  onPress={() => {
+                    setStudentAccountMinGrade(grade);
+                    setShowGradePicker(false);
+                  }}
+                >
+                  <Text style={[styles.modalItemText, { color: theme.colors.text }, studentAccountMinGrade === grade && { color: theme.colors.primary, fontWeight: '900' }]}>{grade}</Text>
+                  {studentAccountMinGrade === grade && <FontAwesomeIcon icon={faSchool} size={16} color={theme.colors.primary} />}
+                </TouchableOpacity>
+              ))}
             </ScrollView>
           </View>
         </TouchableOpacity>

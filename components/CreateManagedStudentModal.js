@@ -4,19 +4,41 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import LinearGradient from 'react-native-linear-gradient';
 import { supabase } from '../lib/supabase';
 
-const CreateManagedStudentModal = ({ 
-    visible, 
-    onClose, 
-    onRefresh, 
+const CreateManagedStudentModal = ({
+    visible,
+    onClose,
+    onRefresh,
     user,
     profile,
-    theme 
+    theme
 }) => {
     const [fullName, setFullName] = useState('');
     const [selectedGrade, setSelectedGrade] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const grades = ['Grade 1', 'Grade 2', 'Grade 3'];
+    const getAvailableGrades = () => {
+        const schoolType = profile?.school?.school_type || 'Primary School';
+        const minGrade = profile?.school?.student_account_min_grade || 'Grade 4';
+
+        let allPossibleGrades = [];
+        if (schoolType === 'Primary School') {
+            allPossibleGrades = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7'];
+        } else if (schoolType === 'High School') {
+            allPossibleGrades = ['Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+        } else {
+            allPossibleGrades = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+        }
+
+        if (minGrade === 'None') return []; // Should normally hide modal or options if no restriction needed
+
+        const minIndex = allPossibleGrades.indexOf(minGrade);
+        if (minIndex === -1) return allPossibleGrades.slice(0, 3); // Fallback
+
+        return allPossibleGrades.slice(0, minIndex);
+    };
+
+    const grades = getAvailableGrades();
+    const minGradeText = profile?.school?.student_account_min_grade || 'Grade 4';
 
     const handleSubmit = async () => {
         if (!fullName || !selectedGrade || !profile?.school_id) return;
@@ -84,9 +106,9 @@ const CreateManagedStudentModal = ({
                         </View>
                         <Text style={styles.headerTitle}>Create Child Profile</Text>
                         <Text style={styles.headerSubtitle}>MANAGED STUDENT ACCOUNT</Text>
-                        
-                        <TouchableOpacity 
-                            style={styles.closeBtn} 
+
+                        <TouchableOpacity
+                            style={styles.closeBtn}
                             onPress={handleClose}
                             disabled={isSubmitting}
                         >
@@ -96,7 +118,11 @@ const CreateManagedStudentModal = ({
 
                     <ScrollView style={styles.body}>
                         <Text style={[styles.description, { color: theme.colors.textSecondary }]}>
-                            Students below <Text style={{ fontWeight: 'bold', color: theme.colors.text }}>Grade 4</Text> cannot have independent logins. Create a profile here to track their progress.
+                            {minGradeText === 'None' ? (
+                                <Text>Create a profile here to track your child's academic progress.</Text>
+                            ) : (
+                                <Text>Students below <Text style={{ fontWeight: 'bold', color: theme.colors.text }}>{minGradeText}</Text> cannot have independent logins. Create a profile here to track their progress.</Text>
+                            )}
                         </Text>
 
                         <View style={styles.inputGroup}>
@@ -152,7 +178,7 @@ const CreateManagedStudentModal = ({
                                 <Text style={styles.submitBtnText}>Create Profile</Text>
                             )}
                         </TouchableOpacity>
-                        
+
                         <TouchableOpacity
                             style={styles.cancelBtn}
                             onPress={handleClose}
